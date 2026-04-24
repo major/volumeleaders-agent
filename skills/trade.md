@@ -7,7 +7,7 @@ Institutional trade discovery. 7 subcommands. See SKILL.md for shared flag defau
 Query individual institutional block trades. The primary trade discovery command.
 
 Required: `--start-date`, `--end-date`
-Optional: `--tickers`, `--sector`, all shared flags (volume/price/dollar ranges, trade filters, trade type toggles, session toggles), pagination (`--length 100 --order-col 1 --order-dir desc`)
+Optional: `--tickers` (aliases: `--ticker`, `--symbol`, `--symbols`), `--sector`, all shared flags (volume/price/dollar ranges, trade filters, trade type toggles, session toggles), pagination (`--length 100 --order-col 1 --order-dir desc`)
 
 ```bash
 volumeleaders-agent trade list --tickers AAPL --start-date 2025-04-16 --end-date 2025-04-23 --dark-pools 1 --min-dollars 1000000
@@ -20,7 +20,7 @@ Output fields: `Ticker`, `Name`, `Sector`, `Industry`, `Date`, `Price`, `Bid`, `
 Aggregated clusters where multiple institutional trades converge at similar price levels. Clusters signal stronger conviction than individual trades.
 
 Required: `--start-date`, `--end-date`
-Optional: `--tickers`, `--sector`, volume/price/dollar ranges, `--vcd`, `--security-type`, `--relative-size`, `--trade-cluster-rank` (-1), pagination (`--length 1000 --order-col 1 --order-dir desc`)
+Optional: `--tickers` (aliases: `--ticker`, `--symbol`, `--symbols`), `--sector`, volume/price/dollar ranges, `--vcd`, `--security-type`, `--relative-size`, `--trade-cluster-rank` (-1), pagination (`--length 1000 --order-col 1 --order-dir desc`)
 Non-standard defaults: `--min-dollars 10000000`, `--length 1000`
 
 ```bash
@@ -34,7 +34,7 @@ Output fields: `Ticker`, `Name`, `Sector`, `Industry`, `Date`, `Price`, `Dollars
 Sudden, aggressive institutional positioning bursts. Many trades clustered tightly in time and price.
 
 Required: `--start-date`, `--end-date`
-Optional: `--tickers`, `--sector`, volume/dollar ranges (no price range), `--vcd`, `--security-type`, `--relative-size`, `--trade-cluster-bomb-rank` (-1), pagination (`--length 1000 --order-col 1 --order-dir desc`)
+Optional: `--tickers` (aliases: `--ticker`, `--symbol`, `--symbols`), `--sector`, volume/dollar ranges (no price range), `--vcd`, `--security-type`, `--relative-size`, `--trade-cluster-bomb-rank` (-1), pagination (`--length 1000 --order-col 1 --order-dir desc`)
 Non-standard defaults: `--min-dollars 0`, `--security-type 0`, `--relative-size 0`
 
 ```bash
@@ -73,7 +73,7 @@ Output fields: same as trade clusters.
 
 Significant institutional price levels for a single ticker. These levels often act as support/resistance.
 
-Required: `--ticker` (single), `--start-date`, `--end-date`
+Required: `--ticker` (single; aliases: `--tickers`, `--symbol`, `--symbols`), `--start-date`, `--end-date`
 Optional: volume/price/dollar ranges, `--vcd`, `--trade-level-rank` (-1), `--trade-level-count` (10)
 Non-standard defaults: `--relative-size 0`. No pagination flags.
 
@@ -88,7 +88,7 @@ Output fields: `Ticker`, `Name`, `Price`, `Dollars`, `Volume`, `Trades`, `Relati
 Events where price revisits significant institutional price levels. Signals support/resistance tests or institutional re-engagement.
 
 Required: `--start-date`, `--end-date`
-Optional: `--tickers`, volume/price/dollar ranges, `--vcd`, `--trade-level-rank` (10), pagination (`--length 100 --order-col 0 --order-dir desc`)
+Optional: `--tickers` (aliases: `--ticker`, `--symbol`, `--symbols`), volume/price/dollar ranges, `--vcd`, `--trade-level-rank` (10), pagination (`--length 100 --order-col 0 --order-dir desc`)
 Non-standard defaults: `--relative-size 0`, `--order-col 0`, `--trade-level-rank 10`
 
 ```bash

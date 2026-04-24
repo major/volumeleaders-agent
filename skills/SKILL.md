@@ -49,7 +49,7 @@ Chain commands for deeper analysis:
 
 **Pagination**: `--start` (offset, default 0), `--length` (count, default varies, `-1` = all), `--order-col` (sort column index), `--order-dir` (`asc` or `desc`).
 
-**Ticker flags**: `--tickers` takes comma-separated list (multi-ticker commands). `--ticker` takes a single symbol (single-ticker commands). Each subcommand doc specifies which it uses.
+**Ticker flags**: `--tickers` takes comma-separated list (multi-ticker commands). `--ticker` takes a single symbol (single-ticker commands). All trade subcommands also accept `--ticker`, `--tickers`, `--symbol`, and `--symbols` as aliases, so any form works on any command.
 
 ## Shared Flag Defaults
 

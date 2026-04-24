@@ -1,16 +1,36 @@
 # trade
 
-Institutional trade discovery. 7 subcommands. See SKILL.md for shared flag defaults and metrics glossary.
+Institutional trade discovery. 8 subcommands. See SKILL.md for shared flag defaults and metrics glossary.
+
+## trade presets
+
+List all built-in trade filter presets. No authentication required. Output is a JSON array of objects with `Name`, `Group`, and `Filters` fields.
+
+Groups: "Common" (general-purpose filters), "Disproportionately Large" (>=5x avg size, sector/ticker-based).
+
+```bash
+volumeleaders-agent trade presets
+volumeleaders-agent trade presets --pretty | jq '.[].Name'
+```
 
 ## trade list
 
 Query individual institutional block trades. The primary trade discovery command.
 
 Required: `--start-date`, `--end-date`
-Optional: `--tickers` (aliases: `--ticker`, `--symbol`, `--symbols`), `--sector`, all shared flags (volume/price/dollar ranges, trade filters, trade type toggles, session toggles), pagination (`--length 100 --order-col 1 --order-dir desc`)
+Optional: `--tickers` (aliases: `--ticker`, `--symbol`, `--symbols`), `--sector`, `--preset`, `--watchlist`, all shared flags (volume/price/dollar ranges, trade filters, trade type toggles, session toggles), pagination (`--length 100 --order-col 1 --order-dir desc`)
+
+**`--preset NAME`**: Apply a built-in filter preset by name (case-insensitive). The preset sets baseline filters; any explicitly-provided CLI flags override the preset values. Use `trade presets` to list available names.
+
+**`--watchlist NAME`**: Apply filters from a saved user watchlist by name (case-insensitive). Fetches the watchlist config at runtime and converts its settings to trade filters. Use `watchlist configs` to list available names.
+
+Both flags can be combined: watchlist filters merge on top of preset filters, and explicit CLI flags override both.
 
 ```bash
 volumeleaders-agent trade list --tickers AAPL --start-date 2025-04-16 --end-date 2025-04-23 --dark-pools 1 --min-dollars 1000000
+volumeleaders-agent trade list --preset "Top-100 Rank" --start-date 2025-04-01 --end-date 2025-04-24
+volumeleaders-agent trade list --preset "Megacaps" --start-date 2025-04-01 --end-date 2025-04-24 --trade-rank 10
+volumeleaders-agent trade list --watchlist "Magnificent 7" --start-date 2025-04-01 --end-date 2025-04-24
 ```
 
 Output fields: `Ticker`, `Name`, `Sector`, `Industry`, `Date`, `Price`, `Bid`, `Ask`, `Dollars`, `DollarsMultiplier`, `Volume`, `AverageDailyVolume`, `PercentDailyVolume`, `TradeCount`, `CumulativeDistribution`, `TradeRank`, `TradeRankSnapshot`, `DarkPool`, `Sweep`, `LatePrint`, `SignaturePrint`, `OpeningTrade`, `ClosingTrade`, `PhantomPrint`, `InsideBar`, `DoubleInsideBar`, `NewPosition`, `Cancelled`, `TotalInstitutionalDollars`, `TotalInstitutionalDollarsRank`, `TotalInstitutionalVolume`, `AHInstitutionalDollars`, `AHInstitutionalDollarsRank`, `AHInstitutionalVolume`, `ClosingTradeDollars`, `ClosingTradeDollarsRank`, `ClosingTradeVolume`, `TotalDollars`, `TotalDollarsRank`, `TotalVolume`, `ClosePrice`, `RSIHour`, `RSIDay`, `FrequencyLast30TD`, `FrequencyLast90TD`, `FrequencyLast1CY`, `LastComparibleTradeDate`, `IPODate`, `TotalRows`

@@ -11,7 +11,7 @@ When modifying CLI commands, flags, models, or behavior:
 
 Command-to-skill mapping:
 
-- `internal/commands/trade.go` -> `skills/trade.md`
+- `internal/commands/trade.go`, `internal/commands/presets.go` -> `skills/trade.md`
 - `internal/commands/volume.go` -> `skills/volume.md`
 - `internal/commands/chart.go` -> `skills/chart.md`
 - `internal/commands/market.go` -> `skills/market.md`
@@ -25,7 +25,7 @@ Command-to-skill mapping:
 cmd/volumeleaders-agent/main.go    Entry point
 internal/auth/                     Browser cookie + XSRF token extraction
 internal/client/                   HTTP client (DataTables + JSON requests)
-internal/commands/                 CLI command definitions (6 groups, 20 subcommands)
+internal/commands/                 CLI command definitions (6 groups, 21 subcommands)
 internal/datatables/               DataTables protocol encoding + column definitions
 internal/models/                   Response type definitions
 skills/                            LLM skill files for agent integration

@@ -40,7 +40,7 @@ jobs:
           files: coverage.out
           token: ${{ secrets.CODECOV_TOKEN }}
       - name: Verify build
-        run: go build .
+        run: go build ./cmd/volumeleaders-agent
 
   govulncheck:
     runs-on: ubuntu-latest

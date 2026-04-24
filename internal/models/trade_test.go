@@ -12,6 +12,7 @@ func TestAspNetDateUnmarshal(t *testing.T) {
 	tests := []struct {
 		name      string
 		input     string
+		wantErr   bool
 		wantValid bool
 		wantTime  time.Time
 	}{
@@ -41,13 +42,30 @@ func TestAspNetDateUnmarshal(t *testing.T) {
 			input:     `"/Date(-2208988800000)/"`,
 			wantValid: false,
 		},
+		{
+			name:    "invalid format",
+			input:   `"not-a-date"`,
+			wantErr: true,
+		},
+		{
+			name:    "non-string value",
+			input:   `12345`,
+			wantErr: true,
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			var d AspNetDate
-			if err := json.Unmarshal([]byte(tt.input), &d); err != nil {
+			err := json.Unmarshal([]byte(tt.input), &d)
+			if tt.wantErr {
+				if err == nil {
+					t.Fatal("expected error, got nil")
+				}
+				return
+			}
+			if err != nil {
 				t.Fatalf("unexpected unmarshal error: %v", err)
 			}
 			if d.Valid != tt.wantValid {
@@ -100,20 +118,29 @@ func TestFlexBoolUnmarshal(t *testing.T) {
 	tests := []struct {
 		name     string
 		input    string
+		wantErr  bool
 		expected FlexBool
 	}{
-		{"true", "true", true},
-		{"false", "false", false},
-		{"1", "1", true},
-		{"0", "0", false},
-		{"null", "null", false},
+		{"true", "true", false, true},
+		{"false", "false", false, false},
+		{"1", "1", false, true},
+		{"0", "0", false, false},
+		{"null", "null", false, false},
+		{"invalid string", `"invalid"`, true, false},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			var b FlexBool
-			if err := json.Unmarshal([]byte(tt.input), &b); err != nil {
+			err := json.Unmarshal([]byte(tt.input), &b)
+			if tt.wantErr {
+				if err == nil {
+					t.Fatal("expected error, got nil")
+				}
+				return
+			}
+			if err != nil {
 				t.Fatalf("unexpected unmarshal error: %v", err)
 			}
 			if b != tt.expected {
@@ -149,32 +176,4 @@ func TestFlexBoolMarshal(t *testing.T) {
 	}
 }
 
-func TestAspNetDateUnmarshalInvalidFormat(t *testing.T) {
-	t.Parallel()
 
-	var d AspNetDate
-	err := json.Unmarshal([]byte(`"not-a-date"`), &d)
-	if err == nil {
-		t.Fatal("expected error for invalid ASP.NET date format")
-	}
-}
-
-func TestAspNetDateUnmarshalNonString(t *testing.T) {
-	t.Parallel()
-
-	var d AspNetDate
-	err := json.Unmarshal([]byte(`12345`), &d)
-	if err == nil {
-		t.Fatal("expected error for non-string value")
-	}
-}
-
-func TestFlexBoolUnmarshalError(t *testing.T) {
-	t.Parallel()
-
-	var b FlexBool
-	err := json.Unmarshal([]byte(`"invalid"`), &b)
-	if err == nil {
-		t.Fatal("expected error for invalid FlexBool value")
-	}
-}

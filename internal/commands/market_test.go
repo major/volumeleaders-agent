@@ -101,7 +101,10 @@ func TestRunExhaustionServerError(t *testing.T) {
 }
 
 func TestMarketSnapshotsCLI(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/Trades/GetAllSnapshots" {
+			t.Errorf("expected path /Trades/GetAllSnapshots, got %s", r.URL.Path)
+		}
 		fmt.Fprint(w, `"AAPL:255.30"`)
 	}))
 	t.Cleanup(server.Close)
@@ -119,7 +122,10 @@ func TestMarketSnapshotsCLI(t *testing.T) {
 }
 
 func TestMarketEarningsCLI(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/Earnings/GetEarnings" {
+			t.Errorf("expected path /Earnings/GetEarnings, got %s", r.URL.Path)
+		}
 		fmt.Fprint(w, dataTablesJSON(`[{}]`))
 	}))
 	t.Cleanup(server.Close)
@@ -134,7 +140,10 @@ func TestMarketEarningsCLI(t *testing.T) {
 }
 
 func TestMarketExhaustionCLI(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/ExecutiveSummary/GetExhaustionScores" {
+			t.Errorf("expected path /ExecutiveSummary/GetExhaustionScores, got %s", r.URL.Path)
+		}
 		fmt.Fprint(w, `{}`)
 	}))
 	t.Cleanup(server.Close)

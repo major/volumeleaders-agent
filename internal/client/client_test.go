@@ -460,6 +460,28 @@ func TestDoRequestConnectionError(t *testing.T) {
 	assertErrorContains(t, err, "post JSON request")
 }
 
+func TestReadResponseBodyGzipError(t *testing.T) {
+	t.Parallel()
+
+	resp := &http.Response{
+		Body:   io.NopCloser(strings.NewReader("not-gzip-data")),
+		Header: http.Header{"Content-Encoding": []string{"gzip"}},
+	}
+	_, err := readResponseBody(resp)
+	assertErrorContains(t, err, "open gzip response body")
+}
+
+func TestPostMultipartConnectionError(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {}))
+	server.Close()
+
+	c := newTestClient(server.URL)
+	err := c.PostMultipart(context.Background(), "/test", map[string]string{"key": "val"})
+	assertErrorContains(t, err, "post multipart request")
+}
+
 func assertErrorContains(t *testing.T, err error, want string) {
 	t.Helper()
 

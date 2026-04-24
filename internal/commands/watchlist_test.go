@@ -154,7 +154,10 @@ func TestRunWatchlistEdit(t *testing.T) {
 }
 
 func TestWatchlistConfigsCLI(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/WatchListConfigs/GetWatchLists" {
+			t.Errorf("expected path /WatchListConfigs/GetWatchLists, got %s", r.URL.Path)
+		}
 		fmt.Fprint(w, dataTablesJSON(`[{}]`))
 	}))
 	t.Cleanup(server.Close)
@@ -169,7 +172,10 @@ func TestWatchlistConfigsCLI(t *testing.T) {
 }
 
 func TestWatchlistTickersCLI(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/WatchLists/GetWatchListTickers" {
+			t.Errorf("expected path /WatchLists/GetWatchListTickers, got %s", r.URL.Path)
+		}
 		fmt.Fprint(w, dataTablesJSON(`[{}]`))
 	}))
 	t.Cleanup(server.Close)
@@ -184,7 +190,10 @@ func TestWatchlistTickersCLI(t *testing.T) {
 }
 
 func TestWatchlistDeleteCLI(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/WatchListConfigs/DeleteWatchList" {
+			t.Errorf("expected path /WatchListConfigs/DeleteWatchList, got %s", r.URL.Path)
+		}
 		fmt.Fprint(w, `{"ok":true}`)
 	}))
 	t.Cleanup(server.Close)
@@ -199,7 +208,10 @@ func TestWatchlistDeleteCLI(t *testing.T) {
 }
 
 func TestWatchlistAddTickerCLI(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/Chart0/UpdateWatchList" {
+			t.Errorf("expected path /Chart0/UpdateWatchList, got %s", r.URL.Path)
+		}
 		fmt.Fprint(w, `{"ok":true}`)
 	}))
 	t.Cleanup(server.Close)
@@ -231,7 +243,16 @@ func TestRunWatchlistCreateEditServerError(t *testing.T) {
 	t.Cleanup(server.Close)
 
 	ctx := contextWithTestClient(server.URL)
-	root := &cli.Command{Commands: []*cli.Command{NewWatchlistCommand()}}
-	err := root.Run(ctx, []string{"app", "watchlist", "create", "--name", "Test"})
-	assertErrContains(t, err, "save watchlist config")
+
+	t.Run("create", func(t *testing.T) {
+		root := &cli.Command{Commands: []*cli.Command{NewWatchlistCommand()}}
+		err := root.Run(ctx, []string{"app", "watchlist", "create", "--name", "Test"})
+		assertErrContains(t, err, "save watchlist config")
+	})
+
+	t.Run("edit", func(t *testing.T) {
+		root := &cli.Command{Commands: []*cli.Command{NewWatchlistCommand()}}
+		err := root.Run(ctx, []string{"app", "watchlist", "edit", "--key", "1"})
+		assertErrContains(t, err, "save watchlist config")
+	})
 }

@@ -30,6 +30,18 @@ type Client struct {
 	xsrfToken string
 }
 
+// NewForTesting creates a Client for test use, bypassing browser-based
+// authentication. Callers provide their own http.Client (typically backed
+// by httptest.Server) and base URL.
+func NewForTesting(httpClient *http.Client, baseURL string) *Client {
+	return &Client{
+		http:      httpClient,
+		baseURL:   baseURL,
+		cookies:   map[string]string{"test": "test"},
+		xsrfToken: "test-token",
+	}
+}
+
 // New creates an authenticated VolumeLeaders client from browser cookies.
 func New(ctx context.Context) (*Client, error) {
 	cookies, err := auth.ExtractCookies(ctx)

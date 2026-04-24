@@ -16,7 +16,10 @@ import (
 
 type contextKey int
 
-const prettyJSONKey contextKey = iota
+const (
+	prettyJSONKey contextKey = iota
+	testClientKey
+)
 
 type dataTableOptions struct {
 	start, length, orderCol int
@@ -44,7 +47,12 @@ func runDataTablesCommand[T any](ctx context.Context, path string, columns []str
 
 // newCommandClient centralizes authenticated client creation so command
 // handlers keep identical error text while avoiding repeated boilerplate.
+// During tests a pre-built client can be injected via testClientKey in the
+// context, bypassing browser-based authentication entirely.
 func newCommandClient(ctx context.Context) (*client.Client, error) {
+	if c, ok := ctx.Value(testClientKey).(*client.Client); ok {
+		return c, nil
+	}
 	vlClient, err := client.New(ctx)
 	if err != nil {
 		slog.Error("failed to create client", "error", err)

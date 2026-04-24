@@ -333,8 +333,8 @@ func fetchWatchlistFilters(ctx context.Context, name string) (map[string]string,
 	}
 	if match == nil {
 		names := make([]string, len(configs))
-		for i, c := range configs {
-			names[i] = c.Name
+		for i := range configs {
+			names[i] = configs[i].Name
 		}
 		return nil, fmt.Errorf("watchlist %q not found; available watchlists: %s", name, strings.Join(names, ", "))
 	}

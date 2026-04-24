@@ -2,6 +2,7 @@ package commands
 
 import (
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -111,7 +112,9 @@ func TestRunAlertEdit(t *testing.T) {
 func TestRunAlertCreateWithTickers(t *testing.T) {
 	// Verifies that buildAlertConfigFields auto-selects SelectedTickers when
 	// tickers are specified but ticker-group is left at the default.
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+	var capturedBody []byte
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		capturedBody, _ = io.ReadAll(r.Body)
 		w.WriteHeader(http.StatusOK)
 	}))
 	t.Cleanup(server.Close)
@@ -122,5 +125,59 @@ func TestRunAlertCreateWithTickers(t *testing.T) {
 		if err := root.Run(ctx, []string{"app", "alert", "create", "--name", "Ticker Alert", "--tickers", "AAPL,MSFT"}); err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
+	})
+	if !strings.Contains(string(capturedBody), "SelectedTickers") {
+		t.Errorf("expected request body to reference SelectedTickers, got: %s", capturedBody)
+	}
+}
+
+func TestAlertConfigsCLI(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		fmt.Fprint(w, dataTablesJSON(`[{}]`))
+	}))
+	t.Cleanup(server.Close)
+
+	ctx := contextWithTestClient(server.URL)
+	captureStdout(t, func() {
+		root := &cli.Command{Commands: []*cli.Command{NewAlertCommand()}}
+		if err := root.Run(ctx, []string{"app", "alert", "configs"}); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+	})
+}
+
+func TestAlertDeleteCLI(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		fmt.Fprint(w, `{"ok":true}`)
+	}))
+	t.Cleanup(server.Close)
+
+	ctx := contextWithTestClient(server.URL)
+	captureStdout(t, func() {
+		root := &cli.Command{Commands: []*cli.Command{NewAlertCommand()}}
+		if err := root.Run(ctx, []string{"app", "alert", "delete", "--key", "42"}); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+	})
+}
+
+func TestRunAlertCreateEditServerError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		http.Error(w, "error", http.StatusInternalServerError)
+	}))
+	t.Cleanup(server.Close)
+
+	ctx := contextWithTestClient(server.URL)
+
+	t.Run("create", func(t *testing.T) {
+		root := &cli.Command{Commands: []*cli.Command{NewAlertCommand()}}
+		err := root.Run(ctx, []string{"app", "alert", "create", "--name", "Test"})
+		assertErrContains(t, err, "save alert config")
+	})
+
+	t.Run("edit", func(t *testing.T) {
+		root := &cli.Command{Commands: []*cli.Command{NewAlertCommand()}}
+		err := root.Run(ctx, []string{"app", "alert", "edit", "--key", "42"})
+		assertErrContains(t, err, "save alert config")
 	})
 }

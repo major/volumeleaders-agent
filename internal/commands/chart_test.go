@@ -6,6 +6,8 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	cli "github.com/urfave/cli/v3"
 )
 
 func TestRunPriceData(t *testing.T) {
@@ -138,4 +140,75 @@ func TestRunCompanyServerError(t *testing.T) {
 	ctx := contextWithTestClient(server.URL)
 	err := runCompany(ctx, "INVALID")
 	assertErrContains(t, err, "query company")
+}
+
+func TestRunPriceDataDecodeError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		fmt.Fprint(w, `[["not a price bar object"]]`)
+	}))
+	t.Cleanup(server.Close)
+
+	ctx := contextWithTestClient(server.URL)
+	err := runPriceData(ctx, &priceDataOptions{ticker: "AAPL", startDate: "2025-01-15", endDate: "2025-01-15"})
+	assertErrContains(t, err, "decode price bars")
+}
+
+func TestChartPriceDataCLI(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		fmt.Fprint(w, `[[{}]]`)
+	}))
+	t.Cleanup(server.Close)
+
+	ctx := contextWithTestClient(server.URL)
+	captureStdout(t, func() {
+		root := &cli.Command{Commands: []*cli.Command{NewChartCommand()}}
+		if err := root.Run(ctx, []string{"app", "chart", "price-data", "--ticker", "AAPL", "--start-date", "2025-01-15", "--end-date", "2025-01-15"}); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+	})
+}
+
+func TestChartSnapshotCLI(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		fmt.Fprint(w, `{"Snapshot":{}}`)
+	}))
+	t.Cleanup(server.Close)
+
+	ctx := contextWithTestClient(server.URL)
+	captureStdout(t, func() {
+		root := &cli.Command{Commands: []*cli.Command{NewChartCommand()}}
+		if err := root.Run(ctx, []string{"app", "chart", "snapshot", "--ticker", "AAPL", "--date-key", "2025-01-15"}); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+	})
+}
+
+func TestChartLevelsCLI(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		fmt.Fprint(w, dataTablesJSON(`[{}]`))
+	}))
+	t.Cleanup(server.Close)
+
+	ctx := contextWithTestClient(server.URL)
+	captureStdout(t, func() {
+		root := &cli.Command{Commands: []*cli.Command{NewChartCommand()}}
+		if err := root.Run(ctx, []string{"app", "chart", "levels", "--ticker", "AAPL", "--start-date", "2025-01-01", "--end-date", "2025-01-31"}); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+	})
+}
+
+func TestChartCompanyCLI(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		fmt.Fprint(w, `{}`)
+	}))
+	t.Cleanup(server.Close)
+
+	ctx := contextWithTestClient(server.URL)
+	captureStdout(t, func() {
+		root := &cli.Command{Commands: []*cli.Command{NewChartCommand()}}
+		if err := root.Run(ctx, []string{"app", "chart", "company", "--ticker", "AAPL"}); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+	})
 }

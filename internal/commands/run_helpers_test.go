@@ -52,7 +52,7 @@ func TestRunDataTablesCommand(t *testing.T) {
 
 func TestRunDataTablesCommandPrettyJSON(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		fmt.Fprint(w, dataTablesJSON(`[{}]`))
+		fmt.Fprint(w, dataTablesJSON(`[{"A":1},{"B":2}]`))
 	}))
 	t.Cleanup(server.Close)
 
@@ -67,7 +67,8 @@ func TestRunDataTablesCommandPrettyJSON(t *testing.T) {
 			t.Fatalf("unexpected error: %v", err)
 		}
 	})
-	if !strings.Contains(output, "\n") {
+	// MarshalIndent uses two-space indentation; compact output never contains "  ".
+	if !strings.Contains(output, "\n  ") {
 		t.Errorf("expected indented output, got: %s", output)
 	}
 }

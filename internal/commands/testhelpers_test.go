@@ -31,13 +31,18 @@ func captureStdout(t *testing.T, fn func()) string {
 		t.Fatalf("create pipe: %v", err)
 	}
 	os.Stdout = w
+	defer func() { os.Stdout = old }()
+
+	var buf bytes.Buffer
+	done := make(chan struct{})
+	go func() {
+		_, _ = io.Copy(&buf, r)
+		close(done)
+	}()
+
 	fn()
 	w.Close()
-	os.Stdout = old
-	var buf bytes.Buffer
-	if _, err := io.Copy(&buf, r); err != nil {
-		t.Fatalf("read pipe: %v", err)
-	}
+	<-done
 	return buf.String()
 }
 

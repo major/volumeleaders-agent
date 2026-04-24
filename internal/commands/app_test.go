@@ -50,7 +50,7 @@ func TestNewAppSubcommandCounts(t *testing.T) {
 	app := NewApp("0.0.0")
 
 	expected := map[string]int{
-		"trade":     7,
+		"trade":     8,
 		"volume":    3,
 		"chart":     4,
 		"market":    3,

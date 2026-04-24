@@ -41,6 +41,7 @@ func NewTradeCommand() *cli.Command {
 		Usage: "Trade-related commands",
 		Commands: []*cli.Command{
 			newTradeListCommand(),
+			newTradePresetsCommand(),
 			newTradeClustersCommand(),
 			newTradeClusterBombsCommand(),
 			newTradeAlertsCommand(),
@@ -59,7 +60,9 @@ func newTradeListCommand() *cli.Command {
 		Usage: "Query institutional trades",
 		UsageText: `volumeleaders-agent trade list --tickers AAPL,MSFT --start-date 2025-01-01 --end-date 2025-01-31
 volumeleaders-agent trade list --tickers NVDA --dark-pools 1 --min-dollars 1000000
-volumeleaders-agent trade list --sector Technology --relative-size 10 --length 50`,
+volumeleaders-agent trade list --sector Technology --relative-size 10 --length 50
+volumeleaders-agent trade list --preset "Top-100 Rank" --start-date 2025-04-01 --end-date 2025-04-24
+volumeleaders-agent trade list --watchlist "Magnificent 7" --start-date 2025-04-01 --end-date 2025-04-24`,
 		Flags: slices.Concat(
 			dateRangeFlags(),
 			volumeRangeFlags(),
@@ -87,6 +90,8 @@ volumeleaders-agent trade list --sector Technology --relative-size 10 --length 5
 				&cli.IntFlag{Name: "phantom", Value: 1, Usage: "Include phantom prints"},
 				&cli.IntFlag{Name: "offsetting", Value: 1, Usage: "Include offsetting trades"},
 				&cli.StringFlag{Name: "sector", Usage: "Sector/Industry filter"},
+				&cli.StringFlag{Name: "preset", Usage: "Apply a built-in filter preset (see: trade presets)"},
+				&cli.StringFlag{Name: "watchlist", Usage: "Apply filters from a saved watchlist by name"},
 			},
 			paginationFlags(100, 1, "desc"),
 		),
@@ -216,39 +221,79 @@ volumeleaders-agent trade level-touches --tickers NVDA,AMD --trade-level-rank 5`
 // --- Action handlers ---
 
 func runTradeList(ctx context.Context, cmd *cli.Command) error {
-	opts := &tradesOptions{
-		tickers:      cmd.String("tickers"),
-		startDate:    cmd.String("start-date"),
-		endDate:      cmd.String("end-date"),
-		minVolume:    cmd.Int("min-volume"),
-		maxVolume:    cmd.Int("max-volume"),
-		minPrice:     cmd.Float("min-price"),
-		maxPrice:     cmd.Float("max-price"),
-		minDollars:   cmd.Float("min-dollars"),
-		maxDollars:   cmd.Float("max-dollars"),
-		conditions:   cmd.Int("conditions"),
-		vcd:          cmd.Int("vcd"),
-		securityType: cmd.Int("security-type"),
-		relativeSize: cmd.Int("relative-size"),
-		darkPools:    cmd.Int("dark-pools"),
-		sweeps:       cmd.Int("sweeps"),
-		latePrints:   cmd.Int("late-prints"),
-		sigPrints:    cmd.Int("sig-prints"),
-		evenShared:   cmd.Int("even-shared"),
-		tradeRank:    cmd.Int("trade-rank"),
-		rankSnapshot: cmd.Int("rank-snapshot"),
-		marketCap:    cmd.Int("market-cap"),
-		premarket:    cmd.Int("premarket"),
-		rth:          cmd.Int("rth"),
-		ah:           cmd.Int("ah"),
-		opening:      cmd.Int("opening"),
-		closing:      cmd.Int("closing"),
-		phantom:      cmd.Int("phantom"),
-		offsetting:   cmd.Int("offsetting"),
-		sector:       cmd.String("sector"),
+	presetName := cmd.String("preset")
+	watchlistName := cmd.String("watchlist")
+
+	var filters map[string]string
+
+	if presetName != "" || watchlistName != "" {
+		// Start from preset/watchlist filters; only explicitly-set CLI
+		// flags will override them (via applyExplicitFlags below).
+		filters = make(map[string]string)
+
+		if presetName != "" {
+			preset, err := findPreset(presetName)
+			if err != nil {
+				return err
+			}
+			for k, v := range preset.filters {
+				filters[k] = v
+			}
+		}
+
+		if watchlistName != "" {
+			wlFilters, err := fetchWatchlistFilters(ctx, watchlistName)
+			if err != nil {
+				return err
+			}
+			for k, v := range wlFilters {
+				filters[k] = v
+			}
+		}
+
+		applyExplicitFlags(cmd, filters)
+	} else {
+		// No preset or watchlist - use the standard flag-based filter build.
+		opts := &tradesOptions{
+			tickers:      cmd.String("tickers"),
+			startDate:    cmd.String("start-date"),
+			endDate:      cmd.String("end-date"),
+			minVolume:    cmd.Int("min-volume"),
+			maxVolume:    cmd.Int("max-volume"),
+			minPrice:     cmd.Float("min-price"),
+			maxPrice:     cmd.Float("max-price"),
+			minDollars:   cmd.Float("min-dollars"),
+			maxDollars:   cmd.Float("max-dollars"),
+			conditions:   cmd.Int("conditions"),
+			vcd:          cmd.Int("vcd"),
+			securityType: cmd.Int("security-type"),
+			relativeSize: cmd.Int("relative-size"),
+			darkPools:    cmd.Int("dark-pools"),
+			sweeps:       cmd.Int("sweeps"),
+			latePrints:   cmd.Int("late-prints"),
+			sigPrints:    cmd.Int("sig-prints"),
+			evenShared:   cmd.Int("even-shared"),
+			tradeRank:    cmd.Int("trade-rank"),
+			rankSnapshot: cmd.Int("rank-snapshot"),
+			marketCap:    cmd.Int("market-cap"),
+			premarket:    cmd.Int("premarket"),
+			rth:          cmd.Int("rth"),
+			ah:           cmd.Int("ah"),
+			opening:      cmd.Int("opening"),
+			closing:      cmd.Int("closing"),
+			phantom:      cmd.Int("phantom"),
+			offsetting:   cmd.Int("offsetting"),
+			sector:       cmd.String("sector"),
+		}
+		filters = buildTradeFilters(opts)
 	}
+
+	// Dates always come from CLI (required flags).
+	filters["StartDate"] = cmd.String("start-date")
+	filters["EndDate"] = cmd.String("end-date")
+
 	return runDataTablesCommand[models.Trade](ctx, "/Trades/GetTrades", datatables.TradeColumns,
-		dataTableOptions{start: cmd.Int("start"), length: cmd.Int("length"), orderCol: cmd.Int("order-col"), orderDir: cmd.String("order-dir"), filters: buildTradeFilters(opts)},
+		dataTableOptions{start: cmd.Int("start"), length: cmd.Int("length"), orderCol: cmd.Int("order-col"), orderDir: cmd.String("order-dir"), filters: filters},
 		"query trades")
 }
 

@@ -394,6 +394,72 @@ func writeResponse(t *testing.T, w http.ResponseWriter, body string, gzipBody bo
 	}
 }
 
+func TestNewForTesting(t *testing.T) {
+	t.Parallel()
+
+	httpClient := &http.Client{Timeout: 5 * time.Second}
+	c := NewForTesting(httpClient, "http://test.example")
+	if c.baseURL != "http://test.example" {
+		t.Errorf("expected baseURL http://test.example, got %s", c.baseURL)
+	}
+	if c.xsrfToken != "test-token" {
+		t.Errorf("expected xsrfToken test-token, got %s", c.xsrfToken)
+	}
+}
+
+func TestPostDataTablesDataDecodeError(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		fmt.Fprint(w, `{"draw":1,"data":"not an array"}`)
+	}))
+	t.Cleanup(server.Close)
+
+	c := newTestClient(server.URL)
+	var got []string
+	err := c.PostDataTables(context.Background(), "/test", "draw=1", &got)
+	assertErrorContains(t, err, "decode DataTables data")
+}
+
+func TestPostJSONDecodeError(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		fmt.Fprint(w, `not json at all`)
+	}))
+	t.Cleanup(server.Close)
+
+	c := newTestClient(server.URL)
+	var got struct{ Name string }
+	err := c.PostJSON(context.Background(), "/test", struct{}{}, &got)
+	assertErrorContains(t, err, "decode JSON response")
+}
+
+func TestPostFormDecodeError(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		fmt.Fprint(w, `not json`)
+	}))
+	t.Cleanup(server.Close)
+
+	c := newTestClient(server.URL)
+	var got struct{ Name string }
+	err := c.PostForm(context.Background(), "/test", url.Values{"key": {"val"}}, &got)
+	assertErrorContains(t, err, "decode form response")
+}
+
+func TestDoRequestConnectionError(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {}))
+	server.Close()
+
+	c := newTestClient(server.URL)
+	err := c.PostJSON(context.Background(), "/test", struct{}{}, &struct{}{})
+	assertErrorContains(t, err, "post JSON request")
+}
+
 func assertErrorContains(t *testing.T, err error, want string) {
 	t.Helper()
 

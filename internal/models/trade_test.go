@@ -148,3 +148,33 @@ func TestFlexBoolMarshal(t *testing.T) {
 		})
 	}
 }
+
+func TestAspNetDateUnmarshalInvalidFormat(t *testing.T) {
+	t.Parallel()
+
+	var d AspNetDate
+	err := json.Unmarshal([]byte(`"not-a-date"`), &d)
+	if err == nil {
+		t.Fatal("expected error for invalid ASP.NET date format")
+	}
+}
+
+func TestAspNetDateUnmarshalNonString(t *testing.T) {
+	t.Parallel()
+
+	var d AspNetDate
+	err := json.Unmarshal([]byte(`12345`), &d)
+	if err == nil {
+		t.Fatal("expected error for non-string value")
+	}
+}
+
+func TestFlexBoolUnmarshalError(t *testing.T) {
+	t.Parallel()
+
+	var b FlexBool
+	err := json.Unmarshal([]byte(`"invalid"`), &b)
+	if err == nil {
+		t.Fatal("expected error for invalid FlexBool value")
+	}
+}

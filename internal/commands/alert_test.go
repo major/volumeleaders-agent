@@ -124,3 +124,45 @@ func TestRunAlertCreateWithTickers(t *testing.T) {
 		}
 	})
 }
+
+func TestAlertConfigsCLI(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		fmt.Fprint(w, dataTablesJSON(`[{}]`))
+	}))
+	t.Cleanup(server.Close)
+
+	ctx := contextWithTestClient(server.URL)
+	captureStdout(t, func() {
+		root := &cli.Command{Commands: []*cli.Command{NewAlertCommand()}}
+		if err := root.Run(ctx, []string{"app", "alert", "configs"}); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+	})
+}
+
+func TestAlertDeleteCLI(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		fmt.Fprint(w, `{"ok":true}`)
+	}))
+	t.Cleanup(server.Close)
+
+	ctx := contextWithTestClient(server.URL)
+	captureStdout(t, func() {
+		root := &cli.Command{Commands: []*cli.Command{NewAlertCommand()}}
+		if err := root.Run(ctx, []string{"app", "alert", "delete", "--key", "42"}); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+	})
+}
+
+func TestRunAlertCreateEditServerError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		http.Error(w, "error", http.StatusInternalServerError)
+	}))
+	t.Cleanup(server.Close)
+
+	ctx := contextWithTestClient(server.URL)
+	root := &cli.Command{Commands: []*cli.Command{NewAlertCommand()}}
+	err := root.Run(ctx, []string{"app", "alert", "create", "--name", "Test"})
+	assertErrContains(t, err, "save alert config")
+}

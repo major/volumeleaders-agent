@@ -152,3 +152,86 @@ func TestRunWatchlistEdit(t *testing.T) {
 		t.Errorf("expected output to contain updated, got: %s", output)
 	}
 }
+
+func TestWatchlistConfigsCLI(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		fmt.Fprint(w, dataTablesJSON(`[{}]`))
+	}))
+	t.Cleanup(server.Close)
+
+	ctx := contextWithTestClient(server.URL)
+	captureStdout(t, func() {
+		root := &cli.Command{Commands: []*cli.Command{NewWatchlistCommand()}}
+		if err := root.Run(ctx, []string{"app", "watchlist", "configs"}); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+	})
+}
+
+func TestWatchlistTickersCLI(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		fmt.Fprint(w, dataTablesJSON(`[{}]`))
+	}))
+	t.Cleanup(server.Close)
+
+	ctx := contextWithTestClient(server.URL)
+	captureStdout(t, func() {
+		root := &cli.Command{Commands: []*cli.Command{NewWatchlistCommand()}}
+		if err := root.Run(ctx, []string{"app", "watchlist", "tickers", "--watchlist-key", "1"}); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+	})
+}
+
+func TestWatchlistDeleteCLI(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		fmt.Fprint(w, `{"ok":true}`)
+	}))
+	t.Cleanup(server.Close)
+
+	ctx := contextWithTestClient(server.URL)
+	captureStdout(t, func() {
+		root := &cli.Command{Commands: []*cli.Command{NewWatchlistCommand()}}
+		if err := root.Run(ctx, []string{"app", "watchlist", "delete", "--key", "1"}); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+	})
+}
+
+func TestWatchlistAddTickerCLI(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		fmt.Fprint(w, `{"ok":true}`)
+	}))
+	t.Cleanup(server.Close)
+
+	ctx := contextWithTestClient(server.URL)
+	captureStdout(t, func() {
+		root := &cli.Command{Commands: []*cli.Command{NewWatchlistCommand()}}
+		if err := root.Run(ctx, []string{"app", "watchlist", "add-ticker", "--watchlist-key", "1", "--ticker", "NVDA"}); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+	})
+}
+
+func TestRunWatchlistTickersServerError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		http.Error(w, "error", http.StatusInternalServerError)
+	}))
+	t.Cleanup(server.Close)
+
+	ctx := contextWithTestClient(server.URL)
+	err := runWatchlistTickers(ctx, 1)
+	assertErrContains(t, err, "query watchlist tickers")
+}
+
+func TestRunWatchlistCreateEditServerError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		http.Error(w, "error", http.StatusInternalServerError)
+	}))
+	t.Cleanup(server.Close)
+
+	ctx := contextWithTestClient(server.URL)
+	root := &cli.Command{Commands: []*cli.Command{NewWatchlistCommand()}}
+	err := root.Run(ctx, []string{"app", "watchlist", "create", "--name", "Test"})
+	assertErrContains(t, err, "save watchlist config")
+}

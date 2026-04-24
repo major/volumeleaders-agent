@@ -7,6 +7,7 @@ builds:
     goos:
       - linux
       - darwin
+      - windows
     goarch:
       - amd64
       - arm64
@@ -18,6 +19,9 @@ builds:
 archives:
   - formats: [tar.gz]
     name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    format_overrides:
+      - goos: windows
+        formats: [zip]
 
 # Keyless cosign signing via Sigstore/Fulcio OIDC (no private key needed).
 # Signs the checksums file only; users verify checksums, then verify SHAs.

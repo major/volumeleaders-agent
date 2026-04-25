@@ -224,13 +224,43 @@ func runTradeList(ctx context.Context, cmd *cli.Command) error {
 	presetName := cmd.String("preset")
 	watchlistName := cmd.String("watchlist")
 
-	var filters map[string]string
+	// Build the full filter map from CLI flags (includes defaults for unset
+	// flags). Every key the API requires is present after this call.
+	opts := &tradesOptions{
+		tickers:      cmd.String("tickers"),
+		startDate:    cmd.String("start-date"),
+		endDate:      cmd.String("end-date"),
+		minVolume:    cmd.Int("min-volume"),
+		maxVolume:    cmd.Int("max-volume"),
+		minPrice:     cmd.Float("min-price"),
+		maxPrice:     cmd.Float("max-price"),
+		minDollars:   cmd.Float("min-dollars"),
+		maxDollars:   cmd.Float("max-dollars"),
+		conditions:   cmd.Int("conditions"),
+		vcd:          cmd.Int("vcd"),
+		securityType: cmd.Int("security-type"),
+		relativeSize: cmd.Int("relative-size"),
+		darkPools:    cmd.Int("dark-pools"),
+		sweeps:       cmd.Int("sweeps"),
+		latePrints:   cmd.Int("late-prints"),
+		sigPrints:    cmd.Int("sig-prints"),
+		evenShared:   cmd.Int("even-shared"),
+		tradeRank:    cmd.Int("trade-rank"),
+		rankSnapshot: cmd.Int("rank-snapshot"),
+		marketCap:    cmd.Int("market-cap"),
+		premarket:    cmd.Int("premarket"),
+		rth:          cmd.Int("rth"),
+		ah:           cmd.Int("ah"),
+		opening:      cmd.Int("opening"),
+		closing:      cmd.Int("closing"),
+		phantom:      cmd.Int("phantom"),
+		offsetting:   cmd.Int("offsetting"),
+		sector:       cmd.String("sector"),
+	}
+	filters := buildTradeFilters(opts)
 
 	if presetName != "" || watchlistName != "" {
-		// Start from preset/watchlist filters; only explicitly-set CLI
-		// flags will override them (via applyExplicitFlags below).
-		filters = make(map[string]string)
-
+		// Preset/watchlist values override the CLI defaults.
 		if presetName != "" {
 			preset, err := findPreset(presetName)
 			if err != nil {
@@ -251,41 +281,8 @@ func runTradeList(ctx context.Context, cmd *cli.Command) error {
 			}
 		}
 
+		// User-explicit CLI flags take final precedence.
 		applyExplicitFlags(cmd, filters)
-	} else {
-		// No preset or watchlist - use the standard flag-based filter build.
-		opts := &tradesOptions{
-			tickers:      cmd.String("tickers"),
-			startDate:    cmd.String("start-date"),
-			endDate:      cmd.String("end-date"),
-			minVolume:    cmd.Int("min-volume"),
-			maxVolume:    cmd.Int("max-volume"),
-			minPrice:     cmd.Float("min-price"),
-			maxPrice:     cmd.Float("max-price"),
-			minDollars:   cmd.Float("min-dollars"),
-			maxDollars:   cmd.Float("max-dollars"),
-			conditions:   cmd.Int("conditions"),
-			vcd:          cmd.Int("vcd"),
-			securityType: cmd.Int("security-type"),
-			relativeSize: cmd.Int("relative-size"),
-			darkPools:    cmd.Int("dark-pools"),
-			sweeps:       cmd.Int("sweeps"),
-			latePrints:   cmd.Int("late-prints"),
-			sigPrints:    cmd.Int("sig-prints"),
-			evenShared:   cmd.Int("even-shared"),
-			tradeRank:    cmd.Int("trade-rank"),
-			rankSnapshot: cmd.Int("rank-snapshot"),
-			marketCap:    cmd.Int("market-cap"),
-			premarket:    cmd.Int("premarket"),
-			rth:          cmd.Int("rth"),
-			ah:           cmd.Int("ah"),
-			opening:      cmd.Int("opening"),
-			closing:      cmd.Int("closing"),
-			phantom:      cmd.Int("phantom"),
-			offsetting:   cmd.Int("offsetting"),
-			sector:       cmd.String("sector"),
-		}
-		filters = buildTradeFilters(opts)
 	}
 
 	// Dates always come from CLI (required flags).

@@ -58,21 +58,31 @@ func New(ctx context.Context) (*Client, error) {
 	return &Client{http: httpClient, baseURL: BaseURL, cookies: cookies, xsrfToken: xsrfToken}, nil
 }
 
-// PostDataTables posts a form-encoded DataTables request and unmarshals its data array.
-func (c *Client) PostDataTables(ctx context.Context, path, body string, result any) error {
+// PostDataTablesPage posts a form-encoded DataTables request and returns the
+// full response envelope, including RecordsFiltered for pagination decisions.
+func (c *Client) PostDataTablesPage(ctx context.Context, path, body string) (*models.DataTablesResponse, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.baseURL+path, strings.NewReader(body))
 	if err != nil {
-		return fmt.Errorf("create DataTables request: %w", err)
+		return nil, fmt.Errorf("create DataTables request: %w", err)
 	}
 
 	responseBody, err := c.doRequest(req, "DataTables")
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	var wrapper models.DataTablesResponse
 	if err := json.Unmarshal(responseBody, &wrapper); err != nil {
-		return fmt.Errorf("decode DataTables response: %w", err)
+		return nil, fmt.Errorf("decode DataTables response: %w", err)
+	}
+	return &wrapper, nil
+}
+
+// PostDataTables posts a form-encoded DataTables request and unmarshals its data array.
+func (c *Client) PostDataTables(ctx context.Context, path, body string, result any) error {
+	wrapper, err := c.PostDataTablesPage(ctx, path, body)
+	if err != nil {
+		return err
 	}
 	if len(wrapper.Data) == 0 || bytes.Equal(wrapper.Data, []byte("null")) {
 		return fmt.Errorf("decode DataTables response: missing data field")

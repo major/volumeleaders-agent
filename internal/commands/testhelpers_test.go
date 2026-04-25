@@ -3,6 +3,7 @@ package commands
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"io"
 	"net/http"
 	"os"
@@ -49,6 +50,13 @@ func captureStdout(t *testing.T, fn func()) string {
 // dataTablesJSON wraps data in a valid DataTables response envelope.
 func dataTablesJSON(data string) string {
 	return `{"draw":1,"recordsTotal":1,"recordsFiltered":1,"data":` + data + `}`
+}
+
+// dataTablesJSONPage wraps data in a DataTables response with explicit
+// recordsFiltered count, used by pagination tests.
+func dataTablesJSONPage(data string, recordsFiltered int) string {
+	return fmt.Sprintf(`{"draw":1,"recordsTotal":%d,"recordsFiltered":%d,"data":%s}`,
+		recordsFiltered, recordsFiltered, data)
 }
 
 // addPrettyJSON returns a context with the pretty JSON flag set.

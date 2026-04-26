@@ -21,7 +21,7 @@ func TestRunVolume(t *testing.T) {
 
 	ctx := contextWithTestClient(t, server.URL)
 	captureStdout(t, func() {
-		opts := volumeOptions{
+		opts := &volumeOptions{
 			date:     "2025-01-15",
 			tickers:  "AAPL",
 			start:    0,
@@ -42,7 +42,7 @@ func TestRunVolumeServerError(t *testing.T) {
 	t.Cleanup(server.Close)
 
 	ctx := contextWithTestClient(t, server.URL)
-	opts := volumeOptions{date: "2025-01-15", start: 0, length: 100, orderCol: 1, orderDir: "asc"}
+	opts := &volumeOptions{date: "2025-01-15", start: 0, length: 100, orderCol: 1, orderDir: "asc"}
 	err := runVolume(ctx, opts, "/InstitutionalVolume/GetInstitutionalVolume", datatables.InstitutionalVolumeColumns)
 	assertErrContains(t, err, "query volume data")
 }

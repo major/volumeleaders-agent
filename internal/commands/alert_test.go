@@ -22,7 +22,7 @@ func TestRunAlertConfigs(t *testing.T) {
 
 	ctx := contextWithTestClient(t, server.URL)
 	captureStdout(t, func() {
-		if err := runAlertConfigs(ctx); err != nil {
+		if err := runAlertConfigs(ctx, "json"); err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
 	})
@@ -35,7 +35,7 @@ func TestRunAlertConfigsServerError(t *testing.T) {
 	t.Cleanup(server.Close)
 
 	ctx := contextWithTestClient(t, server.URL)
-	err := runAlertConfigs(ctx)
+	err := runAlertConfigs(ctx, "json")
 	assertErrContains(t, err, "query alert configs")
 }
 

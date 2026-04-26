@@ -21,7 +21,7 @@ func TestRunWatchlistConfigs(t *testing.T) {
 
 	ctx := contextWithTestClient(t, server.URL)
 	captureStdout(t, func() {
-		if err := runWatchlistConfigs(ctx); err != nil {
+		if err := runWatchlistConfigs(ctx, "json"); err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
 	})
@@ -34,7 +34,7 @@ func TestRunWatchlistConfigsServerError(t *testing.T) {
 	t.Cleanup(server.Close)
 
 	ctx := contextWithTestClient(t, server.URL)
-	err := runWatchlistConfigs(ctx)
+	err := runWatchlistConfigs(ctx, "json")
 	assertErrContains(t, err, "query watchlist configs")
 }
 
@@ -49,7 +49,7 @@ func TestRunWatchlistTickers(t *testing.T) {
 
 	ctx := contextWithTestClient(t, server.URL)
 	captureStdout(t, func() {
-		if err := runWatchlistTickers(ctx, 1); err != nil {
+		if err := runWatchlistTickers(ctx, 1, "json"); err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
 	})
@@ -232,7 +232,7 @@ func TestRunWatchlistTickersServerError(t *testing.T) {
 	t.Cleanup(server.Close)
 
 	ctx := contextWithTestClient(t, server.URL)
-	err := runWatchlistTickers(ctx, 1)
+	err := runWatchlistTickers(ctx, 1, "json")
 	assertErrContains(t, err, "query watchlist tickers")
 }
 

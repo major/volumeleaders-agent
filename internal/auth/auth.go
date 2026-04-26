@@ -49,8 +49,8 @@ func ExtractCookies(ctx context.Context) (map[string]string, error) {
 }
 
 // FetchXSRFToken retrieves the hidden request verification token from ExecutiveSummary.
-func FetchXSRFToken(httpClient *http.Client, cookies map[string]string) (string, error) {
-	req, err := http.NewRequest(http.MethodGet, "https://www.volumeleaders.com/ExecutiveSummary", http.NoBody)
+func FetchXSRFToken(ctx context.Context, httpClient *http.Client, cookies map[string]string) (string, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "https://www.volumeleaders.com/ExecutiveSummary", http.NoBody)
 	if err != nil {
 		return "", fmt.Errorf("create XSRF token request: %w", err)
 	}

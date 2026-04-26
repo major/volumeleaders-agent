@@ -50,7 +50,7 @@ func New(ctx context.Context) (*Client, error) {
 	}
 
 	httpClient := &http.Client{Timeout: 60 * time.Second}
-	xsrfToken, err := auth.FetchXSRFToken(httpClient, cookies)
+	xsrfToken, err := auth.FetchXSRFToken(ctx, httpClient, cookies)
 	if err != nil {
 		return nil, fmt.Errorf("fetch XSRF token: %w", err)
 	}

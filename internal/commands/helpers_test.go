@@ -238,7 +238,7 @@ func TestPrintJSON(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ctx := context.WithValue(context.Background(), prettyJSONKey, tt.pretty)
+			ctx := context.WithValue(t.Context(), prettyJSONKey, tt.pretty)
 
 			oldStdout := os.Stdout
 			r, w, _ := os.Pipe()
@@ -264,7 +264,7 @@ func TestPrintJSON(t *testing.T) {
 }
 
 func TestPrintJSONMarshalError(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	err := printJSON(ctx, make(chan int))
 	if err == nil {
 		t.Fatal("expected marshal error")

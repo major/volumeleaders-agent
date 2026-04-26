@@ -20,7 +20,7 @@ func TestRunPriceData(t *testing.T) {
 	}))
 	t.Cleanup(server.Close)
 
-	ctx := contextWithTestClient(server.URL)
+	ctx := contextWithTestClient(t, server.URL)
 	captureStdout(t, func() {
 		opts := &priceDataOptions{
 			ticker:    "AAPL",
@@ -39,7 +39,7 @@ func TestRunPriceDataEmptyResponse(t *testing.T) {
 	}))
 	t.Cleanup(server.Close)
 
-	ctx := contextWithTestClient(server.URL)
+	ctx := contextWithTestClient(t, server.URL)
 	output := captureStdout(t, func() {
 		opts := &priceDataOptions{ticker: "AAPL", startDate: "2025-01-15", endDate: "2025-01-15"}
 		if err := runPriceData(ctx, opts); err != nil {
@@ -57,7 +57,7 @@ func TestRunPriceDataServerError(t *testing.T) {
 	}))
 	t.Cleanup(server.Close)
 
-	ctx := contextWithTestClient(server.URL)
+	ctx := contextWithTestClient(t, server.URL)
 	opts := &priceDataOptions{ticker: "AAPL", startDate: "2025-01-15", endDate: "2025-01-15"}
 	err := runPriceData(ctx, opts)
 	assertErrContains(t, err, "query price data")
@@ -72,7 +72,7 @@ func TestRunChartSnapshot(t *testing.T) {
 	}))
 	t.Cleanup(server.Close)
 
-	ctx := contextWithTestClient(server.URL)
+	ctx := contextWithTestClient(t, server.URL)
 	captureStdout(t, func() {
 		if err := runChartSnapshot(ctx, "AAPL", "2025-01-15"); err != nil {
 			t.Fatalf("unexpected error: %v", err)
@@ -86,7 +86,7 @@ func TestRunChartSnapshotServerError(t *testing.T) {
 	}))
 	t.Cleanup(server.Close)
 
-	ctx := contextWithTestClient(server.URL)
+	ctx := contextWithTestClient(t, server.URL)
 	err := runChartSnapshot(ctx, "INVALID", "2025-01-15")
 	assertErrContains(t, err, "query chart snapshot")
 }
@@ -100,7 +100,7 @@ func TestRunChartLevels(t *testing.T) {
 	}))
 	t.Cleanup(server.Close)
 
-	ctx := contextWithTestClient(server.URL)
+	ctx := contextWithTestClient(t, server.URL)
 	captureStdout(t, func() {
 		opts := chartLevelsOptions{
 			ticker:    "AAPL",
@@ -123,7 +123,7 @@ func TestRunCompany(t *testing.T) {
 	}))
 	t.Cleanup(server.Close)
 
-	ctx := contextWithTestClient(server.URL)
+	ctx := contextWithTestClient(t, server.URL)
 	captureStdout(t, func() {
 		if err := runCompany(ctx, "AAPL"); err != nil {
 			t.Fatalf("unexpected error: %v", err)
@@ -137,7 +137,7 @@ func TestRunCompanyServerError(t *testing.T) {
 	}))
 	t.Cleanup(server.Close)
 
-	ctx := contextWithTestClient(server.URL)
+	ctx := contextWithTestClient(t, server.URL)
 	err := runCompany(ctx, "INVALID")
 	assertErrContains(t, err, "query company")
 }
@@ -148,7 +148,7 @@ func TestRunPriceDataDecodeError(t *testing.T) {
 	}))
 	t.Cleanup(server.Close)
 
-	ctx := contextWithTestClient(server.URL)
+	ctx := contextWithTestClient(t, server.URL)
 	err := runPriceData(ctx, &priceDataOptions{ticker: "AAPL", startDate: "2025-01-15", endDate: "2025-01-15"})
 	assertErrContains(t, err, "decode price bars")
 }
@@ -159,7 +159,7 @@ func TestChartPriceDataCLI(t *testing.T) {
 	}))
 	t.Cleanup(server.Close)
 
-	ctx := contextWithTestClient(server.URL)
+	ctx := contextWithTestClient(t, server.URL)
 	captureStdout(t, func() {
 		root := &cli.Command{Commands: []*cli.Command{NewChartCommand()}}
 		if err := root.Run(ctx, []string{"app", "chart", "price-data", "--ticker", "AAPL", "--start-date", "2025-01-15", "--end-date", "2025-01-15"}); err != nil {
@@ -174,7 +174,7 @@ func TestChartSnapshotCLI(t *testing.T) {
 	}))
 	t.Cleanup(server.Close)
 
-	ctx := contextWithTestClient(server.URL)
+	ctx := contextWithTestClient(t, server.URL)
 	captureStdout(t, func() {
 		root := &cli.Command{Commands: []*cli.Command{NewChartCommand()}}
 		if err := root.Run(ctx, []string{"app", "chart", "snapshot", "--ticker", "AAPL", "--date-key", "2025-01-15"}); err != nil {
@@ -189,7 +189,7 @@ func TestChartLevelsCLI(t *testing.T) {
 	}))
 	t.Cleanup(server.Close)
 
-	ctx := contextWithTestClient(server.URL)
+	ctx := contextWithTestClient(t, server.URL)
 	captureStdout(t, func() {
 		root := &cli.Command{Commands: []*cli.Command{NewChartCommand()}}
 		if err := root.Run(ctx, []string{"app", "chart", "levels", "--ticker", "AAPL", "--start-date", "2025-01-01", "--end-date", "2025-01-31"}); err != nil {
@@ -204,7 +204,7 @@ func TestChartCompanyCLI(t *testing.T) {
 	}))
 	t.Cleanup(server.Close)
 
-	ctx := contextWithTestClient(server.URL)
+	ctx := contextWithTestClient(t, server.URL)
 	captureStdout(t, func() {
 		root := &cli.Command{Commands: []*cli.Command{NewChartCommand()}}
 		if err := root.Run(ctx, []string{"app", "chart", "company", "--ticker", "AAPL"}); err != nil {

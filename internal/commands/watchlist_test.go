@@ -19,7 +19,7 @@ func TestRunWatchlistConfigs(t *testing.T) {
 	}))
 	t.Cleanup(server.Close)
 
-	ctx := contextWithTestClient(server.URL)
+	ctx := contextWithTestClient(t, server.URL)
 	captureStdout(t, func() {
 		if err := runWatchlistConfigs(ctx); err != nil {
 			t.Fatalf("unexpected error: %v", err)
@@ -33,7 +33,7 @@ func TestRunWatchlistConfigsServerError(t *testing.T) {
 	}))
 	t.Cleanup(server.Close)
 
-	ctx := contextWithTestClient(server.URL)
+	ctx := contextWithTestClient(t, server.URL)
 	err := runWatchlistConfigs(ctx)
 	assertErrContains(t, err, "query watchlist configs")
 }
@@ -47,7 +47,7 @@ func TestRunWatchlistTickers(t *testing.T) {
 	}))
 	t.Cleanup(server.Close)
 
-	ctx := contextWithTestClient(server.URL)
+	ctx := contextWithTestClient(t, server.URL)
 	captureStdout(t, func() {
 		if err := runWatchlistTickers(ctx, 1); err != nil {
 			t.Fatalf("unexpected error: %v", err)
@@ -64,7 +64,7 @@ func TestRunWatchlistDelete(t *testing.T) {
 	}))
 	t.Cleanup(server.Close)
 
-	ctx := contextWithTestClient(server.URL)
+	ctx := contextWithTestClient(t, server.URL)
 	captureStdout(t, func() {
 		if err := runWatchlistDelete(ctx, 1); err != nil {
 			t.Fatalf("unexpected error: %v", err)
@@ -78,7 +78,7 @@ func TestRunWatchlistDeleteServerError(t *testing.T) {
 	}))
 	t.Cleanup(server.Close)
 
-	ctx := contextWithTestClient(server.URL)
+	ctx := contextWithTestClient(t, server.URL)
 	err := runWatchlistDelete(ctx, 1)
 	assertErrContains(t, err, "delete watchlist")
 }
@@ -92,7 +92,7 @@ func TestRunWatchlistAddTicker(t *testing.T) {
 	}))
 	t.Cleanup(server.Close)
 
-	ctx := contextWithTestClient(server.URL)
+	ctx := contextWithTestClient(t, server.URL)
 	captureStdout(t, func() {
 		if err := runWatchlistAddTicker(ctx, 1, "NVDA"); err != nil {
 			t.Fatalf("unexpected error: %v", err)
@@ -106,7 +106,7 @@ func TestRunWatchlistAddTickerServerError(t *testing.T) {
 	}))
 	t.Cleanup(server.Close)
 
-	ctx := contextWithTestClient(server.URL)
+	ctx := contextWithTestClient(t, server.URL)
 	err := runWatchlistAddTicker(ctx, 1, "INVALID")
 	assertErrContains(t, err, "add ticker to watchlist")
 }
@@ -120,7 +120,7 @@ func TestRunWatchlistCreate(t *testing.T) {
 	}))
 	t.Cleanup(server.Close)
 
-	ctx := contextWithTestClient(server.URL)
+	ctx := contextWithTestClient(t, server.URL)
 	output := captureStdout(t, func() {
 		root := &cli.Command{Commands: []*cli.Command{NewWatchlistCommand()}}
 		if err := root.Run(ctx, []string{"app", "watchlist", "create", "--name", "Test List"}); err != nil {
@@ -141,7 +141,7 @@ func TestRunWatchlistEdit(t *testing.T) {
 	}))
 	t.Cleanup(server.Close)
 
-	ctx := contextWithTestClient(server.URL)
+	ctx := contextWithTestClient(t, server.URL)
 	output := captureStdout(t, func() {
 		root := &cli.Command{Commands: []*cli.Command{NewWatchlistCommand()}}
 		if err := root.Run(ctx, []string{"app", "watchlist", "edit", "--key", "1"}); err != nil {
@@ -162,7 +162,7 @@ func TestWatchlistConfigsCLI(t *testing.T) {
 	}))
 	t.Cleanup(server.Close)
 
-	ctx := contextWithTestClient(server.URL)
+	ctx := contextWithTestClient(t, server.URL)
 	captureStdout(t, func() {
 		root := &cli.Command{Commands: []*cli.Command{NewWatchlistCommand()}}
 		if err := root.Run(ctx, []string{"app", "watchlist", "configs"}); err != nil {
@@ -180,7 +180,7 @@ func TestWatchlistTickersCLI(t *testing.T) {
 	}))
 	t.Cleanup(server.Close)
 
-	ctx := contextWithTestClient(server.URL)
+	ctx := contextWithTestClient(t, server.URL)
 	captureStdout(t, func() {
 		root := &cli.Command{Commands: []*cli.Command{NewWatchlistCommand()}}
 		if err := root.Run(ctx, []string{"app", "watchlist", "tickers", "--watchlist-key", "1"}); err != nil {
@@ -198,7 +198,7 @@ func TestWatchlistDeleteCLI(t *testing.T) {
 	}))
 	t.Cleanup(server.Close)
 
-	ctx := contextWithTestClient(server.URL)
+	ctx := contextWithTestClient(t, server.URL)
 	captureStdout(t, func() {
 		root := &cli.Command{Commands: []*cli.Command{NewWatchlistCommand()}}
 		if err := root.Run(ctx, []string{"app", "watchlist", "delete", "--key", "1"}); err != nil {
@@ -216,7 +216,7 @@ func TestWatchlistAddTickerCLI(t *testing.T) {
 	}))
 	t.Cleanup(server.Close)
 
-	ctx := contextWithTestClient(server.URL)
+	ctx := contextWithTestClient(t, server.URL)
 	captureStdout(t, func() {
 		root := &cli.Command{Commands: []*cli.Command{NewWatchlistCommand()}}
 		if err := root.Run(ctx, []string{"app", "watchlist", "add-ticker", "--watchlist-key", "1", "--ticker", "NVDA"}); err != nil {
@@ -231,7 +231,7 @@ func TestRunWatchlistTickersServerError(t *testing.T) {
 	}))
 	t.Cleanup(server.Close)
 
-	ctx := contextWithTestClient(server.URL)
+	ctx := contextWithTestClient(t, server.URL)
 	err := runWatchlistTickers(ctx, 1)
 	assertErrContains(t, err, "query watchlist tickers")
 }
@@ -242,7 +242,7 @@ func TestRunWatchlistCreateEditServerError(t *testing.T) {
 	}))
 	t.Cleanup(server.Close)
 
-	ctx := contextWithTestClient(server.URL)
+	ctx := contextWithTestClient(t, server.URL)
 
 	t.Run("create", func(t *testing.T) {
 		root := &cli.Command{Commands: []*cli.Command{NewWatchlistCommand()}}

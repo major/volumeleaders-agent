@@ -73,7 +73,7 @@ func TestTradeRunFunctions(t *testing.T) {
 			}))
 			t.Cleanup(server.Close)
 
-			ctx := contextWithTestClient(server.URL)
+			ctx := contextWithTestClient(t, server.URL)
 			captureStdout(t, func() {
 				root := &cli.Command{Commands: []*cli.Command{tt.cmd()}}
 				if err := root.Run(ctx, tt.args); err != nil {
@@ -93,7 +93,7 @@ func TestTradeListFieldsFiltersOutput(t *testing.T) {
 	}))
 	t.Cleanup(server.Close)
 
-	ctx := contextWithTestClient(server.URL)
+	ctx := contextWithTestClient(t, server.URL)
 	output := captureStdout(t, func() {
 		root := &cli.Command{Commands: []*cli.Command{newTradeListCommand()}}
 		if err := root.Run(ctx, []string{
@@ -125,7 +125,7 @@ func TestTradeListFieldsFiltersOutput(t *testing.T) {
 }
 
 func TestTradeListFieldsRejectsInvalidField(t *testing.T) {
-	ctx := contextWithTestClient("http://127.0.0.1")
+	ctx := contextWithTestClient(t, "http://127.0.0.1")
 	root := &cli.Command{Commands: []*cli.Command{newTradeListCommand()}}
 	err := root.Run(ctx, []string{
 		"app", "list",
@@ -162,7 +162,7 @@ func TestTradeListPresetIncludesDefaults(t *testing.T) {
 	}))
 	t.Cleanup(server.Close)
 
-	ctx := contextWithTestClient(server.URL)
+	ctx := contextWithTestClient(t, server.URL)
 	captureStdout(t, func() {
 		root := &cli.Command{Commands: []*cli.Command{newTradeListCommand()}}
 		if err := root.Run(ctx, []string{
@@ -193,7 +193,7 @@ func TestTradeListPresetOverridesDefaults(t *testing.T) {
 	}))
 	t.Cleanup(server.Close)
 
-	ctx := contextWithTestClient(server.URL)
+	ctx := contextWithTestClient(t, server.URL)
 	captureStdout(t, func() {
 		root := &cli.Command{Commands: []*cli.Command{newTradeListCommand()}}
 		if err := root.Run(ctx, []string{
@@ -225,7 +225,7 @@ func TestTradeListExplicitFlagOverridesPreset(t *testing.T) {
 	}))
 	t.Cleanup(server.Close)
 
-	ctx := contextWithTestClient(server.URL)
+	ctx := contextWithTestClient(t, server.URL)
 	captureStdout(t, func() {
 		root := &cli.Command{Commands: []*cli.Command{newTradeListCommand()}}
 		if err := root.Run(ctx, []string{
@@ -255,7 +255,7 @@ func TestTradeRunFunctionServerError(t *testing.T) {
 	}))
 	t.Cleanup(server.Close)
 
-	ctx := contextWithTestClient(server.URL)
+	ctx := contextWithTestClient(t, server.URL)
 	root := &cli.Command{Commands: []*cli.Command{newTradeListCommand()}}
 	err := root.Run(ctx, []string{"app", "list", "--start-date", "2025-01-01", "--end-date", "2025-01-31"})
 	assertErrContains(t, err, "query trades")

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"slices"
 	"strconv"
 
 	"github.com/major/volumeleaders-agent/internal/datatables"
@@ -100,9 +101,9 @@ volumeleaders-agent alert create --name "Dark pool sweeps" --sweep --dark-pool -
 }
 
 func newAlertEditCommand() *cli.Command {
-	flags := append([]cli.Flag{
+	flags := slices.Concat([]cli.Flag{
 		&cli.IntFlag{Name: "key", Required: true, Usage: "Alert config key to edit"},
-	}, alertConfigFlags()...)
+	}, alertConfigFlags())
 	return &cli.Command{
 		Name:      "edit",
 		Usage:     "Edit an existing alert configuration",

@@ -129,6 +129,7 @@ type Trade struct {
 	Volume                        int        `json:"Volume"`
 	AverageDailyVolume            int        `json:"AverageDailyVolume"`
 	PercentDailyVolume            float64    `json:"PercentDailyVolume"`
+	RelativeSize                  float64    `json:"RelativeSize"`
 	LastComparibleTradeDate       AspNetDate `json:"LastComparibleTradeDate"`
 	IPODate                       AspNetDate `json:"IPODate"`
 	OffsettingTradeDate           AspNetDate `json:"OffsettingTradeDate"`

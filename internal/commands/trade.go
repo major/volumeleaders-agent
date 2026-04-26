@@ -41,6 +41,7 @@ func NewTradeCommand() *cli.Command {
 		Commands: []*cli.Command{
 			newTradeListCommand(),
 			newTradePresetsCommand(),
+			newTradePresetTickersCommand(),
 			newTradeClustersCommand(),
 			newTradeClusterBombsCommand(),
 			newTradeAlertsCommand(),

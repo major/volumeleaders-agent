@@ -2,6 +2,7 @@ package commands
 
 import (
 	"context"
+	"fmt"
 	"slices"
 
 	"github.com/major/volumeleaders-agent/internal/datatables"
@@ -224,7 +225,7 @@ func runTradeList(ctx context.Context, cmd *cli.Command) error {
 	watchlistName := cmd.String("watchlist")
 	fields, err := parseJSONFieldList[models.Trade](cmd.String("fields"))
 	if err != nil {
-		return err
+		return fmt.Errorf("parsing fields flag: %w", err)
 	}
 
 	// Build the full filter map from CLI flags (includes defaults for unset

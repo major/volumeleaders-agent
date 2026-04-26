@@ -11,6 +11,7 @@ Output: compact JSON to stdout by default. List-style commands support `--format
 | I want to... | Command |
 |---|---|
 | Find large institutional trades in specific stocks | `trade list --tickers X --start-date D --end-date D` |
+| Compare leveraged ETF bull/bear flow | `trade sentiment --start-date D --end-date D` |
 | See where institutions are clustering trades | `trade clusters --start-date D --end-date D` |
 | Detect sudden aggressive institutional bursts | `trade cluster-bombs --start-date D --end-date D` |
 | Check system-flagged individual trade alerts | `trade alerts --date D` |
@@ -51,7 +52,7 @@ Chain commands for deeper analysis:
 
 **Output formats**: list-style object outputs accept `--format json|csv|tsv` (default `json`). CSV/TSV use output field names as headers. `--pretty` only affects JSON.
 
-**Ticker flags**: `--tickers` takes comma-separated list (multi-ticker commands). `--ticker` takes a single symbol (single-ticker commands). All trade subcommands also accept `--ticker`, `--tickers`, `--symbol`, and `--symbols` as aliases, so any form works on any command.
+**Ticker flags**: `--tickers` takes comma-separated list (multi-ticker commands). `--ticker` takes a single symbol (single-ticker commands). Ticker-based trade subcommands accept `--ticker`, `--tickers`, `--symbol`, and `--symbols` aliases, so any form works there. `trade sentiment` intentionally does not accept ticker flags because it always analyzes the leveraged ETF universe.
 
 ## Shared Flag Defaults
 
@@ -83,6 +84,8 @@ These defaults apply across trade commands unless overridden (overrides noted pe
 | `--offsetting` | 1 | Session toggle |
 
 **Chart commands use different flag names** for some of these. See chart.md for the exact mapping.
+
+**Trade sentiment overrides**: `trade sentiment` defaults to `--min-dollars 5000000` and `--vcd 97` because leveraged ETF sentiment is meant to highlight unusually large, high-confirmation flow.
 
 ## Key Metrics Glossary
 

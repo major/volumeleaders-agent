@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/major/volumeleaders-agent/internal/models"
 	cli "github.com/urfave/cli/v3"
 )
 
@@ -23,6 +24,12 @@ func TestTradeRunFunctions(t *testing.T) {
 			name: "list",
 			cmd:  newTradeListCommand,
 			args: []string{"app", "list", "--start-date", "2025-01-01", "--end-date", "2025-01-31"},
+			path: "/Trades/GetTrades",
+		},
+		{
+			name: "sentiment",
+			cmd:  newTradeSentimentCommand,
+			args: []string{"app", "sentiment", "--start-date", "2025-01-01", "--end-date", "2025-01-31"},
 			path: "/Trades/GetTrades",
 		},
 		{
@@ -81,6 +88,189 @@ func TestTradeRunFunctions(t *testing.T) {
 				}
 			})
 		})
+	}
+}
+
+func TestTradeSentimentAggregatesLeveragedFlow(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/Trades/GetTrades" {
+			t.Errorf("expected path /Trades/GetTrades, got %s", r.URL.Path)
+		}
+		fmt.Fprint(w, dataTablesJSON(`[
+			{"Date":"/Date(1745193600000)/","Ticker":"SH","Sector":"X Bear","Dollars":886000000},
+			{"Date":"/Date(1745193600000)/","Ticker":"TQQQ","Sector":"X Bull","Dollars":68000000},
+			{"Date":"/Date(1745280000000)/","Ticker":"SQQQ","Industry":"X Bear","Dollars":51000000},
+			{"Date":"/Date(1745280000000)/","Ticker":"SOXL","Industry":"X Bull","Dollars":102000000},
+			{"Date":"/Date(1745280000000)/","Ticker":"AAPL","Sector":"Technology","Dollars":999999999}
+		]`))
+	}))
+	t.Cleanup(server.Close)
+
+	ctx := contextWithTestClient(server.URL)
+	output := captureStdout(t, func() {
+		root := &cli.Command{Commands: []*cli.Command{newTradeSentimentCommand()}}
+		if err := root.Run(ctx, []string{
+			"app", "sentiment",
+			"--start-date", "2025-04-21",
+			"--end-date", "2025-04-22",
+		}); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+	})
+
+	var got models.TradeSentiment
+	if err := json.Unmarshal([]byte(output), &got); err != nil {
+		t.Fatalf("unmarshal sentiment output: %v", err)
+	}
+	if got.DateRange.Start != "2025-04-21" || got.DateRange.End != "2025-04-22" {
+		t.Fatalf("unexpected date range: %#v", got.DateRange)
+	}
+	if len(got.Daily) != 2 {
+		t.Fatalf("expected two daily rows, got %d", len(got.Daily))
+	}
+
+	monday := got.Daily[0]
+	if monday.Date != "2025-04-21" {
+		t.Fatalf("expected first day 2025-04-21, got %s", monday.Date)
+	}
+	if monday.Bear.Trades != 1 || monday.Bear.Dollars != 886000000 {
+		t.Fatalf("unexpected Monday bear summary: %#v", monday.Bear)
+	}
+	if monday.Bull.Trades != 1 || monday.Bull.Dollars != 68000000 {
+		t.Fatalf("unexpected Monday bull summary: %#v", monday.Bull)
+	}
+	if monday.Ratio == nil || *monday.Ratio < 0.076 || *monday.Ratio > 0.077 {
+		t.Fatalf("unexpected Monday ratio: %v", monday.Ratio)
+	}
+	if monday.Signal != models.TradeSentimentExtremeBear {
+		t.Fatalf("expected Monday extreme bear signal, got %s", monday.Signal)
+	}
+	if strings.Join(monday.Bear.TopTickers, ",") != "SH" {
+		t.Fatalf("unexpected Monday bear top tickers: %#v", monday.Bear.TopTickers)
+	}
+	if strings.Join(monday.Bull.TopTickers, ",") != "TQQQ" {
+		t.Fatalf("unexpected Monday bull top tickers: %#v", monday.Bull.TopTickers)
+	}
+
+	tuesday := got.Daily[1]
+	if tuesday.Ratio == nil || *tuesday.Ratio != 2.0 {
+		t.Fatalf("unexpected Tuesday ratio: %v", tuesday.Ratio)
+	}
+	if tuesday.Signal != models.TradeSentimentNeutral {
+		t.Fatalf("expected Tuesday neutral signal at 2.0 boundary, got %s", tuesday.Signal)
+	}
+	if got.Totals.Bear.Trades != 2 || got.Totals.Bull.Trades != 2 {
+		t.Fatalf("unexpected totals: %#v", got.Totals)
+	}
+}
+
+func TestTradeSentimentUsesCombinedLeverageFilter(t *testing.T) {
+	var body string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		b, _ := io.ReadAll(r.Body)
+		body = string(b)
+		fmt.Fprint(w, dataTablesJSON(`[]`))
+	}))
+	t.Cleanup(server.Close)
+
+	ctx := contextWithTestClient(server.URL)
+	captureStdout(t, func() {
+		root := &cli.Command{Commands: []*cli.Command{newTradeSentimentCommand()}}
+		if err := root.Run(ctx, []string{
+			"app", "sentiment",
+			"--start-date", "2025-04-21",
+			"--end-date", "2025-04-25",
+			"--min-dollars", "7000000",
+		}); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+	})
+
+	for _, want := range []string{"SectorIndustry=X+B", "VCD=97", "MinDollars=7000000", "length=1000"} {
+		if !strings.Contains(body, want) {
+			t.Fatalf("expected request body to contain %q, got %s", want, body)
+		}
+	}
+}
+
+func TestTradeSentimentRejectsMalformedPage(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		fmt.Fprint(w, dataTablesJSON(`{"not":"a trade array"}`))
+	}))
+	t.Cleanup(server.Close)
+
+	ctx := contextWithTestClient(server.URL)
+	root := &cli.Command{Commands: []*cli.Command{newTradeSentimentCommand()}}
+	err := root.Run(ctx, []string{
+		"app", "sentiment",
+		"--start-date", "2025-04-21",
+		"--end-date", "2025-04-25",
+	})
+	assertErrContains(t, err, "query trade sentiment: decode response")
+}
+
+func TestTradeSentimentTickerFallbackClassifiesCWEBAsBull(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		fmt.Fprint(w, dataTablesJSON(`[
+			{"Date":"/Date(1745193600000)/","Ticker":"CWEB","Sector":"ETF","Industry":"China","Name":"ProShares Ultra China ETF","Dollars":25000000},
+			{"Date":"/Date(1745193600000)/","Ticker":"SH","Sector":"ETF","Industry":"Index","Name":"Short S&P 500 ETF","Dollars":5000000}
+		]`))
+	}))
+	t.Cleanup(server.Close)
+
+	ctx := contextWithTestClient(server.URL)
+	output := captureStdout(t, func() {
+		root := &cli.Command{Commands: []*cli.Command{newTradeSentimentCommand()}}
+		if err := root.Run(ctx, []string{
+			"app", "sentiment",
+			"--start-date", "2025-04-21",
+			"--end-date", "2025-04-21",
+		}); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+	})
+
+	var got models.TradeSentiment
+	if err := json.Unmarshal([]byte(output), &got); err != nil {
+		t.Fatalf("unmarshal sentiment output: %v", err)
+	}
+	if got.Totals.Bull.Trades != 1 || got.Totals.Bull.Dollars != 25000000 {
+		t.Fatalf("expected CWEB to be classified as bull, got %#v", got.Totals.Bull)
+	}
+	if strings.Join(got.Totals.Bull.TopTickers, ",") != "CWEB" {
+		t.Fatalf("unexpected bull top tickers: %#v", got.Totals.Bull.TopTickers)
+	}
+}
+
+func TestTradeSentimentNoBearFlowUsesNullRatioAndExtremeBull(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		fmt.Fprint(w, dataTablesJSON(`[
+			{"Date":"/Date(1745193600000)/","Ticker":"TQQQ","Sector":"X Bull","Dollars":75000000}
+		]`))
+	}))
+	t.Cleanup(server.Close)
+
+	ctx := contextWithTestClient(server.URL)
+	output := captureStdout(t, func() {
+		root := &cli.Command{Commands: []*cli.Command{newTradeSentimentCommand()}}
+		if err := root.Run(ctx, []string{
+			"app", "sentiment",
+			"--start-date", "2025-04-21",
+			"--end-date", "2025-04-21",
+		}); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+	})
+
+	var got models.TradeSentiment
+	if err := json.Unmarshal([]byte(output), &got); err != nil {
+		t.Fatalf("unmarshal sentiment output: %v", err)
+	}
+	if got.Totals.Ratio != nil {
+		t.Fatalf("expected nil total ratio with no bear flow, got %v", got.Totals.Ratio)
+	}
+	if got.Totals.Signal != models.TradeSentimentExtremeBull {
+		t.Fatalf("expected extreme bull signal, got %s", got.Totals.Signal)
 	}
 }
 

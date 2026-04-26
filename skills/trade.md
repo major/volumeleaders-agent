@@ -1,6 +1,6 @@
 # trade
 
-Institutional trade discovery. 9 subcommands. See SKILL.md for shared flag defaults and metrics glossary.
+Institutional trade discovery. 10 subcommands. See SKILL.md for shared flag defaults and metrics glossary.
 
 ## trade presets
 
@@ -62,6 +62,20 @@ volumeleaders-agent trade list --tickers AAPL,MSFT --start-date 2025-04-21 --end
 ```
 
 Output fields: `AHInstitutionalDollars`, `AHInstitutionalDollarsRank`, `AHInstitutionalVolume`, `Ask`, `AverageBlockSizeDollars`, `AverageBlockSizeShares`, `AverageDailyVolume`, `Bid`, `Cancelled`, `ClosePrice`, `ClosingTrade`, `ClosingTradeDollars`, `ClosingTradeDollarsRank`, `ClosingTradeVolume`, `CumulativeDistribution`, `DarkPool`, `Date`, `DateKey`, `Dollars`, `DollarsMultiplier`, `DoubleInsideBar`, `EOM`, `EOQ`, `EOY`, `EndDate`, `ExternalFeed`, `FrequencyLast1CY`, `FrequencyLast30TD`, `FrequencyLast90TD`, `FullDateTime`, `FullTimeString24`, `IPODate`, `Industry`, `InsideBar`, `LastComparibleTradeDate`, `LatePrint`, `Name`, `NewPosition`, `OPEX`, `OffsettingTradeDate`, `OpeningTrade`, `PercentDailyVolume`, `PhantomPrint`, `PhantomPrintFulfillmentDate`, `PhantomPrintFulfillmentDays`, `Price`, `RelativeSize`, `RSIDay`, `RSIHour`, `Sector`, `SecurityKey`, `SequenceNumber`, `SignaturePrint`, `StartDate`, `Sweep`, `TD1CY`, `TD30`, `TD90`, `Ticker`, `TimeKey`, `TotalDollars`, `TotalDollarsRank`, `TotalInstitutionalDollars`, `TotalInstitutionalDollarsRank`, `TotalInstitutionalVolume`, `TotalRows`, `TotalTrades`, `TotalVolume`, `TradeConditions`, `TradeCount`, `TradeID`, `TradeRank`, `TradeRankSnapshot`, `VOLEX`, `Volume`
+
+## trade sentiment
+
+Summarize leveraged ETF institutional flow into daily bull/bear ratios. The command queries the combined leveraged ETF sector filter (`SectorIndustry=X B`) once, classifies bull and bear rows locally, aggregates dollars by day, and returns compact JSON for sentiment analysis.
+
+Required: `--start-date`, `--end-date`
+Optional: volume/price/dollar ranges, trade filters, trade type toggles, session toggles
+Non-standard defaults: `--min-dollars 5000000`, `--vcd 97`, `--relative-size 5`
+
+```bash
+volumeleaders-agent trade sentiment --start-date 2025-04-21 --end-date 2025-04-25 --min-dollars 5000000
+```
+
+Output fields: `dateRange` (`start`, `end`), `daily` array, and `totals`. Each daily row includes `date`, `bear`, `bull`, `ratio`, and `signal`. `bear`, `bull`, and total side objects include `trades`, `dollars`, and `topTickers`. `ratio` is bull dollars divided by bear dollars; it is `null` when there is no bear flow. Signals use thresholds: `<0.2` `extreme_bear`, `<0.5` `moderate_bear`, `0.5-2.0` `neutral`, `>2.0-5.0` `moderate_bull`, `>5.0` `extreme_bull`.
 
 ## trade clusters
 

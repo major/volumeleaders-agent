@@ -173,6 +173,32 @@ type Trade struct {
 	ExternalFeed                  FlexBool   `json:"ExternalFeed"`
 }
 
+// TradeSummary represents aggregate trade metrics for a trade list query.
+type TradeSummary struct {
+	TotalTrades  int                          `json:"totalTrades"`
+	TotalDollars float64                      `json:"totalDollars"`
+	DateRange    TradeSummaryDateRange        `json:"dateRange"`
+	ByTicker     map[string]TradeGroupSummary `json:"byTicker,omitempty"`
+	ByDay        map[string]TradeGroupSummary `json:"byDay,omitempty"`
+	ByTickerDay  map[string]TradeGroupSummary `json:"byTickerDay,omitempty"`
+}
+
+// TradeSummaryDateRange records the CLI date range used for a summary query.
+type TradeSummaryDateRange struct {
+	Start string `json:"start"`
+	End   string `json:"end"`
+}
+
+// TradeGroupSummary represents aggregate metrics for one summary group.
+type TradeGroupSummary struct {
+	Trades                    int     `json:"trades"`
+	Dollars                   float64 `json:"dollars"`
+	AvgDollarsMultiplier      float64 `json:"avgDollarsMultiplier"`
+	PctDarkPool               float64 `json:"pctDarkPool"`
+	PctSweep                  float64 `json:"pctSweep"`
+	AvgCumulativeDistribution float64 `json:"avgCumulativeDistribution"`
+}
+
 // DataTablesResponse represents the server-side DataTables JSON envelope.
 type DataTablesResponse struct {
 	Draw            int             `json:"draw"`

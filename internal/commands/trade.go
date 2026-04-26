@@ -2,9 +2,13 @@ package commands
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"log/slog"
 	"slices"
+	"strings"
 
+	"github.com/major/volumeleaders-agent/internal/client"
 	"github.com/major/volumeleaders-agent/internal/datatables"
 	"github.com/major/volumeleaders-agent/internal/models"
 	cli "github.com/urfave/cli/v3"
@@ -92,6 +96,8 @@ volumeleaders-agent trade list --watchlist "Magnificent 7" --start-date 2025-04-
 				&cli.StringFlag{Name: "preset", Usage: "Apply a built-in filter preset (see: trade presets)"},
 				&cli.StringFlag{Name: "watchlist", Usage: "Apply filters from a saved watchlist by name"},
 				&cli.StringFlag{Name: "fields", Usage: "Comma-separated trade fields to include in output"},
+				&cli.BoolFlag{Name: "summary", Usage: "Return aggregate metrics instead of individual trades"},
+				&cli.StringFlag{Name: "group-by", Value: "ticker", Usage: "Summary grouping: ticker, day, or ticker,day"},
 			},
 			paginationFlags(100, 1, "desc"),
 		),
@@ -293,9 +299,199 @@ func runTradeList(ctx context.Context, cmd *cli.Command) error {
 	filters["StartDate"] = cmd.String("start-date")
 	filters["EndDate"] = cmd.String("end-date")
 
-	return runDataTablesCommand[models.Trade](ctx, "/Trades/GetTrades", datatables.TradeColumns,
-		dataTableOptions{start: cmd.Int("start"), length: cmd.Int("length"), orderCol: cmd.Int("order-col"), orderDir: cmd.String("order-dir"), filters: filters, fields: fields},
-		"query trades")
+	optsDataTable := dataTableOptions{
+		start:    cmd.Int("start"),
+		length:   cmd.Int("length"),
+		orderCol: cmd.Int("order-col"),
+		orderDir: cmd.String("order-dir"),
+		filters:  filters,
+		fields:   fields,
+	}
+
+	if cmd.Bool("summary") {
+		if len(fields) > 0 {
+			return fmt.Errorf("--fields cannot be used with --summary")
+		}
+		return runTradeSummary(ctx, optsDataTable, cmd.String("group-by"), cmd.String("start-date"), cmd.String("end-date"))
+	}
+
+	return runDataTablesCommand[models.Trade](ctx, "/Trades/GetTrades", datatables.TradeColumns, optsDataTable, "query trades")
+}
+
+func runTradeSummary(ctx context.Context, opts dataTableOptions, groupBy, startDate, endDate string) error {
+	group, err := parseTradeSummaryGroup(groupBy)
+	if err != nil {
+		return err
+	}
+
+	trades, err := fetchTradeList(ctx, opts)
+	if err != nil {
+		return err
+	}
+
+	summary := summarizeTrades(trades, group, startDate, endDate)
+	return printJSON(ctx, summary)
+}
+
+func fetchTradeList(ctx context.Context, opts dataTableOptions) ([]models.Trade, error) {
+	vlClient, err := newCommandClient(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	if opts.length < 0 {
+		return fetchAllTradePages(ctx, vlClient, opts)
+	}
+
+	request := newDataTablesRequest(datatables.TradeColumns, opts)
+	var result []models.Trade
+	if err := vlClient.PostDataTables(ctx, "/Trades/GetTrades", request.Encode(), &result); err != nil {
+		slog.Error("failed to query trades", "error", err)
+		return nil, fmt.Errorf("query trades: %w", err)
+	}
+	return result, nil
+}
+
+func fetchAllTradePages(ctx context.Context, vlClient *client.Client, opts dataTableOptions) ([]models.Trade, error) {
+	opts.length = paginationPageSize
+	all := make([]models.Trade, 0)
+	for {
+		request := newDataTablesRequest(datatables.TradeColumns, opts)
+		resp, err := vlClient.PostDataTablesPage(ctx, "/Trades/GetTrades", request.Encode())
+		if err != nil {
+			slog.Error("failed to query trades", "error", err)
+			return nil, fmt.Errorf("query trades: %w", err)
+		}
+
+		var page []models.Trade
+		if err := json.Unmarshal(resp.Data, &page); err != nil {
+			slog.Error("failed to decode trades", "error", err)
+			return nil, fmt.Errorf("query trades: decode response: %w", err)
+		}
+		if len(page) == 0 {
+			break
+		}
+
+		all = append(all, page...)
+		if resp.RecordsFiltered > 0 && len(all) >= resp.RecordsFiltered {
+			break
+		}
+		if len(page) < paginationPageSize {
+			break
+		}
+
+		opts.start += len(page)
+	}
+	return all, nil
+}
+
+type tradeSummaryGroup string
+
+const (
+	tradeSummaryGroupTicker    tradeSummaryGroup = "ticker"
+	tradeSummaryGroupDay       tradeSummaryGroup = "day"
+	tradeSummaryGroupTickerDay tradeSummaryGroup = "ticker,day"
+)
+
+func parseTradeSummaryGroup(value string) (tradeSummaryGroup, error) {
+	normalized := strings.ToLower(strings.ReplaceAll(strings.TrimSpace(value), " ", ""))
+	switch tradeSummaryGroup(normalized) {
+	case tradeSummaryGroupTicker, tradeSummaryGroupDay, tradeSummaryGroupTickerDay:
+		return tradeSummaryGroup(normalized), nil
+	default:
+		return "", fmt.Errorf("invalid group-by %q; valid values: ticker, day, ticker,day", value)
+	}
+}
+
+type tradeGroupAccumulator struct {
+	trades                 int
+	dollars                float64
+	dollarsMultiplier      float64
+	darkPool, sweep        int
+	cumulativeDistribution float64
+}
+
+func summarizeTrades(trades []models.Trade, group tradeSummaryGroup, startDate, endDate string) models.TradeSummary {
+	summary := models.TradeSummary{
+		DateRange: models.TradeSummaryDateRange{Start: startDate, End: endDate},
+	}
+
+	for i := range trades {
+		trade := &trades[i]
+		summary.TotalTrades++
+		summary.TotalDollars += trade.Dollars
+	}
+
+	switch group {
+	case tradeSummaryGroupTicker:
+		summary.ByTicker = summarizeTradeGroups(trades, tradeTickerKey)
+	case tradeSummaryGroupDay:
+		summary.ByDay = summarizeTradeGroups(trades, tradeDayKey)
+	case tradeSummaryGroupTickerDay:
+		summary.ByTickerDay = summarizeTradeGroups(trades, tradeTickerDayKey)
+	}
+
+	return summary
+}
+
+func summarizeTradeGroups(trades []models.Trade, keyFunc func(*models.Trade) string) map[string]models.TradeGroupSummary {
+	groups := make(map[string]tradeGroupAccumulator)
+	for i := range trades {
+		trade := &trades[i]
+		key := keyFunc(trade)
+		acc := groups[key]
+		acc.trades++
+		acc.dollars += trade.Dollars
+		acc.dollarsMultiplier += trade.DollarsMultiplier
+		acc.cumulativeDistribution += trade.CumulativeDistribution
+		if bool(trade.DarkPool) {
+			acc.darkPool++
+		}
+		if bool(trade.Sweep) {
+			acc.sweep++
+		}
+		groups[key] = acc
+	}
+
+	summaries := make(map[string]models.TradeGroupSummary, len(groups))
+	for key, acc := range groups {
+		summaries[key] = acc.summary()
+	}
+	return summaries
+}
+
+func (acc tradeGroupAccumulator) summary() models.TradeGroupSummary {
+	if acc.trades == 0 {
+		return models.TradeGroupSummary{}
+	}
+
+	count := float64(acc.trades)
+	return models.TradeGroupSummary{
+		Trades:                    acc.trades,
+		Dollars:                   acc.dollars,
+		AvgDollarsMultiplier:      acc.dollarsMultiplier / count,
+		PctDarkPool:               float64(acc.darkPool) / count * 100,
+		PctSweep:                  float64(acc.sweep) / count * 100,
+		AvgCumulativeDistribution: acc.cumulativeDistribution / count,
+	}
+}
+
+func tradeTickerKey(trade *models.Trade) string {
+	if trade.Ticker == "" {
+		return "unknown"
+	}
+	return trade.Ticker
+}
+
+func tradeDayKey(trade *models.Trade) string {
+	if !trade.Date.Valid {
+		return "unknown"
+	}
+	return trade.Date.Format("2006-01-02")
+}
+
+func tradeTickerDayKey(trade *models.Trade) string {
+	return tradeTickerKey(trade) + "|" + tradeDayKey(trade)
 }
 
 func runTradeClusters(ctx context.Context, cmd *cli.Command) error {

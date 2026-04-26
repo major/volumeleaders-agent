@@ -2,8 +2,62 @@ package commands
 
 import (
 	"reflect"
+	"strings"
 	"testing"
+
+	"github.com/major/volumeleaders-agent/internal/models"
 )
+
+func TestParseJSONFieldList(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		value   string
+		want    []string
+		wantErr string
+	}{
+		{
+			name:  "empty list returns nil",
+			value: "",
+		},
+		{
+			name:  "valid fields keep requested order",
+			value: "Date,Ticker,Dollars",
+			want:  []string{"Date", "Ticker", "Dollars"},
+		},
+		{
+			name:  "spaces and duplicates are normalized",
+			value: " Ticker, Dollars, Ticker ",
+			want:  []string{"Ticker", "Dollars"},
+		},
+		{
+			name:    "invalid field returns valid names",
+			value:   "Ticker,NotAField",
+			wantErr: "invalid field \"NotAField\"; valid fields:",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			got, err := parseJSONFieldList[models.Trade](tt.value)
+			if tt.wantErr != "" {
+				if err == nil || !strings.Contains(err.Error(), tt.wantErr) {
+					t.Fatalf("expected error containing %q, got %v", tt.wantErr, err)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Fatalf("fields mismatch\nexpected: %#v\ngot:      %#v", tt.want, got)
+			}
+		})
+	}
+}
 
 func TestBuildTradeFiltersPreservesAPIKeys(t *testing.T) {
 	t.Parallel()

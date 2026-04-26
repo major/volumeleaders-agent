@@ -3,6 +3,7 @@ package commands
 import (
 	"context"
 	"fmt"
+	"maps"
 	"slices"
 
 	"github.com/major/volumeleaders-agent/internal/datatables"
@@ -270,9 +271,7 @@ func runTradeList(ctx context.Context, cmd *cli.Command) error {
 			if err != nil {
 				return err
 			}
-			for k, v := range preset.filters {
-				filters[k] = v
-			}
+			maps.Copy(filters, preset.filters)
 		}
 
 		if watchlistName != "" {
@@ -280,9 +279,7 @@ func runTradeList(ctx context.Context, cmd *cli.Command) error {
 			if err != nil {
 				return err
 			}
-			for k, v := range wlFilters {
-				filters[k] = v
-			}
+			maps.Copy(filters, wlFilters)
 		}
 
 		// User-explicit CLI flags take final precedence.

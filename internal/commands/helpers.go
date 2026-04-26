@@ -169,8 +169,7 @@ func jsonFieldNames[T any]() []string {
 	}
 
 	fields := make([]string, 0, typeOf.NumField())
-	for i := range typeOf.NumField() {
-		field := typeOf.Field(i)
+	for field := range typeOf.Fields() {
 		name, _, _ := strings.Cut(field.Tag.Get("json"), ",")
 		switch name {
 		case "", "-":

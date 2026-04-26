@@ -34,9 +34,11 @@ Optional flags:
 | **`--include-closing`** | 1 | **Not `--closing`** |
 | **`--include-phantom`** | 1 | **Not `--phantom`** |
 | **`--include-offsetting`** | 1 | **Not `--offsetting`** |
+| `--format` | json | `json`, `csv`, or `tsv` |
 
 ```bash
 volumeleaders-agent chart price-data --ticker AAPL --start-date 2025-04-23 --end-date 2025-04-23
+volumeleaders-agent chart price-data --ticker AAPL --start-date 2025-04-23 --end-date 2025-04-23 --format tsv
 ```
 
 Output fields (PriceBar model): `DateKey`, `TimeKey`, `Date`, `FullDateTime`, `FullTimeString24`, `OpenPrice`, `ClosePrice`, `HighPrice`, `LowPrice`, `Volume`, `Dollars`, `Trades`, `CumulativeDistribution`, `TradeRank`, `TradeRankSnapshot`, `TradeLevelRank`, `DollarsMultiplier`, `RelativeSize`, `DarkPoolTrade` (note: NOT `DarkPool`), `LatePrint`, `OpeningTrade`, `ClosingTrade`, `SignaturePrint`, `PhantomPrint`, `Sweep`, `FrequencyLast30TD`, `FrequencyLast90TD`, `FrequencyLast1CY`
@@ -60,13 +62,15 @@ Note: `lastQuote` and `lastTrade` use single-letter JSON keys, not descriptive n
 Institutional price levels for charting. Simpler interface than `trade levels` with fewer filter options.
 
 Required: `--ticker`, `--start-date`, `--end-date`
-Optional: `--levels` (default 5)
+Optional: `--levels` (default 5), `--format json|csv|tsv`
 
 ```bash
 volumeleaders-agent chart levels --ticker AAPL --start-date 2025-01-01 --end-date 2025-04-23 --levels 10
 ```
 
 Output fields: same TradeLevel model as `trade levels`.
+
+Output format: `chart price-data` and `chart levels` default to JSON and support CSV/TSV. `chart snapshot` and `chart company` remain JSON-only single-object outputs.
 
 ## chart company
 

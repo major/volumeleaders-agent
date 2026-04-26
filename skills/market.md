@@ -17,12 +17,16 @@ Output: JSON object mapping ticker to price data.
 Earnings calendar with institutional activity counts. Shows how much institutional positioning preceded each earnings event.
 
 Required: `--start-date`, `--end-date`
+Optional: `--format json|csv|tsv`
 
 ```bash
 volumeleaders-agent market earnings --start-date 2025-04-21 --end-date 2025-04-25
+volumeleaders-agent market earnings --start-date 2025-04-21 --end-date 2025-04-25 --format csv
 ```
 
 Output fields: `Ticker`, `Name`, `Sector`, `Industry`, `EarningsDate`, `AfterMarketClose` (bool), `TradeCount`, `TradeClusterCount`, `TradeClusterBombCount`
+
+Output format: `market earnings` defaults to JSON and supports CSV/TSV. `market snapshots` and `market exhaustion` remain JSON-only.
 
 ## market exhaustion
 

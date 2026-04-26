@@ -425,7 +425,7 @@ func fetchAllTradePages(ctx context.Context, vlClient *client.Client, opts dataT
 
 	opts.length = paginationPageSize
 	all := make([]models.Trade, 0)
-	for pageNumber := 0; pageNumber < maxTradeSummaryPages; pageNumber++ {
+	for range maxTradeSummaryPages {
 		request := newDataTablesRequest(datatables.TradeColumns, opts)
 		resp, err := vlClient.PostDataTablesPage(ctx, "/Trades/GetTrades", request.Encode())
 		if err != nil {

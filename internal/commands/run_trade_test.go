@@ -341,7 +341,7 @@ func TestTradeListSummaryDefaultsToTickerGrouping(t *testing.T) {
 	}))
 	t.Cleanup(server.Close)
 
-	ctx := contextWithTestClient(server.URL)
+	ctx := contextWithTestClient(t, server.URL)
 	output := captureStdout(t, func() {
 		root := &cli.Command{Commands: []*cli.Command{newTradeListCommand()}}
 		if err := root.Run(ctx, []string{
@@ -398,7 +398,7 @@ func TestTradeListSummaryGroupsByTickerDay(t *testing.T) {
 	}))
 	t.Cleanup(server.Close)
 
-	ctx := contextWithTestClient(server.URL)
+	ctx := contextWithTestClient(t, server.URL)
 	output := captureStdout(t, func() {
 		root := &cli.Command{Commands: []*cli.Command{newTradeListCommand()}}
 		if err := root.Run(ctx, []string{
@@ -439,7 +439,7 @@ func TestTradeListSummaryGroupsByDay(t *testing.T) {
 	}))
 	t.Cleanup(server.Close)
 
-	ctx := contextWithTestClient(server.URL)
+	ctx := contextWithTestClient(t, server.URL)
 	output := captureStdout(t, func() {
 		root := &cli.Command{Commands: []*cli.Command{newTradeListCommand()}}
 		if err := root.Run(ctx, []string{
@@ -490,7 +490,7 @@ func TestTradeListSummaryAllResultsUsesPagination(t *testing.T) {
 	}))
 	t.Cleanup(server.Close)
 
-	ctx := contextWithTestClient(server.URL)
+	ctx := contextWithTestClient(t, server.URL)
 	output := captureStdout(t, func() {
 		root := &cli.Command{Commands: []*cli.Command{newTradeListCommand()}}
 		if err := root.Run(ctx, []string{
@@ -526,7 +526,7 @@ func TestTradeListSummaryAllResultsRejectsMalformedPage(t *testing.T) {
 	}))
 	t.Cleanup(server.Close)
 
-	ctx := contextWithTestClient(server.URL)
+	ctx := contextWithTestClient(t, server.URL)
 	root := &cli.Command{Commands: []*cli.Command{newTradeListCommand()}}
 	err := root.Run(ctx, []string{
 		"app", "list",
@@ -539,7 +539,7 @@ func TestTradeListSummaryAllResultsRejectsMalformedPage(t *testing.T) {
 }
 
 func TestTradeListSummaryRejectsInvalidGroupBy(t *testing.T) {
-	ctx := contextWithTestClient("http://127.0.0.1")
+	ctx := contextWithTestClient(t, "http://127.0.0.1")
 	root := &cli.Command{Commands: []*cli.Command{newTradeListCommand()}}
 	err := root.Run(ctx, []string{
 		"app", "list",
@@ -552,7 +552,7 @@ func TestTradeListSummaryRejectsInvalidGroupBy(t *testing.T) {
 }
 
 func TestTradeListSummaryRejectsFields(t *testing.T) {
-	ctx := contextWithTestClient("http://127.0.0.1")
+	ctx := contextWithTestClient(t, "http://127.0.0.1")
 	root := &cli.Command{Commands: []*cli.Command{newTradeListCommand()}}
 	err := root.Run(ctx, []string{
 		"app", "list",
@@ -565,7 +565,7 @@ func TestTradeListSummaryRejectsFields(t *testing.T) {
 }
 
 func TestTradeListSummaryRejectsNonJSONFormat(t *testing.T) {
-	ctx := contextWithTestClient("http://127.0.0.1")
+	ctx := contextWithTestClient(t, "http://127.0.0.1")
 	root := &cli.Command{Commands: []*cli.Command{newTradeListCommand()}}
 	err := root.Run(ctx, []string{
 		"app", "list",
@@ -578,7 +578,7 @@ func TestTradeListSummaryRejectsNonJSONFormat(t *testing.T) {
 }
 
 func TestTradeListRejectsGroupByWithoutSummary(t *testing.T) {
-	ctx := contextWithTestClient("http://127.0.0.1")
+	ctx := contextWithTestClient(t, "http://127.0.0.1")
 	root := &cli.Command{Commands: []*cli.Command{newTradeListCommand()}}
 	err := root.Run(ctx, []string{
 		"app", "list",
@@ -601,7 +601,7 @@ func TestTradeListSummaryAllResultsStopsAtPaginationCap(t *testing.T) {
 	}))
 	t.Cleanup(server.Close)
 
-	ctx := contextWithTestClient(server.URL)
+	ctx := contextWithTestClient(t, server.URL)
 	root := &cli.Command{Commands: []*cli.Command{newTradeListCommand()}}
 	err := root.Run(ctx, []string{
 		"app", "list",

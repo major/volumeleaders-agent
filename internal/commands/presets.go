@@ -497,11 +497,17 @@ func newTradePresetsCommand() *cli.Command {
 		Name:      "presets",
 		Usage:     "List available trade filter presets",
 		UsageText: "volumeleaders-agent trade presets",
+		Flags:     outputFormatFlags(),
 		Action:    runTradePresets,
 	}
 }
 
-func runTradePresets(ctx context.Context, _ *cli.Command) error {
+func runTradePresets(ctx context.Context, cmd *cli.Command) error {
+	format, err := parseOutputFormat(cmd.String("format"))
+	if err != nil {
+		return err
+	}
+
 	presets := make([]models.PresetInfo, len(tradePresets))
 	for i, p := range tradePresets {
 		presets[i] = models.PresetInfo{
@@ -510,5 +516,5 @@ func runTradePresets(ctx context.Context, _ *cli.Command) error {
 			Filters: p.filters,
 		}
 	}
-	return printJSON(ctx, presets)
+	return printDataTablesResult(ctx, presets, nil, format)
 }

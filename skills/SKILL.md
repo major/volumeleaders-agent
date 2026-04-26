@@ -4,7 +4,7 @@ CLI for querying institutional trade data from VolumeLeaders. Binary: `volumelea
 
 Auth: extracts browser cookies automatically. User must be logged into volumeleaders.com. Auth errors mean the user needs to log in via their browser.
 
-Output: compact JSON to stdout. Add `--pretty` before the command group for indented output. Errors go to stderr.
+Output: compact JSON to stdout by default. List-style commands support `--format json|csv|tsv`; CSV/TSV include a header row, render booleans as `true`/`false`, and render null/missing values as empty cells. Add `--pretty` before the command group for indented JSON output. Errors go to stderr.
 
 ## Command Chooser
 
@@ -49,6 +49,8 @@ Chain commands for deeper analysis:
 
 **Pagination**: `--start` (offset, default 0), `--length` (count, default varies, `-1` = all), `--order-col` (sort column index), `--order-dir` (`asc` or `desc`).
 
+**Output formats**: list-style object outputs accept `--format json|csv|tsv` (default `json`). CSV/TSV use output field names as headers. `--pretty` only affects JSON.
+
 **Ticker flags**: `--tickers` takes comma-separated list (multi-ticker commands). `--ticker` takes a single symbol (single-ticker commands). All trade subcommands also accept `--ticker`, `--tickers`, `--symbol`, and `--symbols` as aliases, so any form works on any command.
 
 ## Shared Flag Defaults
@@ -90,7 +92,7 @@ These defaults apply across trade commands unless overridden (overrides noted pe
 | `DollarsMultiplier` | Trade dollar value relative to average block size (higher = bigger than usual) |
 | `TradeRank` | VL proprietary significance ranking (lower = more significant) |
 | `TradeRankSnapshot` | TradeRank at time of trade (vs current recalculated rank) |
-| `RelativeSize` | Trade size vs average daily volume (higher = more unusual). Only on levels/price-data, not on trade list |
+| `RelativeSize` | Trade size vs average daily volume (higher = more unusual). Present on trade list, levels, and price-data outputs |
 | `PercentDailyVolume` | Trade volume as % of average daily volume. On trade list output |
 | `VCD` | Volume Confirmation Distribution score |
 | `FrequencyLast30TD` | Count of similar-magnitude trades in last 30 trading days |

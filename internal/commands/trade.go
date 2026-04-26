@@ -94,6 +94,7 @@ volumeleaders-agent trade list --watchlist "Magnificent 7" --start-date 2025-04-
 				&cli.StringFlag{Name: "watchlist", Usage: "Apply filters from a saved watchlist by name"},
 				&cli.StringFlag{Name: "fields", Usage: "Comma-separated trade fields to include in output"},
 			},
+			outputFormatFlags(),
 			paginationFlags(100, 1, "desc"),
 		),
 		Action: runTradeList,
@@ -119,6 +120,7 @@ volumeleaders-agent trade clusters --min-dollars 50000000 --vcd 1`,
 				&cli.IntFlag{Name: "trade-cluster-rank", Value: -1, Usage: "Trade cluster rank filter"},
 				&cli.StringFlag{Name: "sector", Usage: "Sector/Industry filter"},
 			},
+			outputFormatFlags(),
 			paginationFlags(1000, 1, "desc"),
 		),
 		Action: runTradeClusters,
@@ -143,6 +145,7 @@ volumeleaders-agent trade cluster-bombs --vcd 1 --min-volume 100000`,
 				&cli.IntFlag{Name: "trade-cluster-bomb-rank", Value: -1, Usage: "Trade cluster bomb rank filter"},
 				&cli.StringFlag{Name: "sector", Usage: "Sector/Industry filter"},
 			},
+			outputFormatFlags(),
 			paginationFlags(100, 1, "desc"),
 		),
 		Action: runTradeClusterBombs,
@@ -154,9 +157,13 @@ func newTradeAlertsCommand() *cli.Command {
 		Name:      "alerts",
 		Usage:     "Query trade alerts for a date",
 		UsageText: "volumeleaders-agent trade alerts --date 2025-01-15",
-		Flags: append([]cli.Flag{
-			&cli.StringFlag{Name: "date", Required: true, Usage: "Date YYYY-MM-DD"},
-		}, paginationFlags(100, 1, "desc")...),
+		Flags: slices.Concat(
+			[]cli.Flag{
+				&cli.StringFlag{Name: "date", Required: true, Usage: "Date YYYY-MM-DD"},
+			},
+			outputFormatFlags(),
+			paginationFlags(100, 1, "desc"),
+		),
 		Action: runTradeAlerts,
 	}
 }
@@ -166,9 +173,13 @@ func newTradeClusterAlertsCommand() *cli.Command {
 		Name:      "cluster-alerts",
 		Usage:     "Query trade cluster alerts for a date",
 		UsageText: "volumeleaders-agent trade cluster-alerts --date 2025-01-15",
-		Flags: append([]cli.Flag{
-			&cli.StringFlag{Name: "date", Required: true, Usage: "Date YYYY-MM-DD"},
-		}, paginationFlags(100, 1, "desc")...),
+		Flags: slices.Concat(
+			[]cli.Flag{
+				&cli.StringFlag{Name: "date", Required: true, Usage: "Date YYYY-MM-DD"},
+			},
+			outputFormatFlags(),
+			paginationFlags(100, 1, "desc"),
+		),
 		Action: runTradeClusterAlerts,
 	}
 }
@@ -191,6 +202,7 @@ volumeleaders-agent trade levels --ticker MSFT --trade-level-count 20 --min-doll
 				&cli.IntFlag{Name: "trade-level-rank", Value: -1, Usage: "Trade level rank filter"},
 				&cli.IntFlag{Name: "trade-level-count", Value: 10, Usage: "Number of price levels to return"},
 			},
+			outputFormatFlags(),
 		),
 		Action: runTradeLevels,
 	}
@@ -213,6 +225,7 @@ volumeleaders-agent trade level-touches --tickers NVDA,AMD --trade-level-rank 5`
 				&cli.IntFlag{Name: "relative-size", Value: 0, Usage: "Relative size threshold"},
 				&cli.IntFlag{Name: "trade-level-rank", Value: 10, Usage: "Trade level rank filter"},
 			},
+			outputFormatFlags(),
 			paginationFlags(100, 0, "desc"),
 		),
 		Action: runTradeLevelTouches,
@@ -227,6 +240,9 @@ func runTradeList(ctx context.Context, cmd *cli.Command) error {
 	fields, err := parseJSONFieldList[models.Trade](cmd.String("fields"))
 	if err != nil {
 		return fmt.Errorf("parsing fields flag: %w", err)
+	}
+	if _, err := parseOutputFormat(cmd.String("format")); err != nil {
+		return err
 	}
 
 	// Build the full filter map from CLI flags (includes defaults for unset
@@ -295,7 +311,15 @@ func runTradeList(ctx context.Context, cmd *cli.Command) error {
 	filters["EndDate"] = cmd.String("end-date")
 
 	return runDataTablesCommand[models.Trade](ctx, "/Trades/GetTrades", datatables.TradeColumns,
-		dataTableOptions{start: cmd.Int("start"), length: cmd.Int("length"), orderCol: cmd.Int("order-col"), orderDir: cmd.String("order-dir"), filters: filters, fields: fields},
+		dataTableOptions{
+			start:    cmd.Int("start"),
+			length:   cmd.Int("length"),
+			orderCol: cmd.Int("order-col"),
+			orderDir: cmd.String("order-dir"),
+			filters:  filters,
+			fields:   fields,
+		},
+		cmd.String("format"),
 		"query trades")
 }
 
@@ -320,7 +344,7 @@ func runTradeClusters(ctx context.Context, cmd *cli.Command) error {
 				"TradeClusterRank": intStr(cmd.Int("trade-cluster-rank")),
 				"SectorIndustry":   cmd.String("sector"),
 			},
-		}, "query trade clusters")
+		}, cmd.String("format"), "query trade clusters")
 }
 
 func runTradeClusterBombs(ctx context.Context, cmd *cli.Command) error {
@@ -342,7 +366,7 @@ func runTradeClusterBombs(ctx context.Context, cmd *cli.Command) error {
 				"TradeClusterBombRank": intStr(cmd.Int("trade-cluster-bomb-rank")),
 				"SectorIndustry":       cmd.String("sector"),
 			},
-		}, "query trade cluster bombs")
+		}, cmd.String("format"), "query trade cluster bombs")
 }
 
 func runTradeAlerts(ctx context.Context, cmd *cli.Command) error {
@@ -351,7 +375,7 @@ func runTradeAlerts(ctx context.Context, cmd *cli.Command) error {
 			start: cmd.Int("start"), length: cmd.Int("length"),
 			orderCol: cmd.Int("order-col"), orderDir: cmd.String("order-dir"),
 			filters: map[string]string{"Date": cmd.String("date")},
-		}, "query trade alerts")
+		}, cmd.String("format"), "query trade alerts")
 }
 
 func runTradeClusterAlerts(ctx context.Context, cmd *cli.Command) error {
@@ -360,7 +384,7 @@ func runTradeClusterAlerts(ctx context.Context, cmd *cli.Command) error {
 			start: cmd.Int("start"), length: cmd.Int("length"),
 			orderCol: cmd.Int("order-col"), orderDir: cmd.String("order-dir"),
 			filters: map[string]string{"Date": cmd.String("date")},
-		}, "query trade cluster alerts")
+		}, cmd.String("format"), "query trade cluster alerts")
 }
 
 func runTradeLevels(ctx context.Context, cmd *cli.Command) error {
@@ -380,7 +404,14 @@ func runTradeLevels(ctx context.Context, cmd *cli.Command) error {
 		tradeLevelCount: cmd.Int("trade-level-count"),
 	}
 	return runDataTablesCommand[models.TradeLevel](ctx, "/TradeLevels/GetTradeLevels", datatables.TradeLevelColumns,
-		dataTableOptions{start: 0, length: -1, orderCol: 1, orderDir: "desc", filters: buildTradeLevelFilters(opts)},
+		dataTableOptions{
+			start:    0,
+			length:   -1,
+			orderCol: 1,
+			orderDir: "desc",
+			filters:  buildTradeLevelFilters(opts),
+		},
+		cmd.String("format"),
 		"query trade levels")
 }
 
@@ -403,7 +434,7 @@ func runTradeLevelTouches(ctx context.Context, cmd *cli.Command) error {
 				"RelativeSize":   intStr(cmd.Int("relative-size")),
 				"TradeLevelRank": intStr(cmd.Int("trade-level-rank")),
 			},
-		}, "query trade level touches")
+		}, cmd.String("format"), "query trade level touches")
 }
 
 // --- Filter builders ---

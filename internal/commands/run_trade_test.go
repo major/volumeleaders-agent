@@ -137,6 +137,29 @@ func TestTradeListFieldsRejectsInvalidField(t *testing.T) {
 	assertErrContains(t, err, "Ticker")
 }
 
+func TestTradeListInvalidFormatWithWatchlistDoesNotQueryAPI(t *testing.T) {
+	var requestCount int
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		requestCount++
+		fmt.Fprint(w, dataTablesJSON(`[]`))
+	}))
+	t.Cleanup(server.Close)
+
+	ctx := contextWithTestClient(server.URL)
+	root := &cli.Command{Commands: []*cli.Command{newTradeListCommand()}}
+	err := root.Run(ctx, []string{
+		"app", "list",
+		"--start-date", "2025-01-01",
+		"--end-date", "2025-01-31",
+		"--watchlist", "Core",
+		"--format", "table",
+	})
+	assertErrContains(t, err, "valid formats: json,csv,tsv")
+	if requestCount != 0 {
+		t.Fatalf("expected invalid format to fail before watchlist/API query, got %d requests", requestCount)
+	}
+}
+
 func TestTradeListPresetIncludesDefaults(t *testing.T) {
 	// Regression test for https://github.com/major/volumeleaders-agent/issues/8
 	// Presets must include CLI flag defaults for params the API requires

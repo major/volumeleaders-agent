@@ -55,7 +55,7 @@ func TestRunEarnings(t *testing.T) {
 
 	ctx := contextWithTestClient(server.URL)
 	captureStdout(t, func() {
-		if err := runEarnings(ctx, "2025-01-20", "2025-01-24"); err != nil {
+		if err := runEarnings(ctx, "2025-01-20", "2025-01-24", "json"); err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
 	})
@@ -68,7 +68,7 @@ func TestRunEarningsServerError(t *testing.T) {
 	t.Cleanup(server.Close)
 
 	ctx := contextWithTestClient(server.URL)
-	err := runEarnings(ctx, "2025-01-20", "2025-01-24")
+	err := runEarnings(ctx, "2025-01-20", "2025-01-24", "json")
 	assertErrContains(t, err, "query earnings")
 }
 

@@ -15,7 +15,7 @@ import (
 // --- Option structs ---
 
 type priceDataOptions struct {
-	ticker                         string
+	ticker, format                 string
 	startDate, endDate             string
 	volumeProfile, levels          int
 	minVolume, maxVolume           int
@@ -32,8 +32,8 @@ type priceDataOptions struct {
 }
 
 type chartLevelsOptions struct {
-	ticker, startDate, endDate string
-	levels                     int
+	ticker, startDate, endDate, format string
+	levels                             int
 }
 
 // NewChartCommand returns the "chart" command group with all subcommands.
@@ -83,10 +83,12 @@ volumeleaders-agent chart price-data --ticker NVDA --start-date 2025-01-01 --end
 				&cli.IntFlag{Name: "include-phantom", Value: 1, Usage: "Include phantom prints (0/1)"},
 				&cli.IntFlag{Name: "include-offsetting", Value: 1, Usage: "Include offsetting trades (0/1)"},
 			},
+			outputFormatFlags(),
 		),
 		Action: func(ctx context.Context, cmd *cli.Command) error {
 			opts := priceDataOptions{
 				ticker:            cmd.String("ticker"),
+				format:            cmd.String("format"),
 				startDate:         cmd.String("start-date"),
 				endDate:           cmd.String("end-date"),
 				volumeProfile:     cmd.Int("volume-profile"),
@@ -145,6 +147,7 @@ volumeleaders-agent chart levels --ticker TSLA --start-date 2025-01-01 --levels 
 				&cli.StringFlag{Name: "ticker", Required: true, Usage: "Ticker symbol"},
 				&cli.IntFlag{Name: "levels", Value: 5, Usage: "Number of trade levels"},
 			},
+			outputFormatFlags(),
 		),
 		Action: func(ctx context.Context, cmd *cli.Command) error {
 			opts := chartLevelsOptions{
@@ -152,6 +155,7 @@ volumeleaders-agent chart levels --ticker TSLA --start-date 2025-01-01 --levels 
 				startDate: cmd.String("start-date"),
 				endDate:   cmd.String("end-date"),
 				levels:    cmd.Int("levels"),
+				format:    cmd.String("format"),
 			}
 			return runChartLevels(ctx, opts)
 		},
@@ -175,6 +179,11 @@ func newCompanyCommand() *cli.Command {
 // --- Action handlers ---
 
 func runPriceData(ctx context.Context, opts *priceDataOptions) error {
+	format, err := parseOutputFormat(opts.format)
+	if err != nil {
+		return err
+	}
+
 	vlClient, err := newCommandClient(ctx)
 	if err != nil {
 		return err
@@ -224,7 +233,7 @@ func runPriceData(ctx context.Context, opts *priceDataOptions) error {
 		}
 	}
 
-	return printJSON(ctx, bars)
+	return printDataTablesResult(ctx, bars, nil, format)
 }
 
 func runChartSnapshot(ctx context.Context, ticker, dateKey string) error {
@@ -261,6 +270,7 @@ func runChartLevels(ctx context.Context, opts chartLevelsOptions) error {
 				"Levels":    intStr(opts.levels),
 			},
 		},
+		opts.format,
 		"query chart levels")
 }
 

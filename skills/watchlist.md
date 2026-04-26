@@ -4,25 +4,33 @@ Manage saved watchlist configurations.
 
 ## watchlist configs
 
-List all saved watchlist configurations. No flags.
+List all saved watchlist configurations.
+
+Optional: `--format json|csv|tsv`
 
 ```bash
 volumeleaders-agent watchlist configs
+volumeleaders-agent watchlist configs --format csv
 ```
 
 Output fields: `SearchTemplateKey` (use as `--key` or `--watchlist-key` for other commands), `Name`, `Tickers`, plus filter settings (volume/price/dollar ranges, RSI conditions, trade type booleans, `SecurityTypeKey`, `MinVCD`, `SectorIndustry`).
+
+Output format: `watchlist configs` defaults to JSON and supports CSV/TSV. Mutation responses remain JSON-only.
 
 ## watchlist tickers
 
 Get tickers and summary data from a watchlist.
 
-Optional: `--watchlist-key` (default -1 = all watchlists). Get key from `watchlist configs` `SearchTemplateKey`.
+Optional: `--watchlist-key` (default -1 = all watchlists), `--format json|csv|tsv`. Get key from `watchlist configs` `SearchTemplateKey`.
 
 ```bash
 volumeleaders-agent watchlist tickers --watchlist-key 12345
+volumeleaders-agent watchlist tickers --watchlist-key 12345 --format tsv
 ```
 
 Output fields: `Ticker`, `Price`, `NearestTop10TradeDate`, `NearestTop10TradeClusterDate`, `NearestTop10TradeLevel`
+
+Output format: `watchlist tickers` defaults to JSON and supports CSV/TSV.
 
 ## watchlist delete
 

@@ -42,7 +42,7 @@ make install    # Install to $GOPATH/bin
 
 ## Conventions
 
-- All commands output compact JSON to stdout by default. Use `--pretty` for indented output. Errors go to stderr via `slog`.
+- All commands output compact JSON to stdout by default. List-style commands may support `--format json|csv|tsv`; CSV/TSV include a header row, render booleans as `true`/`false`, and render null or missing values as empty cells. Use `--pretty` for indented JSON output. Errors go to stderr via `slog`.
 - Dates use `YYYY-MM-DD` format on the CLI, converted internally as needed.
 - Boolean/toggle filters use integers: `-1` = all/unfiltered, `0` = exclude, `1` = include/only.
 - Pagination uses `--start` (offset) and `--length` (count). `--length -1` means all results.

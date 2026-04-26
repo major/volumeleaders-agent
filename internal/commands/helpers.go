@@ -27,13 +27,23 @@ type dataTableOptions struct {
 	filters                 map[string]string
 }
 
+// paginationPageSize is the number of records fetched per page when the user
+// requests all results (--length -1).
+const paginationPageSize = 1000
+
 // runDataTablesCommand is the shared handler for all DataTables-backed
 // commands. It creates the client, builds and posts the request, and
 // prints the result as JSON. The label is used in error messages.
+// When opts.length is negative, results are fetched in pages of
+// paginationPageSize until all records have been retrieved.
 func runDataTablesCommand[T any](ctx context.Context, path string, columns []string, opts dataTableOptions, label string) error {
 	vlClient, err := newCommandClient(ctx)
 	if err != nil {
 		return err
+	}
+
+	if opts.length < 0 {
+		return runPaginatedCommand[T](ctx, vlClient, path, columns, opts, label)
 	}
 
 	request := newDataTablesRequest(columns, opts)
@@ -43,6 +53,45 @@ func runDataTablesCommand[T any](ctx context.Context, path string, columns []str
 		return fmt.Errorf("%s: %w", label, err)
 	}
 	return printJSON(ctx, result)
+}
+
+// runPaginatedCommand fetches all records by paginating through the DataTables
+// endpoint in pages of paginationPageSize. It accumulates results across pages
+// and stops when all filtered records have been retrieved or the server returns
+// an empty page.
+func runPaginatedCommand[T any](ctx context.Context, vlClient *client.Client, path string, columns []string, opts dataTableOptions, label string) error {
+	opts.length = paginationPageSize
+	all := make([]T, 0)
+
+	for {
+		request := newDataTablesRequest(columns, opts)
+		resp, err := vlClient.PostDataTablesPage(ctx, path, request.Encode())
+		if err != nil {
+			slog.Error("failed to "+label, "error", err)
+			return fmt.Errorf("%s: %w", label, err)
+		}
+
+		var page []T
+		if err := json.Unmarshal(resp.Data, &page); err != nil {
+			break
+		}
+		if len(page) == 0 {
+			break
+		}
+
+		all = append(all, page...)
+
+		if resp.RecordsFiltered > 0 && len(all) >= resp.RecordsFiltered {
+			break
+		}
+		if len(page) < paginationPageSize {
+			break
+		}
+
+		opts.start += len(page)
+	}
+
+	return printJSON(ctx, all)
 }
 
 // newCommandClient centralizes authenticated client creation so command

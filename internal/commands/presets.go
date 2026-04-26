@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"maps"
 	"strings"
 
 	"github.com/major/volumeleaders-agent/internal/datatables"
@@ -55,9 +56,7 @@ func buildPresets() []tradePreset {
 			"RelativeSize":      "0",
 			"TradeCount":        "3",
 		}
-		for k, v := range extra {
-			f[k] = v
-		}
+		maps.Copy(f, extra)
 		return tradePreset{name: name, group: "Common", filters: f}
 	}
 
@@ -73,9 +72,7 @@ func buildPresets() []tradePreset {
 			"MinVolume":         "10000",
 			"TradeCount":        "3",
 		}
-		for k, v := range extra {
-			f[k] = v
-		}
+		maps.Copy(f, extra)
 		return tradePreset{name: name, group: "Disproportionately Large", filters: f}
 	}
 

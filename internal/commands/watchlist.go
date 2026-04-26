@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/url"
+	"slices"
 	"strconv"
 
 	"github.com/major/volumeleaders-agent/internal/datatables"
@@ -122,9 +123,9 @@ volumeleaders-agent watchlist create --name "Large caps" --security-type 1 --min
 }
 
 func newWatchlistEditCommand() *cli.Command {
-	flags := append([]cli.Flag{
+	flags := slices.Concat([]cli.Flag{
 		&cli.IntFlag{Name: "key", Required: true, Usage: "Watch list key to edit"},
-	}, watchlistConfigFlags()...)
+	}, watchlistConfigFlags())
 	return &cli.Command{
 		Name:      "edit",
 		Usage:     "Edit an existing watch list configuration",

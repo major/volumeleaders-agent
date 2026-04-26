@@ -20,7 +20,7 @@ func TestRunAlertConfigs(t *testing.T) {
 	}))
 	t.Cleanup(server.Close)
 
-	ctx := contextWithTestClient(server.URL)
+	ctx := contextWithTestClient(t, server.URL)
 	captureStdout(t, func() {
 		if err := runAlertConfigs(ctx, "json"); err != nil {
 			t.Fatalf("unexpected error: %v", err)
@@ -34,7 +34,7 @@ func TestRunAlertConfigsServerError(t *testing.T) {
 	}))
 	t.Cleanup(server.Close)
 
-	ctx := contextWithTestClient(server.URL)
+	ctx := contextWithTestClient(t, server.URL)
 	err := runAlertConfigs(ctx, "json")
 	assertErrContains(t, err, "query alert configs")
 }
@@ -48,7 +48,7 @@ func TestRunAlertDelete(t *testing.T) {
 	}))
 	t.Cleanup(server.Close)
 
-	ctx := contextWithTestClient(server.URL)
+	ctx := contextWithTestClient(t, server.URL)
 	captureStdout(t, func() {
 		if err := runAlertDelete(ctx, 42); err != nil {
 			t.Fatalf("unexpected error: %v", err)
@@ -62,7 +62,7 @@ func TestRunAlertDeleteServerError(t *testing.T) {
 	}))
 	t.Cleanup(server.Close)
 
-	ctx := contextWithTestClient(server.URL)
+	ctx := contextWithTestClient(t, server.URL)
 	err := runAlertDelete(ctx, 42)
 	assertErrContains(t, err, "delete alert config")
 }
@@ -76,7 +76,7 @@ func TestRunAlertCreate(t *testing.T) {
 	}))
 	t.Cleanup(server.Close)
 
-	ctx := contextWithTestClient(server.URL)
+	ctx := contextWithTestClient(t, server.URL)
 	output := captureStdout(t, func() {
 		root := &cli.Command{Commands: []*cli.Command{NewAlertCommand()}}
 		if err := root.Run(ctx, []string{"app", "alert", "create", "--name", "Test Alert"}); err != nil {
@@ -97,7 +97,7 @@ func TestRunAlertEdit(t *testing.T) {
 	}))
 	t.Cleanup(server.Close)
 
-	ctx := contextWithTestClient(server.URL)
+	ctx := contextWithTestClient(t, server.URL)
 	output := captureStdout(t, func() {
 		root := &cli.Command{Commands: []*cli.Command{NewAlertCommand()}}
 		if err := root.Run(ctx, []string{"app", "alert", "edit", "--key", "42"}); err != nil {
@@ -119,7 +119,7 @@ func TestRunAlertCreateWithTickers(t *testing.T) {
 	}))
 	t.Cleanup(server.Close)
 
-	ctx := contextWithTestClient(server.URL)
+	ctx := contextWithTestClient(t, server.URL)
 	captureStdout(t, func() {
 		root := &cli.Command{Commands: []*cli.Command{NewAlertCommand()}}
 		if err := root.Run(ctx, []string{"app", "alert", "create", "--name", "Ticker Alert", "--tickers", "AAPL,MSFT"}); err != nil {
@@ -137,7 +137,7 @@ func TestAlertConfigsCLI(t *testing.T) {
 	}))
 	t.Cleanup(server.Close)
 
-	ctx := contextWithTestClient(server.URL)
+	ctx := contextWithTestClient(t, server.URL)
 	captureStdout(t, func() {
 		root := &cli.Command{Commands: []*cli.Command{NewAlertCommand()}}
 		if err := root.Run(ctx, []string{"app", "alert", "configs"}); err != nil {
@@ -152,7 +152,7 @@ func TestAlertDeleteCLI(t *testing.T) {
 	}))
 	t.Cleanup(server.Close)
 
-	ctx := contextWithTestClient(server.URL)
+	ctx := contextWithTestClient(t, server.URL)
 	captureStdout(t, func() {
 		root := &cli.Command{Commands: []*cli.Command{NewAlertCommand()}}
 		if err := root.Run(ctx, []string{"app", "alert", "delete", "--key", "42"}); err != nil {
@@ -167,7 +167,7 @@ func TestRunAlertCreateEditServerError(t *testing.T) {
 	}))
 	t.Cleanup(server.Close)
 
-	ctx := contextWithTestClient(server.URL)
+	ctx := contextWithTestClient(t, server.URL)
 
 	t.Run("create", func(t *testing.T) {
 		root := &cli.Command{Commands: []*cli.Command{NewAlertCommand()}}

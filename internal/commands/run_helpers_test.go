@@ -15,7 +15,7 @@ import (
 
 func TestNewCommandClientWithTestClient(t *testing.T) {
 	t.Parallel()
-	ctx := contextWithTestClient("http://example.test")
+	ctx := contextWithTestClient(t, "http://example.test")
 	c, err := newCommandClient(ctx)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -37,7 +37,7 @@ func TestRunDataTablesCommand(t *testing.T) {
 	}))
 	t.Cleanup(server.Close)
 
-	ctx := contextWithTestClient(server.URL)
+	ctx := contextWithTestClient(t, server.URL)
 	output := captureStdout(t, func() {
 		err := runDataTablesCommand[models.Trade](ctx, "/Test/GetData",
 			datatables.TradeColumns,
@@ -59,7 +59,7 @@ func TestRunDataTablesCommandPrettyJSON(t *testing.T) {
 	}))
 	t.Cleanup(server.Close)
 
-	ctx := contextWithTestClient(server.URL)
+	ctx := contextWithTestClient(t, server.URL)
 	ctx = addPrettyJSON(ctx)
 	output := captureStdout(t, func() {
 		err := runDataTablesCommand[models.Trade](ctx, "/Test/GetData",
@@ -83,7 +83,7 @@ func TestRunDataTablesCommandServerError(t *testing.T) {
 	}))
 	t.Cleanup(server.Close)
 
-	ctx := contextWithTestClient(server.URL)
+	ctx := contextWithTestClient(t, server.URL)
 	err := runDataTablesCommand[models.Trade](ctx, "/Test/GetData",
 		datatables.TradeColumns,
 		dataTableOptions{start: 0, length: 100, orderCol: 1, orderDir: "desc"},
@@ -100,7 +100,7 @@ func TestRunDataTablesCommandInvalidFormatDoesNotQueryAPI(t *testing.T) {
 	}))
 	t.Cleanup(server.Close)
 
-	ctx := contextWithTestClient(server.URL)
+	ctx := contextWithTestClient(t, server.URL)
 	err := runDataTablesCommand[models.Trade](ctx, "/Test/GetData",
 		datatables.TradeColumns,
 		dataTableOptions{start: 0, length: 100, orderCol: 1, orderDir: "desc"},
@@ -120,7 +120,7 @@ func TestPaginatedCommandSinglePage(t *testing.T) {
 	}))
 	t.Cleanup(server.Close)
 
-	ctx := contextWithTestClient(server.URL)
+	ctx := contextWithTestClient(t, server.URL)
 	output := captureStdout(t, func() {
 		err := runDataTablesCommand[models.Trade](ctx, "/Test/GetData",
 			datatables.TradeColumns,
@@ -165,7 +165,7 @@ func TestPaginatedCommandMultiPage(t *testing.T) {
 	}))
 	t.Cleanup(server.Close)
 
-	ctx := contextWithTestClient(server.URL)
+	ctx := contextWithTestClient(t, server.URL)
 	output := captureStdout(t, func() {
 		err := runDataTablesCommand[models.Trade](ctx, "/Test/GetData",
 			datatables.TradeColumns,
@@ -196,7 +196,7 @@ func TestPaginatedCommandEmptyResults(t *testing.T) {
 	}))
 	t.Cleanup(server.Close)
 
-	ctx := contextWithTestClient(server.URL)
+	ctx := contextWithTestClient(t, server.URL)
 	output := captureStdout(t, func() {
 		err := runDataTablesCommand[models.Trade](ctx, "/Test/GetData",
 			datatables.TradeColumns,
@@ -221,7 +221,7 @@ func TestPaginatedCommandServerError(t *testing.T) {
 	}))
 	t.Cleanup(server.Close)
 
-	ctx := contextWithTestClient(server.URL)
+	ctx := contextWithTestClient(t, server.URL)
 	err := runDataTablesCommand[models.Trade](ctx, "/Test/GetData",
 		datatables.TradeColumns,
 		dataTableOptions{start: 0, length: -1, orderCol: 1, orderDir: "desc"},

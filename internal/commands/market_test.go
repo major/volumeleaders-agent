@@ -19,7 +19,7 @@ func TestRunSnapshots(t *testing.T) {
 	}))
 	t.Cleanup(server.Close)
 
-	ctx := contextWithTestClient(server.URL)
+	ctx := contextWithTestClient(t, server.URL)
 	output := captureStdout(t, func() {
 		if err := runSnapshots(ctx); err != nil {
 			t.Fatalf("unexpected error: %v", err)
@@ -39,7 +39,7 @@ func TestRunSnapshotsServerError(t *testing.T) {
 	}))
 	t.Cleanup(server.Close)
 
-	ctx := contextWithTestClient(server.URL)
+	ctx := contextWithTestClient(t, server.URL)
 	err := runSnapshots(ctx)
 	assertErrContains(t, err, "query snapshots")
 }
@@ -53,7 +53,7 @@ func TestRunEarnings(t *testing.T) {
 	}))
 	t.Cleanup(server.Close)
 
-	ctx := contextWithTestClient(server.URL)
+	ctx := contextWithTestClient(t, server.URL)
 	captureStdout(t, func() {
 		if err := runEarnings(ctx, "2025-01-20", "2025-01-24", "json"); err != nil {
 			t.Fatalf("unexpected error: %v", err)
@@ -67,7 +67,7 @@ func TestRunEarningsServerError(t *testing.T) {
 	}))
 	t.Cleanup(server.Close)
 
-	ctx := contextWithTestClient(server.URL)
+	ctx := contextWithTestClient(t, server.URL)
 	err := runEarnings(ctx, "2025-01-20", "2025-01-24", "json")
 	assertErrContains(t, err, "query earnings")
 }
@@ -81,7 +81,7 @@ func TestRunExhaustion(t *testing.T) {
 	}))
 	t.Cleanup(server.Close)
 
-	ctx := contextWithTestClient(server.URL)
+	ctx := contextWithTestClient(t, server.URL)
 	captureStdout(t, func() {
 		if err := runExhaustion(ctx, "2025-01-15"); err != nil {
 			t.Fatalf("unexpected error: %v", err)
@@ -95,7 +95,7 @@ func TestRunExhaustionServerError(t *testing.T) {
 	}))
 	t.Cleanup(server.Close)
 
-	ctx := contextWithTestClient(server.URL)
+	ctx := contextWithTestClient(t, server.URL)
 	err := runExhaustion(ctx, "2025-01-15")
 	assertErrContains(t, err, "query exhaustion scores")
 }
@@ -109,7 +109,7 @@ func TestMarketSnapshotsCLI(t *testing.T) {
 	}))
 	t.Cleanup(server.Close)
 
-	ctx := contextWithTestClient(server.URL)
+	ctx := contextWithTestClient(t, server.URL)
 	output := captureStdout(t, func() {
 		root := &cli.Command{Commands: []*cli.Command{NewMarketCommand()}}
 		if err := root.Run(ctx, []string{"app", "market", "snapshots"}); err != nil {
@@ -130,7 +130,7 @@ func TestMarketEarningsCLI(t *testing.T) {
 	}))
 	t.Cleanup(server.Close)
 
-	ctx := contextWithTestClient(server.URL)
+	ctx := contextWithTestClient(t, server.URL)
 	captureStdout(t, func() {
 		root := &cli.Command{Commands: []*cli.Command{NewMarketCommand()}}
 		if err := root.Run(ctx, []string{"app", "market", "earnings", "--start-date", "2025-01-20", "--end-date", "2025-01-24"}); err != nil {
@@ -148,7 +148,7 @@ func TestMarketExhaustionCLI(t *testing.T) {
 	}))
 	t.Cleanup(server.Close)
 
-	ctx := contextWithTestClient(server.URL)
+	ctx := contextWithTestClient(t, server.URL)
 	captureStdout(t, func() {
 		root := &cli.Command{Commands: []*cli.Command{NewMarketCommand()}}
 		if err := root.Run(ctx, []string{"app", "market", "exhaustion", "--date", "2025-01-15"}); err != nil {

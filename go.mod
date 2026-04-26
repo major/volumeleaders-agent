@@ -1,6 +1,8 @@
 module github.com/major/volumeleaders-agent
 
-go 1.24.0
+go 1.26.0
+
+toolchain go1.26.2
 
 require (
 	github.com/browserutils/kooky v0.2.9

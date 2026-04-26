@@ -3,6 +3,7 @@
 package datatables
 
 import (
+	"cmp"
 	"net/url"
 	"strconv"
 	"strings"
@@ -99,14 +100,8 @@ type pair struct {
 
 // Encode returns the URL-encoded form body in DataTables key order.
 func (r *Request) Encode() string {
-	draw := r.Draw
-	if draw == 0 {
-		draw = 1
-	}
-	orderDirection := r.OrderDirection
-	if orderDirection == "" {
-		orderDirection = "desc"
-	}
+	draw := cmp.Or(r.Draw, 1)
+	orderDirection := cmp.Or(r.OrderDirection, "desc")
 
 	pairs := []pair{{"draw", strconv.Itoa(draw)}, {"start", strconv.Itoa(r.Start)}, {"length", strconv.Itoa(r.Length)}, {"order[0][column]", strconv.Itoa(r.OrderColumnIndex)}, {"order[0][dir]", orderDirection}}
 	for index, column := range r.Columns {

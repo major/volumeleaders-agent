@@ -40,7 +40,7 @@ Output fields: `Preset`, `Group`, `Type`, `Tickers` (trimmed, deduplicated, omit
 Query individual institutional block trades. The primary trade discovery command.
 
 Required: `--start-date`, `--end-date`
-Optional: `--tickers` (aliases: `--ticker`, `--symbol`, `--symbols`), `--sector`, `--preset`, `--watchlist`, `--fields`, `--format json|csv|tsv`, all shared flags (volume/price/dollar ranges, trade filters, trade type toggles, session toggles), pagination (`--length 100 --order-col 1 --order-dir desc`)
+Optional: `--tickers` (aliases: `--ticker`, `--symbol`, `--symbols`), `--sector`, `--preset`, `--watchlist`, `--fields`, `--format json|csv|tsv`, `--summary`, `--group-by`, all shared flags (volume/price/dollar ranges, trade filters, trade type toggles, session toggles), pagination (`--length 100 --order-col 1 --order-dir desc`)
 
 **`--preset NAME`**: Apply a built-in filter preset by name (case-insensitive). The preset sets baseline filters; any explicitly-provided CLI flags override the preset values. Use `trade presets` to list available names.
 
@@ -48,9 +48,13 @@ Optional: `--tickers` (aliases: `--ticker`, `--symbol`, `--symbols`), `--sector`
 
 **`--fields FIELD1,FIELD2`**: Return only the listed trade fields in each JSON object, or use the listed fields as CSV/TSV columns. Field names are case-sensitive and must match the output field names below. Invalid names fail before querying the API and include the valid field list in the error.
 
-**`--format json|csv|tsv`**: Select output format for list results. JSON is the default. CSV/TSV include a header row, render booleans as `true`/`false`, and render null/missing values as empty cells.
+**`--format json|csv|tsv`**: Select output format for list results. JSON is the default. CSV/TSV include a header row, render booleans as `true`/`false`, and render null/missing values as empty cells. Summary output is JSON-only.
 
-Both flags can be combined: watchlist filters merge on top of preset filters, and explicit CLI flags override both.
+**`--summary`**: Return aggregate metrics instead of individual trade rows. The summary includes `totalTrades`, `totalDollars`, `dateRange`, and one grouped section. Metrics per group are `trades`, `dollars`, `avgDollarsMultiplier`, `pctDarkPool`, `pctSweep`, and `avgCumulativeDistribution`. Summaries respect pagination. Use `--length -1` to aggregate all matching rows. `--fields` and non-JSON `--format` values cannot be used with `--summary`.
+
+**`--group-by VALUE`**: Select the summary grouping. Valid values are `ticker` (default, outputs `byTicker` keyed by `TICKER`), `day` (outputs `byDay` keyed by `YYYY-MM-DD`), and `ticker,day` (outputs `byTickerDay` keyed by `TICKER|YYYY-MM-DD`). Only applies with `--summary`; explicit `--group-by` without `--summary` is rejected.
+
+Preset and watchlist filters can be combined: watchlist filters merge on top of preset filters, and explicit CLI flags override both.
 
 ```bash
 volumeleaders-agent trade list --tickers AAPL --start-date 2025-04-16 --end-date 2025-04-23 --dark-pools 1 --min-dollars 1000000
@@ -58,6 +62,7 @@ volumeleaders-agent trade list --preset "Top-100 Rank" --start-date 2025-04-01 -
 volumeleaders-agent trade list --preset "Megacaps" --start-date 2025-04-01 --end-date 2025-04-24 --trade-rank 10
 volumeleaders-agent trade list --watchlist "Magnificent 7" --start-date 2025-04-01 --end-date 2025-04-24
 volumeleaders-agent trade list --tickers SPY,QQQ --start-date 2025-04-21 --end-date 2025-04-25 --fields Date,Ticker,Dollars,DollarsMultiplier,DarkPool,CumulativeDistribution
+volumeleaders-agent trade list --tickers SPY,QQQ --start-date 2025-04-21 --end-date 2025-04-25 --summary --group-by ticker,day
 volumeleaders-agent trade list --tickers AAPL,MSFT --start-date 2025-04-21 --end-date 2025-04-25 --fields Date,Ticker,Dollars --format csv
 ```
 

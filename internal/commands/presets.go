@@ -426,6 +426,70 @@ func watchlistConfigToFilters(cfg *models.WatchListConfig) map[string]string {
 	return filters
 }
 
+// newTradePresetTickersCommand returns the "trade preset-tickers" subcommand
+// that extracts ticker symbols from a named preset.
+func newTradePresetTickersCommand() *cli.Command {
+	return &cli.Command{
+		Name:      "preset-tickers",
+		Usage:     "Extract ticker symbols from a preset",
+		UsageText: "volumeleaders-agent trade preset-tickers --preset NAME",
+		Flags: []cli.Flag{
+			&cli.StringFlag{
+				Name:     "preset",
+				Usage:    "Preset name (case-insensitive)",
+				Required: true,
+			},
+		},
+		Action: runTradePresetTickers,
+	}
+}
+
+func runTradePresetTickers(ctx context.Context, cmd *cli.Command) error {
+	p, err := findPreset(cmd.String("preset"))
+	if err != nil {
+		return err
+	}
+
+	info := models.PresetTickersInfo{
+		Preset: p.name,
+		Group:  p.group,
+	}
+
+	// Explicit ticker presets take precedence over sector filters if both are set.
+	switch {
+	case p.filters["Tickers"] != "":
+		info.Type = "tickers"
+		info.Tickers = splitTickers(p.filters["Tickers"])
+	case p.filters["SectorIndustry"] != "":
+		info.Type = "sector-filter"
+		info.SectorIndustry = p.filters["SectorIndustry"]
+	default:
+		info.Type = "unfiltered"
+	}
+
+	return printJSON(ctx, info)
+}
+
+// splitTickers parses a comma-separated ticker list defensively so preset
+// typos do not leak whitespace, empty symbols, or duplicate symbols to output.
+func splitTickers(tickers string) []string {
+	parts := strings.Split(tickers, ",")
+	result := make([]string, 0, len(parts))
+	seen := make(map[string]bool, len(parts))
+
+	for _, part := range parts {
+		ticker := strings.TrimSpace(part)
+		if ticker == "" || seen[ticker] {
+			continue
+		}
+
+		seen[ticker] = true
+		result = append(result, ticker)
+	}
+
+	return result
+}
+
 // newTradePresetsCommand returns the "trade presets" subcommand that lists
 // all available built-in filter presets.
 func newTradePresetsCommand() *cli.Command {
@@ -433,11 +497,17 @@ func newTradePresetsCommand() *cli.Command {
 		Name:      "presets",
 		Usage:     "List available trade filter presets",
 		UsageText: "volumeleaders-agent trade presets",
+		Flags:     outputFormatFlags(),
 		Action:    runTradePresets,
 	}
 }
 
-func runTradePresets(ctx context.Context, _ *cli.Command) error {
+func runTradePresets(ctx context.Context, cmd *cli.Command) error {
+	format, err := parseOutputFormat(cmd.String("format"))
+	if err != nil {
+		return err
+	}
+
 	presets := make([]models.PresetInfo, len(tradePresets))
 	for i, p := range tradePresets {
 		presets[i] = models.PresetInfo{
@@ -446,5 +516,5 @@ func runTradePresets(ctx context.Context, _ *cli.Command) error {
 			Filters: p.filters,
 		}
 	}
-	return printJSON(ctx, presets)
+	return printDataTablesResult(ctx, presets, nil, format)
 }

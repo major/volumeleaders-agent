@@ -1,34 +1,58 @@
 # trade
 
-Institutional trade discovery. 8 subcommands. See SKILL.md for shared flag defaults and metrics glossary.
+Institutional trade discovery. 10 subcommands. See SKILL.md for shared flag defaults and metrics glossary.
 
 ## trade presets
 
-List all built-in trade filter presets. No authentication required. Output is a JSON array of objects with `Name`, `Group`, and `Filters` fields.
+List all built-in trade filter presets. No authentication required. Output is a JSON array by default, with `--format csv|tsv` available for tabular output. Fields: `Name`, `Group`, `Filters`.
 
 Groups: "Common" (general-purpose filters), "Disproportionately Large" (>=5x avg size, sector/ticker-based).
 
 ```bash
 volumeleaders-agent trade presets
+volumeleaders-agent trade presets --format csv
 volumeleaders-agent trade presets --pretty | jq '.[].Name'
 ```
+
+## trade preset-tickers
+
+Extract ticker symbols from a named preset. No authentication required. Returns a JSON object with the preset name, group, type, and either a ticker list or sector filter value.
+
+Required: `--preset NAME` (case-insensitive)
+
+Types: `"tickers"` (explicit ticker list), `"sector-filter"` (SectorIndustry-based), `"unfiltered"` (no ticker/sector restriction).
+
+```bash
+volumeleaders-agent trade preset-tickers --preset "Megacaps"
+# {"Preset":"Megacaps","Group":"Disproportionately Large","Type":"tickers","Tickers":["AAPL","AMZN","META","GOOG","GOOGL","MSFT","NFLX","NVDA","TSLA"]}
+
+volumeleaders-agent trade preset-tickers --preset "Bear Leverage"
+# {"Preset":"Bear Leverage","Group":"Disproportionately Large","Type":"sector-filter","SectorIndustry":"X Bear"}
+
+volumeleaders-agent trade preset-tickers --preset "All Trades"
+# {"Preset":"All Trades","Group":"Common","Type":"unfiltered"}
+```
+
+Output fields: `Preset`, `Group`, `Type`, `Tickers` (trimmed, deduplicated, omitted when empty), `SectorIndustry` (omitted when empty). If a preset defines both `Tickers` and `SectorIndustry`, ticker output takes precedence.
 
 ## trade list
 
 Query individual institutional block trades. The primary trade discovery command.
 
 Required: `--start-date`, `--end-date`
-Optional: `--tickers` (aliases: `--ticker`, `--symbol`, `--symbols`), `--sector`, `--preset`, `--watchlist`, `--fields`, `--summary`, `--group-by`, all shared flags (volume/price/dollar ranges, trade filters, trade type toggles, session toggles), pagination (`--length 100 --order-col 1 --order-dir desc`)
+Optional: `--tickers` (aliases: `--ticker`, `--symbol`, `--symbols`), `--sector`, `--preset`, `--watchlist`, `--fields`, `--format json|csv|tsv`, `--summary`, `--group-by`, all shared flags (volume/price/dollar ranges, trade filters, trade type toggles, session toggles), pagination (`--length 100 --order-col 1 --order-dir desc`)
 
 **`--preset NAME`**: Apply a built-in filter preset by name (case-insensitive). The preset sets baseline filters; any explicitly-provided CLI flags override the preset values. Use `trade presets` to list available names.
 
 **`--watchlist NAME`**: Apply filters from a saved user watchlist by name (case-insensitive). Fetches the watchlist config at runtime and converts its settings to trade filters. Use `watchlist configs` to list available names.
 
-**`--fields FIELD1,FIELD2`**: Return only the listed trade fields in each JSON object. Field names are case-sensitive and must match the output field names below. Invalid names fail before querying the API and include the valid field list in the error.
+**`--fields FIELD1,FIELD2`**: Return only the listed trade fields in each JSON object, or use the listed fields as CSV/TSV columns. Field names are case-sensitive and must match the output field names below. Invalid names fail before querying the API and include the valid field list in the error.
 
-**`--summary`**: Return aggregate metrics instead of individual trade rows. The summary includes `totalTrades`, `totalDollars`, `dateRange`, and one grouped section. Metrics per group are `trades`, `dollars`, `avgDollarsMultiplier`, `pctDarkPool`, `pctSweep`, and `avgCumulativeDistribution`. Summaries respect pagination, use `--length -1` to aggregate all matching rows. `--fields` cannot be used with `--summary`.
+**`--format json|csv|tsv`**: Select output format for list results. JSON is the default. CSV/TSV include a header row, render booleans as `true`/`false`, and render null/missing values as empty cells. Summary output is JSON-only.
 
-**`--group-by VALUE`**: Select the summary grouping. Valid values are `ticker` (default, outputs `byTicker`), `day` (outputs `byDay`), and `ticker,day` (outputs `byTickerDay` keys in `TICKER|YYYY-MM-DD` format). Only applies with `--summary`.
+**`--summary`**: Return aggregate metrics instead of individual trade rows. The summary includes `totalTrades`, `totalDollars`, `dateRange`, and one grouped section. Metrics per group are `trades`, `dollars`, `avgDollarsMultiplier`, `pctDarkPool`, `pctSweep`, and `avgCumulativeDistribution`. Summaries respect pagination. Use `--length -1` to aggregate all matching rows. `--fields` and non-JSON `--format` values cannot be used with `--summary`.
+
+**`--group-by VALUE`**: Select the summary grouping. Valid values are `ticker` (default, outputs `byTicker` keyed by `TICKER`), `day` (outputs `byDay` keyed by `YYYY-MM-DD`), and `ticker,day` (outputs `byTickerDay` keyed by `TICKER|YYYY-MM-DD`). Only applies with `--summary`; explicit `--group-by` without `--summary` is rejected.
 
 Preset and watchlist filters can be combined: watchlist filters merge on top of preset filters, and explicit CLI flags override both.
 
@@ -39,16 +63,31 @@ volumeleaders-agent trade list --preset "Megacaps" --start-date 2025-04-01 --end
 volumeleaders-agent trade list --watchlist "Magnificent 7" --start-date 2025-04-01 --end-date 2025-04-24
 volumeleaders-agent trade list --tickers SPY,QQQ --start-date 2025-04-21 --end-date 2025-04-25 --fields Date,Ticker,Dollars,DollarsMultiplier,DarkPool,CumulativeDistribution
 volumeleaders-agent trade list --tickers SPY,QQQ --start-date 2025-04-21 --end-date 2025-04-25 --summary --group-by ticker,day
+volumeleaders-agent trade list --tickers AAPL,MSFT --start-date 2025-04-21 --end-date 2025-04-25 --fields Date,Ticker,Dollars --format csv
 ```
 
-Output fields: `AHInstitutionalDollars`, `AHInstitutionalDollarsRank`, `AHInstitutionalVolume`, `Ask`, `AverageBlockSizeDollars`, `AverageBlockSizeShares`, `AverageDailyVolume`, `Bid`, `Cancelled`, `ClosePrice`, `ClosingTrade`, `ClosingTradeDollars`, `ClosingTradeDollarsRank`, `ClosingTradeVolume`, `CumulativeDistribution`, `DarkPool`, `Date`, `DateKey`, `Dollars`, `DollarsMultiplier`, `DoubleInsideBar`, `EOM`, `EOQ`, `EOY`, `EndDate`, `ExternalFeed`, `FrequencyLast1CY`, `FrequencyLast30TD`, `FrequencyLast90TD`, `FullDateTime`, `FullTimeString24`, `IPODate`, `Industry`, `InsideBar`, `LastComparibleTradeDate`, `LatePrint`, `Name`, `NewPosition`, `OPEX`, `OffsettingTradeDate`, `OpeningTrade`, `PercentDailyVolume`, `PhantomPrint`, `PhantomPrintFulfillmentDate`, `PhantomPrintFulfillmentDays`, `Price`, `RSIDay`, `RSIHour`, `Sector`, `SecurityKey`, `SequenceNumber`, `SignaturePrint`, `StartDate`, `Sweep`, `TD1CY`, `TD30`, `TD90`, `Ticker`, `TimeKey`, `TotalDollars`, `TotalDollarsRank`, `TotalInstitutionalDollars`, `TotalInstitutionalDollarsRank`, `TotalInstitutionalVolume`, `TotalRows`, `TotalTrades`, `TotalVolume`, `TradeConditions`, `TradeCount`, `TradeID`, `TradeRank`, `TradeRankSnapshot`, `VOLEX`, `Volume`
+Output fields: `AHInstitutionalDollars`, `AHInstitutionalDollarsRank`, `AHInstitutionalVolume`, `Ask`, `AverageBlockSizeDollars`, `AverageBlockSizeShares`, `AverageDailyVolume`, `Bid`, `Cancelled`, `ClosePrice`, `ClosingTrade`, `ClosingTradeDollars`, `ClosingTradeDollarsRank`, `ClosingTradeVolume`, `CumulativeDistribution`, `DarkPool`, `Date`, `DateKey`, `Dollars`, `DollarsMultiplier`, `DoubleInsideBar`, `EOM`, `EOQ`, `EOY`, `EndDate`, `ExternalFeed`, `FrequencyLast1CY`, `FrequencyLast30TD`, `FrequencyLast90TD`, `FullDateTime`, `FullTimeString24`, `IPODate`, `Industry`, `InsideBar`, `LastComparibleTradeDate`, `LatePrint`, `Name`, `NewPosition`, `OPEX`, `OffsettingTradeDate`, `OpeningTrade`, `PercentDailyVolume`, `PhantomPrint`, `PhantomPrintFulfillmentDate`, `PhantomPrintFulfillmentDays`, `Price`, `RelativeSize`, `RSIDay`, `RSIHour`, `Sector`, `SecurityKey`, `SequenceNumber`, `SignaturePrint`, `StartDate`, `Sweep`, `TD1CY`, `TD30`, `TD90`, `Ticker`, `TimeKey`, `TotalDollars`, `TotalDollarsRank`, `TotalInstitutionalDollars`, `TotalInstitutionalDollarsRank`, `TotalInstitutionalVolume`, `TotalRows`, `TotalTrades`, `TotalVolume`, `TradeConditions`, `TradeCount`, `TradeID`, `TradeRank`, `TradeRankSnapshot`, `VOLEX`, `Volume`
+
+## trade sentiment
+
+Summarize leveraged ETF institutional flow into daily bull/bear ratios. The command queries the combined leveraged ETF sector filter (`SectorIndustry=X B`) once, classifies bull and bear rows locally, aggregates dollars by day, and returns compact JSON for sentiment analysis.
+
+Required: `--start-date`, `--end-date`
+Optional: volume/price/dollar ranges, trade filters, trade type toggles, session toggles
+Non-standard defaults: `--min-dollars 5000000`, `--vcd 97`, `--relative-size 5`
+
+```bash
+volumeleaders-agent trade sentiment --start-date 2025-04-21 --end-date 2025-04-25 --min-dollars 5000000
+```
+
+Output fields: `dateRange` (`start`, `end`), `daily` array, and `totals`. Each daily row includes `date`, `bear`, `bull`, `ratio`, and `signal`. `bear`, `bull`, and total side objects include `trades`, `dollars`, and `topTickers`. `ratio` is bull dollars divided by bear dollars; it is `null` when there is no bear flow. Signals use thresholds: `<0.2` `extreme_bear`, `<0.5` `moderate_bear`, `0.5-2.0` `neutral`, `>2.0-5.0` `moderate_bull`, `>5.0` `extreme_bull`.
 
 ## trade clusters
 
 Aggregated clusters where multiple institutional trades converge at similar price levels. Clusters signal stronger conviction than individual trades.
 
 Required: `--start-date`, `--end-date`
-Optional: `--tickers` (aliases: `--ticker`, `--symbol`, `--symbols`), `--sector`, volume/price/dollar ranges, `--vcd`, `--security-type`, `--relative-size`, `--trade-cluster-rank` (-1), pagination (`--length 1000 --order-col 1 --order-dir desc`)
+Optional: `--tickers` (aliases: `--ticker`, `--symbol`, `--symbols`), `--sector`, volume/price/dollar ranges, `--vcd`, `--security-type`, `--relative-size`, `--trade-cluster-rank` (-1), `--format json|csv|tsv`, pagination (`--length 1000 --order-col 1 --order-dir desc`)
 Non-standard defaults: `--min-dollars 10000000`, `--length 1000`
 
 ```bash
@@ -62,7 +101,7 @@ Output fields: `Ticker`, `Name`, `Sector`, `Industry`, `Date`, `Price`, `Dollars
 Sudden, aggressive institutional positioning bursts. Many trades clustered tightly in time and price.
 
 Required: `--start-date`, `--end-date`
-Optional: `--tickers` (aliases: `--ticker`, `--symbol`, `--symbols`), `--sector`, volume/dollar ranges (no price range), `--vcd`, `--security-type`, `--relative-size`, `--trade-cluster-bomb-rank` (-1), pagination (`--length 1000 --order-col 1 --order-dir desc`)
+Optional: `--tickers` (aliases: `--ticker`, `--symbol`, `--symbols`), `--sector`, volume/dollar ranges (no price range), `--vcd`, `--security-type`, `--relative-size`, `--trade-cluster-bomb-rank` (-1), `--format json|csv|tsv`, pagination (`--length 1000 --order-col 1 --order-dir desc`)
 Non-standard defaults: `--min-dollars 0`, `--security-type 0`, `--relative-size 0`
 
 ```bash
@@ -76,7 +115,7 @@ Output fields: same as clusters but `TradeClusterBombRank` instead of `TradeClus
 System-generated notifications about notable individual trades for a single date.
 
 Required: `--date`
-Optional: pagination
+Optional: `--format json|csv|tsv`, pagination
 
 ```bash
 volumeleaders-agent trade alerts --date 2025-04-23
@@ -89,7 +128,7 @@ Output fields: `Ticker`, `Name`, `Sector`, `Industry`, `Date`, `AlertType`, `Pri
 System-generated notifications about notable trade clusters for a single date.
 
 Required: `--date`
-Optional: pagination
+Optional: `--format json|csv|tsv`, pagination
 
 ```bash
 volumeleaders-agent trade cluster-alerts --date 2025-04-23
@@ -102,7 +141,7 @@ Output fields: same as trade clusters.
 Significant institutional price levels for a single ticker. These levels often act as support/resistance.
 
 Required: `--ticker` (single; aliases: `--tickers`, `--symbol`, `--symbols`), `--start-date`, `--end-date`
-Optional: volume/price/dollar ranges, `--vcd`, `--trade-level-rank` (-1), `--trade-level-count` (10)
+Optional: volume/price/dollar ranges, `--vcd`, `--trade-level-rank` (-1), `--trade-level-count` (10), `--format json|csv|tsv`
 Non-standard defaults: `--relative-size 0`. No pagination flags.
 
 ```bash
@@ -116,7 +155,7 @@ Output fields: `Ticker`, `Name`, `Price`, `Dollars`, `Volume`, `Trades`, `Relati
 Events where price revisits significant institutional price levels. Signals support/resistance tests or institutional re-engagement.
 
 Required: `--start-date`, `--end-date`
-Optional: `--tickers` (aliases: `--ticker`, `--symbol`, `--symbols`), volume/price/dollar ranges, `--vcd`, `--trade-level-rank` (10), pagination (`--length 100 --order-col 0 --order-dir desc`)
+Optional: `--tickers` (aliases: `--ticker`, `--symbol`, `--symbols`), volume/price/dollar ranges, `--vcd`, `--trade-level-rank` (10), `--format json|csv|tsv`, pagination (`--length 100 --order-col 0 --order-dir desc`)
 Non-standard defaults: `--relative-size 0`, `--order-col 0`, `--trade-level-rank 10`
 
 ```bash

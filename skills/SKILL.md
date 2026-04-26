@@ -4,13 +4,14 @@ CLI for querying institutional trade data from VolumeLeaders. Binary: `volumelea
 
 Auth: extracts browser cookies automatically. User must be logged into volumeleaders.com. Auth errors mean the user needs to log in via their browser.
 
-Output: compact JSON to stdout. Add `--pretty` before the command group for indented output. Errors go to stderr.
+Output: compact JSON to stdout by default. List-style commands support `--format json|csv|tsv`; CSV/TSV include a header row, render booleans as `true`/`false`, and render null/missing values as empty cells. Add `--pretty` before the command group for indented JSON output. Errors go to stderr.
 
 ## Command Chooser
 
 | I want to... | Command |
 |---|---|
 | Find large institutional trades in specific stocks | `trade list --tickers X --start-date D --end-date D` |
+| Compare leveraged ETF bull/bear flow | `trade sentiment --start-date D --end-date D` |
 | See where institutions are clustering trades | `trade clusters --start-date D --end-date D` |
 | Detect sudden aggressive institutional bursts | `trade cluster-bombs --start-date D --end-date D` |
 | Check system-flagged individual trade alerts | `trade alerts --date D` |
@@ -49,7 +50,9 @@ Chain commands for deeper analysis:
 
 **Pagination**: `--start` (offset, default 0), `--length` (count, default varies, `-1` = all), `--order-col` (sort column index), `--order-dir` (`asc` or `desc`).
 
-**Ticker flags**: `--tickers` takes comma-separated list (multi-ticker commands). `--ticker` takes a single symbol (single-ticker commands). All trade subcommands also accept `--ticker`, `--tickers`, `--symbol`, and `--symbols` as aliases, so any form works on any command.
+**Output formats**: list-style object outputs accept `--format json|csv|tsv` (default `json`). CSV/TSV use output field names as headers. `--pretty` only affects JSON.
+
+**Ticker flags**: `--tickers` takes comma-separated list (multi-ticker commands). `--ticker` takes a single symbol (single-ticker commands). Ticker-based trade subcommands accept `--ticker`, `--tickers`, `--symbol`, and `--symbols` aliases, so any form works there. `trade sentiment` intentionally does not accept ticker flags because it always analyzes the leveraged ETF universe.
 
 ## Shared Flag Defaults
 
@@ -82,6 +85,8 @@ These defaults apply across trade commands unless overridden (overrides noted pe
 
 **Chart commands use different flag names** for some of these. See chart.md for the exact mapping.
 
+**Trade sentiment overrides**: `trade sentiment` defaults to `--min-dollars 5000000` and `--vcd 97` because leveraged ETF sentiment is meant to highlight unusually large, high-confirmation flow.
+
 ## Key Metrics Glossary
 
 | Field | Meaning |
@@ -90,7 +95,7 @@ These defaults apply across trade commands unless overridden (overrides noted pe
 | `DollarsMultiplier` | Trade dollar value relative to average block size (higher = bigger than usual) |
 | `TradeRank` | VL proprietary significance ranking (lower = more significant) |
 | `TradeRankSnapshot` | TradeRank at time of trade (vs current recalculated rank) |
-| `RelativeSize` | Trade size vs average daily volume (higher = more unusual). Only on levels/price-data, not on trade list |
+| `RelativeSize` | Trade size vs average daily volume (higher = more unusual). Present on trade list, levels, and price-data outputs |
 | `PercentDailyVolume` | Trade volume as % of average daily volume. On trade list output |
 | `VCD` | Volume Confirmation Distribution score |
 | `FrequencyLast30TD` | Count of similar-magnitude trades in last 30 trading days |

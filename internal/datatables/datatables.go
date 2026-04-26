@@ -12,8 +12,8 @@ import (
 var TradeColumns = []string{
 	"FullTimeString24", "FullTimeString24", "Ticker", "Current", "Trade",
 	"Sector", "Industry", "Volume", "Dollars", "DollarsMultiplier",
-	"CumulativeDistribution", "TradeRank", "LastComparibleTradeDate",
-	"LastComparibleTradeDate",
+	"CumulativeDistribution", "TradeRank", "RelativeSize",
+	"LastComparibleTradeDate", "LastComparibleTradeDate",
 }
 
 // TradeClusterColumns contains the DataTables column names used by the trade clusters endpoint.

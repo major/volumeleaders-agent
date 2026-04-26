@@ -2,6 +2,7 @@ package commands
 
 import (
 	"context"
+	"slices"
 
 	"github.com/major/volumeleaders-agent/internal/datatables"
 	"github.com/major/volumeleaders-agent/internal/models"
@@ -9,27 +10,32 @@ import (
 )
 
 type volumeOptions struct {
-	date, tickers, orderDir string
-	start, length, orderCol int
+	date, tickers, orderDir, format string
+	start, length, orderCol         int
 }
 
 // volumeFlags returns the shared flag set used by all volume subcommands.
 func volumeFlags() []cli.Flag {
-	return append([]cli.Flag{
-		&cli.StringFlag{Name: "date", Required: true, Usage: "Date YYYY-MM-DD"},
-		&cli.StringFlag{Name: "tickers", Usage: "Comma-separated ticker symbols"},
-	}, paginationFlags(100, 1, "asc")...)
+	return slices.Concat(
+		[]cli.Flag{
+			&cli.StringFlag{Name: "date", Required: true, Usage: "Date YYYY-MM-DD"},
+			&cli.StringFlag{Name: "tickers", Usage: "Comma-separated ticker symbols"},
+		},
+		outputFormatFlags(),
+		paginationFlags(100, 1, "asc"),
+	)
 }
 
 // parseVolumeOptions extracts volumeOptions from the parsed CLI flags.
-func parseVolumeOptions(cmd *cli.Command) volumeOptions {
-	return volumeOptions{
+func parseVolumeOptions(cmd *cli.Command) *volumeOptions {
+	return &volumeOptions{
 		date:     cmd.String("date"),
 		tickers:  cmd.String("tickers"),
 		start:    cmd.Int("start"),
 		length:   cmd.Int("length"),
 		orderCol: cmd.Int("order-col"),
 		orderDir: cmd.String("order-dir"),
+		format:   cmd.String("format"),
 	}
 }
 
@@ -39,33 +45,33 @@ func NewVolumeCommand() *cli.Command {
 		Name:  "volume",
 		Usage: "Volume leaderboard commands",
 		Commands: []*cli.Command{
-		{
-			Name:      "institutional",
-			Usage:     "Query institutional volume leaderboard",
-			UsageText: "volumeleaders-agent volume institutional --date 2025-01-15 --tickers AAPL,MSFT",
-				Flags: volumeFlags(),
+			{
+				Name:      "institutional",
+				Usage:     "Query institutional volume leaderboard",
+				UsageText: "volumeleaders-agent volume institutional --date 2025-01-15 --tickers AAPL,MSFT",
+				Flags:     volumeFlags(),
 				Action: func(ctx context.Context, cmd *cli.Command) error {
 					return runVolume(ctx, parseVolumeOptions(cmd),
 						"/InstitutionalVolume/GetInstitutionalVolume",
 						datatables.InstitutionalVolumeColumns)
 				},
 			},
-		{
-			Name:      "ah-institutional",
-			Usage:     "Query after-hours institutional volume leaderboard",
-			UsageText: "volumeleaders-agent volume ah-institutional --date 2025-01-15",
-				Flags: volumeFlags(),
+			{
+				Name:      "ah-institutional",
+				Usage:     "Query after-hours institutional volume leaderboard",
+				UsageText: "volumeleaders-agent volume ah-institutional --date 2025-01-15",
+				Flags:     volumeFlags(),
 				Action: func(ctx context.Context, cmd *cli.Command) error {
 					return runVolume(ctx, parseVolumeOptions(cmd),
 						"/AHInstitutionalVolume/GetAHInstitutionalVolume",
 						datatables.InstitutionalVolumeColumns)
 				},
 			},
-		{
-			Name:      "total",
-			Usage:     "Query total volume leaderboard",
-			UsageText: "volumeleaders-agent volume total --date 2025-01-15 --length 20",
-				Flags: volumeFlags(),
+			{
+				Name:      "total",
+				Usage:     "Query total volume leaderboard",
+				UsageText: "volumeleaders-agent volume total --date 2025-01-15 --length 20",
+				Flags:     volumeFlags(),
 				Action: func(ctx context.Context, cmd *cli.Command) error {
 					return runVolume(ctx, parseVolumeOptions(cmd),
 						"/TotalVolume/GetTotalVolume",
@@ -77,7 +83,7 @@ func NewVolumeCommand() *cli.Command {
 }
 
 // runVolume is the shared handler for all volume subcommands.
-func runVolume(ctx context.Context, opts volumeOptions, path string, columns []string) error {
+func runVolume(ctx context.Context, opts *volumeOptions, path string, columns []string) error {
 	return runDataTablesCommand[models.Trade](ctx, path, columns,
 		dataTableOptions{
 			start:    opts.start,
@@ -89,5 +95,6 @@ func runVolume(ctx context.Context, opts volumeOptions, path string, columns []s
 				"Tickers": opts.tickers,
 			},
 		},
+		opts.format,
 		"query volume data")
 }

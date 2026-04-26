@@ -2,6 +2,7 @@ package commands
 
 import (
 	"context"
+	"maps"
 	"slices"
 
 	"github.com/major/volumeleaders-agent/internal/datatables"
@@ -12,16 +13,15 @@ import (
 // --- Option structs ---
 
 type tradesOptions struct {
-	tickers, startDate, endDate, sector           string
-	minVolume, maxVolume                          int
-	conditions, vcd, securityType, relativeSize   int
-	darkPools, sweeps, latePrints, sigPrints      int
+	tickers, startDate, endDate, sector            string
+	minVolume, maxVolume                           int
+	conditions, vcd, securityType, relativeSize    int
+	darkPools, sweeps, latePrints, sigPrints       int
 	evenShared, tradeRank, rankSnapshot, marketCap int
-	premarket, rth, ah, opening, closing          int
-	phantom, offsetting                           int
-	minPrice, maxPrice, minDollars, maxDollars    float64
+	premarket, rth, ah, opening, closing           int
+	phantom, offsetting                            int
+	minPrice, maxPrice, minDollars, maxDollars     float64
 }
-
 
 type tradeLevelOptions struct {
 	ticker, startDate, endDate string
@@ -32,7 +32,6 @@ type tradeLevelOptions struct {
 	minPrice, maxPrice         float64
 	minDollars, maxDollars     float64
 }
-
 
 // NewTradeCommand returns the "trade" command group with all subcommands.
 func NewTradeCommand() *cli.Command {
@@ -266,9 +265,7 @@ func runTradeList(ctx context.Context, cmd *cli.Command) error {
 			if err != nil {
 				return err
 			}
-			for k, v := range preset.filters {
-				filters[k] = v
-			}
+			maps.Copy(filters, preset.filters)
 		}
 
 		if watchlistName != "" {
@@ -276,9 +273,7 @@ func runTradeList(ctx context.Context, cmd *cli.Command) error {
 			if err != nil {
 				return err
 			}
-			for k, v := range wlFilters {
-				filters[k] = v
-			}
+			maps.Copy(filters, wlFilters)
 		}
 
 		// User-explicit CLI flags take final precedence.
@@ -454,5 +449,3 @@ func buildTradeLevelFilters(opts *tradeLevelOptions) map[string]string {
 		"TradeLevelCount": intStr(opts.tradeLevelCount),
 	}
 }
-
-

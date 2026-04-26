@@ -2,6 +2,7 @@ package commands
 
 import (
 	"context"
+	"slices"
 
 	"github.com/major/volumeleaders-agent/internal/datatables"
 	"github.com/major/volumeleaders-agent/internal/models"
@@ -15,10 +16,10 @@ type volumeOptions struct {
 
 // volumeFlags returns the shared flag set used by all volume subcommands.
 func volumeFlags() []cli.Flag {
-	return append([]cli.Flag{
+	return slices.Concat([]cli.Flag{
 		&cli.StringFlag{Name: "date", Required: true, Usage: "Date YYYY-MM-DD"},
 		&cli.StringFlag{Name: "tickers", Usage: "Comma-separated ticker symbols"},
-	}, paginationFlags(100, 1, "asc")...)
+	}, paginationFlags(100, 1, "asc"))
 }
 
 // parseVolumeOptions extracts volumeOptions from the parsed CLI flags.

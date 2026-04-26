@@ -154,9 +154,9 @@ func newTradeAlertsCommand() *cli.Command {
 		Name:      "alerts",
 		Usage:     "Query trade alerts for a date",
 		UsageText: "volumeleaders-agent trade alerts --date 2025-01-15",
-		Flags: append([]cli.Flag{
+		Flags: slices.Concat([]cli.Flag{
 			&cli.StringFlag{Name: "date", Required: true, Usage: "Date YYYY-MM-DD"},
-		}, paginationFlags(100, 1, "desc")...),
+		}, paginationFlags(100, 1, "desc")),
 		Action: runTradeAlerts,
 	}
 }
@@ -166,9 +166,9 @@ func newTradeClusterAlertsCommand() *cli.Command {
 		Name:      "cluster-alerts",
 		Usage:     "Query trade cluster alerts for a date",
 		UsageText: "volumeleaders-agent trade cluster-alerts --date 2025-01-15",
-		Flags: append([]cli.Flag{
+		Flags: slices.Concat([]cli.Flag{
 			&cli.StringFlag{Name: "date", Required: true, Usage: "Date YYYY-MM-DD"},
-		}, paginationFlags(100, 1, "desc")...),
+		}, paginationFlags(100, 1, "desc")),
 		Action: runTradeClusterAlerts,
 	}
 }

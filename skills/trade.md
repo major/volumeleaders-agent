@@ -1,6 +1,6 @@
 # trade
 
-Institutional trade discovery. 8 subcommands. See SKILL.md for shared flag defaults and metrics glossary.
+Institutional trade discovery. 9 subcommands. See SKILL.md for shared flag defaults and metrics glossary.
 
 ## trade presets
 
@@ -12,6 +12,27 @@ Groups: "Common" (general-purpose filters), "Disproportionately Large" (>=5x avg
 volumeleaders-agent trade presets
 volumeleaders-agent trade presets --pretty | jq '.[].Name'
 ```
+
+## trade preset-tickers
+
+Extract ticker symbols from a named preset. No authentication required. Returns a JSON object with the preset name, group, type, and either a ticker list or sector filter value.
+
+Required: `--preset NAME` (case-insensitive)
+
+Types: `"tickers"` (explicit ticker list), `"sector-filter"` (SectorIndustry-based), `"unfiltered"` (no ticker/sector restriction).
+
+```bash
+volumeleaders-agent trade preset-tickers --preset "Megacaps"
+# {"Preset":"Megacaps","Group":"Disproportionately Large","Type":"tickers","Tickers":["AAPL","AMZN","META","GOOG","GOOGL","MSFT","NFLX","NVDA","TSLA"]}
+
+volumeleaders-agent trade preset-tickers --preset "Bear Leverage"
+# {"Preset":"Bear Leverage","Group":"Disproportionately Large","Type":"sector-filter","SectorIndustry":"X Bear"}
+
+volumeleaders-agent trade preset-tickers --preset "All Trades"
+# {"Preset":"All Trades","Group":"Common","Type":"unfiltered"}
+```
+
+Output fields: `Preset`, `Group`, `Type`, `Tickers` (trimmed, deduplicated, omitted when empty), `SectorIndustry` (omitted when empty). If a preset defines both `Tickers` and `SectorIndustry`, ticker output takes precedence.
 
 ## trade list
 
@@ -36,7 +57,7 @@ volumeleaders-agent trade list --watchlist "Magnificent 7" --start-date 2025-04-
 volumeleaders-agent trade list --tickers SPY,QQQ --start-date 2025-04-21 --end-date 2025-04-25 --fields Date,Ticker,Dollars,DollarsMultiplier,DarkPool,CumulativeDistribution
 ```
 
-Output fields: `AHInstitutionalDollars`, `AHInstitutionalDollarsRank`, `AHInstitutionalVolume`, `Ask`, `AverageBlockSizeDollars`, `AverageBlockSizeShares`, `AverageDailyVolume`, `Bid`, `Cancelled`, `ClosePrice`, `ClosingTrade`, `ClosingTradeDollars`, `ClosingTradeDollarsRank`, `ClosingTradeVolume`, `CumulativeDistribution`, `DarkPool`, `Date`, `DateKey`, `Dollars`, `DollarsMultiplier`, `DoubleInsideBar`, `EOM`, `EOQ`, `EOY`, `EndDate`, `ExternalFeed`, `FrequencyLast1CY`, `FrequencyLast30TD`, `FrequencyLast90TD`, `FullDateTime`, `FullTimeString24`, `IPODate`, `Industry`, `InsideBar`, `LastComparibleTradeDate`, `LatePrint`, `Name`, `NewPosition`, `OPEX`, `OffsettingTradeDate`, `OpeningTrade`, `PercentDailyVolume`, `PhantomPrint`, `PhantomPrintFulfillmentDate`, `PhantomPrintFulfillmentDays`, `Price`, `RSIDay`, `RSIHour`, `Sector`, `SecurityKey`, `SequenceNumber`, `SignaturePrint`, `StartDate`, `Sweep`, `TD1CY`, `TD30`, `TD90`, `Ticker`, `TimeKey`, `TotalDollars`, `TotalDollarsRank`, `TotalInstitutionalDollars`, `TotalInstitutionalDollarsRank`, `TotalInstitutionalVolume`, `TotalRows`, `TotalTrades`, `TotalVolume`, `TradeConditions`, `TradeCount`, `TradeID`, `TradeRank`, `TradeRankSnapshot`, `VOLEX`, `Volume`
+Output fields: `AHInstitutionalDollars`, `AHInstitutionalDollarsRank`, `AHInstitutionalVolume`, `Ask`, `AverageBlockSizeDollars`, `AverageBlockSizeShares`, `AverageDailyVolume`, `Bid`, `Cancelled`, `ClosePrice`, `ClosingTrade`, `ClosingTradeDollars`, `ClosingTradeDollarsRank`, `ClosingTradeVolume`, `CumulativeDistribution`, `DarkPool`, `Date`, `DateKey`, `Dollars`, `DollarsMultiplier`, `DoubleInsideBar`, `EOM`, `EOQ`, `EOY`, `EndDate`, `ExternalFeed`, `FrequencyLast1CY`, `FrequencyLast30TD`, `FrequencyLast90TD`, `FullDateTime`, `FullTimeString24`, `IPODate`, `Industry`, `InsideBar`, `LastComparibleTradeDate`, `LatePrint`, `Name`, `NewPosition`, `OPEX`, `OffsettingTradeDate`, `OpeningTrade`, `PercentDailyVolume`, `PhantomPrint`, `PhantomPrintFulfillmentDate`, `PhantomPrintFulfillmentDays`, `Price`, `RelativeSize`, `RSIDay`, `RSIHour`, `Sector`, `SecurityKey`, `SequenceNumber`, `SignaturePrint`, `StartDate`, `Sweep`, `TD1CY`, `TD30`, `TD90`, `Ticker`, `TimeKey`, `TotalDollars`, `TotalDollarsRank`, `TotalInstitutionalDollars`, `TotalInstitutionalDollarsRank`, `TotalInstitutionalVolume`, `TotalRows`, `TotalTrades`, `TotalVolume`, `TradeConditions`, `TradeCount`, `TradeID`, `TradeRank`, `TradeRankSnapshot`, `VOLEX`, `Volume`
 
 ## trade clusters
 

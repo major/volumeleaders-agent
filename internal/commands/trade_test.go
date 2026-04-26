@@ -1,7 +1,8 @@
 package commands
 
 import (
-	"reflect"
+	"maps"
+	"slices"
 	"strings"
 	"testing"
 
@@ -49,12 +50,12 @@ func TestParseJSONFieldList(t *testing.T) {
 				}
 				return
 			}
-			if err != nil {
-				t.Fatalf("unexpected error: %v", err)
-			}
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Fatalf("fields mismatch\nexpected: %#v\ngot:      %#v", tt.want, got)
-			}
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if !slices.Equal(got, tt.want) {
+			t.Fatalf("fields mismatch\nexpected: %#v\ngot:      %#v", tt.want, got)
+		}
 		})
 	}
 }
@@ -125,7 +126,7 @@ func TestBuildTradeFiltersPreservesAPIKeys(t *testing.T) {
 		"IncludeOffsetting": "1",
 		"SectorIndustry":    "Technology",
 	}
-	if !reflect.DeepEqual(filters, expected) {
+	if !maps.Equal(filters, expected) {
 		t.Fatalf("filters mismatch\nexpected: %#v\ngot:      %#v", expected, filters)
 	}
 }
@@ -164,7 +165,7 @@ func TestBuildTradeLevelFiltersUseLevelDateKeys(t *testing.T) {
 		"TradeLevelRank":  "5",
 		"TradeLevelCount": "20",
 	}
-	if !reflect.DeepEqual(filters, expected) {
+	if !maps.Equal(filters, expected) {
 		t.Fatalf("filters mismatch\nexpected: %#v\ngot:      %#v", expected, filters)
 	}
 }

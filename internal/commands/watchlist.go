@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/url"
+	"slices"
 	"strconv"
 
 	"github.com/major/volumeleaders-agent/internal/datatables"
@@ -18,29 +19,30 @@ func NewWatchlistCommand() *cli.Command {
 		Name:  "watchlist",
 		Usage: "Watch list commands",
 		Commands: []*cli.Command{
-		{
-			Name:      "configs",
-			Usage:     "List saved watch list configurations",
-			UsageText: "volumeleaders-agent watchlist configs",
-				Action: func(ctx context.Context, _ *cli.Command) error {
-					return runWatchlistConfigs(ctx)
-				},
-			},
-		{
-			Name:      "tickers",
-			Usage:     "Query tickers for a selected watch list",
-			UsageText: "volumeleaders-agent watchlist tickers --watchlist-key 1",
-				Flags: []cli.Flag{
-					&cli.IntFlag{Name: "watchlist-key", Value: -1, Usage: "Watch list key (-1 for all)"},
-				},
+			{
+				Name:      "configs",
+				Usage:     "List saved watch list configurations",
+				UsageText: "volumeleaders-agent watchlist configs",
+				Flags:     outputFormatFlags(),
 				Action: func(ctx context.Context, cmd *cli.Command) error {
-					return runWatchlistTickers(ctx, cmd.Int("watchlist-key"))
+					return runWatchlistConfigs(ctx, cmd.String("format"))
 				},
 			},
-		{
-			Name:      "delete",
-			Usage:     "Delete a watch list configuration",
-			UsageText: "volumeleaders-agent watchlist delete --key 1",
+			{
+				Name:      "tickers",
+				Usage:     "Query tickers for a selected watch list",
+				UsageText: "volumeleaders-agent watchlist tickers --watchlist-key 1",
+				Flags: append([]cli.Flag{
+					&cli.IntFlag{Name: "watchlist-key", Value: -1, Usage: "Watch list key (-1 for all)"},
+				}, outputFormatFlags()...),
+				Action: func(ctx context.Context, cmd *cli.Command) error {
+					return runWatchlistTickers(ctx, cmd.Int("watchlist-key"), cmd.String("format"))
+				},
+			},
+			{
+				Name:      "delete",
+				Usage:     "Delete a watch list configuration",
+				UsageText: "volumeleaders-agent watchlist delete --key 1",
 				Flags: []cli.Flag{
 					&cli.IntFlag{Name: "key", Required: true, Usage: "Watch list key to delete"},
 				},
@@ -48,10 +50,10 @@ func NewWatchlistCommand() *cli.Command {
 					return runWatchlistDelete(ctx, cmd.Int("key"))
 				},
 			},
-		{
-			Name:      "add-ticker",
-			Usage:     "Add a ticker to an existing watch list",
-			UsageText: "volumeleaders-agent watchlist add-ticker --watchlist-key 1 --ticker NVDA",
+			{
+				Name:      "add-ticker",
+				Usage:     "Add a ticker to an existing watch list",
+				UsageText: "volumeleaders-agent watchlist add-ticker --watchlist-key 1 --ticker NVDA",
 				Flags: []cli.Flag{
 					&cli.IntFlag{Name: "watchlist-key", Required: true, Usage: "Watch list key"},
 					&cli.StringFlag{Name: "ticker", Required: true, Usage: "Ticker symbol to add"},
@@ -121,14 +123,14 @@ volumeleaders-agent watchlist create --name "Large caps" --security-type 1 --min
 }
 
 func newWatchlistEditCommand() *cli.Command {
-	flags := append([]cli.Flag{
+	flags := slices.Concat([]cli.Flag{
 		&cli.IntFlag{Name: "key", Required: true, Usage: "Watch list key to edit"},
-	}, watchlistConfigFlags()...)
+	}, watchlistConfigFlags())
 	return &cli.Command{
 		Name:      "edit",
 		Usage:     "Edit an existing watch list configuration",
 		UsageText: "volumeleaders-agent watchlist edit --key 1 --name \"Updated watchlist\" --tickers AAPL,MSFT",
-		Flags: flags,
+		Flags:     flags,
 		Action: func(ctx context.Context, cmd *cli.Command) error {
 			return runWatchlistCreateEdit(ctx, cmd, cmd.Int("key"))
 		},
@@ -176,7 +178,12 @@ func buildWatchlistConfigFields(cmd *cli.Command, key int) map[string]string {
 
 // --- Action handlers ---
 
-func runWatchlistConfigs(ctx context.Context) error {
+func runWatchlistConfigs(ctx context.Context, formatValue string) error {
+	format, err := parseOutputFormat(formatValue)
+	if err != nil {
+		return err
+	}
+
 	vlClient, err := newCommandClient(ctx)
 	if err != nil {
 		return err
@@ -189,10 +196,15 @@ func runWatchlistConfigs(ctx context.Context) error {
 		return fmt.Errorf("query watchlist configs: %w", err)
 	}
 
-	return printJSON(ctx, configs)
+	return printDataTablesResult(ctx, configs, nil, format)
 }
 
-func runWatchlistTickers(ctx context.Context, watchlistKey int) error {
+func runWatchlistTickers(ctx context.Context, watchlistKey int, formatValue string) error {
+	format, err := parseOutputFormat(formatValue)
+	if err != nil {
+		return err
+	}
+
 	vlClient, err := newCommandClient(ctx)
 	if err != nil {
 		return err
@@ -213,7 +225,7 @@ func runWatchlistTickers(ctx context.Context, watchlistKey int) error {
 		return fmt.Errorf("query watchlist tickers: %w", err)
 	}
 
-	return printJSON(ctx, tickers)
+	return printDataTablesResult(ctx, tickers, nil, format)
 }
 
 func runWatchlistDelete(ctx context.Context, key int) error {

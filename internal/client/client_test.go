@@ -3,7 +3,6 @@ package client
 import (
 	"bytes"
 	"compress/gzip"
-	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -98,7 +97,7 @@ func TestPostDataTables(t *testing.T) {
 
 			client := newTestClient(server.URL)
 			var got []string
-			err := client.PostDataTables(context.Background(), "/datatable", "draw=1", &got)
+			err := client.PostDataTables(t.Context(), "/datatable", "draw=1", &got)
 			assertErrorContains(t, err, tt.wantErr)
 			if tt.wantErr != "" {
 				return
@@ -135,7 +134,7 @@ func TestPostJSON(t *testing.T) {
 		var got struct {
 			OK bool `json:"ok"`
 		}
-		if err := client.PostJSON(context.Background(), "/json", map[string]string{"symbol": "AAPL"}, &got); err != nil {
+		if err := client.PostJSON(t.Context(), "/json", map[string]string{"symbol": "AAPL"}, &got); err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
 		if !got.OK {
@@ -147,7 +146,7 @@ func TestPostJSON(t *testing.T) {
 		t.Parallel()
 
 		client := newTestClient("http://example.test")
-		err := client.PostJSON(context.Background(), "/json", map[string]any{"bad": make(chan int)}, &struct{}{})
+		err := client.PostJSON(t.Context(), "/json", map[string]any{"bad": make(chan int)}, &struct{}{})
 		assertErrorContains(t, err, "marshal JSON request")
 	})
 
@@ -160,7 +159,7 @@ func TestPostJSON(t *testing.T) {
 		t.Cleanup(server.Close)
 
 		client := newTestClient(server.URL)
-		err := client.PostJSON(context.Background(), "/json", map[string]string{"ok": "true"}, &struct{}{})
+		err := client.PostJSON(t.Context(), "/json", map[string]string{"ok": "true"}, &struct{}{})
 		assertErrorContains(t, err, "status 500")
 	})
 }
@@ -215,7 +214,7 @@ func TestPostForm(t *testing.T) {
 			t.Cleanup(server.Close)
 
 			client := newTestClient(server.URL)
-			err := client.PostForm(context.Background(), "/form", url.Values{"ticker": {"AAPL"}}, tt.result)
+			err := client.PostForm(t.Context(), "/form", url.Values{"ticker": {"AAPL"}}, tt.result)
 			assertErrorContains(t, err, tt.wantErr)
 			if tt.wantName != "" {
 				got := tt.result.(*struct{ Name string `json:"name"` })
@@ -263,7 +262,7 @@ func TestPostMultipart(t *testing.T) {
 			t.Cleanup(server.Close)
 
 			client := newTestClient(server.URL)
-			err := client.PostMultipart(context.Background(), "/multipart", map[string]string{"ticker": "AAPL"})
+			err := client.PostMultipart(t.Context(), "/multipart", map[string]string{"ticker": "AAPL"})
 			assertErrorContains(t, err, tt.wantErr)
 		})
 	}
@@ -417,7 +416,7 @@ func TestPostDataTablesDataDecodeError(t *testing.T) {
 
 	c := newTestClient(server.URL)
 	var got []string
-	err := c.PostDataTables(context.Background(), "/test", "draw=1", &got)
+	err := c.PostDataTables(t.Context(), "/test", "draw=1", &got)
 	assertErrorContains(t, err, "decode DataTables data")
 }
 
@@ -431,7 +430,7 @@ func TestPostJSONDecodeError(t *testing.T) {
 
 	c := newTestClient(server.URL)
 	var got struct{ Name string }
-	err := c.PostJSON(context.Background(), "/test", struct{}{}, &got)
+	err := c.PostJSON(t.Context(), "/test", struct{}{}, &got)
 	assertErrorContains(t, err, "decode JSON response")
 }
 
@@ -445,7 +444,7 @@ func TestPostFormDecodeError(t *testing.T) {
 
 	c := newTestClient(server.URL)
 	var got struct{ Name string }
-	err := c.PostForm(context.Background(), "/test", url.Values{"key": {"val"}}, &got)
+	err := c.PostForm(t.Context(), "/test", url.Values{"key": {"val"}}, &got)
 	assertErrorContains(t, err, "decode form response")
 }
 
@@ -456,7 +455,7 @@ func TestDoRequestConnectionError(t *testing.T) {
 	server.Close()
 
 	c := newTestClient(server.URL)
-	err := c.PostJSON(context.Background(), "/test", struct{}{}, &struct{}{})
+	err := c.PostJSON(t.Context(), "/test", struct{}{}, &struct{}{})
 	assertErrorContains(t, err, "post JSON request")
 }
 
@@ -478,7 +477,7 @@ func TestPostMultipartConnectionError(t *testing.T) {
 	server.Close()
 
 	c := newTestClient(server.URL)
-	err := c.PostMultipart(context.Background(), "/test", map[string]string{"key": "val"})
+	err := c.PostMultipart(t.Context(), "/test", map[string]string{"key": "val"})
 	assertErrorContains(t, err, "post multipart request")
 }
 

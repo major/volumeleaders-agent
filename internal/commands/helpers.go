@@ -2,10 +2,13 @@ package commands
 
 import (
 	"context"
+	"encoding/csv"
 	"encoding/json"
 	"fmt"
 	"log/slog"
 	"os"
+	"reflect"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -25,7 +28,16 @@ type dataTableOptions struct {
 	start, length, orderCol int
 	orderDir                string
 	filters                 map[string]string
+	fields                  []string
 }
+
+type outputFormat string
+
+const (
+	outputFormatJSON outputFormat = "json"
+	outputFormatCSV  outputFormat = "csv"
+	outputFormatTSV  outputFormat = "tsv"
+)
 
 // paginationPageSize is the number of records fetched per page when the user
 // requests all results (--length -1).
@@ -36,14 +48,19 @@ const paginationPageSize = 1000
 // prints the result as JSON. The label is used in error messages.
 // When opts.length is negative, results are fetched in pages of
 // paginationPageSize until all records have been retrieved.
-func runDataTablesCommand[T any](ctx context.Context, path string, columns []string, opts dataTableOptions, label string) error {
+func runDataTablesCommand[T any](ctx context.Context, path string, columns []string, opts dataTableOptions, formatValue, label string) error {
+	format, err := parseOutputFormat(formatValue)
+	if err != nil {
+		return err
+	}
+
 	vlClient, err := newCommandClient(ctx)
 	if err != nil {
 		return err
 	}
 
 	if opts.length < 0 {
-		return runPaginatedCommand[T](ctx, vlClient, path, columns, opts, label)
+		return runPaginatedCommand[T](ctx, vlClient, path, columns, opts, format, label)
 	}
 
 	request := newDataTablesRequest(columns, opts)
@@ -52,14 +69,14 @@ func runDataTablesCommand[T any](ctx context.Context, path string, columns []str
 		slog.Error("failed to "+label, "error", err)
 		return fmt.Errorf("%s: %w", label, err)
 	}
-	return printJSON(ctx, result)
+	return printDataTablesResult(ctx, result, opts.fields, format)
 }
 
 // runPaginatedCommand fetches all records by paginating through the DataTables
 // endpoint in pages of paginationPageSize. It accumulates results across pages
 // and stops when all filtered records have been retrieved or the server returns
 // an empty page.
-func runPaginatedCommand[T any](ctx context.Context, vlClient *client.Client, path string, columns []string, opts dataTableOptions, label string) error {
+func runPaginatedCommand[T any](ctx context.Context, vlClient *client.Client, path string, columns []string, opts dataTableOptions, format outputFormat, label string) error {
 	opts.length = paginationPageSize
 	all := make([]T, 0)
 
@@ -91,7 +108,196 @@ func runPaginatedCommand[T any](ctx context.Context, vlClient *client.Client, pa
 		opts.start += len(page)
 	}
 
-	return printJSON(ctx, all)
+	return printDataTablesResult(ctx, all, opts.fields, format)
+}
+
+func printDataTablesResult[T any](ctx context.Context, result []T, fields []string, format outputFormat) error {
+	if format == outputFormatJSON && len(fields) == 0 {
+		return printJSON(ctx, result)
+	}
+
+	selectedFields := fields
+	if len(selectedFields) == 0 {
+		selectedFields = jsonFieldNamesInOrder[T]()
+	}
+
+	selected, err := selectJSONFields(result, selectedFields)
+	if err != nil {
+		return err
+	}
+
+	switch format {
+	case outputFormatJSON:
+		return printJSON(ctx, selected)
+	case outputFormatCSV:
+		return printDelimited(selected, selectedFields, ',')
+	case outputFormatTSV:
+		return printDelimited(selected, selectedFields, '\t')
+	default:
+		return fmt.Errorf("unsupported output format %q", format)
+	}
+}
+
+func selectJSONFields[T any](items []T, fields []string) ([]map[string]json.RawMessage, error) {
+	selected := make([]map[string]json.RawMessage, 0, len(items))
+	for _, item := range items {
+		data, err := json.Marshal(item)
+		if err != nil {
+			return nil, fmt.Errorf("marshal item for field selection: %w", err)
+		}
+
+		var allFields map[string]json.RawMessage
+		if err := json.Unmarshal(data, &allFields); err != nil {
+			return nil, fmt.Errorf("decode item for field selection: %w", err)
+		}
+
+		row := make(map[string]json.RawMessage, len(fields))
+		for _, field := range fields {
+			row[field] = allFields[field]
+		}
+		selected = append(selected, row)
+	}
+	return selected, nil
+}
+
+func parseJSONFieldList[T any](value string) ([]string, error) {
+	if strings.TrimSpace(value) == "" {
+		return nil, nil
+	}
+
+	validFields := jsonFieldNames[T]()
+	valid := make(map[string]struct{}, len(validFields))
+	for _, field := range validFields {
+		valid[field] = struct{}{}
+	}
+
+	fields := make([]string, 0, strings.Count(value, ",")+1)
+	seen := make(map[string]struct{})
+	for field := range strings.SplitSeq(value, ",") {
+		field = strings.TrimSpace(field)
+		if field == "" {
+			continue
+		}
+		if _, ok := valid[field]; !ok {
+			return nil, fmt.Errorf("invalid field %q; valid fields: %s", field, strings.Join(validFields, ","))
+		}
+		if _, ok := seen[field]; ok {
+			continue
+		}
+		seen[field] = struct{}{}
+		fields = append(fields, field)
+	}
+	return fields, nil
+}
+
+func jsonFieldNames[T any]() []string {
+	fields := jsonFieldNamesInOrder[T]()
+	slices.Sort(fields)
+	return fields
+}
+
+func jsonFieldNamesInOrder[T any]() []string {
+	var zero T
+	typeOf := reflect.TypeOf(zero)
+	for typeOf.Kind() == reflect.Pointer {
+		typeOf = typeOf.Elem()
+	}
+
+	fields := make([]string, 0, typeOf.NumField())
+	for field := range typeOf.Fields() {
+		name, _, _ := strings.Cut(field.Tag.Get("json"), ",")
+		switch name {
+		case "", "-":
+			continue
+		default:
+			fields = append(fields, name)
+		}
+	}
+	return fields
+}
+
+func parseOutputFormat(value string) (outputFormat, error) {
+	format := outputFormat(strings.ToLower(strings.TrimSpace(value)))
+	if format == "" {
+		return outputFormatJSON, nil
+	}
+
+	switch format {
+	case outputFormatJSON, outputFormatCSV, outputFormatTSV:
+		return format, nil
+	default:
+		return "", fmt.Errorf("invalid format %q; valid formats: json,csv,tsv", value)
+	}
+}
+
+func printDelimited(rows []map[string]json.RawMessage, fields []string, comma rune) error {
+	writer := csv.NewWriter(os.Stdout)
+	writer.Comma = comma
+
+	if err := writer.Write(fields); err != nil {
+		return fmt.Errorf("write delimited header: %w", err)
+	}
+	for _, row := range rows {
+		record, err := delimitedRecord(row, fields)
+		if err != nil {
+			return err
+		}
+		if err := writer.Write(record); err != nil {
+			return fmt.Errorf("write delimited row: %w", err)
+		}
+	}
+	writer.Flush()
+	if err := writer.Error(); err != nil {
+		return fmt.Errorf("flush delimited output: %w", err)
+	}
+	return nil
+}
+
+func delimitedRecord(row map[string]json.RawMessage, fields []string) ([]string, error) {
+	record := make([]string, 0, len(fields))
+	for _, field := range fields {
+		value, err := delimitedValue(row[field])
+		if err != nil {
+			return nil, fmt.Errorf("format field %q: %w", field, err)
+		}
+		record = append(record, value)
+	}
+	return record, nil
+}
+
+func delimitedValue(raw json.RawMessage) (string, error) {
+	if len(raw) == 0 || string(raw) == "null" {
+		return "", nil
+	}
+	if isJSONNumber(raw) {
+		return string(raw), nil
+	}
+
+	var text string
+	if err := json.Unmarshal(raw, &text); err == nil {
+		return text, nil
+	}
+
+	var value any
+	if err := json.Unmarshal(raw, &value); err != nil {
+		return "", fmt.Errorf("decode JSON value: %w", err)
+	}
+	switch typed := value.(type) {
+	case bool:
+		return strconv.FormatBool(typed), nil
+	case float64:
+		return strconv.FormatFloat(typed, 'f', -1, 64), nil
+	default:
+		data, err := json.Marshal(typed)
+		if err != nil {
+			return "", fmt.Errorf("marshal complex JSON value: %w", err)
+		}
+		return string(data), nil
+	}
+}
+
+func isJSONNumber(raw json.RawMessage) bool {
+	return raw[0] == '-' || raw[0] >= '0' && raw[0] <= '9'
 }
 
 // newCommandClient centralizes authenticated client creation so command
@@ -166,6 +372,13 @@ func paginationFlags(length, orderCol int, orderDir string) []cli.Flag {
 		&cli.IntFlag{Name: "length", Value: length, Usage: "Number of results"},
 		&cli.IntFlag{Name: "order-col", Value: orderCol, Usage: "Order column index"},
 		&cli.StringFlag{Name: "order-dir", Value: orderDir, Usage: "Order direction"},
+	}
+}
+
+// outputFormatFlags returns the standard tabular output format flag.
+func outputFormatFlags() []cli.Flag {
+	return []cli.Flag{
+		&cli.StringFlag{Name: "format", Value: string(outputFormatJSON), Usage: "Output format: json, csv, or tsv"},
 	}
 }
 

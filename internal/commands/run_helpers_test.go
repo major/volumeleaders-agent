@@ -15,7 +15,7 @@ import (
 
 func TestNewCommandClientWithTestClient(t *testing.T) {
 	t.Parallel()
-	ctx := contextWithTestClient("http://example.test")
+	ctx := contextWithTestClient(t, "http://example.test")
 	c, err := newCommandClient(ctx)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -37,11 +37,12 @@ func TestRunDataTablesCommand(t *testing.T) {
 	}))
 	t.Cleanup(server.Close)
 
-	ctx := contextWithTestClient(server.URL)
+	ctx := contextWithTestClient(t, server.URL)
 	output := captureStdout(t, func() {
 		err := runDataTablesCommand[models.Trade](ctx, "/Test/GetData",
 			datatables.TradeColumns,
 			dataTableOptions{start: 0, length: 100, orderCol: 1, orderDir: "desc"},
+			"",
 			"test query")
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
@@ -58,12 +59,13 @@ func TestRunDataTablesCommandPrettyJSON(t *testing.T) {
 	}))
 	t.Cleanup(server.Close)
 
-	ctx := contextWithTestClient(server.URL)
+	ctx := contextWithTestClient(t, server.URL)
 	ctx = addPrettyJSON(ctx)
 	output := captureStdout(t, func() {
 		err := runDataTablesCommand[models.Trade](ctx, "/Test/GetData",
 			datatables.TradeColumns,
 			dataTableOptions{start: 0, length: 100, orderCol: 1, orderDir: "desc"},
+			"",
 			"test query")
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
@@ -81,12 +83,33 @@ func TestRunDataTablesCommandServerError(t *testing.T) {
 	}))
 	t.Cleanup(server.Close)
 
-	ctx := contextWithTestClient(server.URL)
+	ctx := contextWithTestClient(t, server.URL)
 	err := runDataTablesCommand[models.Trade](ctx, "/Test/GetData",
 		datatables.TradeColumns,
 		dataTableOptions{start: 0, length: 100, orderCol: 1, orderDir: "desc"},
+		"",
 		"test query")
 	assertErrContains(t, err, "test query")
+}
+
+func TestRunDataTablesCommandInvalidFormatDoesNotQueryAPI(t *testing.T) {
+	var requestCount int
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		requestCount++
+		fmt.Fprint(w, dataTablesJSON(`[{}]`))
+	}))
+	t.Cleanup(server.Close)
+
+	ctx := contextWithTestClient(t, server.URL)
+	err := runDataTablesCommand[models.Trade](ctx, "/Test/GetData",
+		datatables.TradeColumns,
+		dataTableOptions{start: 0, length: 100, orderCol: 1, orderDir: "desc"},
+		"table",
+		"test query")
+	assertErrContains(t, err, "valid formats: json,csv,tsv")
+	if requestCount != 0 {
+		t.Errorf("expected invalid format to fail before API query, got %d requests", requestCount)
+	}
 }
 
 func TestPaginatedCommandSinglePage(t *testing.T) {
@@ -97,11 +120,12 @@ func TestPaginatedCommandSinglePage(t *testing.T) {
 	}))
 	t.Cleanup(server.Close)
 
-	ctx := contextWithTestClient(server.URL)
+	ctx := contextWithTestClient(t, server.URL)
 	output := captureStdout(t, func() {
 		err := runDataTablesCommand[models.Trade](ctx, "/Test/GetData",
 			datatables.TradeColumns,
 			dataTableOptions{start: 0, length: -1, orderCol: 1, orderDir: "desc"},
+			"",
 			"test paginated")
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
@@ -141,11 +165,12 @@ func TestPaginatedCommandMultiPage(t *testing.T) {
 	}))
 	t.Cleanup(server.Close)
 
-	ctx := contextWithTestClient(server.URL)
+	ctx := contextWithTestClient(t, server.URL)
 	output := captureStdout(t, func() {
 		err := runDataTablesCommand[models.Trade](ctx, "/Test/GetData",
 			datatables.TradeColumns,
 			dataTableOptions{start: 0, length: -1, orderCol: 1, orderDir: "desc"},
+			"",
 			"test paginated multi")
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
@@ -171,11 +196,12 @@ func TestPaginatedCommandEmptyResults(t *testing.T) {
 	}))
 	t.Cleanup(server.Close)
 
-	ctx := contextWithTestClient(server.URL)
+	ctx := contextWithTestClient(t, server.URL)
 	output := captureStdout(t, func() {
 		err := runDataTablesCommand[models.Trade](ctx, "/Test/GetData",
 			datatables.TradeColumns,
 			dataTableOptions{start: 0, length: -1, orderCol: 1, orderDir: "desc"},
+			"",
 			"test paginated empty")
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
@@ -195,10 +221,11 @@ func TestPaginatedCommandServerError(t *testing.T) {
 	}))
 	t.Cleanup(server.Close)
 
-	ctx := contextWithTestClient(server.URL)
+	ctx := contextWithTestClient(t, server.URL)
 	err := runDataTablesCommand[models.Trade](ctx, "/Test/GetData",
 		datatables.TradeColumns,
 		dataTableOptions{start: 0, length: -1, orderCol: 1, orderDir: "desc"},
+		"",
 		"test paginated error")
 	assertErrContains(t, err, "test paginated error")
 }

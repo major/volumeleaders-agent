@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/major/volumeleaders-agent/internal/datatables"
+	"github.com/major/volumeleaders-agent/internal/models"
 	cli "github.com/urfave/cli/v3"
 )
 
@@ -238,7 +239,7 @@ func TestPrintJSON(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ctx := context.WithValue(context.Background(), prettyJSONKey, tt.pretty)
+			ctx := context.WithValue(t.Context(), prettyJSONKey, tt.pretty)
 
 			oldStdout := os.Stdout
 			r, w, _ := os.Pipe()
@@ -264,7 +265,7 @@ func TestPrintJSON(t *testing.T) {
 }
 
 func TestPrintJSONMarshalError(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	err := printJSON(ctx, make(chan int))
 	if err == nil {
 		t.Fatal("expected marshal error")
@@ -331,6 +332,106 @@ func TestPaginationFlags(t *testing.T) {
 	assertFlagName(t, flags[1], "length")
 	assertFlagName(t, flags[2], "order-col")
 	assertFlagName(t, flags[3], "order-dir")
+}
+
+func TestOutputFormatFlags(t *testing.T) {
+	t.Parallel()
+
+	flags := outputFormatFlags()
+	if len(flags) != 1 {
+		t.Fatalf("expected 1 flag, got %d", len(flags))
+	}
+	assertFlagName(t, flags[0], "format")
+}
+
+func TestParseOutputFormat(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name        string
+		input       string
+		expected    outputFormat
+		expectError bool
+	}{
+		{name: "empty defaults to json", input: "", expected: outputFormatJSON},
+		{name: "json", input: "json", expected: outputFormatJSON},
+		{name: "csv", input: "csv", expected: outputFormatCSV},
+		{name: "tsv with whitespace and case", input: " TSV ", expected: outputFormatTSV},
+		{name: "invalid", input: "table", expectError: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			got, err := parseOutputFormat(tt.input)
+			if tt.expectError {
+				assertErrContains(t, err, "valid formats: json,csv,tsv")
+				return
+			}
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if got != tt.expected {
+				t.Errorf("parseOutputFormat(%q) = %q, want %q", tt.input, got, tt.expected)
+			}
+		})
+	}
+}
+
+func TestPrintDataTablesResultDelimited(t *testing.T) {
+	// Not parallel: captures os.Stdout.
+	industry := "Software, Infrastructure"
+	rows := []models.Trade{
+		{
+			Ticker:   "AAPL",
+			Name:     "Apple, Inc.",
+			Industry: &industry,
+			DarkPool: true,
+			Dollars:  123.45,
+			TradeID:  9007199254740993,
+		},
+		{
+			Ticker:   "MSFT",
+			Name:     "Microsoft Corp",
+			DarkPool: false,
+			Dollars:  0,
+		},
+	}
+
+	tests := []struct {
+		name     string
+		format   outputFormat
+		fields   []string
+		expected string
+	}{
+		{
+			name:     "csv quotes strings and leaves nil empty",
+			format:   outputFormatCSV,
+			fields:   []string{"Ticker", "Name", "Industry", "DarkPool", "Dollars", "TradeID"},
+			expected: "Ticker,Name,Industry,DarkPool,Dollars,TradeID\nAAPL,\"Apple, Inc.\",\"Software, Infrastructure\",true,123.45,9007199254740993\nMSFT,Microsoft Corp,,false,0,0\n",
+		},
+		{
+			name:     "tsv uses tabs",
+			format:   outputFormatTSV,
+			fields:   []string{"Ticker", "DarkPool"},
+			expected: "Ticker\tDarkPool\nAAPL\ttrue\nMSFT\tfalse\n",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			output := captureStdout(t, func() {
+				err := printDataTablesResult(context.Background(), rows, tt.fields, tt.format)
+				if err != nil {
+					t.Fatalf("unexpected error: %v", err)
+				}
+			})
+			if output != tt.expected {
+				t.Errorf("delimited output:\nexpected: %q\ngot:      %q", tt.expected, output)
+			}
+		})
+	}
 }
 
 func TestRequireStringFlag(t *testing.T) {

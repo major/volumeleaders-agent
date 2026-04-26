@@ -12,7 +12,7 @@ make lint
 
 ## Development
 
-**Requirements:** Go 1.24 or later.
+**Requirements:** Go 1.26 or later.
 
 Linting uses [golangci-lint](https://golangci-lint.run/) with the config in `.golangci.yml`. Run `make lint` before submitting.
 

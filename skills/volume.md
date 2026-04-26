@@ -3,7 +3,9 @@
 Volume leaderboards ranking stocks by trading activity. All three subcommands share the same flags and return Trade model objects.
 
 Required: `--date` (YYYY-MM-DD)
-Optional: `--tickers`, pagination (`--length 100 --order-col 1 --order-dir asc`)
+Optional: `--tickers`, `--format json|csv|tsv`, pagination (`--length 100 --order-col 1 --order-dir asc`)
+
+Output format: JSON by default. CSV/TSV include a header row, render booleans as `true`/`false`, and render null/missing values as empty cells.
 
 Note: default sort direction is `asc` (ascending), unlike trade commands which default to `desc`.
 
@@ -13,6 +15,7 @@ Stocks ranked by institutional dollar volume for a date. The primary "what are i
 
 ```bash
 volumeleaders-agent volume institutional --date 2025-04-23
+volumeleaders-agent volume institutional --date 2025-04-23 --format csv
 ```
 
 ## volume ah-institutional

@@ -2,6 +2,8 @@ package auth
 
 import (
 	"compress/gzip"
+	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -125,7 +127,7 @@ func TestFetchXSRFToken(t *testing.T) {
 			client := server.Client()
 			client.Transport = rewriteHostTransport{base: client.Transport, target: server.URL}
 
-			token, err := FetchXSRFToken(client, map[string]string{
+			token, err := FetchXSRFToken(t.Context(), client, map[string]string{
 				"ASP.NET_SessionId": "session-cookie",
 				".ASPXAUTH":         "auth-cookie",
 			})
@@ -145,6 +147,32 @@ func TestFetchXSRFToken(t *testing.T) {
 				t.Errorf("expected token %q, got %q", tt.wantToken, token)
 			}
 		})
+	}
+}
+
+func TestFetchXSRFToken_CanceledContext(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		fmt.Fprint(w, `<input name="__RequestVerificationToken" type="hidden" value="token-123" />`)
+	}))
+	t.Cleanup(server.Close)
+
+	client := server.Client()
+	client.Transport = rewriteHostTransport{base: client.Transport, target: server.URL}
+
+	ctx, cancel := context.WithCancel(t.Context())
+	cancel() // cancel immediately
+
+	_, err := FetchXSRFToken(ctx, client, map[string]string{
+		"ASP.NET_SessionId": "session-cookie",
+		".ASPXAUTH":         "auth-cookie",
+	})
+	if err == nil {
+		t.Fatal("expected error from canceled context")
+	}
+	if !errors.Is(err, context.Canceled) {
+		t.Errorf("expected context.Canceled, got: %v", err)
 	}
 }
 

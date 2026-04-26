@@ -16,10 +16,11 @@ import (
 
 // contextWithTestClient returns a context carrying a test Client that targets
 // the given base URL. The returned context bypasses browser authentication.
-func contextWithTestClient(baseURL string) context.Context {
+func contextWithTestClient(t *testing.T, baseURL string) context.Context {
+	t.Helper()
 	httpClient := &http.Client{Timeout: 5 * time.Second}
 	c := client.NewForTesting(httpClient, baseURL)
-	return context.WithValue(context.Background(), testClientKey, c)
+	return context.WithValue(t.Context(), testClientKey, c)
 }
 
 // captureStdout calls fn and returns everything written to os.Stdout during

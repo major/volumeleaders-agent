@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"slices"
 	"strconv"
 
 	"github.com/major/volumeleaders-agent/internal/datatables"
@@ -17,18 +18,19 @@ func NewAlertCommand() *cli.Command {
 		Name:  "alert",
 		Usage: "Alert configuration commands",
 		Commands: []*cli.Command{
-		{
-			Name:      "configs",
-			Usage:     "List saved alert configurations",
-			UsageText: "volumeleaders-agent alert configs",
-				Action: func(ctx context.Context, _ *cli.Command) error {
-					return runAlertConfigs(ctx)
+			{
+				Name:      "configs",
+				Usage:     "List saved alert configurations",
+				UsageText: "volumeleaders-agent alert configs",
+				Flags:     outputFormatFlags(),
+				Action: func(ctx context.Context, cmd *cli.Command) error {
+					return runAlertConfigs(ctx, cmd.String("format"))
 				},
 			},
-		{
-			Name:      "delete",
-			Usage:     "Delete an alert configuration",
-			UsageText: "volumeleaders-agent alert delete --key 42",
+			{
+				Name:      "delete",
+				Usage:     "Delete an alert configuration",
+				UsageText: "volumeleaders-agent alert delete --key 42",
 				Flags: []cli.Flag{
 					&cli.IntFlag{Name: "key", Required: true, Usage: "Alert config key to delete"},
 				},
@@ -100,14 +102,17 @@ volumeleaders-agent alert create --name "Dark pool sweeps" --sweep --dark-pool -
 }
 
 func newAlertEditCommand() *cli.Command {
-	flags := append([]cli.Flag{
-		&cli.IntFlag{Name: "key", Required: true, Usage: "Alert config key to edit"},
-	}, alertConfigFlags()...)
+	flags := slices.Concat(
+		[]cli.Flag{
+			&cli.IntFlag{Name: "key", Required: true, Usage: "Alert config key to edit"},
+		},
+		alertConfigFlags(),
+	)
 	return &cli.Command{
 		Name:      "edit",
 		Usage:     "Edit an existing alert configuration",
 		UsageText: "volumeleaders-agent alert edit --key 42 --name \"Updated alert\" --trade-rank-lte 3",
-		Flags: flags,
+		Flags:     flags,
 		Action: func(ctx context.Context, cmd *cli.Command) error {
 			return runAlertCreateEdit(ctx, cmd, cmd.Int("key"))
 		},
@@ -160,7 +165,12 @@ func buildAlertConfigFields(cmd *cli.Command, key int) map[string]string {
 
 // --- Action handlers ---
 
-func runAlertConfigs(ctx context.Context) error {
+func runAlertConfigs(ctx context.Context, formatValue string) error {
+	format, err := parseOutputFormat(formatValue)
+	if err != nil {
+		return err
+	}
+
 	vlClient, err := newCommandClient(ctx)
 	if err != nil {
 		return err
@@ -173,7 +183,7 @@ func runAlertConfigs(ctx context.Context) error {
 		return fmt.Errorf("query alert configs: %w", err)
 	}
 
-	return printJSON(ctx, configs)
+	return printDataTablesResult(ctx, configs, nil, format)
 }
 
 func runAlertDelete(ctx context.Context, key int) error {

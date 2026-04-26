@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"slices"
 
 	"github.com/major/volumeleaders-agent/internal/datatables"
 	"github.com/major/volumeleaders-agent/internal/models"
@@ -41,9 +42,9 @@ func newEarningsCommand() *cli.Command {
 		Name:      "earnings",
 		Usage:     "Query earnings calendar within a date range",
 		UsageText: "volumeleaders-agent market earnings --start-date 2025-01-20 --end-date 2025-01-24",
-		Flags: dateRangeFlags(),
+		Flags:     slices.Concat(dateRangeFlags(), outputFormatFlags()),
 		Action: func(ctx context.Context, cmd *cli.Command) error {
-			return runEarnings(ctx, cmd.String("start-date"), cmd.String("end-date"))
+			return runEarnings(ctx, cmd.String("start-date"), cmd.String("end-date"), cmd.String("format"))
 		},
 	}
 }
@@ -80,7 +81,7 @@ func runSnapshots(ctx context.Context) error {
 	return printJSON(ctx, snapshots)
 }
 
-func runEarnings(ctx context.Context, startDate, endDate string) error {
+func runEarnings(ctx context.Context, startDate, endDate, format string) error {
 	return runDataTablesCommand[models.Earnings](ctx, "/Earnings/GetEarnings", datatables.EarningsColumns,
 		dataTableOptions{
 			start:    0,
@@ -92,6 +93,7 @@ func runEarnings(ctx context.Context, startDate, endDate string) error {
 				"EndDate":   endDate,
 			},
 		},
+		format,
 		"query earnings")
 }
 

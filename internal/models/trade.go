@@ -129,6 +129,7 @@ type Trade struct {
 	Volume                        int        `json:"Volume"`
 	AverageDailyVolume            int        `json:"AverageDailyVolume"`
 	PercentDailyVolume            float64    `json:"PercentDailyVolume"`
+	RelativeSize                  float64    `json:"RelativeSize"`
 	LastComparibleTradeDate       AspNetDate `json:"LastComparibleTradeDate"`
 	IPODate                       AspNetDate `json:"IPODate"`
 	OffsettingTradeDate           AspNetDate `json:"OffsettingTradeDate"`
@@ -172,6 +173,80 @@ type Trade struct {
 	TotalTrades                   int        `json:"TotalTrades"`
 	ExternalFeed                  FlexBool   `json:"ExternalFeed"`
 }
+
+// TradeSummary represents aggregate trade metrics for a trade list query.
+type TradeSummary struct {
+	TotalTrades  int                          `json:"totalTrades"`
+	TotalDollars float64                      `json:"totalDollars"`
+	DateRange    TradeSummaryDateRange        `json:"dateRange"`
+	ByTicker     map[string]TradeGroupSummary `json:"byTicker,omitempty"`
+	ByDay        map[string]TradeGroupSummary `json:"byDay,omitempty"`
+	ByTickerDay  map[string]TradeGroupSummary `json:"byTickerDay,omitempty"`
+}
+
+// TradeSummaryDateRange records the CLI date range used for a summary query.
+type TradeSummaryDateRange struct {
+	Start string `json:"start"`
+	End   string `json:"end"`
+}
+
+// TradeGroupSummary represents aggregate metrics for one summary group.
+type TradeGroupSummary struct {
+	Trades                    int     `json:"trades"`
+	Dollars                   float64 `json:"dollars"`
+	AvgDollarsMultiplier      float64 `json:"avgDollarsMultiplier"`
+	PctDarkPool               float64 `json:"pctDarkPool"`
+	PctSweep                  float64 `json:"pctSweep"`
+	AvgCumulativeDistribution float64 `json:"avgCumulativeDistribution"`
+}
+
+// TradeSentiment summarizes bull/bear leveraged ETF flow over a date range.
+type TradeSentiment struct {
+	DateRange TradeSentimentDateRange `json:"dateRange"`
+	Daily     []TradeSentimentDay     `json:"daily"`
+	Totals    TradeSentimentTotals    `json:"totals"`
+}
+
+// TradeSentimentDateRange is the CLI date range used for sentiment analysis.
+type TradeSentimentDateRange struct {
+	Start string `json:"start"`
+	End   string `json:"end"`
+}
+
+// TradeSentimentDay summarizes leveraged ETF flow for one trading day.
+type TradeSentimentDay struct {
+	Date   string               `json:"date"`
+	Bear   TradeSentimentSide   `json:"bear"`
+	Bull   TradeSentimentSide   `json:"bull"`
+	Ratio  *float64             `json:"ratio"`
+	Signal TradeSentimentSignal `json:"signal"`
+}
+
+// TradeSentimentSide summarizes one side of leveraged ETF sentiment.
+type TradeSentimentSide struct {
+	Trades     int      `json:"trades"`
+	Dollars    float64  `json:"dollars"`
+	TopTickers []string `json:"topTickers"`
+}
+
+// TradeSentimentTotals summarizes leveraged ETF flow for the whole date range.
+type TradeSentimentTotals struct {
+	Bear   TradeSentimentSide   `json:"bear"`
+	Bull   TradeSentimentSide   `json:"bull"`
+	Ratio  *float64             `json:"ratio"`
+	Signal TradeSentimentSignal `json:"signal"`
+}
+
+// TradeSentimentSignal labels the bull/bear flow ratio for quick interpretation.
+type TradeSentimentSignal string
+
+const (
+	TradeSentimentExtremeBear  TradeSentimentSignal = "extreme_bear"
+	TradeSentimentModerateBear TradeSentimentSignal = "moderate_bear"
+	TradeSentimentNeutral      TradeSentimentSignal = "neutral"
+	TradeSentimentModerateBull TradeSentimentSignal = "moderate_bull"
+	TradeSentimentExtremeBull  TradeSentimentSignal = "extreme_bull"
+)
 
 // DataTablesResponse represents the server-side DataTables JSON envelope.
 type DataTablesResponse struct {

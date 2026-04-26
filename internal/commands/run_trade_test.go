@@ -1,6 +1,7 @@
 package commands
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -81,6 +82,59 @@ func TestTradeRunFunctions(t *testing.T) {
 			})
 		})
 	}
+}
+
+func TestTradeListFieldsFiltersOutput(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/Trades/GetTrades" {
+			t.Errorf("expected path /Trades/GetTrades, got %s", r.URL.Path)
+		}
+		fmt.Fprint(w, dataTablesJSON(`[{"Ticker":"SPY","Dollars":26025000,"Volume":50000}]`))
+	}))
+	t.Cleanup(server.Close)
+
+	ctx := contextWithTestClient(server.URL)
+	output := captureStdout(t, func() {
+		root := &cli.Command{Commands: []*cli.Command{newTradeListCommand()}}
+		if err := root.Run(ctx, []string{
+			"app", "list",
+			"--start-date", "2025-01-01",
+			"--end-date", "2025-01-31",
+			"--fields", "Ticker,Dollars",
+		}); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+	})
+
+	var got []map[string]json.RawMessage
+	if err := json.Unmarshal([]byte(output), &got); err != nil {
+		t.Fatalf("unmarshal filtered output: %v", err)
+	}
+	if len(got) != 1 {
+		t.Fatalf("expected one row, got %d", len(got))
+	}
+	if _, ok := got[0]["Ticker"]; !ok {
+		t.Fatal("expected Ticker field")
+	}
+	if _, ok := got[0]["Dollars"]; !ok {
+		t.Fatal("expected Dollars field")
+	}
+	if _, ok := got[0]["Volume"]; ok {
+		t.Fatal("did not expect Volume field")
+	}
+}
+
+func TestTradeListFieldsRejectsInvalidField(t *testing.T) {
+	ctx := contextWithTestClient("http://127.0.0.1")
+	root := &cli.Command{Commands: []*cli.Command{newTradeListCommand()}}
+	err := root.Run(ctx, []string{
+		"app", "list",
+		"--start-date", "2025-01-01",
+		"--end-date", "2025-01-31",
+		"--fields", "Ticker,NotAField",
+	})
+	assertErrContains(t, err, "invalid field \"NotAField\"")
+	assertErrContains(t, err, "Ticker")
 }
 
 func TestTradeListPresetIncludesDefaults(t *testing.T) {

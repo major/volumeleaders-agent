@@ -2,6 +2,7 @@ package commands
 
 import (
 	"context"
+	"fmt"
 	"slices"
 
 	"github.com/major/volumeleaders-agent/internal/datatables"
@@ -12,16 +13,15 @@ import (
 // --- Option structs ---
 
 type tradesOptions struct {
-	tickers, startDate, endDate, sector           string
-	minVolume, maxVolume                          int
-	conditions, vcd, securityType, relativeSize   int
-	darkPools, sweeps, latePrints, sigPrints      int
+	tickers, startDate, endDate, sector            string
+	minVolume, maxVolume                           int
+	conditions, vcd, securityType, relativeSize    int
+	darkPools, sweeps, latePrints, sigPrints       int
 	evenShared, tradeRank, rankSnapshot, marketCap int
-	premarket, rth, ah, opening, closing          int
-	phantom, offsetting                           int
-	minPrice, maxPrice, minDollars, maxDollars    float64
+	premarket, rth, ah, opening, closing           int
+	phantom, offsetting                            int
+	minPrice, maxPrice, minDollars, maxDollars     float64
 }
-
 
 type tradeLevelOptions struct {
 	ticker, startDate, endDate string
@@ -32,7 +32,6 @@ type tradeLevelOptions struct {
 	minPrice, maxPrice         float64
 	minDollars, maxDollars     float64
 }
-
 
 // NewTradeCommand returns the "trade" command group with all subcommands.
 func NewTradeCommand() *cli.Command {
@@ -92,6 +91,7 @@ volumeleaders-agent trade list --watchlist "Magnificent 7" --start-date 2025-04-
 				&cli.StringFlag{Name: "sector", Usage: "Sector/Industry filter"},
 				&cli.StringFlag{Name: "preset", Usage: "Apply a built-in filter preset (see: trade presets)"},
 				&cli.StringFlag{Name: "watchlist", Usage: "Apply filters from a saved watchlist by name"},
+				&cli.StringFlag{Name: "fields", Usage: "Comma-separated trade fields to include in output"},
 			},
 			paginationFlags(100, 1, "desc"),
 		),
@@ -223,6 +223,10 @@ volumeleaders-agent trade level-touches --tickers NVDA,AMD --trade-level-rank 5`
 func runTradeList(ctx context.Context, cmd *cli.Command) error {
 	presetName := cmd.String("preset")
 	watchlistName := cmd.String("watchlist")
+	fields, err := parseJSONFieldList[models.Trade](cmd.String("fields"))
+	if err != nil {
+		return fmt.Errorf("parsing fields flag: %w", err)
+	}
 
 	// Build the full filter map from CLI flags (includes defaults for unset
 	// flags). Every key the API requires is present after this call.
@@ -290,7 +294,7 @@ func runTradeList(ctx context.Context, cmd *cli.Command) error {
 	filters["EndDate"] = cmd.String("end-date")
 
 	return runDataTablesCommand[models.Trade](ctx, "/Trades/GetTrades", datatables.TradeColumns,
-		dataTableOptions{start: cmd.Int("start"), length: cmd.Int("length"), orderCol: cmd.Int("order-col"), orderDir: cmd.String("order-dir"), filters: filters},
+		dataTableOptions{start: cmd.Int("start"), length: cmd.Int("length"), orderCol: cmd.Int("order-col"), orderDir: cmd.String("order-dir"), filters: filters, fields: fields},
 		"query trades")
 }
 
@@ -454,5 +458,3 @@ func buildTradeLevelFilters(opts *tradeLevelOptions) map[string]string {
 		"TradeLevelCount": intStr(opts.tradeLevelCount),
 	}
 }
-
-

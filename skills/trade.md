@@ -18,11 +18,13 @@ volumeleaders-agent trade presets --pretty | jq '.[].Name'
 Query individual institutional block trades. The primary trade discovery command.
 
 Required: `--start-date`, `--end-date`
-Optional: `--tickers` (aliases: `--ticker`, `--symbol`, `--symbols`), `--sector`, `--preset`, `--watchlist`, all shared flags (volume/price/dollar ranges, trade filters, trade type toggles, session toggles), pagination (`--length 100 --order-col 1 --order-dir desc`)
+Optional: `--tickers` (aliases: `--ticker`, `--symbol`, `--symbols`), `--sector`, `--preset`, `--watchlist`, `--fields`, all shared flags (volume/price/dollar ranges, trade filters, trade type toggles, session toggles), pagination (`--length 100 --order-col 1 --order-dir desc`)
 
 **`--preset NAME`**: Apply a built-in filter preset by name (case-insensitive). The preset sets baseline filters; any explicitly-provided CLI flags override the preset values. Use `trade presets` to list available names.
 
 **`--watchlist NAME`**: Apply filters from a saved user watchlist by name (case-insensitive). Fetches the watchlist config at runtime and converts its settings to trade filters. Use `watchlist configs` to list available names.
+
+**`--fields FIELD1,FIELD2`**: Return only the listed trade fields in each JSON object. Field names are case-sensitive and must match the output field names below. Invalid names fail before querying the API and include the valid field list in the error.
 
 Both flags can be combined: watchlist filters merge on top of preset filters, and explicit CLI flags override both.
 
@@ -31,9 +33,10 @@ volumeleaders-agent trade list --tickers AAPL --start-date 2025-04-16 --end-date
 volumeleaders-agent trade list --preset "Top-100 Rank" --start-date 2025-04-01 --end-date 2025-04-24
 volumeleaders-agent trade list --preset "Megacaps" --start-date 2025-04-01 --end-date 2025-04-24 --trade-rank 10
 volumeleaders-agent trade list --watchlist "Magnificent 7" --start-date 2025-04-01 --end-date 2025-04-24
+volumeleaders-agent trade list --tickers SPY,QQQ --start-date 2025-04-21 --end-date 2025-04-25 --fields Date,Ticker,Dollars,DollarsMultiplier,DarkPool,CumulativeDistribution
 ```
 
-Output fields: `Ticker`, `Name`, `Sector`, `Industry`, `Date`, `Price`, `Bid`, `Ask`, `Dollars`, `DollarsMultiplier`, `Volume`, `AverageDailyVolume`, `PercentDailyVolume`, `TradeCount`, `CumulativeDistribution`, `TradeRank`, `TradeRankSnapshot`, `DarkPool`, `Sweep`, `LatePrint`, `SignaturePrint`, `OpeningTrade`, `ClosingTrade`, `PhantomPrint`, `InsideBar`, `DoubleInsideBar`, `NewPosition`, `Cancelled`, `TotalInstitutionalDollars`, `TotalInstitutionalDollarsRank`, `TotalInstitutionalVolume`, `AHInstitutionalDollars`, `AHInstitutionalDollarsRank`, `AHInstitutionalVolume`, `ClosingTradeDollars`, `ClosingTradeDollarsRank`, `ClosingTradeVolume`, `TotalDollars`, `TotalDollarsRank`, `TotalVolume`, `ClosePrice`, `RSIHour`, `RSIDay`, `FrequencyLast30TD`, `FrequencyLast90TD`, `FrequencyLast1CY`, `LastComparibleTradeDate`, `IPODate`, `TotalRows`
+Output fields: `AHInstitutionalDollars`, `AHInstitutionalDollarsRank`, `AHInstitutionalVolume`, `Ask`, `AverageBlockSizeDollars`, `AverageBlockSizeShares`, `AverageDailyVolume`, `Bid`, `Cancelled`, `ClosePrice`, `ClosingTrade`, `ClosingTradeDollars`, `ClosingTradeDollarsRank`, `ClosingTradeVolume`, `CumulativeDistribution`, `DarkPool`, `Date`, `DateKey`, `Dollars`, `DollarsMultiplier`, `DoubleInsideBar`, `EOM`, `EOQ`, `EOY`, `EndDate`, `ExternalFeed`, `FrequencyLast1CY`, `FrequencyLast30TD`, `FrequencyLast90TD`, `FullDateTime`, `FullTimeString24`, `IPODate`, `Industry`, `InsideBar`, `LastComparibleTradeDate`, `LatePrint`, `Name`, `NewPosition`, `OPEX`, `OffsettingTradeDate`, `OpeningTrade`, `PercentDailyVolume`, `PhantomPrint`, `PhantomPrintFulfillmentDate`, `PhantomPrintFulfillmentDays`, `Price`, `RSIDay`, `RSIHour`, `Sector`, `SecurityKey`, `SequenceNumber`, `SignaturePrint`, `StartDate`, `Sweep`, `TD1CY`, `TD30`, `TD90`, `Ticker`, `TimeKey`, `TotalDollars`, `TotalDollarsRank`, `TotalInstitutionalDollars`, `TotalInstitutionalDollarsRank`, `TotalInstitutionalVolume`, `TotalRows`, `TotalTrades`, `TotalVolume`, `TradeConditions`, `TradeCount`, `TradeID`, `TradeRank`, `TradeRankSnapshot`, `VOLEX`, `Volume`
 
 ## trade clusters
 

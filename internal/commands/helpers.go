@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"reflect"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -25,6 +27,7 @@ type dataTableOptions struct {
 	start, length, orderCol int
 	orderDir                string
 	filters                 map[string]string
+	fields                  []string
 }
 
 // paginationPageSize is the number of records fetched per page when the user
@@ -52,7 +55,7 @@ func runDataTablesCommand[T any](ctx context.Context, path string, columns []str
 		slog.Error("failed to "+label, "error", err)
 		return fmt.Errorf("%s: %w", label, err)
 	}
-	return printJSON(ctx, result)
+	return printDataTablesResult(ctx, result, opts.fields)
 }
 
 // runPaginatedCommand fetches all records by paginating through the DataTables
@@ -91,7 +94,93 @@ func runPaginatedCommand[T any](ctx context.Context, vlClient *client.Client, pa
 		opts.start += len(page)
 	}
 
-	return printJSON(ctx, all)
+	return printDataTablesResult(ctx, all, opts.fields)
+}
+
+func printDataTablesResult[T any](ctx context.Context, result []T, fields []string) error {
+	if len(fields) == 0 {
+		return printJSON(ctx, result)
+	}
+
+	selected, err := selectJSONFields(result, fields)
+	if err != nil {
+		return err
+	}
+	return printJSON(ctx, selected)
+}
+
+func selectJSONFields[T any](items []T, fields []string) ([]map[string]json.RawMessage, error) {
+	selected := make([]map[string]json.RawMessage, 0, len(items))
+	for _, item := range items {
+		data, err := json.Marshal(item)
+		if err != nil {
+			return nil, fmt.Errorf("marshal item for field selection: %w", err)
+		}
+
+		var allFields map[string]json.RawMessage
+		if err := json.Unmarshal(data, &allFields); err != nil {
+			return nil, fmt.Errorf("decode item for field selection: %w", err)
+		}
+
+		row := make(map[string]json.RawMessage, len(fields))
+		for _, field := range fields {
+			row[field] = allFields[field]
+		}
+		selected = append(selected, row)
+	}
+	return selected, nil
+}
+
+func parseJSONFieldList[T any](value string) ([]string, error) {
+	if strings.TrimSpace(value) == "" {
+		return nil, nil
+	}
+
+	validFields := jsonFieldNames[T]()
+	valid := make(map[string]struct{}, len(validFields))
+	for _, field := range validFields {
+		valid[field] = struct{}{}
+	}
+
+	fields := make([]string, 0, strings.Count(value, ",")+1)
+	seen := make(map[string]struct{})
+	for field := range strings.SplitSeq(value, ",") {
+		field = strings.TrimSpace(field)
+		if field == "" {
+			continue
+		}
+		if _, ok := valid[field]; !ok {
+			return nil, fmt.Errorf("invalid field %q; valid fields: %s", field, strings.Join(validFields, ","))
+		}
+		if _, ok := seen[field]; ok {
+			continue
+		}
+		seen[field] = struct{}{}
+		fields = append(fields, field)
+	}
+	return fields, nil
+}
+
+func jsonFieldNames[T any]() []string {
+	var zero T
+	typeOf := reflect.TypeOf(zero)
+	for typeOf.Kind() == reflect.Pointer {
+		typeOf = typeOf.Elem()
+	}
+
+	fields := make([]string, 0, typeOf.NumField())
+	for i := range typeOf.NumField() {
+		field := typeOf.Field(i)
+		name, _, _ := strings.Cut(field.Tag.Get("json"), ",")
+		switch name {
+		case "", "-":
+			continue
+		default:
+			fields = append(fields, name)
+		}
+	}
+	slices.Sort(fields)
+	return fields
 }
 
 // newCommandClient centralizes authenticated client creation so command

@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/major/volumeleaders-agent/internal/models"
 	cli "github.com/urfave/cli/v3"
@@ -88,6 +89,122 @@ func TestTradeRunFunctions(t *testing.T) {
 					t.Fatalf("unexpected error: %v", err)
 				}
 			})
+		})
+	}
+}
+
+func TestTradeListDefaultDates(t *testing.T) {
+	frozen := time.Date(2025, 6, 15, 12, 0, 0, 0, time.UTC)
+	origTimeNow := timeNow
+	timeNow = func() time.Time { return frozen }
+	t.Cleanup(func() { timeNow = origTimeNow })
+
+	tests := []struct {
+		name      string
+		args      []string
+		wantStart string
+		wantEnd   string
+	}{
+		{
+			name:      "with tickers defaults to 90-day lookback",
+			args:      []string{"app", "list", "--tickers", "AAPL"},
+			wantStart: "2025-03-17",
+			wantEnd:   "2025-06-15",
+		},
+		{
+			name:      "without tickers defaults to today only",
+			args:      []string{"app", "list"},
+			wantStart: "2025-06-15",
+			wantEnd:   "2025-06-15",
+		},
+		{
+			name:      "explicit dates override defaults",
+			args:      []string{"app", "list", "--tickers", "AAPL", "--start-date", "2025-01-01", "--end-date", "2025-02-01"},
+			wantStart: "2025-01-01",
+			wantEnd:   "2025-02-01",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var gotStart, gotEnd string
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				body, _ := io.ReadAll(r.Body)
+				form, _ := url.ParseQuery(string(body))
+				gotStart = form.Get("StartDate")
+				gotEnd = form.Get("EndDate")
+				fmt.Fprint(w, dataTablesJSON(`[{}]`))
+			}))
+			t.Cleanup(server.Close)
+
+			ctx := contextWithTestClient(t, server.URL)
+			captureStdout(t, func() {
+				root := &cli.Command{Commands: []*cli.Command{newTradeListCommand()}}
+				if err := root.Run(ctx, tt.args); err != nil {
+					t.Fatalf("unexpected error: %v", err)
+				}
+			})
+			if gotStart != tt.wantStart {
+				t.Errorf("StartDate = %q, want %q", gotStart, tt.wantStart)
+			}
+			if gotEnd != tt.wantEnd {
+				t.Errorf("EndDate = %q, want %q", gotEnd, tt.wantEnd)
+			}
+		})
+	}
+}
+
+func TestTradeLevelsDefaultDates(t *testing.T) {
+	frozen := time.Date(2025, 6, 15, 12, 0, 0, 0, time.UTC)
+	origTimeNow := timeNow
+	timeNow = func() time.Time { return frozen }
+	t.Cleanup(func() { timeNow = origTimeNow })
+
+	tests := []struct {
+		name      string
+		args      []string
+		wantStart string
+		wantEnd   string
+	}{
+		{
+			name:      "defaults to 1-year lookback",
+			args:      []string{"app", "levels", "--ticker", "AAPL"},
+			wantStart: "2024-06-15",
+			wantEnd:   "2025-06-15",
+		},
+		{
+			name:      "explicit dates override defaults",
+			args:      []string{"app", "levels", "--ticker", "AAPL", "--start-date", "2025-01-01", "--end-date", "2025-02-01"},
+			wantStart: "2025-01-01",
+			wantEnd:   "2025-02-01",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var gotStart, gotEnd string
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				body, _ := io.ReadAll(r.Body)
+				form, _ := url.ParseQuery(string(body))
+				gotStart = form.Get("MinDate")
+				gotEnd = form.Get("MaxDate")
+				fmt.Fprint(w, dataTablesJSON(`[{}]`))
+			}))
+			t.Cleanup(server.Close)
+
+			ctx := contextWithTestClient(t, server.URL)
+			captureStdout(t, func() {
+				root := &cli.Command{Commands: []*cli.Command{newTradeLevelsCommand()}}
+				if err := root.Run(ctx, tt.args); err != nil {
+					t.Fatalf("unexpected error: %v", err)
+				}
+			})
+			if gotStart != tt.wantStart {
+				t.Errorf("MinDate = %q, want %q", gotStart, tt.wantStart)
+			}
+			if gotEnd != tt.wantEnd {
+				t.Errorf("MaxDate = %q, want %q", gotEnd, tt.wantEnd)
+			}
 		})
 	}
 }

@@ -102,13 +102,15 @@ func newTradeListCommand() *cli.Command {
 	return &cli.Command{
 		Name:  "list",
 		Usage: "Query institutional trades",
-		UsageText: `volumeleaders-agent trade list --tickers AAPL,MSFT --start-date 2025-01-01 --end-date 2025-01-31
+		UsageText: `volumeleaders-agent trade list --tickers AAPL,MSFT
 volumeleaders-agent trade list --tickers NVDA --dark-pools 1 --min-dollars 1000000
 volumeleaders-agent trade list --sector Technology --relative-size 10 --length 50
 volumeleaders-agent trade list --preset "Top-100 Rank" --start-date 2025-04-01 --end-date 2025-04-24
-volumeleaders-agent trade list --watchlist "Magnificent 7" --start-date 2025-04-01 --end-date 2025-04-24`,
+volumeleaders-agent trade list --watchlist "Magnificent 7" --start-date 2025-04-01 --end-date 2025-04-24
+
+Dates are optional. With --tickers: defaults to 90-day lookback. Without: defaults to today only.`,
 		Flags: slices.Concat(
-			dateRangeFlags(),
+			optionalDateRangeFlags(),
 			volumeRangeFlags(),
 			priceRangeFlags(),
 			dollarRangeFlags(500000),
@@ -234,10 +236,12 @@ func newTradeLevelsCommand() *cli.Command {
 	return &cli.Command{
 		Name:  "levels",
 		Usage: "Query significant price levels for a ticker",
-		UsageText: `volumeleaders-agent trade levels --ticker AAPL --start-date 2025-01-01 --end-date 2025-01-31
-volumeleaders-agent trade levels --ticker MSFT --trade-level-count 20 --min-dollars 1000000`,
+		UsageText: `volumeleaders-agent trade levels --ticker AAPL
+volumeleaders-agent trade levels --ticker MSFT --trade-level-count 20 --min-dollars 1000000
+
+Dates are optional. Defaults to 1-year lookback ending today.`,
 		Flags: slices.Concat(
-			dateRangeFlags(),
+			optionalDateRangeFlags(),
 			volumeRangeFlags(),
 			priceRangeFlags(),
 			dollarRangeFlags(500000),
@@ -291,12 +295,20 @@ func runTradeList(ctx context.Context, cmd *cli.Command) error {
 		return err
 	}
 
+	// Apply sensible date defaults: 90-day lookback when tickers are scoped,
+	// today-only for broad (untickered) scans.
+	lookbackDays := 0
+	if cmd.String("tickers") != "" {
+		lookbackDays = 90
+	}
+	startDate, endDate := defaultDates(cmd, lookbackDays)
+
 	// Build the full filter map from CLI flags (includes defaults for unset
 	// flags). Every key the API requires is present after this call.
 	opts := &tradesOptions{
 		tickers:      cmd.String("tickers"),
-		startDate:    cmd.String("start-date"),
-		endDate:      cmd.String("end-date"),
+		startDate:    startDate,
+		endDate:      endDate,
 		minVolume:    cmd.Int("min-volume"),
 		maxVolume:    cmd.Int("max-volume"),
 		minPrice:     cmd.Float("min-price"),
@@ -348,9 +360,9 @@ func runTradeList(ctx context.Context, cmd *cli.Command) error {
 		applyExplicitFlags(cmd, filters)
 	}
 
-	// Dates always come from CLI (required flags).
-	filters["StartDate"] = cmd.String("start-date")
-	filters["EndDate"] = cmd.String("end-date")
+	// Dates always come from CLI or computed defaults (never from presets).
+	filters["StartDate"] = startDate
+	filters["EndDate"] = endDate
 
 	optsDataTable := dataTableOptions{
 		start:    cmd.Int("start"),
@@ -692,10 +704,11 @@ func runTradeClusterAlerts(ctx context.Context, cmd *cli.Command) error {
 }
 
 func runTradeLevels(ctx context.Context, cmd *cli.Command) error {
+	startDate, endDate := defaultDates(cmd, 365)
 	opts := &tradeLevelOptions{
 		ticker:          cmd.String("ticker"),
-		startDate:       cmd.String("start-date"),
-		endDate:         cmd.String("end-date"),
+		startDate:       startDate,
+		endDate:         endDate,
 		minVolume:       cmd.Int("min-volume"),
 		maxVolume:       cmd.Int("max-volume"),
 		minPrice:        cmd.Float("min-price"),

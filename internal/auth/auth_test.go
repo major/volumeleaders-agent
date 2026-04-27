@@ -9,6 +9,8 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"github.com/browserutils/kooky"
 )
 
 func TestXSRFTokenPattern(t *testing.T) {
@@ -89,7 +91,7 @@ func TestFetchXSRFToken(t *testing.T) {
 				}
 				fmt.Fprint(w, "login")
 			},
-			wantErr: "session expired",
+			wantErr: "session expired: requested host www.volumeleaders.com redirected to /Login",
 		},
 		{
 			name: "non 200 status",
@@ -150,6 +152,85 @@ func TestFetchXSRFToken(t *testing.T) {
 	}
 }
 
+func TestCookieDiagnostic(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name         string
+		found        map[string]string
+		allCookies   kooky.Cookies
+		validCookies kooky.Cookies
+		wantParts    []string
+		forbidParts  []string
+	}{
+		{
+			name:  "missing all required cookies",
+			found: map[string]string{},
+			wantParts: []string{
+				`searched browser cookie stores for domain suffix "volumeleaders.com"`,
+				"required cookies: ASP.NET_SessionId, .ASPXAUTH",
+				"valid VolumeLeaders cookies found: 0",
+				"browser stores with VolumeLeaders cookies: 0",
+				"missing valid cookies: ASP.NET_SessionId, .ASPXAUTH",
+				"only cookie storage is inspected; local storage, session storage, and IndexedDB are not inspected",
+			},
+		},
+		{
+			name: "reports required cookies not usable as valid cookies",
+			found: map[string]string{
+				"ASP.NET_SessionId": "valid-session-cookie",
+			},
+			allCookies: kooky.Cookies{
+				cookieWithBrowser("ASP.NET_SessionId", "valid-session-cookie", "Firefox", "default-release"),
+				cookieWithBrowser(".ASPXAUTH", "expired-auth-cookie", "Firefox", "default-release"),
+			},
+			validCookies: kooky.Cookies{
+				cookieWithBrowser("ASP.NET_SessionId", "valid-session-cookie", "Firefox", "default-release"),
+			},
+			wantParts: []string{
+				"valid VolumeLeaders cookies found: 1",
+				"browser stores with VolumeLeaders cookies: 1",
+				"missing valid cookies: .ASPXAUTH",
+				"matching required cookies found but not usable as valid cookies: .ASPXAUTH",
+			},
+			forbidParts: []string{
+				"valid-session-cookie",
+				"expired-auth-cookie",
+				"default-release",
+				"/home/",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			diagnostic := cookieDiagnostic(tt.found, tt.allCookies, tt.validCookies)
+			for _, want := range tt.wantParts {
+				if !strings.Contains(diagnostic, want) {
+					t.Errorf("expected diagnostic to contain %q, got %q", want, diagnostic)
+				}
+			}
+			for _, forbidden := range tt.forbidParts {
+				if strings.Contains(diagnostic, forbidden) {
+					t.Errorf("expected diagnostic not to contain %q, got %q", forbidden, diagnostic)
+				}
+			}
+		})
+	}
+}
+
+func TestSafeRedirectPath(t *testing.T) {
+	t.Parallel()
+
+	req := httptest.NewRequest(http.MethodGet, "https://www.volumeleaders.com/Login?returnUrl=%2FAccount", http.NoBody)
+	got := safeRedirectPath(&http.Response{Request: req})
+	if got != "/Login" {
+		t.Fatalf("expected sanitized redirect path, got %q", got)
+	}
+}
+
 func TestFetchXSRFToken_CanceledContext(t *testing.T) {
 	t.Parallel()
 
@@ -196,15 +277,15 @@ func assertBrowserHeaders(t *testing.T, r *http.Request) {
 	t.Helper()
 
 	checks := map[string]string{
-		"User-Agent":        UserAgent,
-		"Sec-Ch-Ua":         `"Chromium";v="147", "Not A(Brand";v="24", "Google Chrome";v="147"`,
-		"Sec-Ch-Ua-Mobile":  "?0",
+		"User-Agent":         UserAgent,
+		"Sec-Ch-Ua":          `"Chromium";v="147", "Not A(Brand";v="24", "Google Chrome";v="147"`,
+		"Sec-Ch-Ua-Mobile":   "?0",
 		"Sec-Ch-Ua-Platform": `"Windows"`,
-		"Sec-Fetch-Dest":    "empty",
-		"Sec-Fetch-Mode":    "cors",
-		"Sec-Fetch-Site":    "same-origin",
-		"Accept-Language":   "en-US,en;q=0.9",
-		"Accept-Encoding":   "gzip, deflate, br",
+		"Sec-Fetch-Dest":     "empty",
+		"Sec-Fetch-Mode":     "cors",
+		"Sec-Fetch-Site":     "same-origin",
+		"Accept-Language":    "en-US,en;q=0.9",
+		"Accept-Encoding":    "gzip, deflate, br",
 	}
 	for key, expected := range checks {
 		if got := r.Header.Get(key); got != expected {
@@ -229,5 +310,30 @@ func assertRequestCookies(t *testing.T, r *http.Request) {
 		if cookie.Value != expected {
 			t.Errorf("cookie %s: expected %q, got %q", name, expected, cookie.Value)
 		}
+	}
+}
+
+type testBrowserInfo struct {
+	browser string
+	profile string
+}
+
+func (b testBrowserInfo) Browser() string { return b.browser }
+
+func (b testBrowserInfo) Profile() string { return b.profile }
+
+func (b testBrowserInfo) IsDefaultProfile() bool { return true }
+
+func (b testBrowserInfo) FilePath() string {
+	return "/home/example/.mozilla/firefox/profile/cookies.sqlite"
+}
+
+func cookieWithBrowser(name, value, browser, profile string) *kooky.Cookie {
+	return &kooky.Cookie{
+		Cookie: http.Cookie{
+			Name:  name,
+			Value: value,
+		},
+		Browser: testBrowserInfo{browser: browser, profile: profile},
 	}
 }

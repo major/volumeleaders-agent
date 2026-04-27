@@ -39,8 +39,10 @@ Output fields: `Preset`, `Group`, `Type`, `Tickers` (trimmed, deduplicated, omit
 
 Query individual institutional block trades. The primary trade discovery command.
 
-Required: `--start-date`, `--end-date`
-Optional: `--tickers` (aliases: `--ticker`, `--symbol`, `--symbols`), `--sector`, `--preset`, `--watchlist`, `--fields`, `--format json|csv|tsv`, `--summary`, `--group-by`, all shared flags (volume/price/dollar ranges, trade filters, trade type toggles, session toggles), pagination (`--length 100 --order-col 1 --order-dir desc`)
+Required: none (dates have smart defaults)
+Optional: `--start-date`, `--end-date`, `--tickers` (aliases: `--ticker`, `--symbol`, `--symbols`), `--sector`, `--preset`, `--watchlist`, `--fields`, `--format json|csv|tsv`, `--summary`, `--group-by`, all shared flags (volume/price/dollar ranges, trade filters, trade type toggles, session toggles), pagination (`--length 100 --order-col 1 --order-dir desc`)
+
+**Date defaults**: When `--start-date` or `--end-date` are omitted, smart defaults apply. With `--tickers`: 90-day lookback from today. Without `--tickers` (broad scan): today only. Explicit `--start-date` and `--end-date` override these defaults. Dates are never inherited from presets or watchlists.
 
 **`--preset NAME`**: Apply a built-in filter preset by name (case-insensitive). The preset sets baseline filters; any explicitly-provided CLI flags override the preset values. Use `trade presets` to list available names.
 
@@ -57,8 +59,12 @@ Optional: `--tickers` (aliases: `--ticker`, `--symbol`, `--symbols`), `--sector`
 Preset and watchlist filters can be combined: watchlist filters merge on top of preset filters, and explicit CLI flags override both.
 
 ```bash
+# With tickers: defaults to 90-day lookback
+volumeleaders-agent trade list --tickers AAPL --dark-pools 1 --min-dollars 1000000
+# Without tickers (broad scan): defaults to today only
+volumeleaders-agent trade list --preset "Top-100 Rank"
+# Explicit dates override defaults
 volumeleaders-agent trade list --tickers AAPL --start-date 2025-04-16 --end-date 2025-04-23 --dark-pools 1 --min-dollars 1000000
-volumeleaders-agent trade list --preset "Top-100 Rank" --start-date 2025-04-01 --end-date 2025-04-24
 volumeleaders-agent trade list --preset "Megacaps" --start-date 2025-04-01 --end-date 2025-04-24 --trade-rank 10
 volumeleaders-agent trade list --watchlist "Magnificent 7" --start-date 2025-04-01 --end-date 2025-04-24
 volumeleaders-agent trade list --tickers SPY,QQQ --start-date 2025-04-21 --end-date 2025-04-25 --fields Date,Ticker,Dollars,DollarsMultiplier,DarkPool,CumulativeDistribution
@@ -140,11 +146,16 @@ Output fields: same as trade clusters.
 
 Significant institutional price levels for a single ticker. These levels often act as support/resistance.
 
-Required: `--ticker` (single; aliases: `--tickers`, `--symbol`, `--symbols`), `--start-date`, `--end-date`
-Optional: volume/price/dollar ranges, `--vcd`, `--trade-level-rank` (-1), `--trade-level-count` (10), `--format json|csv|tsv`
+Required: `--ticker` (single; aliases: `--tickers`, `--symbol`, `--symbols`)
+Optional: `--start-date`, `--end-date`, volume/price/dollar ranges, `--vcd`, `--trade-level-rank` (-1), `--trade-level-count` (10), `--format json|csv|tsv`
 Non-standard defaults: `--relative-size 0`. No pagination flags.
 
+**Date defaults**: When dates are omitted, defaults to a 1-year lookback from today. Explicit `--start-date` and `--end-date` override these defaults.
+
 ```bash
+# Defaults to 1-year lookback
+volumeleaders-agent trade levels --ticker AAPL
+# Explicit dates override defaults
 volumeleaders-agent trade levels --ticker AAPL --start-date 2025-01-01 --end-date 2025-04-23
 ```
 

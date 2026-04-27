@@ -6,8 +6,10 @@ import (
 	"io"
 	"os"
 	"reflect"
+	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/major/volumeleaders-agent/internal/datatables"
 	"github.com/major/volumeleaders-agent/internal/models"
@@ -286,6 +288,103 @@ func TestDateRangeFlags(t *testing.T) {
 	assertFlagName(t, flags[1], "end-date")
 	assertStringFlagRequired(t, flags[0], true)
 	assertStringFlagRequired(t, flags[1], true)
+}
+
+func TestOptionalDateRangeFlags(t *testing.T) {
+	t.Parallel()
+
+	flags := optionalDateRangeFlags()
+	if len(flags) != 2 {
+		t.Fatalf("expected 2 flags, got %d", len(flags))
+	}
+	assertFlagName(t, flags[0], "start-date")
+	assertFlagName(t, flags[1], "end-date")
+	assertStringFlagRequired(t, flags[0], false)
+	assertStringFlagRequired(t, flags[1], false)
+}
+
+func TestDefaultDates(t *testing.T) {
+	t.Parallel()
+
+	frozen := time.Date(2025, 6, 15, 12, 0, 0, 0, time.UTC)
+	origTimeNow := timeNow
+	timeNow = func() time.Time { return frozen }
+	t.Cleanup(func() { timeNow = origTimeNow })
+
+	tests := []struct {
+		name         string
+		args         []string
+		lookbackDays int
+		wantStart    string
+		wantEnd      string
+	}{
+		{
+			name:         "both dates explicit",
+			args:         []string{"app", "sub", "--start-date", "2025-01-01", "--end-date", "2025-03-01"},
+			lookbackDays: 90,
+			wantStart:    "2025-01-01",
+			wantEnd:      "2025-03-01",
+		},
+		{
+			name:         "90-day lookback default",
+			args:         []string{"app", "sub"},
+			lookbackDays: 90,
+			wantStart:    "2025-03-17",
+			wantEnd:      "2025-06-15",
+		},
+		{
+			name:         "today-only default",
+			args:         []string{"app", "sub"},
+			lookbackDays: 0,
+			wantStart:    "2025-06-15",
+			wantEnd:      "2025-06-15",
+		},
+		{
+			name:         "365-day lookback default",
+			args:         []string{"app", "sub"},
+			lookbackDays: 365,
+			wantStart:    "2024-06-15",
+			wantEnd:      "2025-06-15",
+		},
+		{
+			name:         "only start-date explicit",
+			args:         []string{"app", "sub", "--start-date", "2025-01-01"},
+			lookbackDays: 90,
+			wantStart:    "2025-01-01",
+			wantEnd:      "2025-06-15",
+		},
+		{
+			name:         "only end-date explicit",
+			args:         []string{"app", "sub", "--end-date", "2025-03-01"},
+			lookbackDays: 90,
+			wantStart:    "2025-03-17",
+			wantEnd:      "2025-03-01",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var gotStart, gotEnd string
+			sub := &cli.Command{
+				Name: "sub",
+				Flags: slices.Concat(optionalDateRangeFlags()),
+				Action: func(_ context.Context, cmd *cli.Command) error {
+					gotStart, gotEnd = defaultDates(cmd, tt.lookbackDays)
+					return nil
+				},
+			}
+			root := &cli.Command{Commands: []*cli.Command{sub}}
+			if err := root.Run(context.Background(), tt.args); err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if gotStart != tt.wantStart {
+				t.Errorf("start date = %q, want %q", gotStart, tt.wantStart)
+			}
+			if gotEnd != tt.wantEnd {
+				t.Errorf("end date = %q, want %q", gotEnd, tt.wantEnd)
+			}
+		})
+	}
 }
 
 func TestVolumeRangeFlags(t *testing.T) {

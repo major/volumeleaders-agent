@@ -11,6 +11,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/major/volumeleaders-agent/internal/client"
 	"github.com/major/volumeleaders-agent/internal/datatables"
@@ -336,6 +337,43 @@ func dateRangeFlags() []cli.Flag {
 		&cli.StringFlag{Name: "start-date", Required: true, Usage: "Start date YYYY-MM-DD"},
 		&cli.StringFlag{Name: "end-date", Required: true, Usage: "End date YYYY-MM-DD"},
 	}
+}
+
+// optionalDateRangeFlags returns --start-date and --end-date flags without
+// Required, for commands that supply sensible defaults when dates are omitted.
+func optionalDateRangeFlags() []cli.Flag {
+	return []cli.Flag{
+		&cli.StringFlag{Name: "start-date", Usage: "Start date YYYY-MM-DD (default: auto)"},
+		&cli.StringFlag{Name: "end-date", Usage: "End date YYYY-MM-DD (default: today)"},
+	}
+}
+
+// timeNow is the clock function used by defaultDates.
+// Tests replace it to control the current time.
+var timeNow = time.Now
+
+// defaultDates returns start and end dates for a query, applying defaults when
+// the user did not explicitly set them. lookbackDays controls how far back the
+// start date goes; pass 0 for a today-only default.
+func defaultDates(cmd *cli.Command, lookbackDays int) (startDate, endDate string) {
+	now := timeNow()
+	today := now.Format("2006-01-02")
+
+	endDate = cmd.String("end-date")
+	if !cmd.IsSet("end-date") {
+		endDate = today
+	}
+
+	startDate = cmd.String("start-date")
+	if !cmd.IsSet("start-date") {
+		if lookbackDays > 0 {
+			startDate = now.AddDate(0, 0, -lookbackDays).Format("2006-01-02")
+		} else {
+			startDate = today
+		}
+	}
+
+	return startDate, endDate
 }
 
 // volumeRangeFlags returns --min-volume and --max-volume flags with

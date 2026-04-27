@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/http"
 	"regexp"
+	"slices"
 	"strings"
 
 	"github.com/browserutils/kooky"
@@ -17,6 +18,10 @@ import (
 
 // UserAgent mimics Chrome 147 on Windows for authenticated requests.
 const UserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36"
+
+const volumeLeadersDomain = "volumeleaders.com"
+
+var requiredCookieNames = []string{"ASP.NET_SessionId", ".ASPXAUTH"}
 
 var xsrfTokenPattern = regexp.MustCompile(`<input\s+name="__RequestVerificationToken"\s+type="hidden"\s+value="([^"]+)"`)
 
@@ -27,23 +32,14 @@ var xsrfTokenPattern = regexp.MustCompile(`<input\s+name="__RequestVerificationT
 // those errors as long as the required auth cookies were found in at least
 // one browser.
 func ExtractCookies(ctx context.Context) (map[string]string, error) {
-	found := make(map[string]string, 3)
-
 	// ReadCookies returns cookies it could find plus errors from browsers
 	// it could not read. Errors from missing browsers are expected.
-	cookies, _ := kooky.ReadCookies(ctx, kooky.Valid, kooky.DomainHasSuffix("volumeleaders.com"))
-	for _, cookie := range cookies {
-		switch cookie.Name {
-		case "ASP.NET_SessionId", ".ASPXAUTH", "__RequestVerificationToken":
-			found[cookie.Name] = cookie.Value
-		}
-	}
+	validCookies, _ := kooky.ReadCookies(ctx, kooky.Valid, kooky.DomainHasSuffix(volumeLeadersDomain))
+	found := authCookies(validCookies)
 
 	if found["ASP.NET_SessionId"] == "" || found[".ASPXAUTH"] == "" {
-		return nil, fmt.Errorf(
-			"required cookies (ASP.NET_SessionId, .ASPXAUTH) not found in any browser; " +
-				"log in to volumeleaders.com and try again",
-		)
+		allCookies, _ := kooky.ReadCookies(ctx, kooky.DomainHasSuffix(volumeLeadersDomain))
+		return nil, fmt.Errorf("required browser cookies unavailable: %s", cookieDiagnostic(found, allCookies, validCookies))
 	}
 	return found, nil
 }
@@ -66,7 +62,7 @@ func FetchXSRFToken(ctx context.Context, httpClient *http.Client, cookies map[st
 	defer resp.Body.Close()
 
 	if strings.Contains(resp.Request.URL.Path, "/Login") {
-		return "", fmt.Errorf("session expired")
+		return "", fmt.Errorf("session expired: requested host www.%s redirected to %s", volumeLeadersDomain, safeRedirectPath(resp))
 	}
 	if resp.StatusCode != http.StatusOK {
 		return "", fmt.Errorf("fetch XSRF token page: status %d", resp.StatusCode)
@@ -93,6 +89,84 @@ func FetchXSRFToken(ctx context.Context, httpClient *http.Client, cookies map[st
 		return "", fmt.Errorf("XSRF token not found in HTML")
 	}
 	return string(matches[1]), nil
+}
+
+func authCookies(cookies kooky.Cookies) map[string]string {
+	found := make(map[string]string, 3)
+	for _, cookie := range cookies {
+		switch cookie.Name {
+		case "ASP.NET_SessionId", ".ASPXAUTH", "__RequestVerificationToken":
+			found[cookie.Name] = cookie.Value
+		}
+	}
+	return found
+}
+
+func cookieDiagnostic(found map[string]string, allCookies, validCookies kooky.Cookies) string {
+	missing := missingRequiredCookies(found)
+	rejected := rejectedRequiredCookies(found, allCookies)
+	parts := []string{
+		fmt.Sprintf("searched browser cookie stores for domain suffix %q", volumeLeadersDomain),
+		"required cookies: ASP.NET_SessionId, .ASPXAUTH",
+		fmt.Sprintf("valid VolumeLeaders cookies found: %d", len(validCookies)),
+		fmt.Sprintf("browser stores with VolumeLeaders cookies: %d", browserStoreCount(allCookies)),
+		fmt.Sprintf("missing valid cookies: %s", strings.Join(missing, ", ")),
+		"only cookie storage is inspected; local storage, session storage, and IndexedDB are not inspected",
+	}
+	if len(rejected) > 0 {
+		parts = append(parts, fmt.Sprintf("matching required cookies found but not usable as valid cookies: %s", strings.Join(rejected, ", ")))
+	}
+	return strings.Join(parts, "; ")
+}
+
+func missingRequiredCookies(found map[string]string) []string {
+	missing := make([]string, 0, len(requiredCookieNames))
+	for _, name := range requiredCookieNames {
+		if found[name] == "" {
+			missing = append(missing, name)
+		}
+	}
+	return missing
+}
+
+func rejectedRequiredCookies(found map[string]string, allCookies kooky.Cookies) []string {
+	rejected := make([]string, 0, len(requiredCookieNames))
+	for _, name := range requiredCookieNames {
+		if found[name] != "" || !containsCookieName(allCookies, name) {
+			continue
+		}
+		rejected = append(rejected, name)
+	}
+	return rejected
+}
+
+func containsCookieName(cookies kooky.Cookies, name string) bool {
+	return slices.ContainsFunc(cookies, func(cookie *kooky.Cookie) bool {
+		return cookie.Name == name
+	})
+}
+
+func browserStoreCount(cookies kooky.Cookies) int {
+	stores := make(map[string]struct{})
+	for _, cookie := range cookies {
+		if cookie.Browser == nil {
+			stores["unknown"] = struct{}{}
+			continue
+		}
+		stores[cookie.Browser.Browser()+":"+cookie.Browser.Profile()] = struct{}{}
+	}
+	return len(stores)
+}
+
+func safeRedirectPath(resp *http.Response) string {
+	if resp == nil || resp.Request == nil || resp.Request.URL == nil {
+		return "unknown redirect target"
+	}
+	path := resp.Request.URL.EscapedPath()
+	if path == "" {
+		return "/"
+	}
+	return path
 }
 
 func setBrowserHeaders(req *http.Request) {

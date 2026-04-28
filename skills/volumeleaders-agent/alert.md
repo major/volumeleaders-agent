@@ -1,55 +1,34 @@
 # alert
 
-Manage saved alert configurations. Alerts trigger when trades/clusters match threshold criteria.
+Manage saved alert configurations. Alerts trigger when trades or clusters match thresholds.
 
-## alert configs
-
-List all saved alert configurations.
-
-Optional: `--format json|csv|tsv`
+| Command | Use when | Required | Output |
+|---|---|---|---|
+| `alert configs` | List alert configs | none | JSON, CSV, TSV |
+| `alert delete` | Delete a config | `--key` | JSON |
+| `alert create` | Create a config | `--name` | JSON |
+| `alert edit` | Replace/update a config | `--key` | JSON |
 
 ```bash
-volumeleaders-agent alert configs
 volumeleaders-agent alert configs --format csv
-```
-
-Output fields: `AlertConfigKey` (use as `--key` for edit/delete), `Name`, `Tickers`, plus threshold fields. Threshold naming pattern: `{Category}{Metric}{LTE|GTE}` where LTE = max rank (lower rank = more significant) and GTE = minimum value (higher = bigger trade).
-
-Output format: `alert configs` defaults to JSON and supports CSV/TSV. Create/edit/delete responses remain JSON-only.
-
-## alert delete
-
-Required: `--key` (AlertConfigKey from `alert configs`)
-
-```bash
+volumeleaders-agent alert create --name "Top Trades" --tickers "AAPL,MSFT" --trade-rank-lte 5
+volumeleaders-agent alert edit --key 12345 --trade-rank-lte 3
 volumeleaders-agent alert delete --key 12345
 ```
 
-## alert create
+`alert configs` fields include `AlertConfigKey` for edit/delete, `Name`, `Tickers`, and threshold fields. Threshold names follow `{Category}{Metric}{LTE|GTE}` where LTE is maximum rank and GTE is minimum value.
 
-Required: `--name` (max 50 chars)
-Optional: `--ticker-group` (AllTickers or SelectedTickers, default AllTickers), `--tickers` (comma-separated, auto-sets SelectedTickers when provided)
+Create/edit options: `--name` max 50 chars, `--ticker-group AllTickers|SelectedTickers`, `--tickers` comma-separated and auto-selects `SelectedTickers`.
 
-Threshold flags (all default 0 = disabled):
+Threshold flags default to `0` disabled unless noted:
 
 | Category | Flags |
 |---|---|
-| **Trade** | `--trade-rank-lte` (0/1/3/5/10/25/50/100), `--trade-vcd-gte` (0/99/100), `--trade-mult-gte` (0/5/10/25/50/100), `--trade-volume-gte`, `--trade-dollars-gte`, `--trade-conditions` |
-| **Cluster** | `--cluster-rank-lte`, `--cluster-vcd-gte` (0/97/98/99/100), `--cluster-mult-gte`, `--cluster-volume-gte`, `--cluster-dollars-gte` |
-| **Closing** | `--closing-trade-rank-lte`, `--closing-trade-vcd-gte` (0/97/98/99/100), `--closing-trade-mult-gte`, `--closing-trade-volume-gte`, `--closing-trade-dollars-gte` |
-| **Total** | `--total-rank-lte` (0/1/3/10/25/50/100), `--total-volume-gte`, `--total-dollars-gte` |
-| **After-hours** | `--ah-rank-lte`, `--ah-volume-gte`, `--ah-dollars-gte` |
-| **Booleans** | `--dark-pool`, `--sweep`, `--offsetting-print`, `--phantom-print` (all default false) |
+| Trade | `--trade-rank-lte`, `--trade-vcd-gte`, `--trade-mult-gte`, `--trade-volume-gte`, `--trade-dollars-gte`, `--trade-conditions` |
+| Cluster | `--cluster-rank-lte`, `--cluster-vcd-gte`, `--cluster-mult-gte`, `--cluster-volume-gte`, `--cluster-dollars-gte` |
+| Closing | `--closing-trade-rank-lte`, `--closing-trade-vcd-gte`, `--closing-trade-mult-gte`, `--closing-trade-volume-gte`, `--closing-trade-dollars-gte`, `--closing-trade-conditions` |
+| Total | `--total-rank-lte`, `--total-volume-gte`, `--total-dollars-gte` |
+| After-hours | `--ah-rank-lte`, `--ah-volume-gte`, `--ah-dollars-gte` |
+| Booleans | `--dark-pool`, `--sweep`, `--offsetting-print`, `--phantom-print` |
 
-```bash
-volumeleaders-agent alert create --name "Top Trades" --tickers "AAPL,MSFT" --trade-rank-lte 5
-```
-
-## alert edit
-
-Required: `--key` (AlertConfigKey)
-All flags from `alert create` available. `--name` is optional for edit. Unspecified flags reset to their defaults.
-
-```bash
-volumeleaders-agent alert edit --key 12345 --trade-rank-lte 3
-```
+Edit gotcha: unspecified edit flags reset to defaults, so include every value that must remain set.

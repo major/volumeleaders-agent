@@ -41,6 +41,7 @@ All commands emit compact JSON to stdout by default. Use `--pretty` for indented
 | Group | Purpose | Docs |
 |---|---|---|
 | `trade` | Institutional trades, clusters, cluster bombs, price levels | [skills/trade.md](skills/trade.md) |
+| `daily` | Compact daily institutional activity summaries | [skills/daily.md](skills/daily.md) |
 | `volume` | Volume leaderboards (institutional, after-hours, total) | [skills/volume.md](skills/volume.md) |
 | `chart` | Price bars with trade overlays, snapshots, company metadata | [skills/chart.md](skills/chart.md) |
 | `market` | Market-wide snapshots, earnings calendar, exhaustion scores | [skills/market.md](skills/market.md) |

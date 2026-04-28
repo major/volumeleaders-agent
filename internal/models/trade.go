@@ -237,6 +237,20 @@ type TradeSentimentTotals struct {
 	Signal TradeSentimentSignal `json:"signal"`
 }
 
+// TradeSentimentRow is a flat representation of one day's sentiment data,
+// suitable for tabular (CSV/TSV) output.
+type TradeSentimentRow struct {
+	Date           string               `json:"date"`
+	BearTrades     int                  `json:"bear_trades"`
+	BearDollars    float64              `json:"bear_dollars"`
+	BearTopTickers string               `json:"bear_top_tickers"`
+	BullTrades     int                  `json:"bull_trades"`
+	BullDollars    float64              `json:"bull_dollars"`
+	BullTopTickers string               `json:"bull_top_tickers"`
+	Ratio          *float64             `json:"ratio"`
+	Signal         TradeSentimentSignal `json:"signal"`
+}
+
 // TradeSentimentSignal labels the bull/bear flow ratio for quick interpretation.
 type TradeSentimentSignal string
 

@@ -91,6 +91,7 @@ volumeleaders-agent trade sentiment --start-date 2025-04-21 --end-date 2025-04-2
 				&cli.IntFlag{Name: "phantom", Value: 1, Usage: "Include phantom prints"},
 				&cli.IntFlag{Name: "offsetting", Value: 1, Usage: "Include offsetting trades"},
 			},
+			outputFormatFlags(),
 		),
 		Action: runTradeSentiment,
 	}
@@ -594,6 +595,11 @@ func tradeTickerDayKey(trade *models.Trade) string {
 }
 
 func runTradeSentiment(ctx context.Context, cmd *cli.Command) error {
+	format, err := parseOutputFormat(cmd.String("format"))
+	if err != nil {
+		return err
+	}
+
 	opts := &tradesOptions{
 		startDate:    cmd.String("start-date"),
 		endDate:      cmd.String("end-date"),
@@ -636,7 +642,51 @@ func runTradeSentiment(ctx context.Context, cmd *cli.Command) error {
 		return err
 	}
 
-	return printJSON(ctx, summarizeTradeSentiment(trades, cmd.String("start-date"), cmd.String("end-date")))
+	sentiment := summarizeTradeSentiment(trades, cmd.String("start-date"), cmd.String("end-date"))
+
+	if format == outputFormatJSON {
+		return printJSON(ctx, sentiment)
+	}
+
+	return printDataTablesResult(ctx, flattenTradeSentiment(&sentiment), nil, format)
+}
+
+func flattenTradeSentiment(summary *models.TradeSentiment) []models.TradeSentimentRow {
+	rows := make([]models.TradeSentimentRow, 0, len(summary.Daily)+1)
+	for i := range summary.Daily {
+		day := &summary.Daily[i]
+		rows = append(rows, tradeSentimentDayRow(day))
+	}
+	rows = append(rows, tradeSentimentTotalsRow(&summary.Totals))
+	return rows
+}
+
+func tradeSentimentDayRow(day *models.TradeSentimentDay) models.TradeSentimentRow {
+	return models.TradeSentimentRow{
+		Date:           day.Date,
+		BearTrades:     day.Bear.Trades,
+		BearDollars:    day.Bear.Dollars,
+		BearTopTickers: strings.Join(day.Bear.TopTickers, ";"),
+		BullTrades:     day.Bull.Trades,
+		BullDollars:    day.Bull.Dollars,
+		BullTopTickers: strings.Join(day.Bull.TopTickers, ";"),
+		Ratio:          day.Ratio,
+		Signal:         day.Signal,
+	}
+}
+
+func tradeSentimentTotalsRow(totals *models.TradeSentimentTotals) models.TradeSentimentRow {
+	return models.TradeSentimentRow{
+		Date:           "total",
+		BearTrades:     totals.Bear.Trades,
+		BearDollars:    totals.Bear.Dollars,
+		BearTopTickers: strings.Join(totals.Bear.TopTickers, ";"),
+		BullTrades:     totals.Bull.Trades,
+		BullDollars:    totals.Bull.Dollars,
+		BullTopTickers: strings.Join(totals.Bull.TopTickers, ";"),
+		Ratio:          totals.Ratio,
+		Signal:         totals.Signal,
+	}
 }
 
 func runTradeClusters(ctx context.Context, cmd *cli.Command) error {

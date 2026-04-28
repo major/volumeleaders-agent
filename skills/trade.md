@@ -76,17 +76,20 @@ Output fields: `AHInstitutionalDollars`, `AHInstitutionalDollarsRank`, `AHInstit
 
 ## trade sentiment
 
-Summarize leveraged ETF institutional flow into daily bull/bear ratios. The command queries the combined leveraged ETF sector filter (`SectorIndustry=X B`) once, classifies bull and bear rows locally, aggregates dollars by day, and returns compact JSON for sentiment analysis.
+Summarize leveraged ETF institutional flow into daily bull/bear ratios. The command queries the combined leveraged ETF sector filter (`SectorIndustry=X B`) once, classifies bull and bear rows locally, aggregates dollars by day, and returns compact JSON by default for sentiment analysis.
 
 Required: `--start-date`, `--end-date`
-Optional: volume/price/dollar ranges, trade filters, trade type toggles, session toggles
+Optional: `--format json|csv|tsv`, volume/price/dollar ranges, trade filters, trade type toggles, session toggles
 Non-standard defaults: `--min-dollars 5000000`, `--vcd 97`, `--relative-size 5`
 
 ```bash
 volumeleaders-agent trade sentiment --start-date 2025-04-21 --end-date 2025-04-25 --min-dollars 5000000
+volumeleaders-agent trade sentiment --start-date 2025-04-21 --end-date 2025-04-25 --format csv
 ```
 
-Output fields: `dateRange` (`start`, `end`), `daily` array, and `totals`. Each daily row includes `date`, `bear`, `bull`, `ratio`, and `signal`. `bear`, `bull`, and total side objects include `trades`, `dollars`, and `topTickers`. `ratio` is bull dollars divided by bear dollars; it is `null` when there is no bear flow. Signals use thresholds: `<0.2` `extreme_bear`, `<0.5` `moderate_bear`, `0.5-2.0` `neutral`, `>2.0-5.0` `moderate_bull`, `>5.0` `extreme_bull`.
+JSON output fields: `dateRange` (`start`, `end`), `daily` array, and `totals`. Each daily row includes `date`, `bear`, `bull`, `ratio`, and `signal`. `bear`, `bull`, and total side objects include `trades`, `dollars`, and `topTickers`. `ratio` is bull dollars divided by bear dollars; it is `null` when there is no bear flow. Signals use thresholds: `<0.2` `extreme_bear`, `<0.5` `moderate_bear`, `0.5-2.0` `neutral`, `>2.0-5.0` `moderate_bull`, `>5.0` `extreme_bull`.
+
+CSV/TSV output flattens each daily row plus a final `date=total` row with columns `date`, `bear_trades`, `bear_dollars`, `bear_top_tickers`, `bull_trades`, `bull_dollars`, `bull_top_tickers`, `ratio`, and `signal`.
 
 ## trade clusters
 

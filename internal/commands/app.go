@@ -26,6 +26,7 @@ func NewApp(version string) *cli.Command {
 		},
 		Commands: []*cli.Command{
 			NewTradeCommand(),
+			NewDailyCommand(),
 			NewVolumeCommand(),
 			NewChartCommand(),
 			NewMarketCommand(),

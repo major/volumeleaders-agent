@@ -311,6 +311,39 @@ func TestTradeSentimentUsesCombinedLeverageFilter(t *testing.T) {
 	}
 }
 
+func TestTradeSentimentSupportsDelimitedFormat(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		fmt.Fprint(w, dataTablesJSON(`[
+			{"Date":"/Date(1745193600000)/","Ticker":"SH","Sector":"X Bear","Dollars":100},
+			{"Date":"/Date(1745193600000)/","Ticker":"TQQQ","Sector":"X Bull","Dollars":200}
+		]`))
+	}))
+	t.Cleanup(server.Close)
+
+	ctx := contextWithTestClient(t, server.URL)
+	output := captureStdout(t, func() {
+		root := &cli.Command{Commands: []*cli.Command{newTradeSentimentCommand()}}
+		if err := root.Run(ctx, []string{
+			"app", "sentiment",
+			"--start-date", "2025-04-21",
+			"--end-date", "2025-04-21",
+			"--format", "csv",
+		}); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+	})
+
+	if !strings.Contains(output, "date,bear_trades,bear_dollars,bear_top_tickers,bull_trades,bull_dollars,bull_top_tickers,ratio,signal") {
+		t.Fatalf("expected sentiment CSV header, got %s", output)
+	}
+	if !strings.Contains(output, "2025-04-21,1,100,SH,1,200,TQQQ,2,neutral") {
+		t.Fatalf("expected daily sentiment CSV row, got %s", output)
+	}
+	if !strings.Contains(output, "total,1,100,SH,1,200,TQQQ,2,neutral") {
+		t.Fatalf("expected total sentiment CSV row, got %s", output)
+	}
+}
+
 func TestTradeSentimentRejectsMalformedPage(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		fmt.Fprint(w, dataTablesJSON(`{"not":"a trade array"}`))

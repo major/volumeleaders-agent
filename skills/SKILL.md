@@ -11,6 +11,7 @@ Output: compact JSON to stdout by default. List-style commands support `--format
 | I want to... | Command |
 |---|---|
 | Find large institutional trades in specific stocks | `trade list --tickers X --start-date D --end-date D` |
+| Get a compact daily institutional activity summary | `daily summary --date D` |
 | Compare leveraged ETF bull/bear flow | `trade sentiment --start-date D --end-date D` |
 | See where institutions are clustering trades | `trade clusters --start-date D --end-date D` |
 | Detect sudden aggressive institutional bursts | `trade cluster-bombs --start-date D --end-date D` |
@@ -36,11 +37,12 @@ Output: compact JSON to stdout by default. List-style commands support `--format
 
 Chain commands for deeper analysis:
 
-1. `volume institutional --date D` - find top institutional movers
-2. `trade list --tickers X --start-date D --end-date D` - drill into individual trades
-3. `trade levels --ticker X --start-date D --end-date D` - find key support/resistance levels
-4. `chart company --ticker X` - get company context
-5. `chart price-data --ticker X --start-date D --end-date D` - detailed price action with overlays
+1. `daily summary --date D` - get the compact market-wide institutional activity snapshot
+2. `volume institutional --date D` - inspect top institutional movers in detail
+3. `trade list --tickers X --start-date D --end-date D` - drill into individual trades
+4. `trade levels --ticker X --start-date D --end-date D` - find key support/resistance levels
+5. `chart company --ticker X` - get company context
+6. `chart price-data --ticker X --start-date D --end-date D` - detailed price action with overlays
 
 ## Conventions
 
@@ -50,7 +52,7 @@ Chain commands for deeper analysis:
 
 **Pagination**: `--start` (offset, default 0), `--length` (count, default varies, `-1` = all), `--order-col` (sort column index), `--order-dir` (`asc` or `desc`).
 
-**Output formats**: list-style object outputs accept `--format json|csv|tsv` (default `json`). CSV/TSV use output field names as headers. `--pretty` only affects JSON.
+**Output formats**: list-style object outputs accept `--format json|csv|tsv` (default `json`). CSV/TSV use output field names as headers. Nested summary commands, such as `daily summary`, are JSON-only unless their command docs say otherwise. `--pretty` only affects JSON.
 
 **Ticker flags**: `--tickers` takes comma-separated list (multi-ticker commands). `--ticker` takes a single symbol (single-ticker commands). Ticker-based trade subcommands accept `--ticker`, `--tickers`, `--symbol`, and `--symbols` aliases, so any form works there. `trade sentiment` intentionally does not accept ticker flags because it always analyzes the leveraged ETF universe.
 

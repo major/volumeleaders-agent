@@ -7,18 +7,18 @@ Go CLI tool for querying institutional trade data from [VolumeLeaders](https://w
 When modifying CLI commands, flags, models, or behavior:
 
 - Update `AGENTS.md` if the change affects project structure, build process, or conventions.
-- Update the relevant skill file(s) in `skills/` to reflect new/changed/removed commands, flags, defaults, or output formats. Skill files are the primary reference for LLM agents using this tool.
+- Update the relevant skill file(s) in `skills/volumeleaders-agent/` to reflect new/changed/removed commands, flags, defaults, or output formats. Skill files are the primary reference for LLM agents using this tool.
 
 Command-to-skill mapping:
 
-- `internal/commands/trade.go`, `internal/commands/presets.go` -> `skills/trade.md`
-- `internal/commands/daily.go` -> `skills/daily.md`
-- `internal/commands/volume.go` -> `skills/volume.md`
-- `internal/commands/chart.go` -> `skills/chart.md`
-- `internal/commands/market.go` -> `skills/market.md`
-- `internal/commands/alert.go` -> `skills/alert.md`
-- `internal/commands/watchlist.go` -> `skills/watchlist.md`
-- Shared conventions and command chooser updates -> `skills/SKILL.md`
+- `internal/commands/trade.go`, `internal/commands/presets.go` -> `skills/volumeleaders-agent/trade.md`
+- `internal/commands/daily.go` -> `skills/volumeleaders-agent/daily.md`
+- `internal/commands/volume.go` -> `skills/volumeleaders-agent/volume.md`
+- `internal/commands/chart.go` -> `skills/volumeleaders-agent/chart.md`
+- `internal/commands/market.go` -> `skills/volumeleaders-agent/market.md`
+- `internal/commands/alert.go` -> `skills/volumeleaders-agent/alert.md`
+- `internal/commands/watchlist.go` -> `skills/volumeleaders-agent/watchlist.md`
+- Shared conventions and command chooser updates -> `skills/volumeleaders-agent/SKILL.md`
 
 ## Project Layout
 
@@ -29,7 +29,7 @@ internal/client/                   HTTP client (DataTables + JSON requests)
 internal/commands/                 CLI command definitions (7 groups, 22 subcommands)
 internal/datatables/               DataTables protocol encoding + column definitions
 internal/models/                   Response type definitions
-skills/                            LLM skill files for agent integration
+skills/volumeleaders-agent/        LLM skill files for agent integration
 ```
 
 ## Build and Test

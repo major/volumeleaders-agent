@@ -1,3 +1,16 @@
+---
+name: volumeleaders-agent
+description: |
+  CLI for querying institutional trade data from VolumeLeaders. Use when:
+  - Looking up institutional block trades, clusters, or price levels for a ticker
+  - Checking daily institutional activity summaries
+  - Finding volume leaders (institutional, after-hours, total)
+  - Getting price bars with trade overlays or company metadata
+  - Checking market-wide snapshots, earnings calendar, or exhaustion signals
+  - Managing trade alerts or watchlists
+  Triggers: "volumeleaders", "institutional trades", "block trades", "volume leaders", "trade clusters", "market exhaustion", "dark pool", "sweep"
+---
+
 # volumeleaders-agent
 
 CLI for VolumeLeaders institutional trade data. Use it for trades, daily summaries, volume leaderboards, charts, market data, alerts, and watchlists. Binary: `volumeleaders-agent`.
@@ -6,12 +19,26 @@ Auth: reads browser cookies. If auth fails, the user must log in at volumeleader
 
 Output: compact JSON to stdout by default. Put `--pretty` before the command group for indented JSON. Errors/logs go to stderr.
 
+## Companion Files
+
+This is the entry point. Command details are split by command group:
+
+| File | Scope |
+|------|-------|
+| [trade.md](trade.md) | Trade list, sentiment, clusters, cluster bombs, alerts, levels, level touches |
+| [daily.md](daily.md) | Daily institutional activity summaries |
+| [volume.md](volume.md) | Volume leaderboards (institutional, after-hours, total) |
+| [chart.md](chart.md) | Price bars with trade overlays, snapshots, levels, company metadata |
+| [market.md](market.md) | Market snapshots, earnings calendar, exhaustion signals |
+| [alert.md](alert.md) | Alert configuration management |
+| [watchlist.md](watchlist.md) | Watchlist management and ticker retrieval |
+
 ## Command Chooser
 
 | Goal | Command | Details |
 |---|---|---|
-| Find individual institutional trades | `trade list --tickers X --start-date D --end-date D` | `trade.md` |
-| Start with a market-wide daily snapshot | `daily summary --date D` | `daily.md` |
+| Find individual institutional trades | `trade list --tickers X --start-date D --end-date D` | [trade.md](trade.md) |
+| Start with a market-wide daily snapshot | `daily summary --date D` | [daily.md](daily.md) |
 | Compare leveraged ETF bull/bear flow | `trade sentiment --start-date D --end-date D` | Fixed leveraged ETF universe |
 | Find price-level trade clusters | `trade clusters --start-date D --end-date D` | Cluster conviction |
 | Find sudden aggressive bursts | `trade cluster-bombs --start-date D --end-date D` | Burst detection |
@@ -19,18 +46,18 @@ Output: compact JSON to stdout by default. Put `--pretty` before the command gro
 | Check cluster alerts | `trade cluster-alerts --date D` | System alerts |
 | Find support/resistance levels | `trade levels --ticker X --start-date D --end-date D` | One ticker |
 | Find price revisits to levels | `trade level-touches --start-date D --end-date D` | Level tests |
-| See institutional volume leaders | `volume institutional --date D` | `volume.md` |
-| See after-hours institutional leaders | `volume ah-institutional --date D` | `volume.md` |
-| See total volume leaders | `volume total --date D` | `volume.md` |
-| Get 1-min bars with trade overlays | `chart price-data --ticker X --start-date D --end-date D` | `chart.md` |
+| See institutional volume leaders | `volume institutional --date D` | [volume.md](volume.md) |
+| See after-hours institutional leaders | `volume ah-institutional --date D` | [volume.md](volume.md) |
+| See total volume leaders | `volume total --date D` | [volume.md](volume.md) |
+| Get 1-min bars with trade overlays | `chart price-data --ticker X --start-date D --end-date D` | [chart.md](chart.md) |
 | Get bid/ask/last quote | `chart snapshot --ticker X --date-key D` | JSON only |
 | Get chart-ready levels | `chart levels --ticker X --start-date D --end-date D` | Fewer filters than `trade levels` |
 | Get company metadata | `chart company --ticker X` | JSON only |
 | Get current prices | `market snapshots` | JSON object |
 | Find earnings with prior institutional activity | `market earnings --start-date D --end-date D` | CSV/TSV supported |
 | Check exhaustion/reversal signals | `market exhaustion [--date D]` | Lower rank = stronger signal |
-| Manage alert configs | `alert configs/create/edit/delete` | `alert.md` |
-| Manage watchlists | `watchlist configs/create/edit/delete` | `watchlist.md` |
+| Manage alert configs | `alert configs/create/edit/delete` | [alert.md](alert.md) |
+| Manage watchlists | `watchlist configs/create/edit/delete` | [watchlist.md](watchlist.md) |
 | Get watchlist tickers | `watchlist tickers --watchlist-key K` | Key from `watchlist configs` |
 
 ## Analysis Workflow

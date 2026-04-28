@@ -1,51 +1,19 @@
 # market
 
-Market-wide data: prices, earnings calendar, exhaustion scores.
+Market-wide prices, earnings calendar, and exhaustion scores.
 
-## market snapshots
-
-Current prices for all tracked symbols. No flags.
+| Command | Use when | Required | Output |
+|---|---|---|---|
+| `market snapshots` | Get current prices for all tracked symbols | none | JSON object |
+| `market earnings` | Find earnings with prior institutional activity | `--start-date`, `--end-date` | JSON, CSV, TSV |
+| `market exhaustion` | Check reversal/exhaustion signals | none | JSON |
 
 ```bash
 volumeleaders-agent market snapshots
+volumeleaders-agent market earnings --start-date 2026-04-21 --end-date 2026-04-28 --format csv
+volumeleaders-agent market exhaustion --date 2026-04-28
 ```
 
-Output: JSON object mapping ticker to price data.
+`market earnings` fields: `Ticker`, `Name`, `Sector`, `Industry`, `EarningsDate`, `AfterMarketClose`, `TradeCount`, `TradeClusterCount`, `TradeClusterBombCount`.
 
-## market earnings
-
-Earnings calendar with institutional activity counts. Shows how much institutional positioning preceded each earnings event.
-
-Required: `--start-date`, `--end-date`
-Optional: `--format json|csv|tsv`
-
-```bash
-volumeleaders-agent market earnings --start-date 2025-04-21 --end-date 2025-04-25
-volumeleaders-agent market earnings --start-date 2025-04-21 --end-date 2025-04-25 --format csv
-```
-
-Output fields: `Ticker`, `Name`, `Sector`, `Industry`, `EarningsDate`, `AfterMarketClose` (bool), `TradeCount`, `TradeClusterCount`, `TradeClusterBombCount`
-
-Output format: `market earnings` defaults to JSON and supports CSV/TSV. `market snapshots` and `market exhaustion` remain JSON-only.
-
-## market exhaustion
-
-Market exhaustion scores indicating potential trend reversals. Measures when institutional buying/selling pressure may be running out of steam.
-
-Optional: `--date` (omit for current day)
-
-```bash
-volumeleaders-agent market exhaustion
-```
-
-Output fields:
-
-| Field | Meaning |
-|---|---|
-| `DateKey` | Trading date (YYYYMMDD format) |
-| `ExhaustionScoreRank` | Raw exhaustion score (unbounded, higher = more exhausted) |
-| `ExhaustionScoreRank30Day` | Rank within last ~21 trading days (1 = most exhausted) |
-| `ExhaustionScoreRank90Day` | Rank within last ~63 trading days |
-| `ExhaustionScoreRank365Day` | Rank within last ~252 trading days |
-
-Interpreting: **lower rank = stronger exhaustion signal**. When multiple timeframes rank low simultaneously, the reversal signal is reinforced. High ranks across all timeframes means the trend likely has room to continue.
+`market exhaustion` optional flag: `--date`, omitted for current day. Fields: `DateKey`, `ExhaustionScoreRank`, `ExhaustionScoreRank30Day`, `ExhaustionScoreRank90Day`, `ExhaustionScoreRank365Day`. Lower rank = stronger exhaustion signal. Multiple low ranks across timeframes reinforce reversal risk.

@@ -48,3 +48,26 @@ make install    # Install to $GOPATH/bin
 - Boolean/toggle filters use integers: `-1` = all/unfiltered, `0` = exclude, `1` = include/only.
 - Pagination uses `--start` (offset) and `--length` (count). `--length -1` means all results except for capped trade retrieval endpoints. `trade list`, including `--summary`, defaults to `--length 10` and only allows `--length` values from 1 to 50 because the VolumeLeaders backend cannot safely retrieve more than 50 individual trades per request. `trade levels` caps `--trade-level-count` at 50, and `trade level-touches` only allows `--length` values from 1 to 50.
 - The binary name is `volumeleaders-agent`.
+
+## Review guidelines
+
+- Focus review comments on correctness, safety, maintainability, and repository conventions. Do not nitpick formatting or style that `gofmt`, `go vet`, or `golangci-lint` already enforce.
+- Treat any change that can leak browser cookies, XSRF tokens, session values, API responses containing credentials, or other secrets as P1. Authentication failures must degrade gracefully and must not expose sensitive values in logs or errors.
+- Treat broken stdout/stderr discipline as P1. Command output belongs on stdout as compact JSON by default, optional CSV/TSV where supported, and diagnostics or errors belong on stderr through `slog`.
+- Treat changes that break CLI compatibility as P1 unless the PR clearly documents an intentional breaking change. Check flag names, positional arguments, date handling, boolean toggle values, pagination limits, and default output fields.
+- For Go code under `internal/**/*.go`, verify errors are wrapped with useful context and `%w` when returning underlying errors, typed error matching uses `errors.As`, and context cancellation is propagated through HTTP and DataTables requests.
+- For `internal/auth/**/*.go`, check cookie extraction, browser profile handling, and token lookup paths for credential safety, useful error messages, and graceful behavior when browsers or cookies are unavailable.
+- For `internal/client/**/*.go`, check HTTP status handling, request context propagation, response body closure, DataTables encoding, and errors that explain the endpoint or operation that failed.
+- For `internal/models/**/*.go`, verify JSON tags match VolumeLeaders response fields and that model changes do not silently drop data needed by commands, summaries, or CSV/TSV output.
+- For `internal/commands/**/*.go`, verify command behavior matches README, `skills/volumeleaders-agent/*.md`, and the conventions above. If commands, flags, models, or output formats change, require matching skill documentation updates.
+- For tests, expect table-driven subtests with `t.Run`, parallelization where safe, `t.TempDir()` for filesystem work, deterministic fixtures, and assertions on observable behavior rather than implementation details. Do not request arbitrary coverage percentage changes.
+- For GitHub Actions workflows, treat unpinned actions, excessive permissions, secret exposure in logs, or unsafe pull request execution patterns as P1.
+- For `Makefile`, check that non-file targets are declared `.PHONY` and avoid adding flags that duplicate tool defaults.
+- For `.goreleaser.yml`, verify GoReleaser v2 compatibility, CGO settings, signing/release behavior, and the intended platform matrix.
+- For documentation-only changes, flag factual inaccuracies or stale command examples as P1 when they would cause users or LLM agents to run the wrong command.
+
+## Maintenance notes
+
+- Keep the review guidelines in this file and nested `AGENTS.md` files aligned with current project behavior. Update them when command behavior, security assumptions, output formats, CI/release workflows, or review priorities change.
+- Prefer updating the closest nested `AGENTS.md` when guidance only applies to one package or directory. Keep this root file focused on cross-repository rules.
+- When adding a new high-risk package or workflow area, add a nearby `AGENTS.md` with a `## Review guidelines` section so Codex receives the most specific instructions for changed files.

@@ -16,6 +16,8 @@ import (
 	cli "github.com/urfave/cli/v3"
 )
 
+const tradeListTickerLookbackDays = 5
+
 // --- Option structs ---
 
 type tradesOptions struct {
@@ -64,6 +66,7 @@ func newTradeSentimentCommand() *cli.Command {
 		Name:  "sentiment",
 		Usage: "Summarize leveraged ETF bull/bear flow by day",
 		UsageText: `volumeleaders-agent trade sentiment --start-date 2025-04-21 --end-date 2025-04-25
+volumeleaders-agent trade sentiment --days 7
 volumeleaders-agent trade sentiment --start-date 2025-04-21 --end-date 2025-04-25 --min-dollars 5000000`,
 		Flags: slices.Concat(
 			dateRangeFlags(),
@@ -103,13 +106,14 @@ func newTradeListCommand() *cli.Command {
 	return &cli.Command{
 		Name:  "list",
 		Usage: "Query institutional trades",
-		UsageText: `volumeleaders-agent trade list --tickers AAPL,MSFT
+		UsageText: `volumeleaders-agent trade list AAPL MSFT
+volumeleaders-agent trade list --tickers AAPL,MSFT
 volumeleaders-agent trade list --tickers NVDA --dark-pools 1 --min-dollars 1000000
 volumeleaders-agent trade list --sector Technology --relative-size 10 --length 50
 volumeleaders-agent trade list --preset "Top-100 Rank" --start-date 2025-04-01 --end-date 2025-04-24
 volumeleaders-agent trade list --watchlist "Magnificent 7" --start-date 2025-04-01 --end-date 2025-04-24
 
-Dates are optional. With --tickers: defaults to 90-day lookback. Without: defaults to today only.`,
+Dates are optional. With tickers: defaults to 5-day lookback. Without: defaults to today only. Use --days to choose another lookback.`,
 		Flags: slices.Concat(
 			optionalDateRangeFlags(),
 			volumeRangeFlags(),
@@ -154,7 +158,8 @@ func newTradeClustersCommand() *cli.Command {
 	return &cli.Command{
 		Name:  "clusters",
 		Usage: "Query aggregated trade clusters",
-		UsageText: `volumeleaders-agent trade clusters --tickers AAPL --start-date 2025-01-01 --end-date 2025-01-31
+		UsageText: `volumeleaders-agent trade clusters AAPL --days 7
+volumeleaders-agent trade clusters --tickers AAPL --start-date 2025-01-01 --end-date 2025-01-31
 volumeleaders-agent trade clusters --min-dollars 50000000 --vcd 1`,
 		Flags: slices.Concat(
 			dateRangeFlags(),
@@ -180,7 +185,8 @@ func newTradeClusterBombsCommand() *cli.Command {
 	return &cli.Command{
 		Name:  "cluster-bombs",
 		Usage: "Query trade cluster bombs",
-		UsageText: `volumeleaders-agent trade cluster-bombs --tickers TSLA --start-date 2025-01-01
+		UsageText: `volumeleaders-agent trade cluster-bombs TSLA --days 3
+volumeleaders-agent trade cluster-bombs --tickers TSLA --start-date 2025-01-01
 volumeleaders-agent trade cluster-bombs --vcd 1 --min-volume 100000`,
 		Flags: slices.Concat(
 			dateRangeFlags(),
@@ -237,17 +243,18 @@ func newTradeLevelsCommand() *cli.Command {
 	return &cli.Command{
 		Name:  "levels",
 		Usage: "Query significant price levels for a ticker",
-		UsageText: `volumeleaders-agent trade levels --ticker AAPL
+		UsageText: `volumeleaders-agent trade levels AAPL
+volumeleaders-agent trade levels --ticker AAPL
 volumeleaders-agent trade levels --ticker MSFT --trade-level-count 20 --min-dollars 1000000
 
-Dates are optional. Defaults to 1-year lookback ending today.`,
+Dates are optional. Defaults to 1-year lookback ending today. Use --days for shorter lookbacks.`,
 		Flags: slices.Concat(
 			optionalDateRangeFlags(),
 			volumeRangeFlags(),
 			priceRangeFlags(),
 			dollarRangeFlags(500000),
 			[]cli.Flag{
-				&cli.StringFlag{Name: "ticker", Aliases: []string{"tickers", "symbol", "symbols"}, Required: true, Usage: "Ticker symbol"},
+				&cli.StringFlag{Name: "ticker", Aliases: []string{"tickers", "symbol", "symbols"}, Usage: "Ticker symbol"},
 				&cli.IntFlag{Name: "vcd", Value: 0, Usage: "VCD filter"},
 				&cli.IntFlag{Name: "relative-size", Value: 0, Usage: "Relative size threshold"},
 				&cli.IntFlag{Name: "trade-level-rank", Value: -1, Usage: "Trade level rank filter"},
@@ -263,7 +270,8 @@ func newTradeLevelTouchesCommand() *cli.Command {
 	return &cli.Command{
 		Name:  "level-touches",
 		Usage: "Query trade events at notable price levels",
-		UsageText: `volumeleaders-agent trade level-touches --tickers AAPL --start-date 2025-01-01
+		UsageText: `volumeleaders-agent trade level-touches AAPL --days 14
+volumeleaders-agent trade level-touches --tickers AAPL --start-date 2025-01-01
 volumeleaders-agent trade level-touches --tickers NVDA,AMD --trade-level-rank 5`,
 		Flags: slices.Concat(
 			dateRangeFlags(),
@@ -288,6 +296,7 @@ volumeleaders-agent trade level-touches --tickers NVDA,AMD --trade-level-rank 5`
 func runTradeList(ctx context.Context, cmd *cli.Command) error {
 	presetName := cmd.String("preset")
 	watchlistName := cmd.String("watchlist")
+	tickers := multiTickerValue(cmd)
 	fields, err := parseJSONFieldList[models.Trade](cmd.String("fields"))
 	if err != nil {
 		return fmt.Errorf("parsing fields flag: %w", err)
@@ -296,18 +305,21 @@ func runTradeList(ctx context.Context, cmd *cli.Command) error {
 		return err
 	}
 
-	// Apply sensible date defaults: 90-day lookback when tickers are scoped,
-	// today-only for broad (untickered) scans.
+	// Apply a short ticker-scoped default so high-volume symbols do not request
+	// huge result sets before users have narrowed the query themselves.
 	lookbackDays := 0
-	if cmd.String("tickers") != "" {
-		lookbackDays = 90
+	if tickers != "" {
+		lookbackDays = tradeListTickerLookbackDays
 	}
-	startDate, endDate := defaultDates(cmd, lookbackDays)
+	startDate, endDate, err := optionalDateRange(cmd, lookbackDays)
+	if err != nil {
+		return err
+	}
 
 	// Build the full filter map from CLI flags (includes defaults for unset
 	// flags). Every key the API requires is present after this call.
 	opts := &tradesOptions{
-		tickers:      cmd.String("tickers"),
+		tickers:      tickers,
 		startDate:    startDate,
 		endDate:      endDate,
 		minVolume:    cmd.Int("min-volume"),
@@ -361,6 +373,10 @@ func runTradeList(ctx context.Context, cmd *cli.Command) error {
 		applyExplicitFlags(cmd, filters)
 	}
 
+	if tickers != "" {
+		filters["Tickers"] = tickers
+	}
+
 	// Dates always come from CLI or computed defaults (never from presets).
 	filters["StartDate"] = startDate
 	filters["EndDate"] = endDate
@@ -386,7 +402,7 @@ func runTradeList(ctx context.Context, cmd *cli.Command) error {
 		if cmd.String("format") != string(outputFormatJSON) {
 			return fmt.Errorf("--format cannot be used with --summary")
 		}
-		return runTradeSummary(ctx, optsDataTable, cmd.String("group-by"), cmd.String("start-date"), cmd.String("end-date"))
+		return runTradeSummary(ctx, optsDataTable, cmd.String("group-by"), startDate, endDate)
 	}
 
 	return runDataTablesCommand[models.Trade](
@@ -599,10 +615,14 @@ func runTradeSentiment(ctx context.Context, cmd *cli.Command) error {
 	if err != nil {
 		return err
 	}
+	startDate, endDate, err := requiredDateRange(cmd)
+	if err != nil {
+		return err
+	}
 
 	opts := &tradesOptions{
-		startDate:    cmd.String("start-date"),
-		endDate:      cmd.String("end-date"),
+		startDate:    startDate,
+		endDate:      endDate,
 		minVolume:    cmd.Int("min-volume"),
 		maxVolume:    cmd.Int("max-volume"),
 		minPrice:     cmd.Float("min-price"),
@@ -642,7 +662,7 @@ func runTradeSentiment(ctx context.Context, cmd *cli.Command) error {
 		return err
 	}
 
-	sentiment := summarizeTradeSentiment(trades, cmd.String("start-date"), cmd.String("end-date"))
+	sentiment := summarizeTradeSentiment(trades, startDate, endDate)
 
 	if format == outputFormatJSON {
 		return printJSON(ctx, sentiment)
@@ -690,14 +710,19 @@ func tradeSentimentTotalsRow(totals *models.TradeSentimentTotals) models.TradeSe
 }
 
 func runTradeClusters(ctx context.Context, cmd *cli.Command) error {
+	startDate, endDate, err := requiredDateRange(cmd)
+	if err != nil {
+		return err
+	}
+	tickers := multiTickerValue(cmd)
 	return runDataTablesCommand[models.TradeCluster](ctx, "/TradeClusters/GetTradeClusters", datatables.TradeClusterColumns,
 		dataTableOptions{
 			start: cmd.Int("start"), length: cmd.Int("length"),
 			orderCol: cmd.Int("order-col"), orderDir: cmd.String("order-dir"),
 			filters: map[string]string{
-				"Tickers":          cmd.String("tickers"),
-				"StartDate":        cmd.String("start-date"),
-				"EndDate":          cmd.String("end-date"),
+				"Tickers":          tickers,
+				"StartDate":        startDate,
+				"EndDate":          endDate,
 				"MinVolume":        intStr(cmd.Int("min-volume")),
 				"MaxVolume":        intStr(cmd.Int("max-volume")),
 				"MinPrice":         formatFloat(cmd.Float("min-price")),
@@ -714,14 +739,19 @@ func runTradeClusters(ctx context.Context, cmd *cli.Command) error {
 }
 
 func runTradeClusterBombs(ctx context.Context, cmd *cli.Command) error {
+	startDate, endDate, err := requiredDateRange(cmd)
+	if err != nil {
+		return err
+	}
+	tickers := multiTickerValue(cmd)
 	return runDataTablesCommand[models.TradeClusterBomb](ctx, "/TradeClusterBombs/GetTradeClusterBombs", datatables.TradeClusterBombColumns,
 		dataTableOptions{
 			start: cmd.Int("start"), length: cmd.Int("length"),
 			orderCol: cmd.Int("order-col"), orderDir: cmd.String("order-dir"),
 			filters: map[string]string{
-				"Tickers":              cmd.String("tickers"),
-				"StartDate":            cmd.String("start-date"),
-				"EndDate":              cmd.String("end-date"),
+				"Tickers":              tickers,
+				"StartDate":            startDate,
+				"EndDate":              endDate,
 				"MinVolume":            intStr(cmd.Int("min-volume")),
 				"MaxVolume":            intStr(cmd.Int("max-volume")),
 				"MinDollars":           formatFloat(cmd.Float("min-dollars")),
@@ -754,9 +784,16 @@ func runTradeClusterAlerts(ctx context.Context, cmd *cli.Command) error {
 }
 
 func runTradeLevels(ctx context.Context, cmd *cli.Command) error {
-	startDate, endDate := defaultDates(cmd, 365)
+	startDate, endDate, err := optionalDateRange(cmd, 365)
+	if err != nil {
+		return err
+	}
+	ticker, err := singleTickerValue(cmd)
+	if err != nil {
+		return err
+	}
 	opts := &tradeLevelOptions{
-		ticker:          cmd.String("ticker"),
+		ticker:          ticker,
 		startDate:       startDate,
 		endDate:         endDate,
 		minVolume:       cmd.Int("min-volume"),
@@ -783,14 +820,19 @@ func runTradeLevels(ctx context.Context, cmd *cli.Command) error {
 }
 
 func runTradeLevelTouches(ctx context.Context, cmd *cli.Command) error {
+	startDate, endDate, err := requiredDateRange(cmd)
+	if err != nil {
+		return err
+	}
+	tickers := multiTickerValue(cmd)
 	return runDataTablesCommand[models.TradeLevelTouch](ctx, "/TradeLevelTouches/GetTradeLevelTouches", datatables.TradeLevelTouchColumns,
 		dataTableOptions{
 			start: cmd.Int("start"), length: cmd.Int("length"),
 			orderCol: cmd.Int("order-col"), orderDir: cmd.String("order-dir"),
 			filters: map[string]string{
-				"Tickers":        cmd.String("tickers"),
-				"StartDate":      cmd.String("start-date"),
-				"EndDate":        cmd.String("end-date"),
+				"Tickers":        tickers,
+				"StartDate":      startDate,
+				"EndDate":        endDate,
 				"MinVolume":      intStr(cmd.Int("min-volume")),
 				"MaxVolume":      intStr(cmd.Int("max-volume")),
 				"MinPrice":       formatFloat(cmd.Float("min-price")),

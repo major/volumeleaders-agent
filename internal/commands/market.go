@@ -41,10 +41,14 @@ func newEarningsCommand() *cli.Command {
 	return &cli.Command{
 		Name:      "earnings",
 		Usage:     "Query earnings calendar within a date range",
-		UsageText: "volumeleaders-agent market earnings --start-date 2025-01-20 --end-date 2025-01-24",
+		UsageText: "volumeleaders-agent market earnings --days 5",
 		Flags:     slices.Concat(dateRangeFlags(), outputFormatFlags()),
 		Action: func(ctx context.Context, cmd *cli.Command) error {
-			return runEarnings(ctx, cmd.String("start-date"), cmd.String("end-date"), cmd.String("format"))
+			startDate, endDate, err := requiredDateRange(cmd)
+			if err != nil {
+				return err
+			}
+			return runEarnings(ctx, startDate, endDate, cmd.String("format"))
 		},
 	}
 }

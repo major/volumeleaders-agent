@@ -5,12 +5,13 @@ Market-wide prices, earnings calendar, and exhaustion scores.
 | Command | Use when | Required | Output |
 |---|---|---|---|
 | `market snapshots` | Get current prices for all tracked symbols | none | JSON object |
-| `market earnings` | Find earnings with prior institutional activity | `--start-date`, `--end-date` | JSON, CSV, TSV |
+| `market earnings` | Find earnings with prior institutional activity | date range or `--days` | JSON, CSV, TSV |
 | `market exhaustion` | Check reversal/exhaustion signals | none | JSON |
 
 ```bash
 volumeleaders-agent market snapshots
 volumeleaders-agent market earnings --start-date 2026-04-21 --end-date 2026-04-28 --format csv
+volumeleaders-agent market earnings --days 7
 volumeleaders-agent market exhaustion --date 2026-04-28
 ```
 

@@ -1,11 +1,14 @@
 package commands
 
 import (
+	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	cli "github.com/urfave/cli/v3"
 )
@@ -211,4 +214,42 @@ func TestChartCompanyCLI(t *testing.T) {
 			t.Fatalf("unexpected error: %v", err)
 		}
 	})
+}
+
+func TestChartPriceDataPositionalTickerAndDays(t *testing.T) {
+	var gotTicker, gotStart, gotEnd string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, _ := io.ReadAll(r.Body)
+		var payload map[string]any
+		if err := json.Unmarshal(body, &payload); err != nil {
+			t.Fatalf("decode payload: %v", err)
+		}
+		gotTicker, _ = payload["Ticker"].(string)
+		gotStart, _ = payload["StartDateKey"].(string)
+		gotEnd, _ = payload["EndDateKey"].(string)
+		fmt.Fprint(w, `[[{}]]`)
+	}))
+	t.Cleanup(server.Close)
+
+	frozen := time.Date(2025, 6, 15, 12, 0, 0, 0, time.UTC)
+	origTimeNow := timeNow
+	timeNow = func() time.Time { return frozen }
+	t.Cleanup(func() { timeNow = origTimeNow })
+
+	ctx := contextWithTestClient(t, server.URL)
+	captureStdout(t, func() {
+		root := &cli.Command{Commands: []*cli.Command{NewChartCommand()}}
+		if err := root.Run(ctx, []string{"app", "chart", "price-data", "AAPL", "--days", "2"}); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+	})
+	if gotTicker != "AAPL" {
+		t.Errorf("Ticker = %q, want AAPL", gotTicker)
+	}
+	if gotStart != "20250613" {
+		t.Errorf("StartDateKey = %q, want 20250613", gotStart)
+	}
+	if gotEnd != "20250615" {
+		t.Errorf("EndDateKey = %q, want 20250615", gotEnd)
+	}
 }

@@ -46,13 +46,13 @@ func TestPostDataTables(t *testing.T) {
 			name:       "empty data field",
 			statusCode: http.StatusOK,
 			body:       `{"draw":1}`,
-			wantErr:    "missing data field",
+			want:       []string{},
 		},
 		{
 			name:       "null data field",
 			statusCode: http.StatusOK,
 			body:       `{"draw":1,"data":null}`,
-			wantErr:    "missing data field",
+			want:       []string{},
 		},
 		{
 			name:       "non 200 status",
@@ -179,8 +179,10 @@ func TestPostForm(t *testing.T) {
 			name:       "valid response",
 			statusCode: http.StatusOK,
 			body:       `{"name":"AAPL"}`,
-			result:     &struct{ Name string `json:"name"` }{},
-			wantName:   "AAPL",
+			result: &struct {
+				Name string `json:"name"`
+			}{},
+			wantName: "AAPL",
 		},
 		{
 			name:       "nil result skips decode",
@@ -217,7 +219,9 @@ func TestPostForm(t *testing.T) {
 			err := client.PostForm(t.Context(), "/form", url.Values{"ticker": {"AAPL"}}, tt.result)
 			assertErrorContains(t, err, tt.wantErr)
 			if tt.wantName != "" {
-				got := tt.result.(*struct{ Name string `json:"name"` })
+				got := tt.result.(*struct {
+					Name string `json:"name"`
+				})
 				if got.Name != tt.wantName {
 					t.Errorf("expected name %q, got %q", tt.wantName, got.Name)
 				}
@@ -322,19 +326,19 @@ func TestSetHeaders(t *testing.T) {
 	client.setHeaders(req)
 
 	checks := map[string]string{
-		"User-Agent":        auth.UserAgent,
-		"x-xsrf-token":      "test-token",
-		"x-requested-with":  "XMLHttpRequest",
-		"Accept":            "application/json, text/javascript, */*; q=0.01",
-		"Content-Type":      "application/json",
-		"Sec-Ch-Ua":         `"Chromium";v="147", "Not A(Brand";v="24", "Google Chrome";v="147"`,
-		"Sec-Ch-Ua-Mobile":  "?0",
+		"User-Agent":         auth.UserAgent,
+		"x-xsrf-token":       "test-token",
+		"x-requested-with":   "XMLHttpRequest",
+		"Accept":             "application/json, text/javascript, */*; q=0.01",
+		"Content-Type":       "application/json",
+		"Sec-Ch-Ua":          `"Chromium";v="147", "Not A(Brand";v="24", "Google Chrome";v="147"`,
+		"Sec-Ch-Ua-Mobile":   "?0",
 		"Sec-Ch-Ua-Platform": `"Windows"`,
-		"Sec-Fetch-Dest":    "empty",
-		"Sec-Fetch-Mode":    "cors",
-		"Sec-Fetch-Site":    "same-origin",
-		"Accept-Language":   "en-US,en;q=0.9",
-		"Accept-Encoding":   "gzip, deflate, br",
+		"Sec-Fetch-Dest":     "empty",
+		"Sec-Fetch-Mode":     "cors",
+		"Sec-Fetch-Site":     "same-origin",
+		"Accept-Language":    "en-US,en;q=0.9",
+		"Accept-Encoding":    "gzip, deflate, br",
 	}
 	for key, expected := range checks {
 		if got := req.Header.Get(key); got != expected {

@@ -75,6 +75,9 @@ func (c *Client) PostDataTablesPage(ctx context.Context, path, body string) (*mo
 	if err := json.Unmarshal(responseBody, &wrapper); err != nil {
 		return nil, fmt.Errorf("decode DataTables response: %w", err)
 	}
+	if len(wrapper.Data) == 0 || bytes.Equal(wrapper.Data, []byte("null")) {
+		wrapper.Data = []byte("[]")
+	}
 	return &wrapper, nil
 }
 
@@ -83,9 +86,6 @@ func (c *Client) PostDataTables(ctx context.Context, path, body string, result a
 	wrapper, err := c.PostDataTablesPage(ctx, path, body)
 	if err != nil {
 		return err
-	}
-	if len(wrapper.Data) == 0 || bytes.Equal(wrapper.Data, []byte("null")) {
-		return fmt.Errorf("decode DataTables response: missing data field")
 	}
 	if err := json.Unmarshal(wrapper.Data, result); err != nil {
 		return fmt.Errorf("decode DataTables data: %w", err)

@@ -9,13 +9,13 @@ Institutional trade discovery. See `SKILL.md` for global conventions, trade shar
 | `trade presets` | List built-in filters | none | JSON, CSV, TSV |
 | `trade preset-tickers` | Inspect a preset universe | `--preset` | JSON |
 | `trade list` | Query individual trades | none | JSON, CSV, TSV, or summary JSON |
-| `trade sentiment` | Bull/bear leveraged ETF flow | `--start-date`, `--end-date` | JSON, CSV, TSV |
-| `trade clusters` | Converging trades at price levels | `--start-date`, `--end-date` | JSON, CSV, TSV |
-| `trade cluster-bombs` | Sudden aggressive bursts | `--start-date`, `--end-date` | JSON, CSV, TSV |
+| `trade sentiment` | Bull/bear leveraged ETF flow | date range or `--days` | JSON, CSV, TSV |
+| `trade clusters` | Converging trades at price levels | date range or `--days` | JSON, CSV, TSV |
+| `trade cluster-bombs` | Sudden aggressive bursts | date range or `--days` | JSON, CSV, TSV |
 | `trade alerts` | System trade alerts | `--date` | JSON, CSV, TSV |
 | `trade cluster-alerts` | System cluster alerts | `--date` | JSON, CSV, TSV |
-| `trade levels` | Support/resistance by ticker | `--ticker` | JSON, CSV, TSV |
-| `trade level-touches` | Price revisits institutional levels | `--start-date`, `--end-date` | JSON, CSV, TSV |
+| `trade levels` | Support/resistance by ticker | ticker flag or positional ticker | JSON, CSV, TSV |
+| `trade level-touches` | Price revisits institutional levels | date range or `--days` | JSON, CSV, TSV |
 
 ## Presets
 
@@ -30,9 +30,9 @@ volumeleaders-agent trade preset-tickers --preset "Megacaps"
 
 ## trade list
 
-Primary individual-print query. Optional flags: `--start-date`, `--end-date`, ticker aliases, `--sector`, `--preset`, `--watchlist`, `--fields`, `--format`, `--summary`, `--group-by`, trade shared flags, pagination.
+Primary individual-print query. Optional flags: `--start-date`, `--end-date`, `--days`, ticker aliases, positional tickers, `--sector`, `--preset`, `--watchlist`, `--fields`, `--format`, `--summary`, `--group-by`, trade shared flags, pagination.
 
-Date defaults: with tickers, 90-day lookback from today. Without tickers, today only. Explicit dates override defaults. Presets and watchlists never supply dates.
+Date defaults: with tickers, 5-day lookback from today. Without tickers, today only. Explicit dates override defaults. `--days N` uses today or explicit `--end-date` as the range end and computes the start date; do not combine `--days` with `--start-date`. Presets and watchlists never supply dates.
 
 Filter precedence: preset baseline, then watchlist merge, then explicit CLI flags override both.
 
@@ -42,6 +42,7 @@ Fields mode: `--fields FIELD1,FIELD2` limits JSON keys or CSV/TSV columns. Names
 
 ```bash
 volumeleaders-agent trade list --tickers AAPL --dark-pools 1 --min-dollars 1000000
+volumeleaders-agent trade list XLE --days 5
 volumeleaders-agent trade list --preset "Top-100 Rank" --start-date 2026-04-28 --end-date 2026-04-28
 volumeleaders-agent trade list --watchlist "Magnificent 7" --start-date 2026-04-01 --end-date 2026-04-28
 volumeleaders-agent trade list --tickers SPY,QQQ --start-date 2026-04-21 --end-date 2026-04-28 --summary --group-by ticker,day --length -1
@@ -54,10 +55,11 @@ Key row fields: `Date`, `FullDateTime`, `Ticker`, `Name`, `Sector`, `Industry`, 
 
 Daily bull/bear leveraged ETF flow. The command always queries the combined leveraged ETF sector filter `SectorIndustry=X B`, classifies bull and bear ETFs locally, and cannot be constrained by ticker or sector flags.
 
-Required: `--start-date`, `--end-date`. Optional: `--format json|csv|tsv`, trade shared flags except ticker/sector filters. Non-standard defaults: `--min-dollars 5000000`, `--vcd 97`; shared `--relative-size 5` still applies.
+Required: complete `--start-date`/`--end-date` range or `--days`. Optional: `--format json|csv|tsv`, trade shared flags except ticker/sector filters. Non-standard defaults: `--min-dollars 5000000`, `--vcd 97`; shared `--relative-size 5` still applies.
 
 ```bash
 volumeleaders-agent trade sentiment --start-date 2026-04-21 --end-date 2026-04-28
+volumeleaders-agent trade sentiment --days 7
 volumeleaders-agent trade sentiment --start-date 2026-04-21 --end-date 2026-04-28 --format csv
 ```
 
@@ -65,12 +67,13 @@ JSON: `dateRange`, `daily`, `totals`. Daily rows include `date`, `bear`, `bull`,
 
 ## Clusters and cluster bombs
 
-`trade clusters` finds multiple institutional trades converging at similar prices. Defaults: `--min-dollars 10000000`, `--length 1000`, `--order-col 1`, `--order-dir desc`. Optional filters: ticker aliases, `--sector`, volume/price/dollar ranges, `--vcd`, `--security-type`, `--relative-size`, `--trade-cluster-rank`, format, pagination.
+`trade clusters` finds multiple institutional trades converging at similar prices. Requires a complete date range or `--days`. Defaults: `--min-dollars 10000000`, `--length 1000`, `--order-col 1`, `--order-dir desc`. Optional filters: ticker aliases, positional tickers, `--sector`, volume/price/dollar ranges, `--vcd`, `--security-type`, `--relative-size`, `--trade-cluster-rank`, format, pagination.
 
-`trade cluster-bombs` finds sudden, aggressive bursts tightly grouped in time and price. Defaults: `--min-dollars 0`, `--security-type 0`, `--relative-size 0`, `--length 100`. It has no price range filters and uses `--trade-cluster-bomb-rank`.
+`trade cluster-bombs` finds sudden, aggressive bursts tightly grouped in time and price. Requires a complete date range or `--days`. Defaults: `--min-dollars 0`, `--security-type 0`, `--relative-size 0`, `--length 100`. It accepts ticker aliases and positional tickers, has no price range filters, and uses `--trade-cluster-bomb-rank`.
 
 ```bash
 volumeleaders-agent trade clusters --start-date 2026-04-01 --end-date 2026-04-28 --min-dollars 50000000
+volumeleaders-agent trade clusters AAPL MSFT --days 5
 volumeleaders-agent trade cluster-bombs --start-date 2026-04-28 --end-date 2026-04-28
 ```
 
@@ -89,13 +92,13 @@ Trade alert fields include `Ticker`, `Name`, `AlertType`, `Price`, `TradeRank`, 
 
 ## Levels and level touches
 
-`trade levels` finds significant institutional prices for one ticker. Required: `--ticker` (aliases accepted). Optional: `--start-date`, `--end-date`, shared ranges, `--vcd`, `--trade-level-rank`, `--trade-level-count`, `--format`. Defaults to a 1-year lookback when dates are omitted. Non-standard default: `--relative-size 0`. No pagination.
+`trade levels` finds significant institutional prices for one ticker. Required: `--ticker` (aliases accepted) or one positional ticker. Optional: `--start-date`, `--end-date`, `--days`, shared ranges, `--vcd`, `--trade-level-rank`, `--trade-level-count`, `--format`. Defaults to a 1-year lookback when dates are omitted. Non-standard default: `--relative-size 0`. No pagination.
 
-`trade level-touches` finds events where price revisits institutional levels. Required: `--start-date`, `--end-date`. Optional: ticker aliases, volume/price/dollar ranges, `--vcd`, `--trade-level-rank`, format, pagination. Defaults: `--relative-size 0`, `--trade-level-rank 10`, `--order-col 0`, `--order-dir desc`.
+`trade level-touches` finds events where price revisits institutional levels. Required: complete `--start-date`/`--end-date` range or `--days`. Optional: ticker aliases, positional tickers, volume/price/dollar ranges, `--vcd`, `--trade-level-rank`, format, pagination. Defaults: `--relative-size 0`, `--trade-level-rank 10`, `--order-col 0`, `--order-dir desc`.
 
 ```bash
-volumeleaders-agent trade levels --ticker AAPL
-volumeleaders-agent trade level-touches --start-date 2026-04-28 --end-date 2026-04-28
+volumeleaders-agent trade levels AAPL --days 30
+volumeleaders-agent trade level-touches XLE --days 5
 ```
 
 Key fields: `Ticker`, `Name`, `Price`, `Dollars`, `Volume`, `Trades`, `RelativeSize`, `CumulativeDistribution`, `TradeLevelRank`, `MinDate`, `MaxDate`, `Dates`, plus `TradeLevelTouches` on level-touch rows.

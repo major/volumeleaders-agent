@@ -106,9 +106,21 @@ func TestTradeListDefaultDates(t *testing.T) {
 		wantEnd   string
 	}{
 		{
-			name:      "with tickers defaults to 90-day lookback",
+			name:      "with tickers defaults to 5-day lookback",
 			args:      []string{"app", "list", "--tickers", "AAPL"},
-			wantStart: "2025-03-17",
+			wantStart: "2025-06-10",
+			wantEnd:   "2025-06-15",
+		},
+		{
+			name:      "with positional ticker defaults to 5-day lookback",
+			args:      []string{"app", "list", "AAPL"},
+			wantStart: "2025-06-10",
+			wantEnd:   "2025-06-15",
+		},
+		{
+			name:      "days overrides ticker lookback",
+			args:      []string{"app", "list", "XLE", "--days", "5"},
+			wantStart: "2025-06-10",
 			wantEnd:   "2025-06-15",
 		},
 		{
@@ -154,6 +166,28 @@ func TestTradeListDefaultDates(t *testing.T) {
 	}
 }
 
+func TestTradeListPositionalTickers(t *testing.T) {
+	var gotTickers string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, _ := io.ReadAll(r.Body)
+		form, _ := url.ParseQuery(string(body))
+		gotTickers = form.Get("Tickers")
+		fmt.Fprint(w, dataTablesJSON(`[{}]`))
+	}))
+	t.Cleanup(server.Close)
+
+	ctx := contextWithTestClient(t, server.URL)
+	captureStdout(t, func() {
+		root := &cli.Command{Commands: []*cli.Command{newTradeListCommand()}}
+		if err := root.Run(ctx, []string{"app", "list", "AAPL", "MSFT", "--tickers", "NVDA,MSFT"}); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+	})
+	if gotTickers != "NVDA,MSFT,AAPL" {
+		t.Errorf("Tickers = %q, want %q", gotTickers, "NVDA,MSFT,AAPL")
+	}
+}
+
 func TestTradeLevelsDefaultDates(t *testing.T) {
 	frozen := time.Date(2025, 6, 15, 12, 0, 0, 0, time.UTC)
 	origTimeNow := timeNow
@@ -170,6 +204,12 @@ func TestTradeLevelsDefaultDates(t *testing.T) {
 			name:      "defaults to 1-year lookback",
 			args:      []string{"app", "levels", "--ticker", "AAPL"},
 			wantStart: "2024-06-15",
+			wantEnd:   "2025-06-15",
+		},
+		{
+			name:      "accepts positional ticker with days",
+			args:      []string{"app", "levels", "AAPL", "--days", "30"},
+			wantStart: "2025-05-16",
 			wantEnd:   "2025-06-15",
 		},
 		{

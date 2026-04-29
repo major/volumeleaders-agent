@@ -56,7 +56,8 @@ func newPriceDataCommand() *cli.Command {
 	return &cli.Command{
 		Name:  "price-data",
 		Usage: "Query one-minute chart bars with trade metadata for a ticker",
-		UsageText: `volumeleaders-agent chart price-data --ticker AAPL --start-date 2025-01-15 --end-date 2025-01-15
+		UsageText: `volumeleaders-agent chart price-data AAPL --days 1
+volumeleaders-agent chart price-data --ticker AAPL --start-date 2025-01-15 --end-date 2025-01-15
 volumeleaders-agent chart price-data --ticker NVDA --start-date 2025-01-01 --end-date 2025-01-31 --dark-pools 1`,
 		Flags: slices.Concat(
 			dateRangeFlags(),
@@ -64,7 +65,7 @@ volumeleaders-agent chart price-data --ticker NVDA --start-date 2025-01-01 --end
 			priceRangeFlags(),
 			dollarRangeFlags(500000),
 			[]cli.Flag{
-				&cli.StringFlag{Name: "ticker", Required: true, Usage: "Ticker symbol"},
+				&cli.StringFlag{Name: "ticker", Usage: "Ticker symbol"},
 				&cli.IntFlag{Name: "volume-profile", Value: 0, Usage: "Volume profile flag"},
 				&cli.IntFlag{Name: "levels", Value: 5, Usage: "Number of trade levels"},
 				&cli.IntFlag{Name: "dark-pools", Value: -1, Usage: "Dark pool filter (-1=all, 0=exclude, 1=only)"},
@@ -86,11 +87,19 @@ volumeleaders-agent chart price-data --ticker NVDA --start-date 2025-01-01 --end
 			outputFormatFlags(),
 		),
 		Action: func(ctx context.Context, cmd *cli.Command) error {
+			startDate, endDate, err := requiredDateRange(cmd)
+			if err != nil {
+				return err
+			}
+			ticker, err := singleTickerValue(cmd)
+			if err != nil {
+				return err
+			}
 			opts := priceDataOptions{
-				ticker:            cmd.String("ticker"),
+				ticker:            ticker,
 				format:            cmd.String("format"),
-				startDate:         cmd.String("start-date"),
-				endDate:           cmd.String("end-date"),
+				startDate:         startDate,
+				endDate:           endDate,
 				volumeProfile:     cmd.Int("volume-profile"),
 				levels:            cmd.Int("levels"),
 				minVolume:         cmd.Int("min-volume"),
@@ -124,13 +133,17 @@ func newChartSnapshotCommand() *cli.Command {
 	return &cli.Command{
 		Name:      "snapshot",
 		Usage:     "Query quote snapshot for a ticker and date",
-		UsageText: "volumeleaders-agent chart snapshot --ticker AAPL --date-key 2025-01-15",
+		UsageText: "volumeleaders-agent chart snapshot AAPL --date-key 2025-01-15",
 		Flags: []cli.Flag{
-			&cli.StringFlag{Name: "ticker", Required: true, Usage: "Ticker symbol"},
+			&cli.StringFlag{Name: "ticker", Usage: "Ticker symbol"},
 			&cli.StringFlag{Name: "date-key", Required: true, Usage: "Date key YYYY-MM-DD or YYYYMMDD"},
 		},
 		Action: func(ctx context.Context, cmd *cli.Command) error {
-			return runChartSnapshot(ctx, cmd.String("ticker"), cmd.String("date-key"))
+			ticker, err := singleTickerValue(cmd)
+			if err != nil {
+				return err
+			}
+			return runChartSnapshot(ctx, ticker, cmd.String("date-key"))
 		},
 	}
 }
@@ -139,21 +152,30 @@ func newChartLevelsCommand() *cli.Command {
 	return &cli.Command{
 		Name:  "levels",
 		Usage: "Query chart-level overlays for a ticker and date range",
-		UsageText: `volumeleaders-agent chart levels --ticker AAPL --start-date 2025-01-01 --end-date 2025-01-31
+		UsageText: `volumeleaders-agent chart levels AAPL --days 30
+volumeleaders-agent chart levels --ticker AAPL --start-date 2025-01-01 --end-date 2025-01-31
 volumeleaders-agent chart levels --ticker TSLA --start-date 2025-01-01 --levels 10`,
 		Flags: slices.Concat(
 			dateRangeFlags(),
 			[]cli.Flag{
-				&cli.StringFlag{Name: "ticker", Required: true, Usage: "Ticker symbol"},
+				&cli.StringFlag{Name: "ticker", Usage: "Ticker symbol"},
 				&cli.IntFlag{Name: "levels", Value: 5, Usage: "Number of trade levels"},
 			},
 			outputFormatFlags(),
 		),
 		Action: func(ctx context.Context, cmd *cli.Command) error {
+			startDate, endDate, err := requiredDateRange(cmd)
+			if err != nil {
+				return err
+			}
+			ticker, err := singleTickerValue(cmd)
+			if err != nil {
+				return err
+			}
 			opts := chartLevelsOptions{
-				ticker:    cmd.String("ticker"),
-				startDate: cmd.String("start-date"),
-				endDate:   cmd.String("end-date"),
+				ticker:    ticker,
+				startDate: startDate,
+				endDate:   endDate,
 				levels:    cmd.Int("levels"),
 				format:    cmd.String("format"),
 			}
@@ -166,12 +188,16 @@ func newCompanyCommand() *cli.Command {
 	return &cli.Command{
 		Name:      "company",
 		Usage:     "Query company metadata for a ticker",
-		UsageText: "volumeleaders-agent chart company --ticker AAPL",
+		UsageText: "volumeleaders-agent chart company AAPL",
 		Flags: []cli.Flag{
-			&cli.StringFlag{Name: "ticker", Required: true, Usage: "Ticker symbol"},
+			&cli.StringFlag{Name: "ticker", Usage: "Ticker symbol"},
 		},
 		Action: func(ctx context.Context, cmd *cli.Command) error {
-			return runCompany(ctx, cmd.String("ticker"))
+			ticker, err := singleTickerValue(cmd)
+			if err != nil {
+				return err
+			}
+			return runCompany(ctx, ticker)
 		},
 	}
 }

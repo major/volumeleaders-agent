@@ -2,8 +2,10 @@ package commands
 
 import (
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"testing"
 
 	"github.com/major/volumeleaders-agent/internal/datatables"
@@ -75,5 +77,27 @@ func TestVolumeSubcommands(t *testing.T) {
 				}
 			})
 		})
+	}
+}
+
+func TestVolumePositionalTickers(t *testing.T) {
+	var gotTickers string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, _ := io.ReadAll(r.Body)
+		form, _ := url.ParseQuery(string(body))
+		gotTickers = form.Get("Tickers")
+		fmt.Fprint(w, dataTablesJSON(`[{}]`))
+	}))
+	t.Cleanup(server.Close)
+
+	ctx := contextWithTestClient(t, server.URL)
+	captureStdout(t, func() {
+		root := &cli.Command{Commands: []*cli.Command{NewVolumeCommand()}}
+		if err := root.Run(ctx, []string{"app", "volume", "institutional", "XLE", "XLK", "--date", "2025-01-15"}); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+	})
+	if gotTickers != "XLE,XLK" {
+		t.Errorf("Tickers = %q, want %q", gotTickers, "XLE,XLK")
 	}
 }

@@ -340,24 +340,28 @@ func newDataTablesRequest(columns []string, opts dataTableOptions) datatables.Re
 	}
 }
 
-// dateRangeFlags returns required --start-date and --end-date flags.
+// dateRangeFlags returns --start-date, --end-date, and --days flags for
+// commands that require a range. Callers must resolve the range with
+// requiredDateRange because --days can satisfy the range without explicit dates.
 func dateRangeFlags() []cli.Flag {
 	return []cli.Flag{
-		&cli.StringFlag{Name: "start-date", Required: true, Usage: "Start date YYYY-MM-DD"},
-		&cli.StringFlag{Name: "end-date", Required: true, Usage: "End date YYYY-MM-DD"},
+		&cli.StringFlag{Name: "start-date", Usage: "Start date YYYY-MM-DD (required unless --days is set)"},
+		&cli.StringFlag{Name: "end-date", Usage: "End date YYYY-MM-DD (required unless --days is set)"},
+		&cli.IntFlag{Name: "days", Usage: "Look back this many days from --end-date or today"},
 	}
 }
 
-// optionalDateRangeFlags returns --start-date and --end-date flags without
-// Required, for commands that supply sensible defaults when dates are omitted.
+// optionalDateRangeFlags returns --start-date, --end-date, and --days flags for
+// commands that supply sensible defaults when dates are omitted.
 func optionalDateRangeFlags() []cli.Flag {
 	return []cli.Flag{
 		&cli.StringFlag{Name: "start-date", Usage: "Start date YYYY-MM-DD (default: auto)"},
 		&cli.StringFlag{Name: "end-date", Usage: "End date YYYY-MM-DD (default: today)"},
+		&cli.IntFlag{Name: "days", Usage: "Look back this many days from --end-date or today"},
 	}
 }
 
-// timeNow is the clock function used by defaultDates.
+// timeNow is the clock function used by date-range defaults.
 // Tests replace it to control the current time.
 var timeNow = time.Now
 
@@ -365,24 +369,112 @@ var timeNow = time.Now
 // the user did not explicitly set them. lookbackDays controls how far back the
 // start date goes; pass 0 for a today-only default.
 func defaultDates(cmd *cli.Command, lookbackDays int) (startDate, endDate string) {
+	startDate, endDate, _ = resolveDateRange(cmd, lookbackDays, false)
+	return startDate, endDate
+}
+
+func requiredDateRange(cmd *cli.Command) (startDate, endDate string, err error) {
+	return resolveDateRange(cmd, 0, true)
+}
+
+func optionalDateRange(cmd *cli.Command, lookbackDays int) (startDate, endDate string, err error) {
+	return resolveDateRange(cmd, lookbackDays, false)
+}
+
+func resolveDateRange(cmd *cli.Command, lookbackDays int, required bool) (startDate, endDate string, err error) {
 	now := timeNow()
 	today := now.Format("2006-01-02")
+	days := cmd.Int("days")
+	hasDays := cmd.IsSet("days")
+	if hasDays && days < 0 {
+		return "", "", fmt.Errorf("--days must be greater than or equal to 0")
+	}
+	if hasDays && cmd.IsSet("start-date") {
+		return "", "", fmt.Errorf("--days cannot be used with --start-date")
+	}
 
 	endDate = cmd.String("end-date")
 	if !cmd.IsSet("end-date") {
+		if required && !hasDays {
+			return "", "", fmt.Errorf("--start-date and --end-date are required unless --days is set")
+		}
 		endDate = today
 	}
 
 	startDate = cmd.String("start-date")
 	if !cmd.IsSet("start-date") {
-		if lookbackDays > 0 {
+		switch {
+		case hasDays:
+			base := now
+			if cmd.IsSet("end-date") {
+				parsed, parseErr := time.Parse("2006-01-02", endDate)
+				if parseErr != nil {
+					return "", "", fmt.Errorf("parse --end-date for --days: %w", parseErr)
+				}
+				base = parsed
+			}
+			startDate = base.AddDate(0, 0, -days).Format("2006-01-02")
+		case required:
+			return "", "", fmt.Errorf("--start-date and --end-date are required unless --days is set")
+		case lookbackDays > 0:
 			startDate = now.AddDate(0, 0, -lookbackDays).Format("2006-01-02")
-		} else {
+		default:
 			startDate = today
 		}
 	}
 
-	return startDate, endDate
+	return startDate, endDate, nil
+}
+
+func multiTickerValue(cmd *cli.Command) string {
+	values := splitTickerValues(cmd.String("tickers"))
+	values = append(values, splitTickerValues(strings.Join(cmd.Args().Slice(), ","))...)
+	return strings.Join(dedupeStrings(values), ",")
+}
+
+func singleTickerValue(cmd *cli.Command) (string, error) {
+	flagValue := strings.TrimSpace(cmd.String("ticker"))
+	args := cmd.Args().Slice()
+	if len(args) > 1 {
+		return "", fmt.Errorf("expected at most one ticker argument, got %d", len(args))
+	}
+	if flagValue != "" && len(args) == 1 {
+		return "", fmt.Errorf("use either --ticker or a ticker argument, not both")
+	}
+	if flagValue != "" {
+		return flagValue, nil
+	}
+	if len(args) == 1 {
+		return strings.TrimSpace(args[0]), nil
+	}
+	return "", fmt.Errorf("--ticker or a ticker argument is required")
+}
+
+func splitTickerValues(value string) []string {
+	if strings.TrimSpace(value) == "" {
+		return nil
+	}
+	items := make([]string, 0, strings.Count(value, ",")+1)
+	for item := range strings.SplitSeq(value, ",") {
+		item = strings.TrimSpace(item)
+		if item != "" {
+			items = append(items, item)
+		}
+	}
+	return items
+}
+
+func dedupeStrings(values []string) []string {
+	seen := make(map[string]struct{}, len(values))
+	result := make([]string, 0, len(values))
+	for _, value := range values {
+		if _, ok := seen[value]; ok {
+			continue
+		}
+		seen[value] = struct{}{}
+		result = append(result, value)
+	}
+	return result
 }
 
 // volumeRangeFlags returns --min-volume and --max-volume flags with

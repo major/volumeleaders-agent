@@ -281,24 +281,26 @@ func TestDateRangeFlags(t *testing.T) {
 	t.Parallel()
 
 	flags := dateRangeFlags()
-	if len(flags) != 2 {
-		t.Fatalf("expected 2 flags, got %d", len(flags))
+	if len(flags) != 3 {
+		t.Fatalf("expected 3 flags, got %d", len(flags))
 	}
 	assertFlagName(t, flags[0], "start-date")
 	assertFlagName(t, flags[1], "end-date")
-	assertStringFlagRequired(t, flags[0], true)
-	assertStringFlagRequired(t, flags[1], true)
+	assertFlagName(t, flags[2], "days")
+	assertStringFlagRequired(t, flags[0], false)
+	assertStringFlagRequired(t, flags[1], false)
 }
 
 func TestOptionalDateRangeFlags(t *testing.T) {
 	t.Parallel()
 
 	flags := optionalDateRangeFlags()
-	if len(flags) != 2 {
-		t.Fatalf("expected 2 flags, got %d", len(flags))
+	if len(flags) != 3 {
+		t.Fatalf("expected 3 flags, got %d", len(flags))
 	}
 	assertFlagName(t, flags[0], "start-date")
 	assertFlagName(t, flags[1], "end-date")
+	assertFlagName(t, flags[2], "days")
 	assertStringFlagRequired(t, flags[0], false)
 	assertStringFlagRequired(t, flags[1], false)
 }
@@ -360,13 +362,27 @@ func TestDefaultDates(t *testing.T) {
 			wantStart:    "2025-03-17",
 			wantEnd:      "2025-03-01",
 		},
+		{
+			name:         "days defaults from today",
+			args:         []string{"app", "sub", "--days", "5"},
+			lookbackDays: 90,
+			wantStart:    "2025-06-10",
+			wantEnd:      "2025-06-15",
+		},
+		{
+			name:         "days uses explicit end-date as base",
+			args:         []string{"app", "sub", "--end-date", "2025-03-01", "--days", "5"},
+			lookbackDays: 90,
+			wantStart:    "2025-02-24",
+			wantEnd:      "2025-03-01",
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			var gotStart, gotEnd string
 			sub := &cli.Command{
-				Name: "sub",
+				Name:  "sub",
 				Flags: slices.Concat(optionalDateRangeFlags()),
 				Action: func(_ context.Context, cmd *cli.Command) error {
 					gotStart, gotEnd = defaultDates(cmd, tt.lookbackDays)
@@ -382,6 +398,136 @@ func TestDefaultDates(t *testing.T) {
 			}
 			if gotEnd != tt.wantEnd {
 				t.Errorf("end date = %q, want %q", gotEnd, tt.wantEnd)
+			}
+		})
+	}
+}
+
+func TestRequiredDateRange(t *testing.T) {
+	frozen := time.Date(2025, 6, 15, 12, 0, 0, 0, time.UTC)
+	origTimeNow := timeNow
+	timeNow = func() time.Time { return frozen }
+	t.Cleanup(func() { timeNow = origTimeNow })
+
+	tests := []struct {
+		name      string
+		args      []string
+		wantStart string
+		wantEnd   string
+		wantErr   string
+	}{
+		{
+			name:      "explicit range",
+			args:      []string{"app", "sub", "--start-date", "2025-01-01", "--end-date", "2025-01-31"},
+			wantStart: "2025-01-01",
+			wantEnd:   "2025-01-31",
+		},
+		{
+			name:      "days supplies range",
+			args:      []string{"app", "sub", "--days", "7"},
+			wantStart: "2025-06-08",
+			wantEnd:   "2025-06-15",
+		},
+		{
+			name:    "missing range",
+			args:    []string{"app", "sub"},
+			wantErr: "required unless --days is set",
+		},
+		{
+			name:    "negative days",
+			args:    []string{"app", "sub", "--days", "-1"},
+			wantErr: "--days must be greater than or equal to 0",
+		},
+		{
+			name:    "days conflicts with start-date",
+			args:    []string{"app", "sub", "--start-date", "2025-06-01", "--days", "7"},
+			wantErr: "--days cannot be used with --start-date",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var gotStart, gotEnd string
+			sub := &cli.Command{
+				Name:  "sub",
+				Flags: dateRangeFlags(),
+				Action: func(_ context.Context, cmd *cli.Command) error {
+					var err error
+					gotStart, gotEnd, err = requiredDateRange(cmd)
+					return err
+				},
+			}
+			root := &cli.Command{Commands: []*cli.Command{sub}}
+			err := root.Run(context.Background(), tt.args)
+			assertErrContains(t, err, tt.wantErr)
+			if tt.wantErr != "" {
+				return
+			}
+			if gotStart != tt.wantStart {
+				t.Errorf("start date = %q, want %q", gotStart, tt.wantStart)
+			}
+			if gotEnd != tt.wantEnd {
+				t.Errorf("end date = %q, want %q", gotEnd, tt.wantEnd)
+			}
+		})
+	}
+}
+
+func TestSingleTickerValue(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		args    []string
+		want    string
+		wantErr string
+	}{
+		{
+			name: "flag ticker",
+			args: []string{"app", "sub", "--ticker", "AAPL"},
+			want: "AAPL",
+		},
+		{
+			name: "positional ticker",
+			args: []string{"app", "sub", "MSFT"},
+			want: "MSFT",
+		},
+		{
+			name:    "flag and positional ticker conflict",
+			args:    []string{"app", "sub", "MSFT", "--ticker", "AAPL"},
+			wantErr: "use either --ticker or a ticker argument, not both",
+		},
+		{
+			name:    "too many positional tickers",
+			args:    []string{"app", "sub", "AAPL", "MSFT"},
+			wantErr: "expected at most one ticker argument",
+		},
+		{
+			name:    "missing ticker",
+			args:    []string{"app", "sub"},
+			wantErr: "--ticker or a ticker argument is required",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var got string
+			sub := &cli.Command{
+				Name: "sub",
+				Flags: []cli.Flag{
+					&cli.StringFlag{Name: "ticker"},
+				},
+				Action: func(_ context.Context, cmd *cli.Command) error {
+					var err error
+					got, err = singleTickerValue(cmd)
+					return err
+				},
+			}
+			root := &cli.Command{Commands: []*cli.Command{sub}}
+			err := root.Run(context.Background(), tt.args)
+			assertErrContains(t, err, tt.wantErr)
+			if tt.wantErr == "" && got != tt.want {
+				t.Errorf("ticker = %q, want %q", got, tt.want)
 			}
 		})
 	}

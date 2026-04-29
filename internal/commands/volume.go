@@ -19,7 +19,7 @@ func volumeFlags() []cli.Flag {
 	return slices.Concat(
 		[]cli.Flag{
 			&cli.StringFlag{Name: "date", Required: true, Usage: "Date YYYY-MM-DD"},
-			&cli.StringFlag{Name: "tickers", Usage: "Comma-separated ticker symbols"},
+			&cli.StringFlag{Name: "tickers", Aliases: []string{"ticker", "symbol", "symbols"}, Usage: "Comma-separated ticker symbols"},
 		},
 		outputFormatFlags(),
 		paginationFlags(100, 1, "asc"),
@@ -30,7 +30,7 @@ func volumeFlags() []cli.Flag {
 func parseVolumeOptions(cmd *cli.Command) *volumeOptions {
 	return &volumeOptions{
 		date:     cmd.String("date"),
-		tickers:  cmd.String("tickers"),
+		tickers:  multiTickerValue(cmd),
 		start:    cmd.Int("start"),
 		length:   cmd.Int("length"),
 		orderCol: cmd.Int("order-col"),
@@ -48,7 +48,7 @@ func NewVolumeCommand() *cli.Command {
 			{
 				Name:      "institutional",
 				Usage:     "Query institutional volume leaderboard",
-				UsageText: "volumeleaders-agent volume institutional --date 2025-01-15 --tickers AAPL,MSFT",
+				UsageText: "volumeleaders-agent volume institutional AAPL MSFT --date 2025-01-15",
 				Flags:     volumeFlags(),
 				Action: func(ctx context.Context, cmd *cli.Command) error {
 					return runVolume(ctx, parseVolumeOptions(cmd),
@@ -70,7 +70,7 @@ func NewVolumeCommand() *cli.Command {
 			{
 				Name:      "total",
 				Usage:     "Query total volume leaderboard",
-				UsageText: "volumeleaders-agent volume total --date 2025-01-15 --length 20",
+				UsageText: "volumeleaders-agent volume total XLE --date 2025-01-15 --length 20",
 				Flags:     volumeFlags(),
 				Action: func(ctx context.Context, cmd *cli.Command) error {
 					return runVolume(ctx, parseVolumeOptions(cmd),

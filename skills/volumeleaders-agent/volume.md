@@ -1,6 +1,6 @@
 # volume
 
-Volume leaderboards ranking stocks by trading activity. All commands require `--date`, support `--tickers`, `--format json|csv|tsv`, and pagination. Default sort is `--order-dir asc`, unlike trade commands.
+Volume leaderboards ranking stocks by trading activity. All commands require `--date`, support `--tickers` with aliases (`--ticker`, `--symbol`, `--symbols`) or positional tickers, `--format json|csv|tsv`, and pagination. Default sort is `--order-dir asc`, unlike trade commands.
 
 | Command | Use when |
 |---|---|
@@ -10,6 +10,7 @@ Volume leaderboards ranking stocks by trading activity. All commands require `--
 
 ```bash
 volumeleaders-agent volume institutional --date 2026-04-28
+volumeleaders-agent volume institutional XLE XLK --date 2026-04-28
 volumeleaders-agent volume institutional --date 2026-04-28 --format csv
 volumeleaders-agent volume ah-institutional --date 2026-04-28
 volumeleaders-agent volume total --date 2026-04-28

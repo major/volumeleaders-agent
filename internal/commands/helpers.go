@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/csv"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"os"
@@ -13,6 +14,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/major/volumeleaders-agent/internal/auth"
 	"github.com/major/volumeleaders-agent/internal/client"
 	"github.com/major/volumeleaders-agent/internal/datatables"
 	cli "github.com/urfave/cli/v3"
@@ -311,6 +313,13 @@ func newCommandClient(ctx context.Context) (*client.Client, error) {
 	}
 	vlClient, err := client.New(ctx)
 	if err != nil {
+		if auth.IsSessionExpired(err) {
+			var detail interface{ Detail() string }
+			if errors.As(err, &detail) {
+				slog.Debug("VolumeLeaders session expired", "detail", detail.Detail())
+			}
+			return nil, fmt.Errorf("%s: %w", auth.SessionExpiredMessage, err)
+		}
 		slog.Error("failed to create client", "error", err)
 		return nil, fmt.Errorf("create client: %w", err)
 	}

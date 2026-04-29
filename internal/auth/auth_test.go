@@ -68,10 +68,11 @@ func TestFetchXSRFToken(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name      string
-		handler   http.HandlerFunc
-		wantToken string
-		wantErr   string
+		name               string
+		handler            http.HandlerFunc
+		wantToken          string
+		wantErr            string
+		wantSessionExpired bool
 	}{
 		{
 			name: "success",
@@ -91,7 +92,8 @@ func TestFetchXSRFToken(t *testing.T) {
 				}
 				fmt.Fprint(w, "login")
 			},
-			wantErr: "session expired: requested host www.volumeleaders.com redirected to /Login",
+			wantErr:            SessionExpiredMessage,
+			wantSessionExpired: true,
 		},
 		{
 			name: "non 200 status",
@@ -139,6 +141,12 @@ func TestFetchXSRFToken(t *testing.T) {
 				}
 				if !strings.Contains(err.Error(), tt.wantErr) {
 					t.Fatalf("expected error containing %q, got %v", tt.wantErr, err)
+				}
+				if got := IsSessionExpired(err); got != tt.wantSessionExpired {
+					t.Fatalf("IsSessionExpired() = %t, want %t", got, tt.wantSessionExpired)
+				}
+				if tt.wantSessionExpired && strings.Contains(err.Error(), "/Login") {
+					t.Fatalf("session expired error exposed redirect detail: %v", err)
 				}
 				return
 			}

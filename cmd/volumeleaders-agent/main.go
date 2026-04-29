@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/major/volumeleaders-agent/internal/auth"
 	"github.com/major/volumeleaders-agent/internal/commands"
 )
 
@@ -13,7 +14,21 @@ var version = "dev"
 
 func main() {
 	if err := commands.NewApp(version).Run(context.Background(), os.Args); err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
+		fmt.Fprintln(os.Stderr, userFacingError(err))
+		os.Exit(exitCode(err))
 	}
+}
+
+func userFacingError(err error) string {
+	if auth.IsSessionExpired(err) {
+		return auth.SessionExpiredMessage
+	}
+	return err.Error()
+}
+
+func exitCode(err error) int {
+	if auth.IsSessionExpired(err) {
+		return 2
+	}
+	return 1
 }

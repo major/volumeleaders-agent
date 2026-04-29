@@ -11,6 +11,15 @@ import (
 	cli "github.com/urfave/cli/v3"
 )
 
+var marketEarningsDefaultFields = []string{
+	"Ticker",
+	"EarningsDate",
+	"AfterMarketClose",
+	"TradeCount",
+	"TradeClusterCount",
+	"TradeClusterBombCount",
+}
+
 // NewMarketCommand returns the "market" command group with all subcommands.
 func NewMarketCommand() *cli.Command {
 	return &cli.Command{
@@ -42,13 +51,22 @@ func newEarningsCommand() *cli.Command {
 		Name:      "earnings",
 		Usage:     "Query earnings calendar within a date range",
 		UsageText: "volumeleaders-agent market earnings --days 5",
-		Flags:     slices.Concat(dateRangeFlags(), outputFormatFlags()),
+		Flags: slices.Concat(dateRangeFlags(), outputFormatFlags(), []cli.Flag{
+			&cli.StringFlag{
+				Name:  "fields",
+				Usage: "Comma-separated fields to include (use 'all' for every field)",
+			},
+		}),
 		Action: func(ctx context.Context, cmd *cli.Command) error {
 			startDate, endDate, err := requiredDateRange(cmd)
 			if err != nil {
 				return err
 			}
-			return runEarnings(ctx, startDate, endDate, cmd.String("format"))
+			fields, err := outputFields[models.Earnings](cmd.String("fields"), marketEarningsDefaultFields)
+			if err != nil {
+				return err
+			}
+			return runEarnings(ctx, startDate, endDate, fields, cmd.String("format"))
 		},
 	}
 }
@@ -85,13 +103,14 @@ func runSnapshots(ctx context.Context) error {
 	return printJSON(ctx, snapshots)
 }
 
-func runEarnings(ctx context.Context, startDate, endDate, format string) error {
+func runEarnings(ctx context.Context, startDate, endDate string, fields []string, format string) error {
 	return runDataTablesCommand[models.Earnings](ctx, "/Earnings/GetEarnings", datatables.EarningsColumns,
 		dataTableOptions{
 			start:    0,
 			length:   -1,
 			orderCol: 0,
 			orderDir: "asc",
+			fields:   fields,
 			filters: map[string]string{
 				"StartDate": startDate,
 				"EndDate":   endDate,
@@ -114,5 +133,15 @@ func runExhaustion(ctx context.Context, date string) error {
 		return fmt.Errorf("query exhaustion scores: %w", err)
 	}
 
-	return printJSON(ctx, score)
+	return printJSON(ctx, summarizeMarketExhaustion(score))
+}
+
+func summarizeMarketExhaustion(score models.ExhaustionScore) models.MarketExhaustion {
+	return models.MarketExhaustion{
+		DateKey:  score.DateKey,
+		Rank:     score.ExhaustionScoreRank,
+		Rank30D:  score.ExhaustionScoreRank30Day,
+		Rank90D:  score.ExhaustionScoreRank90Day,
+		Rank365D: score.ExhaustionScoreRank365Day,
+	}
 }

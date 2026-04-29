@@ -21,6 +21,20 @@ const (
 	tradeListTickerLookbackDays = 365
 )
 
+var tradeClusterDefaultFields = []string{
+	"Date",
+	"Ticker",
+	"Price",
+	"Dollars",
+	"Volume",
+	"TradeCount",
+	"DollarsMultiplier",
+	"CumulativeDistribution",
+	"TradeClusterRank",
+	"MinFullDateTime",
+	"MaxFullDateTime",
+}
+
 // --- Option structs ---
 
 type tradesOptions struct {
@@ -163,7 +177,8 @@ func newTradeClustersCommand() *cli.Command {
 		Usage: "Query aggregated trade clusters",
 		UsageText: `volumeleaders-agent trade clusters AAPL --days 7
 volumeleaders-agent trade clusters --tickers AAPL --start-date 2025-01-01 --end-date 2025-01-31
-volumeleaders-agent trade clusters --min-dollars 50000000 --vcd 1`,
+volumeleaders-agent trade clusters --min-dollars 50000000 --vcd 1
+volumeleaders-agent trade clusters AAPL --days 30 --fields Date,Ticker,Price,Dollars`,
 		Flags: slices.Concat(
 			dateRangeFlags(),
 			volumeRangeFlags(),
@@ -176,6 +191,7 @@ volumeleaders-agent trade clusters --min-dollars 50000000 --vcd 1`,
 				&cli.IntFlag{Name: "relative-size", Value: 5, Usage: "Relative size threshold"},
 				&cli.IntFlag{Name: "trade-cluster-rank", Value: -1, Usage: "Trade cluster rank filter"},
 				&cli.StringFlag{Name: "sector", Usage: "Sector/Industry filter"},
+				&cli.StringFlag{Name: "fields", Usage: "Comma-separated TradeCluster fields to include in output, or 'all' for every field"},
 			},
 			outputFormatFlags(),
 			paginationFlags(1000, 1, "desc"),
@@ -249,6 +265,7 @@ func newTradeLevelsCommand() *cli.Command {
 		UsageText: `volumeleaders-agent trade levels AAPL
 volumeleaders-agent trade levels --ticker AAPL
 volumeleaders-agent trade levels --ticker MSFT --trade-level-count 20 --min-dollars 1000000
+volumeleaders-agent trade levels AAPL --fields all
 
 Dates are optional. Defaults to 1-year lookback ending today. Use --days for shorter lookbacks.`,
 		Flags: slices.Concat(
@@ -262,7 +279,7 @@ Dates are optional. Defaults to 1-year lookback ending today. Use --days for sho
 				&cli.IntFlag{Name: "relative-size", Value: 0, Usage: "Relative size threshold"},
 				&cli.IntFlag{Name: "trade-level-rank", Value: -1, Usage: "Trade level rank filter"},
 				&cli.IntFlag{Name: "trade-level-count", Value: 10, Usage: "Number of price levels to return (1-50)"},
-				&cli.StringFlag{Name: "fields", Usage: "Comma-separated trade level fields to include in output"},
+				&cli.StringFlag{Name: "fields", Usage: "Comma-separated TradeLevel fields to include in output, or 'all' for every field"},
 			},
 			outputFormatFlags(),
 		),
@@ -720,11 +737,16 @@ func runTradeClusters(ctx context.Context, cmd *cli.Command) error {
 	if err != nil {
 		return err
 	}
+	fields, err := outputFields[models.TradeCluster](cmd.String("fields"), tradeClusterDefaultFields)
+	if err != nil {
+		return fmt.Errorf("parsing fields flag: %w", err)
+	}
 	tickers := multiTickerValue(cmd)
 	return runDataTablesCommand[models.TradeCluster](ctx, "/TradeClusters/GetTradeClusters", datatables.TradeClusterColumns,
 		dataTableOptions{
 			start: cmd.Int("start"), length: cmd.Int("length"),
 			orderCol: cmd.Int("order-col"), orderDir: cmd.String("order-dir"),
+			fields: fields,
 			filters: map[string]string{
 				"Tickers":          tickers,
 				"StartDate":        startDate,
@@ -802,6 +824,10 @@ func runTradeLevels(ctx context.Context, cmd *cli.Command) error {
 	startDate, endDate, err := optionalDateRange(cmd, 365)
 	if err != nil {
 		return err
+	}
+	fields, err := outputFields[models.TradeLevel](cmd.String("fields"), nil)
+	if err != nil {
+		return fmt.Errorf("parsing fields flag: %w", err)
 	}
 	ticker, err := singleTickerValue(cmd)
 	if err != nil {

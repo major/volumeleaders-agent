@@ -968,6 +968,121 @@ func TestTradeListFieldsRejectsInvalidField(t *testing.T) {
 	assertErrContains(t, err, "Ticker")
 }
 
+func TestTradeClustersDefaultFieldsCompactOutput(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/TradeClusters/GetTradeClusters" {
+			t.Errorf("expected path /TradeClusters/GetTradeClusters, got %s", r.URL.Path)
+		}
+		fmt.Fprint(w, dataTablesJSON(`[{"Date":"/Date(1745193600000)/","DateKey":20250421,"SecurityKey":123,"Ticker":"APH","Sector":"Technology","Industry":"Hardware","Name":"Amphenol","MinFullDateTime":"2025-04-21T09:30:00","MaxFullDateTime":"2025-04-21T15:55:00","Price":88.5,"Dollars":25000000,"Volume":300000,"TradeCount":4,"DollarsMultiplier":8.2,"CumulativeDistribution":0.94,"TradeClusterRank":3,"TotalRows":71,"ExternalFeed":true}]`))
+	}))
+	t.Cleanup(server.Close)
+
+	ctx := contextWithTestClient(t, server.URL)
+	output := captureStdout(t, func() {
+		root := &cli.Command{Commands: []*cli.Command{newTradeClustersCommand()}}
+		if err := root.Run(ctx, []string{
+			"app", "clusters",
+			"--tickers", "APH",
+			"--start-date", "2025-04-01",
+			"--end-date", "2025-04-28",
+		}); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+	})
+
+	var got []map[string]json.RawMessage
+	if err := json.Unmarshal([]byte(output), &got); err != nil {
+		t.Fatalf("unmarshal cluster output: %v", err)
+	}
+	for _, field := range []string{"Date", "Ticker", "Price", "Dollars", "Volume", "TradeCount", "DollarsMultiplier", "CumulativeDistribution", "TradeClusterRank", "MinFullDateTime", "MaxFullDateTime"} {
+		if _, ok := got[0][field]; !ok {
+			t.Errorf("expected compact cluster field %q", field)
+		}
+	}
+	for _, field := range []string{"DateKey", "SecurityKey", "Sector", "Industry", "Name", "TotalRows", "ExternalFeed"} {
+		if _, ok := got[0][field]; ok {
+			t.Errorf("did not expect noisy cluster field %q", field)
+		}
+	}
+}
+
+func TestTradeClustersFieldsAllIncludesFullModel(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		fmt.Fprint(w, dataTablesJSON(`[{"Ticker":"APH","Name":"Amphenol","Price":88.5,"TotalRows":71}]`))
+	}))
+	t.Cleanup(server.Close)
+
+	ctx := contextWithTestClient(t, server.URL)
+	output := captureStdout(t, func() {
+		root := &cli.Command{Commands: []*cli.Command{newTradeClustersCommand()}}
+		if err := root.Run(ctx, []string{
+			"app", "clusters",
+			"--start-date", "2025-04-01",
+			"--end-date", "2025-04-28",
+			"--fields", "all",
+		}); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+	})
+
+	var got []map[string]json.RawMessage
+	if err := json.Unmarshal([]byte(output), &got); err != nil {
+		t.Fatalf("unmarshal cluster all-fields output: %v", err)
+	}
+	for _, field := range []string{"Ticker", "Name", "TotalRows"} {
+		if _, ok := got[0][field]; !ok {
+			t.Errorf("expected all-fields cluster output to include %q", field)
+		}
+	}
+}
+
+func TestTradeLevelsFieldsAllIncludesFullModel(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		fmt.Fprint(w, dataTablesJSON(`[{"Ticker":"AAPL","Name":"Apple Inc.","Price":195.5,"MinDate":"/Date(1743465600000)/","MaxDate":"/Date(1745798400000)/"}]`))
+	}))
+	t.Cleanup(server.Close)
+
+	ctx := contextWithTestClient(t, server.URL)
+	output := captureStdout(t, func() {
+		root := &cli.Command{Commands: []*cli.Command{newTradeLevelsCommand()}}
+		if err := root.Run(ctx, []string{"app", "levels", "AAPL", "--days", "30", "--fields", "all"}); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+	})
+
+	var got []map[string]json.RawMessage
+	if err := json.Unmarshal([]byte(output), &got); err != nil {
+		t.Fatalf("unmarshal level all-fields output: %v", err)
+	}
+	for _, field := range []string{"Ticker", "Name", "Price", "MinDate", "MaxDate"} {
+		if _, ok := got[0][field]; !ok {
+			t.Errorf("expected all-fields level output to include %q", field)
+		}
+	}
+}
+
+func TestTradeFieldsRejectInvalidBeforeAPI(t *testing.T) {
+	var calls int
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		calls++
+		fmt.Fprint(w, dataTablesJSON(`[{}]`))
+	}))
+	t.Cleanup(server.Close)
+
+	ctx := contextWithTestClient(t, server.URL)
+	root := &cli.Command{Commands: []*cli.Command{newTradeClustersCommand()}}
+	err := root.Run(ctx, []string{
+		"app", "clusters",
+		"--start-date", "2025-04-01",
+		"--end-date", "2025-04-28",
+		"--fields", "Ticker,NotAField",
+	})
+	assertErrContains(t, err, "invalid field \"NotAField\"")
+	if calls != 0 {
+		t.Fatalf("expected invalid fields to fail before API call, got %d calls", calls)
+	}
+}
+
 func TestTradeListSummaryDefaultsToTickerGrouping(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/Trades/GetTrades" {

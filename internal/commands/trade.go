@@ -807,7 +807,7 @@ func runTradeLevels(ctx context.Context, cmd *cli.Command) error {
 		tradeLevelRank:  cmd.Int("trade-level-rank"),
 		tradeLevelCount: cmd.Int("trade-level-count"),
 	}
-	return runDataTablesCommand[models.TradeLevel](ctx, "/TradeLevels/GetTradeLevels", datatables.TradeLevelColumns,
+	return runDataTablesSingleRequestCommand[models.TradeLevel](ctx, "/TradeLevels/GetTradeLevels", datatables.TradeLevelColumns,
 		dataTableOptions{
 			start:    0,
 			length:   -1,
@@ -1123,18 +1123,18 @@ func buildTradeFilters(opts *tradesOptions) map[string]string {
 
 func buildTradeLevelFilters(opts *tradeLevelOptions) map[string]string {
 	return map[string]string{
-		"Ticker":          opts.ticker,
-		"MinVolume":       intStr(opts.minVolume),
-		"MaxVolume":       intStr(opts.maxVolume),
-		"MinPrice":        formatFloat(opts.minPrice),
-		"MaxPrice":        formatFloat(opts.maxPrice),
-		"MinDollars":      formatFloat(opts.minDollars),
-		"MaxDollars":      formatFloat(opts.maxDollars),
-		"VCD":             intStr(opts.vcd),
-		"RelativeSize":    intStr(opts.relativeSize),
-		"MinDate":         opts.startDate,
-		"MaxDate":         opts.endDate,
-		"TradeLevelRank":  intStr(opts.tradeLevelRank),
-		"TradeLevelCount": intStr(opts.tradeLevelCount),
+		"Ticker":         opts.ticker,
+		"MinVolume":      intStr(opts.minVolume),
+		"MaxVolume":      intStr(opts.maxVolume),
+		"MinPrice":       formatFloat(opts.minPrice),
+		"MaxPrice":       formatFloat(opts.maxPrice),
+		"MinDollars":     formatFloat(opts.minDollars),
+		"MaxDollars":     formatFloat(opts.maxDollars),
+		"VCD":            intStr(opts.vcd),
+		"RelativeSize":   intStr(opts.relativeSize),
+		"StartDate":      opts.startDate,
+		"EndDate":        opts.endDate,
+		"TradeLevelRank": intStr(opts.tradeLevelRank),
+		"Levels":         intStr(opts.tradeLevelCount),
 	}
 }

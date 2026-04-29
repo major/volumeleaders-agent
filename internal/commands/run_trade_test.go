@@ -226,8 +226,8 @@ func TestTradeLevelsDefaultDates(t *testing.T) {
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				body, _ := io.ReadAll(r.Body)
 				form, _ := url.ParseQuery(string(body))
-				gotStart = form.Get("MinDate")
-				gotEnd = form.Get("MaxDate")
+				gotStart = form.Get("StartDate")
+				gotEnd = form.Get("EndDate")
 				fmt.Fprint(w, dataTablesJSON(`[{}]`))
 			}))
 			t.Cleanup(server.Close)
@@ -240,12 +240,49 @@ func TestTradeLevelsDefaultDates(t *testing.T) {
 				}
 			})
 			if gotStart != tt.wantStart {
-				t.Errorf("MinDate = %q, want %q", gotStart, tt.wantStart)
+				t.Errorf("StartDate = %q, want %q", gotStart, tt.wantStart)
 			}
 			if gotEnd != tt.wantEnd {
-				t.Errorf("MaxDate = %q, want %q", gotEnd, tt.wantEnd)
+				t.Errorf("EndDate = %q, want %q", gotEnd, tt.wantEnd)
 			}
 		})
+	}
+}
+
+func TestTradeLevelsDefaultPayload(t *testing.T) {
+	frozen := time.Date(2026, 4, 29, 12, 0, 0, 0, time.UTC)
+	origTimeNow := timeNow
+	timeNow = func() time.Time { return frozen }
+	t.Cleanup(func() { timeNow = origTimeNow })
+
+	var form url.Values
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, _ := io.ReadAll(r.Body)
+		form, _ = url.ParseQuery(string(body))
+		fmt.Fprint(w, dataTablesJSON(`[{}]`))
+	}))
+	t.Cleanup(server.Close)
+
+	ctx := contextWithTestClient(t, server.URL)
+	captureStdout(t, func() {
+		root := &cli.Command{Commands: []*cli.Command{newTradeLevelsCommand()}}
+		if err := root.Run(ctx, []string{"app", "levels", "--ticker", "AMD"}); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+	})
+
+	want := map[string]string{
+		"start":     "0",
+		"length":    "-1",
+		"StartDate": "2025-04-29",
+		"EndDate":   "2026-04-29",
+		"Ticker":    "AMD",
+		"Levels":    "10",
+	}
+	for key, value := range want {
+		if got := form.Get(key); got != value {
+			t.Errorf("%s = %q, want %q", key, got, value)
+		}
 	}
 }
 

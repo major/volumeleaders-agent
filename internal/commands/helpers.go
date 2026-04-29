@@ -75,6 +75,30 @@ func runDataTablesCommand[T any](ctx context.Context, path string, columns []str
 	return printDataTablesResult(ctx, result, opts.fields, format)
 }
 
+// runDataTablesSingleRequestCommand sends exactly one DataTables request, even
+// when opts.length is -1. Some VolumeLeaders endpoints, such as trade levels,
+// use -1 as part of their native form payload instead of the CLI's paginated
+// all-results mode.
+func runDataTablesSingleRequestCommand[T any](ctx context.Context, path string, columns []string, opts dataTableOptions, formatValue, label string) error {
+	format, err := parseOutputFormat(formatValue)
+	if err != nil {
+		return err
+	}
+
+	vlClient, err := newCommandClient(ctx)
+	if err != nil {
+		return err
+	}
+
+	request := newDataTablesRequest(columns, opts)
+	var result []T
+	if err := vlClient.PostDataTables(ctx, path, request.Encode(), &result); err != nil {
+		slog.Error("failed to "+label, "error", err)
+		return fmt.Errorf("%s: %w", label, err)
+	}
+	return printDataTablesResult(ctx, result, opts.fields, format)
+}
+
 // runPaginatedCommand fetches all records by paginating through the DataTables
 // endpoint in pages of paginationPageSize. It accumulates results across pages
 // and stops when all filtered records have been retrieved or the server returns

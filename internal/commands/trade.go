@@ -16,7 +16,7 @@ import (
 	cli "github.com/urfave/cli/v3"
 )
 
-const tradeListTickerLookbackDays = 5
+const tradeListTickerLookbackDays = 365
 
 // --- Option structs ---
 
@@ -113,7 +113,7 @@ volumeleaders-agent trade list --sector Technology --relative-size 10 --length 5
 volumeleaders-agent trade list --preset "Top-100 Rank" --start-date 2025-04-01 --end-date 2025-04-24
 volumeleaders-agent trade list --watchlist "Magnificent 7" --start-date 2025-04-01 --end-date 2025-04-24
 
-Dates are optional. With tickers: defaults to 5-day lookback. Without: defaults to today only. Use --days to choose another lookback.`,
+Dates are optional. With tickers: defaults to 365-day lookback. Without: defaults to today only. Use --days to choose another lookback.`,
 		Flags: slices.Concat(
 			optionalDateRangeFlags(),
 			volumeRangeFlags(),
@@ -305,8 +305,8 @@ func runTradeList(ctx context.Context, cmd *cli.Command) error {
 		return err
 	}
 
-	// Apply a short ticker-scoped default so high-volume symbols do not request
-	// huge result sets before users have narrowed the query themselves.
+	// Apply a ticker-scoped default that lets the server sort the wider history
+	// and return only the highest-value rows within the requested page size.
 	lookbackDays := 0
 	if tickers != "" {
 		lookbackDays = tradeListTickerLookbackDays
@@ -807,7 +807,7 @@ func runTradeLevels(ctx context.Context, cmd *cli.Command) error {
 		tradeLevelRank:  cmd.Int("trade-level-rank"),
 		tradeLevelCount: cmd.Int("trade-level-count"),
 	}
-	return runDataTablesCommand[models.TradeLevel](ctx, "/TradeLevels/GetTradeLevels", datatables.TradeLevelColumns,
+	return runDataTablesSingleRequestCommand[models.TradeLevel](ctx, "/TradeLevels/GetTradeLevels", datatables.TradeLevelColumns,
 		dataTableOptions{
 			start:    0,
 			length:   -1,
@@ -1123,18 +1123,18 @@ func buildTradeFilters(opts *tradesOptions) map[string]string {
 
 func buildTradeLevelFilters(opts *tradeLevelOptions) map[string]string {
 	return map[string]string{
-		"Ticker":          opts.ticker,
-		"MinVolume":       intStr(opts.minVolume),
-		"MaxVolume":       intStr(opts.maxVolume),
-		"MinPrice":        formatFloat(opts.minPrice),
-		"MaxPrice":        formatFloat(opts.maxPrice),
-		"MinDollars":      formatFloat(opts.minDollars),
-		"MaxDollars":      formatFloat(opts.maxDollars),
-		"VCD":             intStr(opts.vcd),
-		"RelativeSize":    intStr(opts.relativeSize),
-		"MinDate":         opts.startDate,
-		"MaxDate":         opts.endDate,
-		"TradeLevelRank":  intStr(opts.tradeLevelRank),
-		"TradeLevelCount": intStr(opts.tradeLevelCount),
+		"Ticker":         opts.ticker,
+		"MinVolume":      intStr(opts.minVolume),
+		"MaxVolume":      intStr(opts.maxVolume),
+		"MinPrice":       formatFloat(opts.minPrice),
+		"MaxPrice":       formatFloat(opts.maxPrice),
+		"MinDollars":     formatFloat(opts.minDollars),
+		"MaxDollars":     formatFloat(opts.maxDollars),
+		"VCD":            intStr(opts.vcd),
+		"RelativeSize":   intStr(opts.relativeSize),
+		"StartDate":      opts.startDate,
+		"EndDate":        opts.endDate,
+		"TradeLevelRank": intStr(opts.tradeLevelRank),
+		"Levels":         intStr(opts.tradeLevelCount),
 	}
 }

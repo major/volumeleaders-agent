@@ -32,7 +32,7 @@ volumeleaders-agent trade preset-tickers --preset "Megacaps"
 
 Primary individual-print query. Optional flags: `--start-date`, `--end-date`, `--days`, ticker aliases, positional tickers, `--sector`, `--preset`, `--watchlist`, `--fields`, `--format`, `--summary`, `--group-by`, trade shared flags, pagination.
 
-Date defaults: with tickers, 5-day lookback from today. Without tickers, today only. Explicit dates override defaults. `--days N` uses today or explicit `--end-date` as the range end and computes the start date; do not combine `--days` with `--start-date`. Presets and watchlists never supply dates.
+Date defaults: with tickers, 365-day lookback from today. Without tickers, today only. Explicit dates override defaults. `--days N` uses today or explicit `--end-date` as the range end and computes the start date; do not combine `--days` with `--start-date`. Presets and watchlists never supply dates.
 
 Filter precedence: preset baseline, then watchlist merge, then explicit CLI flags override both.
 
@@ -92,7 +92,7 @@ Trade alert fields include `Ticker`, `Name`, `AlertType`, `Price`, `TradeRank`, 
 
 ## Levels and level touches
 
-`trade levels` finds significant institutional prices for one ticker. Required: `--ticker` (aliases accepted) or one positional ticker. Optional: `--start-date`, `--end-date`, `--days`, shared ranges, `--vcd`, `--trade-level-rank`, `--trade-level-count`, `--format`. Defaults to a 1-year lookback when dates are omitted. Non-standard default: `--relative-size 0`. No pagination.
+`trade levels` finds significant institutional prices for one ticker. Required: `--ticker` (aliases accepted) or one positional ticker. Optional: `--start-date`, `--end-date`, `--days`, shared ranges, `--vcd`, `--trade-level-rank`, `--trade-level-count`, `--format`. Defaults to a 1-year lookback when dates are omitted, `--trade-level-count 10`, and non-standard `--relative-size 0`. It does not expose pagination flags, but sends one request with `start=0` and `length=-1` to match the observed VolumeLeaders levels request and return all matching levels.
 
 `trade level-touches` finds events where price revisits institutional levels. Required: complete `--start-date`/`--end-date` range or `--days`. Optional: ticker aliases, positional tickers, volume/price/dollar ranges, `--vcd`, `--trade-level-rank`, format, pagination. Defaults: `--relative-size 0`, `--trade-level-rank 10`, `--order-col 0`, `--order-dir desc`.
 

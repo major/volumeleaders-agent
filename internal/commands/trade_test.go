@@ -50,12 +50,12 @@ func TestParseJSONFieldList(t *testing.T) {
 				}
 				return
 			}
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-		if !slices.Equal(got, tt.want) {
-			t.Fatalf("fields mismatch\nexpected: %#v\ngot:      %#v", tt.want, got)
-		}
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if !slices.Equal(got, tt.want) {
+				t.Fatalf("fields mismatch\nexpected: %#v\ngot:      %#v", tt.want, got)
+			}
 		})
 	}
 }
@@ -131,13 +131,13 @@ func TestBuildTradeFiltersPreservesAPIKeys(t *testing.T) {
 	}
 }
 
-func TestBuildTradeLevelFiltersUseLevelDateKeys(t *testing.T) {
+func TestBuildTradeLevelFiltersUseObservedLevelKeys(t *testing.T) {
 	t.Parallel()
 
 	filters := buildTradeLevelFilters(&tradeLevelOptions{
-		ticker:          "AAPL",
-		startDate:       "2026-04-01",
-		endDate:         "2026-04-24",
+		ticker:          "AMD",
+		startDate:       "2025-04-29",
+		endDate:         "2026-04-29",
 		minVolume:       100,
 		maxVolume:       200,
 		minPrice:        1.5,
@@ -147,23 +147,23 @@ func TestBuildTradeLevelFiltersUseLevelDateKeys(t *testing.T) {
 		vcd:             99,
 		relativeSize:    10,
 		tradeLevelRank:  5,
-		tradeLevelCount: 20,
+		tradeLevelCount: 10,
 	})
 
 	expected := map[string]string{
-		"Ticker":          "AAPL",
-		"MinVolume":       "100",
-		"MaxVolume":       "200",
-		"MinPrice":        "1.5",
-		"MaxPrice":        "99.25",
-		"MinDollars":      "500000",
-		"MaxDollars":      "30000000000",
-		"VCD":             "99",
-		"RelativeSize":    "10",
-		"MinDate":         "2026-04-01",
-		"MaxDate":         "2026-04-24",
-		"TradeLevelRank":  "5",
-		"TradeLevelCount": "20",
+		"Ticker":         "AMD",
+		"MinVolume":      "100",
+		"MaxVolume":      "200",
+		"MinPrice":       "1.5",
+		"MaxPrice":       "99.25",
+		"MinDollars":     "500000",
+		"MaxDollars":     "30000000000",
+		"VCD":            "99",
+		"RelativeSize":   "10",
+		"StartDate":      "2025-04-29",
+		"EndDate":        "2026-04-29",
+		"TradeLevelRank": "5",
+		"Levels":         "10",
 	}
 	if !maps.Equal(filters, expected) {
 		t.Fatalf("filters mismatch\nexpected: %#v\ngot:      %#v", expected, filters)

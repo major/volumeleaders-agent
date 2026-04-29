@@ -812,10 +812,6 @@ func runTradeClusterAlerts(ctx context.Context, cmd *cli.Command) error {
 }
 
 func runTradeLevels(ctx context.Context, cmd *cli.Command) error {
-	fields, err := parseJSONFieldList[models.TradeLevel](cmd.String("fields"))
-	if err != nil {
-		return fmt.Errorf("parsing fields flag: %w", err)
-	}
 	format, err := parseOutputFormat(cmd.String("format"))
 	if err != nil {
 		return err

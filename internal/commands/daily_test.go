@@ -3,8 +3,10 @@ package commands
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 	"testing"
 
@@ -38,6 +40,11 @@ func TestDailySummaryAggregatesInstitutionalActivity(t *testing.T) {
 				{"Ticker":"SPY","Sector":"ETF","Price":500,"Dollars":110000000,"RelativeSize":5,"Volume":200,"Trades":1,"TradeLevelRank":2,"TradeLevelTouches":2}
 			]`))
 		case "/Trades/GetTrades":
+			body, _ := io.ReadAll(r.Body)
+			params, _ := url.ParseQuery(string(body))
+			if got := params.Get("length"); got != "50" {
+				t.Fatalf("daily sentiment trade length = %q, want 50", got)
+			}
 			fmt.Fprint(w, dataTablesJSON(`[
 				{"Date":"/Date(1777334400000)/","Ticker":"SH","Sector":"X Bear","Dollars":100000000},
 				{"Date":"/Date(1777334400000)/","Ticker":"TQQQ","Sector":"X Bull","Dollars":200000000}

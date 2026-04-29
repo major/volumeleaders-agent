@@ -199,9 +199,10 @@ func fetchDailySentimentTrades(ctx context.Context, vlClient *client.Client, dat
 		offsetting:   1,
 		sector:       "X B",
 	}
-	return fetchAllTradeSentimentPages(ctx, vlClient, dataTableOptions{
+	return fetchTradeSentimentTrades(ctx, vlClient, dataTableOptions{
 		orderCol: 1,
 		orderDir: "desc",
+		length:   maxTradeRequestLength,
 		filters:  buildTradeFilters(opts),
 	})
 }

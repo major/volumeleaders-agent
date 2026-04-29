@@ -34,7 +34,7 @@ func newDailySummaryCommand() *cli.Command {
 		UsageText: "volumeleaders-agent daily summary --date 2026-04-28 --limit 10",
 		Flags: []cli.Flag{
 			&cli.StringFlag{Name: "date", Required: true, Usage: "Date YYYY-MM-DD"},
-			&cli.IntFlag{Name: "limit", Value: 10, Usage: "Maximum rows per summary section"},
+			&cli.IntFlag{Name: "limit", Value: 10, Usage: "Rows considered per daily summary ranking"},
 		},
 		Action: runDailySummary,
 	}
@@ -78,16 +78,13 @@ func runDailySummary(ctx context.Context, cmd *cli.Command) error {
 	}
 
 	summary := models.DailySummary{
-		Date:                          date,
-		TopInstitutionalVolumeTickers: summarizeDailyInstitutionalVolume(institutional, limit),
-		TopClustersByDollars:          summarizeDailyClustersByDollars(clusters, limit),
-		TopClustersByMultiplier:       summarizeDailyClustersByMultiplier(clusters, limit),
-		RepeatedClusterTickers:        summarizeRepeatedClusterTickers(clusters, limit),
-		SectorTotals:                  summarizeDailySectorTotals(institutional, clusters, clusterBombs, levelTouches, limit),
-		ClusterBombs:                  summarizeDailyClusterBombs(clusterBombs, limit),
-		LevelTouches:                  summarizeDailyLevelTouches(levelTouches, limit),
-		LeveragedETFSentiment:         summarizeDailyLeveragedETFSentiment(sentimentTrades, date),
-		MarketExhaustion:              exhaustion,
+		Date:                  date,
+		InstitutionalVolume:   summarizeDailyInstitutionalVolume(institutional, limit),
+		Clusters:              summarizeDailyClusters(clusters, limit),
+		ClusterBombs:          summarizeDailyClusterBombs(clusterBombs, limit),
+		LevelTouches:          summarizeDailyLevelTouches(levelTouches, limit),
+		LeveragedETFSentiment: summarizeDailyLeveragedETFSentiment(sentimentTrades, date),
+		MarketExhaustion:      summarizeDailyMarketExhaustion(exhaustion),
 	}
 	return printJSON(ctx, summary)
 }
@@ -249,7 +246,7 @@ func fetchDailyDataTables[T any](ctx context.Context, vlClient *client.Client, p
 	return nil, fmt.Errorf("%s: pagination exceeded %d pages", label, maxDailySummaryPages)
 }
 
-func summarizeDailyInstitutionalVolume(trades []models.Trade, limit int) []models.DailyInstitutionalVolumeRow {
+func summarizeDailyInstitutionalVolume(trades []models.Trade, limit int) []models.DailyInstitutionalVolume {
 	sorted := slices.Clone(trades)
 	sort.Slice(sorted, func(i, j int) bool {
 		if sorted[i].TotalInstitutionalDollars == sorted[j].TotalInstitutionalDollars {
@@ -257,59 +254,88 @@ func summarizeDailyInstitutionalVolume(trades []models.Trade, limit int) []model
 		}
 		return sorted[i].TotalInstitutionalDollars > sorted[j].TotalInstitutionalDollars
 	})
-	rows := make([]models.DailyInstitutionalVolumeRow, 0, min(limit, len(sorted)))
+	rows := make([]models.DailyInstitutionalVolume, 0, min(limit, len(sorted)))
 	for i := range min(limit, len(sorted)) {
 		trade := &sorted[i]
-		rows = append(rows, models.DailyInstitutionalVolumeRow{
-			Ticker:                       trade.Ticker,
-			Sector:                       trade.Sector,
-			Price:                        trade.Price,
-			Volume:                       trade.Volume,
-			TotalInstitutionalDollars:    trade.TotalInstitutionalDollars,
-			TotalInstitutionalDollarRank: trade.TotalInstitutionalDollarsRank,
+		rows = append(rows, models.DailyInstitutionalVolume{
+			Ticker:               trade.Ticker,
+			Sector:               trade.Sector,
+			Price:                trade.Price,
+			InstitutionalDollars: trade.TotalInstitutionalDollars,
+			Rank:                 trade.TotalInstitutionalDollarsRank,
 		})
 	}
 	return rows
 }
 
-func summarizeDailyClustersByDollars(clusters []models.TradeCluster, limit int) []models.DailyClusterRow {
-	sorted := slices.Clone(clusters)
-	sort.Slice(sorted, func(i, j int) bool {
-		if sorted[i].Dollars == sorted[j].Dollars {
-			return sorted[i].Ticker < sorted[j].Ticker
+func summarizeDailyClusters(clusters []models.TradeCluster, limit int) models.DailyClusterSummary {
+	byDollars := slices.Clone(clusters)
+	sort.Slice(byDollars, func(i, j int) bool {
+		if byDollars[i].Dollars == byDollars[j].Dollars {
+			return byDollars[i].Ticker < byDollars[j].Ticker
 		}
-		return sorted[i].Dollars > sorted[j].Dollars
+		return byDollars[i].Dollars > byDollars[j].Dollars
 	})
-	return dailyClusterRows(sorted, limit)
+
+	byMultiplier := slices.Clone(clusters)
+	sort.Slice(byMultiplier, func(i, j int) bool {
+		if byMultiplier[i].DollarsMultiplier == byMultiplier[j].DollarsMultiplier {
+			return byMultiplier[i].Ticker < byMultiplier[j].Ticker
+		}
+		return byMultiplier[i].DollarsMultiplier > byMultiplier[j].DollarsMultiplier
+	})
+
+	return models.DailyClusterSummary{
+		Top:             dailyClusterRows(byDollars, byMultiplier, limit),
+		RepeatedTickers: summarizeRepeatedClusterTickers(clusters, limit),
+	}
 }
 
-func summarizeDailyClustersByMultiplier(clusters []models.TradeCluster, limit int) []models.DailyClusterRow {
-	sorted := slices.Clone(clusters)
-	sort.Slice(sorted, func(i, j int) bool {
-		if sorted[i].DollarsMultiplier == sorted[j].DollarsMultiplier {
-			return sorted[i].Ticker < sorted[j].Ticker
-		}
-		return sorted[i].DollarsMultiplier > sorted[j].DollarsMultiplier
-	})
-	return dailyClusterRows(sorted, limit)
+func dailyClusterRows(byDollars, byMultiplier []models.TradeCluster, limit int) []models.DailyCluster {
+	rowsByKey := make(map[string]models.DailyCluster)
+	keys := make([]string, 0, min(limit, len(byDollars))+min(limit, len(byMultiplier)))
+
+	addDailyClusterRows(rowsByKey, &keys, byDollars, limit, "dollars")
+	addDailyClusterRows(rowsByKey, &keys, byMultiplier, limit, "multiplier")
+
+	rows := make([]models.DailyCluster, 0, len(keys))
+	for _, key := range keys {
+		rows = append(rows, rowsByKey[key])
+	}
+	return rows
 }
 
-func dailyClusterRows(clusters []models.TradeCluster, limit int) []models.DailyClusterRow {
-	rows := make([]models.DailyClusterRow, 0, min(limit, len(clusters)))
+func addDailyClusterRows(rowsByKey map[string]models.DailyCluster, keys *[]string, clusters []models.TradeCluster, limit int, topBy string) {
 	for i := range min(limit, len(clusters)) {
 		cluster := &clusters[i]
-		rows = append(rows, models.DailyClusterRow{
-			Ticker:                 cluster.Ticker,
-			Sector:                 cluster.Sector,
-			Dollars:                cluster.Dollars,
-			DollarsMultiplier:      cluster.DollarsMultiplier,
-			Volume:                 cluster.Volume,
-			TradeCount:             cluster.TradeCount,
-			TradeClusterRank:       cluster.TradeClusterRank,
-			CumulativeDistribution: cluster.CumulativeDistribution,
-		})
+		key := dailyClusterKey(cluster)
+		row, ok := rowsByKey[key]
+		if !ok {
+			row = models.DailyCluster{
+				Ticker:                 cluster.Ticker,
+				Sector:                 cluster.Sector,
+				Dollars:                cluster.Dollars,
+				DollarsMultiplier:      cluster.DollarsMultiplier,
+				TradeCount:             cluster.TradeCount,
+				Rank:                   cluster.TradeClusterRank,
+				CumulativeDistribution: cluster.CumulativeDistribution,
+			}
+			*keys = append(*keys, key)
+		}
+		row.TopBy = appendUniqueDailyTopBy(row.TopBy, topBy)
+		rowsByKey[key] = row
 	}
-	return rows
+}
+
+func dailyClusterKey(cluster *models.TradeCluster) string {
+	return fmt.Sprintf("%s|%.6f|%d|%d", cluster.Ticker, cluster.Dollars, cluster.TradeCount, cluster.TradeClusterRank)
+}
+
+func appendUniqueDailyTopBy(topBy []string, value string) []string {
+	if slices.Contains(topBy, value) {
+		return topBy
+	}
+	return append(topBy, value)
 }
 
 type dailyRepeatedClusterAccumulator struct {
@@ -318,6 +344,7 @@ type dailyRepeatedClusterAccumulator struct {
 	dollars       float64
 	tradeCount    int
 	maxMultiplier float64
+	bestRank      int
 }
 
 func summarizeRepeatedClusterTickers(clusters []models.TradeCluster, limit int) []models.DailyRepeatedClusterTicker {
@@ -330,6 +357,9 @@ func summarizeRepeatedClusterTickers(clusters []models.TradeCluster, limit int) 
 		acc.dollars += cluster.Dollars
 		acc.tradeCount += cluster.TradeCount
 		acc.maxMultiplier = max(acc.maxMultiplier, cluster.DollarsMultiplier)
+		if acc.bestRank == 0 || cluster.TradeClusterRank < acc.bestRank {
+			acc.bestRank = cluster.TradeClusterRank
+		}
 		byTicker[cluster.Ticker] = acc
 	}
 
@@ -345,6 +375,7 @@ func summarizeRepeatedClusterTickers(clusters []models.TradeCluster, limit int) 
 			Dollars:       acc.dollars,
 			TradeCount:    acc.tradeCount,
 			MaxMultiplier: acc.maxMultiplier,
+			BestRank:      acc.bestRank,
 		})
 	}
 	sort.Slice(rows, func(i, j int) bool {
@@ -359,93 +390,7 @@ func summarizeRepeatedClusterTickers(clusters []models.TradeCluster, limit int) 
 	return rows[:min(limit, len(rows))]
 }
 
-type dailySectorAccumulator struct {
-	tickers    map[string]struct{}
-	trades     int
-	dollars    float64
-	volume     int
-	tradeCount int
-}
-
-func summarizeDailySectorTotals(trades []models.Trade, clusters []models.TradeCluster, bombs []models.TradeClusterBomb, touches []models.TradeLevelTouch, limit int) []models.DailySectorTotal {
-	bySector := make(map[string]dailySectorAccumulator)
-	for i := range trades {
-		trade := &trades[i]
-		acc := sectorAccumulator(bySector, trade.Sector)
-		acc.tickers[trade.Ticker] = struct{}{}
-		acc.trades++
-		acc.dollars += trade.TotalInstitutionalDollars
-		acc.volume += trade.Volume
-		bySector[sectorName(trade.Sector)] = acc
-	}
-	for i := range clusters {
-		cluster := &clusters[i]
-		acc := sectorAccumulator(bySector, cluster.Sector)
-		acc.tickers[cluster.Ticker] = struct{}{}
-		acc.dollars += cluster.Dollars
-		acc.volume += cluster.Volume
-		acc.tradeCount += cluster.TradeCount
-		bySector[sectorName(cluster.Sector)] = acc
-	}
-	for i := range bombs {
-		bomb := &bombs[i]
-		acc := sectorAccumulator(bySector, bomb.Sector)
-		acc.tickers[bomb.Ticker] = struct{}{}
-		acc.dollars += bomb.Dollars
-		acc.volume += bomb.Volume
-		acc.tradeCount += bomb.TradeCount
-		bySector[sectorName(bomb.Sector)] = acc
-	}
-	for i := range touches {
-		touch := &touches[i]
-		sector := ""
-		if touch.Sector != nil {
-			sector = *touch.Sector
-		}
-		acc := sectorAccumulator(bySector, sector)
-		acc.tickers[touch.Ticker] = struct{}{}
-		acc.dollars += touch.Dollars
-		acc.volume += touch.Volume
-		acc.tradeCount += touch.Trades
-		bySector[sectorName(sector)] = acc
-	}
-
-	rows := make([]models.DailySectorTotal, 0, len(bySector))
-	for sector, acc := range bySector {
-		rows = append(rows, models.DailySectorTotal{
-			Sector:     sector,
-			Tickers:    len(acc.tickers),
-			Trades:     acc.trades,
-			Dollars:    acc.dollars,
-			Volume:     acc.volume,
-			TradeCount: acc.tradeCount,
-		})
-	}
-	sort.Slice(rows, func(i, j int) bool {
-		if rows[i].Dollars == rows[j].Dollars {
-			return rows[i].Sector < rows[j].Sector
-		}
-		return rows[i].Dollars > rows[j].Dollars
-	})
-	return rows[:min(limit, len(rows))]
-}
-
-func sectorAccumulator(items map[string]dailySectorAccumulator, sector string) dailySectorAccumulator {
-	acc := items[sectorName(sector)]
-	if acc.tickers == nil {
-		acc.tickers = make(map[string]struct{})
-	}
-	return acc
-}
-
-func sectorName(sector string) string {
-	if sector == "" {
-		return "unknown"
-	}
-	return sector
-}
-
-func summarizeDailyClusterBombs(bombs []models.TradeClusterBomb, limit int) []models.DailyClusterBombRow {
+func summarizeDailyClusterBombs(bombs []models.TradeClusterBomb, limit int) []models.DailyClusterBomb {
 	sorted := slices.Clone(bombs)
 	sort.Slice(sorted, func(i, j int) bool {
 		if sorted[i].Dollars == sorted[j].Dollars {
@@ -453,24 +398,23 @@ func summarizeDailyClusterBombs(bombs []models.TradeClusterBomb, limit int) []mo
 		}
 		return sorted[i].Dollars > sorted[j].Dollars
 	})
-	rows := make([]models.DailyClusterBombRow, 0, min(limit, len(sorted)))
+	rows := make([]models.DailyClusterBomb, 0, min(limit, len(sorted)))
 	for i := range min(limit, len(sorted)) {
 		bomb := &sorted[i]
-		rows = append(rows, models.DailyClusterBombRow{
+		rows = append(rows, models.DailyClusterBomb{
 			Ticker:                 bomb.Ticker,
 			Sector:                 bomb.Sector,
 			Dollars:                bomb.Dollars,
 			DollarsMultiplier:      bomb.DollarsMultiplier,
-			Volume:                 bomb.Volume,
 			TradeCount:             bomb.TradeCount,
-			TradeClusterBombRank:   bomb.TradeClusterBombRank,
+			Rank:                   bomb.TradeClusterBombRank,
 			CumulativeDistribution: bomb.CumulativeDistribution,
 		})
 	}
 	return rows
 }
 
-func summarizeDailyLevelTouches(touches []models.TradeLevelTouch, limit int) models.DailyLevelTouchSummary {
+func summarizeDailyLevelTouches(touches []models.TradeLevelTouch, limit int) []models.DailyLevelTouch {
 	byRelativeSize := slices.Clone(touches)
 	sort.Slice(byRelativeSize, func(i, j int) bool {
 		if byRelativeSize[i].RelativeSize == byRelativeSize[j].RelativeSize {
@@ -487,41 +431,78 @@ func summarizeDailyLevelTouches(touches []models.TradeLevelTouch, limit int) mod
 		return byDollars[i].Dollars > byDollars[j].Dollars
 	})
 
-	return models.DailyLevelTouchSummary{
-		ByRelativeSize: dailyLevelTouchRows(byRelativeSize, limit),
-		ByDollars:      dailyLevelTouchRows(byDollars, limit),
+	return dailyLevelTouchRows(byRelativeSize, byDollars, limit)
+}
+
+func dailyLevelTouchRows(byRelativeSize, byDollars []models.TradeLevelTouch, limit int) []models.DailyLevelTouch {
+	rowsByKey := make(map[string]models.DailyLevelTouch)
+	keys := make([]string, 0, min(limit, len(byRelativeSize))+min(limit, len(byDollars)))
+
+	addDailyLevelTouchRows(rowsByKey, &keys, byRelativeSize, limit, "relative_size")
+	addDailyLevelTouchRows(rowsByKey, &keys, byDollars, limit, "dollars")
+
+	rows := make([]models.DailyLevelTouch, 0, len(keys))
+	for _, key := range keys {
+		rows = append(rows, rowsByKey[key])
+	}
+	return rows
+}
+
+func addDailyLevelTouchRows(rowsByKey map[string]models.DailyLevelTouch, keys *[]string, touches []models.TradeLevelTouch, limit int, topBy string) {
+	for i := range min(limit, len(touches)) {
+		touch := &touches[i]
+		key := dailyLevelTouchKey(touch)
+		row, ok := rowsByKey[key]
+		if !ok {
+			row = dailyLevelTouchRow(touch)
+			*keys = append(*keys, key)
+		}
+		row.TopBy = appendUniqueDailyTopBy(row.TopBy, topBy)
+		rowsByKey[key] = row
 	}
 }
 
-func dailyLevelTouchRows(touches []models.TradeLevelTouch, limit int) []models.DailyLevelTouchRow {
-	rows := make([]models.DailyLevelTouchRow, 0, min(limit, len(touches)))
-	for i := range min(limit, len(touches)) {
-		touch := &touches[i]
-		sector := ""
-		if touch.Sector != nil {
-			sector = *touch.Sector
-		}
-		rows = append(rows, models.DailyLevelTouchRow{
-			Ticker:            touch.Ticker,
-			Sector:            sector,
-			Price:             touch.Price,
-			Dollars:           touch.Dollars,
-			RelativeSize:      touch.RelativeSize,
-			Volume:            touch.Volume,
-			Trades:            touch.Trades,
-			TradeLevelRank:    touch.TradeLevelRank,
-			TradeLevelTouches: touch.TradeLevelTouches,
-		})
+func dailyLevelTouchRow(touch *models.TradeLevelTouch) models.DailyLevelTouch {
+	sector := ""
+	if touch.Sector != nil {
+		sector = *touch.Sector
 	}
-	return rows
+	return models.DailyLevelTouch{
+		Ticker:                 touch.Ticker,
+		Sector:                 sector,
+		Price:                  touch.Price,
+		Dollars:                touch.Dollars,
+		RelativeSize:           touch.RelativeSize,
+		Trades:                 touch.Trades,
+		Rank:                   touch.TradeLevelRank,
+		Touches:                touch.TradeLevelTouches,
+		CumulativeDistribution: touch.CumulativeDistribution,
+	}
+}
+
+func dailyLevelTouchKey(touch *models.TradeLevelTouch) string {
+	return fmt.Sprintf("%s|%.6f|%.6f|%d", touch.Ticker, touch.Price, touch.Dollars, touch.TradeLevelRank)
 }
 
 func summarizeDailyLeveragedETFSentiment(trades []models.Trade, date string) models.DailyLeveragedETFSentiment {
 	sentiment := summarizeTradeSentiment(trades, date, date)
 	return models.DailyLeveragedETFSentiment{
-		Bear:   sentiment.Totals.Bear,
-		Bull:   sentiment.Totals.Bull,
-		Ratio:  sentiment.Totals.Ratio,
-		Signal: sentiment.Totals.Signal,
+		Signal:      sentiment.Totals.Signal,
+		Ratio:       sentiment.Totals.Ratio,
+		BullDollars: sentiment.Totals.Bull.Dollars,
+		BearDollars: sentiment.Totals.Bear.Dollars,
+		BullTrades:  sentiment.Totals.Bull.Trades,
+		BearTrades:  sentiment.Totals.Bear.Trades,
+		BullTickers: sentiment.Totals.Bull.TopTickers,
+		BearTickers: sentiment.Totals.Bear.TopTickers,
+	}
+}
+
+func summarizeDailyMarketExhaustion(exhaustion models.ExhaustionScore) models.DailyMarketExhaustion {
+	return models.DailyMarketExhaustion{
+		Rank:     exhaustion.ExhaustionScoreRank,
+		Rank30D:  exhaustion.ExhaustionScoreRank30Day,
+		Rank90D:  exhaustion.ExhaustionScoreRank90Day,
+		Rank365D: exhaustion.ExhaustionScoreRank365Day,
 	}
 }

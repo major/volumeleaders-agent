@@ -5,9 +5,11 @@ package auth
 import (
 	"compress/gzip"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
+	"path"
 	"regexp"
 	"slices"
 	"strings"
@@ -21,9 +23,36 @@ const UserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 
 
 const volumeLeadersDomain = "volumeleaders.com"
 
+// ErrSessionExpired marks auth failures caused by an expired browser session.
+var ErrSessionExpired = errors.New("session expired")
+
+// SessionExpiredMessage is the user-facing remediation for expired sessions.
+const SessionExpiredMessage = "Authentication required: VolumeLeaders session has expired. Log in at https://www.volumeleaders.com in your browser, then retry."
+
 var requiredCookieNames = []string{"ASP.NET_SessionId", ".ASPXAUTH"}
 
 var xsrfTokenPattern = regexp.MustCompile(`<input\s+name="__RequestVerificationToken"\s+type="hidden"\s+value="([^"]+)"`)
+
+type sessionExpiredError struct {
+	redirectPath string
+}
+
+func (e sessionExpiredError) Error() string {
+	return SessionExpiredMessage
+}
+
+func (e sessionExpiredError) Unwrap() error {
+	return ErrSessionExpired
+}
+
+func (e sessionExpiredError) Detail() string {
+	return fmt.Sprintf("requested host www.%s redirected to %s", volumeLeadersDomain, e.redirectPath)
+}
+
+// IsSessionExpired reports whether err indicates an expired VolumeLeaders session.
+func IsSessionExpired(err error) bool {
+	return errors.Is(err, ErrSessionExpired)
+}
 
 // ExtractCookies reads required VolumeLeaders cookies from supported browsers.
 //
@@ -61,8 +90,9 @@ func FetchXSRFToken(ctx context.Context, httpClient *http.Client, cookies map[st
 	}
 	defer resp.Body.Close()
 
-	if strings.Contains(resp.Request.URL.Path, "/Login") {
-		return "", fmt.Errorf("session expired: requested host www.%s redirected to %s", volumeLeadersDomain, safeRedirectPath(resp))
+	redirectPath := safeRedirectPath(resp)
+	if normalizeRedirectPath(redirectPath) == "/login" {
+		return "", sessionExpiredError{redirectPath: redirectPath}
 	}
 	if resp.StatusCode != http.StatusOK {
 		return "", fmt.Errorf("fetch XSRF token page: status %d", resp.StatusCode)
@@ -162,11 +192,21 @@ func safeRedirectPath(resp *http.Response) string {
 	if resp == nil || resp.Request == nil || resp.Request.URL == nil {
 		return "unknown redirect target"
 	}
-	path := resp.Request.URL.EscapedPath()
-	if path == "" {
+	escapedPath := resp.Request.URL.EscapedPath()
+	if escapedPath == "" {
 		return "/"
 	}
-	return path
+	return escapedPath
+}
+
+func normalizeRedirectPath(redirectPath string) string {
+	if redirectPath == "" {
+		return "/"
+	}
+	if !strings.HasPrefix(redirectPath, "/") {
+		redirectPath = "/" + redirectPath
+	}
+	return strings.ToLower(path.Clean(redirectPath))
 }
 
 func setBrowserHeaders(req *http.Request) {

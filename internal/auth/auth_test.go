@@ -68,10 +68,11 @@ func TestFetchXSRFToken(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name      string
-		handler   http.HandlerFunc
-		wantToken string
-		wantErr   string
+		name               string
+		handler            http.HandlerFunc
+		wantToken          string
+		wantErr            string
+		wantSessionExpired bool
 	}{
 		{
 			name: "success",
@@ -91,7 +92,19 @@ func TestFetchXSRFToken(t *testing.T) {
 				}
 				fmt.Fprint(w, "login")
 			},
-			wantErr: "session expired: requested host www.volumeleaders.com redirected to /Login",
+			wantErr:            SessionExpiredMessage,
+			wantSessionExpired: true,
+		},
+		{
+			name: "non login redirect does not mark session expired",
+			handler: func(w http.ResponseWriter, r *http.Request) {
+				if r.URL.Path == "/ExecutiveSummary" {
+					http.Redirect(w, r, "/NotLogin", http.StatusFound)
+					return
+				}
+				fmt.Fprint(w, "not login")
+			},
+			wantErr: "XSRF token not found",
 		},
 		{
 			name: "non 200 status",
@@ -139,6 +152,12 @@ func TestFetchXSRFToken(t *testing.T) {
 				}
 				if !strings.Contains(err.Error(), tt.wantErr) {
 					t.Fatalf("expected error containing %q, got %v", tt.wantErr, err)
+				}
+				if got := IsSessionExpired(err); got != tt.wantSessionExpired {
+					t.Fatalf("IsSessionExpired() = %t, want %t", got, tt.wantSessionExpired)
+				}
+				if tt.wantSessionExpired && strings.Contains(err.Error(), "/Login") {
+					t.Fatalf("session expired error exposed redirect detail: %v", err)
 				}
 				return
 			}
@@ -228,6 +247,53 @@ func TestSafeRedirectPath(t *testing.T) {
 	got := safeRedirectPath(&http.Response{Request: req})
 	if got != "/Login" {
 		t.Fatalf("expected sanitized redirect path, got %q", got)
+	}
+}
+
+func TestNormalizeRedirectPath(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		path string
+		want string
+	}{
+		{
+			name: "login path lowercased",
+			path: "/Login",
+			want: "/login",
+		},
+		{
+			name: "missing leading slash",
+			path: "Login",
+			want: "/login",
+		},
+		{
+			name: "clean path",
+			path: "/Account/../Login",
+			want: "/login",
+		},
+		{
+			name: "non login remains exact path",
+			path: "/NotLogin",
+			want: "/notlogin",
+		},
+		{
+			name: "empty path becomes root",
+			path: "",
+			want: "/",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			got := normalizeRedirectPath(tt.path)
+			if got != tt.want {
+				t.Fatalf("normalizeRedirectPath(%q) = %q, want %q", tt.path, got, tt.want)
+			}
+		})
 	}
 }
 

@@ -15,7 +15,7 @@ description: |
 
 CLI for VolumeLeaders institutional trade data. Use it for trades, daily summaries, volume leaderboards, charts, market data, alerts, and watchlists. Binary: `volumeleaders-agent`.
 
-Auth: reads browser cookies. If auth fails, the user must log in at volumeleaders.com in their browser.
+Auth: reads browser cookies. If auth fails with exit code 2 and `Authentication required: VolumeLeaders session has expired.`, the user must log in at https://www.volumeleaders.com in their browser, then retry.
 
 Output: compact JSON to stdout by default. Put `--pretty` before the command group for indented JSON. Errors/logs go to stderr.
 

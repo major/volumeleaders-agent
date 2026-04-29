@@ -76,7 +76,7 @@ This is the entry point. Command details are split by command group:
 - Toggle filters: `-1` all/unfiltered, `0` exclude, `1` include/only.
 - Tickers: `--tickers` is comma-separated, `--ticker` is single-symbol. Commands that take tickers generally accept positional tickers too, for example `trade list XLE XLK` or `chart company AAPL`. Trade and volume ticker filters also accept `--symbol` and `--symbols` aliases.
 - Output formats: list-style commands may support `--format json|csv|tsv`. CSV/TSV include headers, booleans render as `true`/`false`, null/missing values render as empty cells. Nested summaries and single-object commands are JSON-only unless their command file says otherwise.
-- Performance: use explicit dates and tickers when possible. Individual trade and trade-level retrieval commands are capped at 50 rows per request to protect the VolumeLeaders backend.
+- Performance: use explicit dates and tickers when possible. `trade list` defaults to `--length 10`, and individual trade and trade-level retrieval commands are capped at 50 rows per request to protect the VolumeLeaders backend.
 
 ## Trade Shared Flags
 

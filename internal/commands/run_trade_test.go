@@ -355,7 +355,7 @@ func TestTradeListDefaultJSONUsesParsedFormat(t *testing.T) {
 	}
 }
 
-func TestTradeListDefaultJSONUsesMaxTradeRequestLength(t *testing.T) {
+func TestTradeListDefaultJSONUsesSafeTradeRequestLength(t *testing.T) {
 	var gotLength string
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		body, _ := io.ReadAll(r.Body)
@@ -381,8 +381,8 @@ func TestTradeListDefaultJSONUsesMaxTradeRequestLength(t *testing.T) {
 	if err := json.Unmarshal([]byte(output), &got); err != nil {
 		t.Fatalf("unmarshal compact output: %v", err)
 	}
-	if gotLength != "50" {
-		t.Fatalf("length = %q, want 50", gotLength)
+	if gotLength != "10" {
+		t.Fatalf("length = %q, want 10", gotLength)
 	}
 	if len(got) != 1 {
 		t.Fatalf("row count = %d, want 1", len(got))

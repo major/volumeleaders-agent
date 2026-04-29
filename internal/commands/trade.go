@@ -16,6 +16,7 @@ import (
 )
 
 const (
+	defaultTradeRequestLength   = 10
 	maxTradeRequestLength       = 50
 	maxTradeLevelRequestLength  = 50
 	tradeListTickerLookbackDays = 365
@@ -165,7 +166,7 @@ Dates are optional. With tickers: defaults to 365-day lookback. Without: default
 				&cli.StringFlag{Name: "group-by", Value: "ticker", Usage: "Summary grouping (requires --summary): ticker, day, or ticker,day"},
 			},
 			outputFormatFlags(),
-			paginationFlags(maxTradeRequestLength, 1, "desc"),
+			paginationFlags(defaultTradeRequestLength, 1, "desc"),
 		),
 		Action: runTradeList,
 	}

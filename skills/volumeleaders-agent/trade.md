@@ -32,13 +32,15 @@ volumeleaders-agent trade preset-tickers --preset "Megacaps"
 
 Primary individual-print query. Optional flags: `--start-date`, `--end-date`, `--days`, ticker aliases, positional tickers, `--sector`, `--preset`, `--watchlist`, `--fields`, `--format`, `--summary`, `--group-by`, trade shared flags, pagination.
 
+Default JSON returns compact analysis rows, not the full raw API row. It keeps trade timing, ticker/company context, price/volume/dollar size, rank, relative-size metrics, key boolean traits, frequency windows, trade conditions, and RSI. Repetitive query dates, internal numeric keys, raw bid/ask, redundant volume leaderboard totals, `TotalRows`, and feed metadata are omitted to reduce tokens.
+
 Date defaults: with tickers, 365-day lookback from today. Without tickers, today only. Explicit dates override defaults. `--days N` uses today or explicit `--end-date` as the range end and computes the start date; do not combine `--days` with `--start-date`. Presets and watchlists never supply dates.
 
 Filter precedence: preset baseline, then watchlist merge, then explicit CLI flags override both.
 
 Summary mode: `--summary` returns aggregate JSON instead of rows. Valid `--group-by`: `ticker`, `day`, `ticker,day`. Summary respects pagination, so use `--length -1` for all matching rows. `--fields` and non-JSON `--format` are invalid with `--summary`.
 
-Fields mode: `--fields FIELD1,FIELD2` limits JSON keys or CSV/TSV columns. Names are case-sensitive and validated before the API query.
+Fields mode: `--fields FIELD1,FIELD2` limits JSON keys or CSV/TSV columns using raw API field names. Use it to request fields omitted from default compact JSON, such as `TradeID`, `Bid`, `Ask`, `AverageDailyVolume`, or `TotalRows`. Names are case-sensitive and validated before the API query. CSV/TSV without `--fields` still use the full raw trade row columns.
 
 ```bash
 volumeleaders-agent trade list --tickers AAPL --dark-pools 1 --min-dollars 1000000
@@ -49,7 +51,7 @@ volumeleaders-agent trade list --tickers SPY,QQQ --start-date 2026-04-21 --end-d
 volumeleaders-agent trade list --tickers AAPL,MSFT --start-date 2026-04-21 --end-date 2026-04-28 --fields Date,Ticker,Dollars --format csv
 ```
 
-Key row fields: `Date`, `FullDateTime`, `Ticker`, `Name`, `Sector`, `Industry`, `Price`, `Volume`, `Dollars`, `DollarsMultiplier`, `CumulativeDistribution`, `RelativeSize`, `PercentDailyVolume`, `TradeRank`, `TradeRankSnapshot`, `VCD`, `DarkPool`, `Sweep`, `LatePrint`, `SignaturePrint`, `PhantomPrint`, `OpeningTrade`, `ClosingTrade`, `RSIHour`, `RSIDay`, `TotalRows`.
+Default JSON row fields: `Date`, `FullDateTime`, `FullTimeString24`, `Ticker`, `Name`, `Sector`, `Industry`, `Price`, `Volume`, `Dollars`, `DollarsMultiplier`, `PercentDailyVolume`, `RelativeSize`, `CumulativeDistribution`, `TradeRank`, `TradeRankSnapshot`, `DarkPool`, `Sweep`, `LatePrint`, `SignaturePrint`, `OpeningTrade`, `ClosingTrade`, `PhantomPrint`, `TradeConditions`, `FrequencyLast30TD`, `FrequencyLast90TD`, `FrequencyLast1CY`, `RSIHour`, `RSIDay`.
 
 ## trade sentiment
 

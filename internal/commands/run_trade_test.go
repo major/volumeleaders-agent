@@ -188,6 +188,166 @@ func TestTradeListPositionalTickers(t *testing.T) {
 	}
 }
 
+func TestTradeListDefaultJSONUsesCompactRows(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/Trades/GetTrades" {
+			t.Errorf("expected path /Trades/GetTrades, got %s", r.URL.Path)
+		}
+		fmt.Fprint(w, dataTablesJSON(`[
+			{
+				"Date":"/Date(1745193600000)/",
+				"StartDate":"/Date(1745193600000)/",
+				"EndDate":"/Date(1745193600000)/",
+				"DateKey":20250421,
+				"SecurityKey":12345,
+				"TradeID":98765,
+				"SequenceNumber":7,
+				"Ticker":"SPY",
+				"Name":"SPDR S&P 500 ETF Trust",
+				"Sector":"ETF",
+				"Industry":"Index ETF",
+				"FullDateTime":"2025-04-21T14:30:00",
+				"FullTimeString24":"14:30:00",
+				"Price":520.5,
+				"Bid":520.49,
+				"Ask":520.51,
+				"Volume":50000,
+				"Dollars":26025000,
+				"AverageBlockSizeDollars":5000000,
+				"DollarsMultiplier":5.2,
+				"AverageDailyVolume":100000000,
+				"PercentDailyVolume":0.05,
+				"RelativeSize":8.1,
+				"CumulativeDistribution":0.97,
+				"TradeRank":12,
+				"TradeRankSnapshot":14,
+				"DarkPool":1,
+				"Sweep":0,
+				"LatePrint":1,
+				"SignaturePrint":1,
+				"OpeningTrade":0,
+				"ClosingTrade":0,
+				"PhantomPrint":0,
+				"TradeConditions":"Contingent",
+				"FrequencyLast30TD":1,
+				"FrequencyLast90TD":2,
+				"FrequencyLast1CY":3,
+				"TotalRows":100,
+				"ExternalFeed":1,
+				"RSIHour":55.5,
+				"RSIDay":61.25
+			}
+		]`))
+	}))
+	t.Cleanup(server.Close)
+
+	ctx := contextWithTestClient(t, server.URL)
+	output := captureStdout(t, func() {
+		root := &cli.Command{Commands: []*cli.Command{newTradeListCommand()}}
+		if err := root.Run(ctx, []string{
+			"app", "list",
+			"--start-date", "2025-04-21",
+			"--end-date", "2025-04-21",
+		}); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+	})
+
+	var got []map[string]json.RawMessage
+	if err := json.Unmarshal([]byte(output), &got); err != nil {
+		t.Fatalf("unmarshal compact output: %v", err)
+	}
+	if len(got) != 1 {
+		t.Fatalf("expected one row, got %d", len(got))
+	}
+
+	wantFields := []string{
+		"Date",
+		"FullDateTime",
+		"Ticker",
+		"Name",
+		"Sector",
+		"Industry",
+		"Price",
+		"Volume",
+		"Dollars",
+		"DollarsMultiplier",
+		"PercentDailyVolume",
+		"RelativeSize",
+		"CumulativeDistribution",
+		"TradeRank",
+		"TradeRankSnapshot",
+		"DarkPool",
+		"Sweep",
+		"LatePrint",
+		"SignaturePrint",
+		"TradeConditions",
+		"RSIHour",
+		"RSIDay",
+	}
+	for _, field := range wantFields {
+		if _, ok := got[0][field]; !ok {
+			t.Fatalf("expected compact field %s", field)
+		}
+	}
+
+	omittedFields := []string{
+		"StartDate",
+		"EndDate",
+		"DateKey",
+		"SecurityKey",
+		"TradeID",
+		"SequenceNumber",
+		"Bid",
+		"Ask",
+		"AverageDailyVolume",
+		"TotalRows",
+		"ExternalFeed",
+	}
+	for _, field := range omittedFields {
+		if _, ok := got[0][field]; ok {
+			t.Fatalf("did not expect noisy field %s", field)
+		}
+	}
+}
+
+func TestTradeListDefaultJSONUsesParsedFormat(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/Trades/GetTrades" {
+			t.Errorf("expected path /Trades/GetTrades, got %s", r.URL.Path)
+		}
+		fmt.Fprint(w, dataTablesJSON(`[{"Ticker":"SPY","TradeID":98765,"Dollars":26025000}]`))
+	}))
+	t.Cleanup(server.Close)
+
+	ctx := contextWithTestClient(t, server.URL)
+	output := captureStdout(t, func() {
+		root := &cli.Command{Commands: []*cli.Command{newTradeListCommand()}}
+		if err := root.Run(ctx, []string{
+			"app", "list",
+			"--start-date", "2025-04-21",
+			"--end-date", "2025-04-21",
+			"--format", "JSON",
+		}); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+	})
+
+	var got []map[string]json.RawMessage
+	if err := json.Unmarshal([]byte(output), &got); err != nil {
+		t.Fatalf("unmarshal compact output: %v", err)
+	}
+	if len(got) != 1 {
+		t.Fatalf("expected one row, got %d", len(got))
+	}
+	if _, ok := got[0]["Ticker"]; !ok {
+		t.Fatal("expected compact Ticker field")
+	}
+	if _, ok := got[0]["TradeID"]; ok {
+		t.Fatal("did not expect raw TradeID field")
+	}
+}
+
 func TestTradeLevelsDefaultDates(t *testing.T) {
 	frozen := time.Date(2025, 6, 15, 12, 0, 0, 0, time.UTC)
 	origTimeNow := timeNow
@@ -507,7 +667,7 @@ func TestTradeListFieldsFiltersOutput(t *testing.T) {
 		if r.URL.Path != "/Trades/GetTrades" {
 			t.Errorf("expected path /Trades/GetTrades, got %s", r.URL.Path)
 		}
-		fmt.Fprint(w, dataTablesJSON(`[{"Ticker":"SPY","Dollars":26025000,"Volume":50000}]`))
+		fmt.Fprint(w, dataTablesJSON(`[{"Ticker":"SPY","TradeID":98765,"Dollars":26025000,"Volume":50000}]`))
 	}))
 	t.Cleanup(server.Close)
 
@@ -518,7 +678,7 @@ func TestTradeListFieldsFiltersOutput(t *testing.T) {
 			"app", "list",
 			"--start-date", "2025-01-01",
 			"--end-date", "2025-01-31",
-			"--fields", "Ticker,Dollars",
+			"--fields", "Ticker,TradeID,Dollars",
 		}); err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -536,6 +696,9 @@ func TestTradeListFieldsFiltersOutput(t *testing.T) {
 	}
 	if _, ok := got[0]["Dollars"]; !ok {
 		t.Fatal("expected Dollars field")
+	}
+	if _, ok := got[0]["TradeID"]; !ok {
+		t.Fatal("expected raw TradeID field")
 	}
 	if _, ok := got[0]["Volume"]; ok {
 		t.Fatal("did not expect Volume field")

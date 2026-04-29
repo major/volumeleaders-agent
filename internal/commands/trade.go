@@ -301,7 +301,8 @@ func runTradeList(ctx context.Context, cmd *cli.Command) error {
 	if err != nil {
 		return fmt.Errorf("parsing fields flag: %w", err)
 	}
-	if _, err := parseOutputFormat(cmd.String("format")); err != nil {
+	format, err := parseOutputFormat(cmd.String("format"))
+	if err != nil {
 		return err
 	}
 
@@ -403,6 +404,14 @@ func runTradeList(ctx context.Context, cmd *cli.Command) error {
 			return fmt.Errorf("--format cannot be used with --summary")
 		}
 		return runTradeSummary(ctx, optsDataTable, cmd.String("group-by"), startDate, endDate)
+	}
+	if format == outputFormatJSON && len(fields) == 0 {
+		trades, err := fetchTradeList(ctx, optsDataTable)
+		if err != nil {
+			return err
+		}
+
+		return printJSON(ctx, models.NewTradeListRows(trades))
 	}
 
 	return runDataTablesCommand[models.Trade](

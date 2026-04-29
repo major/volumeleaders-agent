@@ -32,7 +32,7 @@ volumeleaders-agent trade preset-tickers --preset "Megacaps"
 
 Primary individual-print query. Optional flags: `--start-date`, `--end-date`, `--days`, ticker aliases, positional tickers, `--sector`, `--preset`, `--watchlist`, `--fields`, `--format`, `--summary`, `--group-by`, trade shared flags, pagination.
 
-Date defaults: with tickers, 5-day lookback from today. Without tickers, today only. Explicit dates override defaults. `--days N` uses today or explicit `--end-date` as the range end and computes the start date; do not combine `--days` with `--start-date`. Presets and watchlists never supply dates.
+Date defaults: with tickers, 365-day lookback from today. Without tickers, today only. Explicit dates override defaults. `--days N` uses today or explicit `--end-date` as the range end and computes the start date; do not combine `--days` with `--start-date`. Presets and watchlists never supply dates.
 
 Filter precedence: preset baseline, then watchlist merge, then explicit CLI flags override both.
 

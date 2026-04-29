@@ -106,15 +106,15 @@ func TestTradeListDefaultDates(t *testing.T) {
 		wantEnd   string
 	}{
 		{
-			name:      "with tickers defaults to 5-day lookback",
+			name:      "with tickers defaults to 365-day lookback",
 			args:      []string{"app", "list", "--tickers", "AAPL"},
-			wantStart: "2025-06-10",
+			wantStart: "2024-06-15",
 			wantEnd:   "2025-06-15",
 		},
 		{
-			name:      "with positional ticker defaults to 5-day lookback",
+			name:      "with positional ticker defaults to 365-day lookback",
 			args:      []string{"app", "list", "AAPL"},
-			wantStart: "2025-06-10",
+			wantStart: "2024-06-15",
 			wantEnd:   "2025-06-15",
 		},
 		{

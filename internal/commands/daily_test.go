@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"slices"
 	"strings"
 	"testing"
 
@@ -85,22 +86,31 @@ func TestDailySummaryAggregatesInstitutionalActivity(t *testing.T) {
 	if got.Date != "2026-04-28" {
 		t.Fatalf("date = %q, want 2026-04-28", got.Date)
 	}
-	if got.TopInstitutionalVolumeTickers[0].Ticker != "NVDA" {
-		t.Fatalf("expected NVDA top institutional volume, got %#v", got.TopInstitutionalVolumeTickers)
+	if got.InstitutionalVolume[0].Ticker != "NVDA" || got.InstitutionalVolume[0].InstitutionalDollars != 500000000 {
+		t.Fatalf("expected NVDA top institutional volume, got %#v", got.InstitutionalVolume)
 	}
-	if got.TopClustersByMultiplier[0].Ticker != "NVDA" || got.TopClustersByMultiplier[0].DollarsMultiplier != 8 {
-		t.Fatalf("unexpected top multiplier clusters: %#v", got.TopClustersByMultiplier)
+	if len(got.Clusters.Top) != 3 {
+		t.Fatalf("expected deduped cluster union with 3 rows, got %#v", got.Clusters.Top)
 	}
-	if len(got.RepeatedClusterTickers) != 1 || got.RepeatedClusterTickers[0].Ticker != "NVDA" {
-		t.Fatalf("unexpected repeated clusters: %#v", got.RepeatedClusterTickers)
+	if got.Clusters.Top[0].Ticker != "NVDA" || !slices.Contains(got.Clusters.Top[0].TopBy, "dollars") || !slices.Contains(got.Clusters.Top[0].TopBy, "multiplier") {
+		t.Fatalf("unexpected top dollar clusters: %#v", got.Clusters.Top)
 	}
-	if got.LevelTouches.ByRelativeSize[0].Ticker != "AMD" || got.LevelTouches.ByDollars[0].Ticker != "SPY" {
+	if got.Clusters.Top[2].Ticker != "NVDA" || got.Clusters.Top[2].DollarsMultiplier != 8 || got.Clusters.Top[2].TopBy[0] != "multiplier" {
+		t.Fatalf("unexpected top multiplier cluster union: %#v", got.Clusters.Top)
+	}
+	if len(got.Clusters.RepeatedTickers) != 1 || got.Clusters.RepeatedTickers[0].Ticker != "NVDA" || got.Clusters.RepeatedTickers[0].BestRank != 1 {
+		t.Fatalf("unexpected repeated clusters: %#v", got.Clusters.RepeatedTickers)
+	}
+	if len(got.LevelTouches) != 2 || got.LevelTouches[0].Ticker != "AMD" || got.LevelTouches[1].Ticker != "SPY" {
 		t.Fatalf("unexpected level touches: %#v", got.LevelTouches)
 	}
-	if got.LeveragedETFSentiment.Ratio == nil || *got.LeveragedETFSentiment.Ratio != 2 {
+	if !slices.Contains(got.LevelTouches[0].TopBy, "relative_size") || !slices.Contains(got.LevelTouches[0].TopBy, "dollars") || !slices.Contains(got.LevelTouches[1].TopBy, "relative_size") || !slices.Contains(got.LevelTouches[1].TopBy, "dollars") || got.LevelTouches[1].Touches != 2 {
+		t.Fatalf("unexpected level touch top_by metadata: %#v", got.LevelTouches)
+	}
+	if got.LeveragedETFSentiment.Ratio == nil || *got.LeveragedETFSentiment.Ratio != 2 || got.LeveragedETFSentiment.BullDollars != 200000000 {
 		t.Fatalf("unexpected leveraged ETF sentiment: %#v", got.LeveragedETFSentiment)
 	}
-	if got.MarketExhaustion.DateKey != 20260428 {
+	if got.MarketExhaustion.Rank != 4 || got.MarketExhaustion.Rank365D != 20 {
 		t.Fatalf("unexpected exhaustion score: %#v", got.MarketExhaustion)
 	}
 }
@@ -131,11 +141,9 @@ func TestDailySummaryOutputUsesRequestedSectionNames(t *testing.T) {
 	})
 
 	for _, field := range []string{
-		"top_institutional_volume_tickers",
-		"top_clusters_by_dollars",
-		"top_clusters_by_multiplier",
-		"repeated_cluster_tickers",
-		"sector_totals",
+		"institutional_volume",
+		"clusters",
+		"repeated_tickers",
 		"cluster_bombs",
 		"level_touches",
 		"leveraged_etf_sentiment",
@@ -143,6 +151,17 @@ func TestDailySummaryOutputUsesRequestedSectionNames(t *testing.T) {
 	} {
 		if !strings.Contains(output, field) {
 			t.Fatalf("expected output to contain %q, got %s", field, output)
+		}
+	}
+	for _, field := range []string{
+		"top_clusters_by_dollars",
+		"top_clusters_by_multiplier",
+		"sector_totals",
+		"by_relative_size",
+		"by_dollars",
+	} {
+		if strings.Contains(output, field) {
+			t.Fatalf("expected compact output to omit %q, got %s", field, output)
 		}
 	}
 }

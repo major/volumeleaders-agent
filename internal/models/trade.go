@@ -174,6 +174,84 @@ type Trade struct {
 	ExternalFeed                  FlexBool   `json:"ExternalFeed"`
 }
 
+// TradeListRow is the compact default JSON shape for trade list output.
+// It keeps the fields most useful for institutional-trade analysis while
+// leaving raw API identifiers and redundant query metadata available through
+// explicit --fields requests.
+type TradeListRow struct {
+	Date                   AspNetDate `json:"Date"`
+	FullDateTime           *string    `json:"FullDateTime"`
+	FullTimeString24       *string    `json:"FullTimeString24"`
+	Ticker                 string     `json:"Ticker"`
+	Name                   string     `json:"Name"`
+	Sector                 string     `json:"Sector"`
+	Industry               *string    `json:"Industry"`
+	Price                  float64    `json:"Price"`
+	Volume                 int        `json:"Volume"`
+	Dollars                float64    `json:"Dollars"`
+	DollarsMultiplier      float64    `json:"DollarsMultiplier"`
+	PercentDailyVolume     float64    `json:"PercentDailyVolume"`
+	RelativeSize           float64    `json:"RelativeSize"`
+	CumulativeDistribution float64    `json:"CumulativeDistribution"`
+	TradeRank              int        `json:"TradeRank"`
+	TradeRankSnapshot      int        `json:"TradeRankSnapshot"`
+	DarkPool               FlexBool   `json:"DarkPool"`
+	Sweep                  FlexBool   `json:"Sweep"`
+	LatePrint              FlexBool   `json:"LatePrint"`
+	SignaturePrint         FlexBool   `json:"SignaturePrint"`
+	OpeningTrade           FlexBool   `json:"OpeningTrade"`
+	ClosingTrade           FlexBool   `json:"ClosingTrade"`
+	PhantomPrint           FlexBool   `json:"PhantomPrint"`
+	TradeConditions        *string    `json:"TradeConditions"`
+	FrequencyLast30TD      int        `json:"FrequencyLast30TD"`
+	FrequencyLast90TD      int        `json:"FrequencyLast90TD"`
+	FrequencyLast1CY       int        `json:"FrequencyLast1CY"`
+	RSIHour                float64    `json:"RSIHour"`
+	RSIDay                 float64    `json:"RSIDay"`
+}
+
+// NewTradeListRows projects full API trade rows into the compact default
+// shape used by trade list JSON output.
+func NewTradeListRows(trades []Trade) []TradeListRow {
+	rows := make([]TradeListRow, 0, len(trades))
+	for i := range trades {
+		trade := &trades[i]
+		rows = append(rows, TradeListRow{
+			Date:                   trade.Date,
+			FullDateTime:           trade.FullDateTime,
+			FullTimeString24:       trade.FullTimeString24,
+			Ticker:                 trade.Ticker,
+			Name:                   trade.Name,
+			Sector:                 trade.Sector,
+			Industry:               trade.Industry,
+			Price:                  trade.Price,
+			Volume:                 trade.Volume,
+			Dollars:                trade.Dollars,
+			DollarsMultiplier:      trade.DollarsMultiplier,
+			PercentDailyVolume:     trade.PercentDailyVolume,
+			RelativeSize:           trade.RelativeSize,
+			CumulativeDistribution: trade.CumulativeDistribution,
+			TradeRank:              trade.TradeRank,
+			TradeRankSnapshot:      trade.TradeRankSnapshot,
+			DarkPool:               trade.DarkPool,
+			Sweep:                  trade.Sweep,
+			LatePrint:              trade.LatePrint,
+			SignaturePrint:         trade.SignaturePrint,
+			OpeningTrade:           trade.OpeningTrade,
+			ClosingTrade:           trade.ClosingTrade,
+			PhantomPrint:           trade.PhantomPrint,
+			TradeConditions:        trade.TradeConditions,
+			FrequencyLast30TD:      trade.FrequencyLast30TD,
+			FrequencyLast90TD:      trade.FrequencyLast90TD,
+			FrequencyLast1CY:       trade.FrequencyLast1CY,
+			RSIHour:                trade.RSIHour,
+			RSIDay:                 trade.RSIDay,
+		})
+	}
+
+	return rows
+}
+
 // TradeSummary represents aggregate trade metrics for a trade list query.
 type TradeSummary struct {
 	TotalTrades  int                          `json:"totalTrades"`

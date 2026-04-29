@@ -259,6 +259,7 @@ Dates are optional. Defaults to 1-year lookback ending today. Use --days for sho
 				&cli.IntFlag{Name: "relative-size", Value: 0, Usage: "Relative size threshold"},
 				&cli.IntFlag{Name: "trade-level-rank", Value: -1, Usage: "Trade level rank filter"},
 				&cli.IntFlag{Name: "trade-level-count", Value: 10, Usage: "Number of price levels to return"},
+				&cli.StringFlag{Name: "fields", Usage: "Comma-separated trade level fields to include in output"},
 			},
 			outputFormatFlags(),
 		),
@@ -301,7 +302,8 @@ func runTradeList(ctx context.Context, cmd *cli.Command) error {
 	if err != nil {
 		return fmt.Errorf("parsing fields flag: %w", err)
 	}
-	if _, err := parseOutputFormat(cmd.String("format")); err != nil {
+	format, err := parseOutputFormat(cmd.String("format"))
+	if err != nil {
 		return err
 	}
 
@@ -399,10 +401,13 @@ func runTradeList(ctx context.Context, cmd *cli.Command) error {
 		if len(fields) > 0 {
 			return fmt.Errorf("--fields cannot be used with --summary")
 		}
-		if cmd.String("format") != string(outputFormatJSON) {
+		if format != outputFormatJSON {
 			return fmt.Errorf("--format cannot be used with --summary")
 		}
 		return runTradeSummary(ctx, optsDataTable, cmd.String("group-by"), startDate, endDate)
+	}
+	if format == outputFormatJSON && len(fields) == 0 {
+		return runTradeListRows(ctx, optsDataTable)
 	}
 
 	return runDataTablesCommand[models.Trade](
@@ -413,6 +418,58 @@ func runTradeList(ctx context.Context, cmd *cli.Command) error {
 		cmd.String("format"),
 		"query trades",
 	)
+}
+
+func runTradeListRows(ctx context.Context, opts dataTableOptions) error {
+	vlClient, err := newCommandClient(ctx)
+	if err != nil {
+		return err
+	}
+
+	if opts.length < 0 {
+		return runPaginatedTradeListRows(ctx, vlClient, opts)
+	}
+
+	request := newDataTablesRequest(datatables.TradeColumns, opts)
+	var result []models.Trade
+	if err := vlClient.PostDataTables(ctx, "/Trades/GetTrades", request.Encode(), &result); err != nil {
+		slog.Error("failed to query trades", "error", err)
+		return fmt.Errorf("query trades: %w", err)
+	}
+	return printJSON(ctx, models.NewTradeListRows(result))
+}
+
+func runPaginatedTradeListRows(ctx context.Context, vlClient *client.Client, opts dataTableOptions) error {
+	opts.length = paginationPageSize
+	all := make([]models.TradeListRow, 0)
+
+	for {
+		request := newDataTablesRequest(datatables.TradeColumns, opts)
+		resp, err := vlClient.PostDataTablesPage(ctx, "/Trades/GetTrades", request.Encode())
+		if err != nil {
+			slog.Error("failed to query trades", "error", err)
+			return fmt.Errorf("query trades: %w", err)
+		}
+
+		var page []models.Trade
+		if err := json.Unmarshal(resp.Data, &page); err != nil {
+			slog.Error("failed to decode trades", "error", err)
+			return fmt.Errorf("query trades: decode response: %w", err)
+		}
+		if len(page) == 0 {
+			return printJSON(ctx, all)
+		}
+
+		all = append(all, models.NewTradeListRows(page)...)
+		if resp.RecordsFiltered > 0 && len(all) >= resp.RecordsFiltered {
+			return printJSON(ctx, all)
+		}
+		if len(page) < paginationPageSize {
+			return printJSON(ctx, all)
+		}
+
+		opts.start += len(page)
+	}
 }
 
 func runTradeSummary(ctx context.Context, opts dataTableOptions, groupBy, startDate, endDate string) error {
@@ -450,11 +507,9 @@ func fetchTradeList(ctx context.Context, opts dataTableOptions) ([]models.Trade,
 }
 
 func fetchAllTradePages(ctx context.Context, vlClient *client.Client, opts dataTableOptions) ([]models.Trade, error) {
-	const maxTradeSummaryPages = 100
-
 	opts.length = paginationPageSize
 	all := make([]models.Trade, 0)
-	for range maxTradeSummaryPages {
+	for {
 		request := newDataTablesRequest(datatables.TradeColumns, opts)
 		resp, err := vlClient.PostDataTablesPage(ctx, "/Trades/GetTrades", request.Encode())
 		if err != nil {
@@ -481,13 +536,6 @@ func fetchAllTradePages(ctx context.Context, vlClient *client.Client, opts dataT
 
 		opts.start += len(page)
 	}
-
-	return nil, fmt.Errorf(
-		"query trades: pagination exceeded %d pages at start=%d with %d records fetched",
-		maxTradeSummaryPages,
-		opts.start,
-		len(all),
-	)
 }
 
 type tradeSummaryGroup string
@@ -784,6 +832,15 @@ func runTradeClusterAlerts(ctx context.Context, cmd *cli.Command) error {
 }
 
 func runTradeLevels(ctx context.Context, cmd *cli.Command) error {
+	fields, err := parseJSONFieldList[models.TradeLevel](cmd.String("fields"))
+	if err != nil {
+		return fmt.Errorf("parsing fields flag: %w", err)
+	}
+	format, err := parseOutputFormat(cmd.String("format"))
+	if err != nil {
+		return err
+	}
+
 	startDate, endDate, err := optionalDateRange(cmd, 365)
 	if err != nil {
 		return err
@@ -807,16 +864,43 @@ func runTradeLevels(ctx context.Context, cmd *cli.Command) error {
 		tradeLevelRank:  cmd.Int("trade-level-rank"),
 		tradeLevelCount: cmd.Int("trade-level-count"),
 	}
+	dataOpts := dataTableOptions{
+		start:    0,
+		length:   -1,
+		orderCol: 1,
+		orderDir: "desc",
+		filters:  buildTradeLevelFilters(opts),
+		fields:   fields,
+	}
+
+	if format == outputFormatJSON && len(fields) == 0 {
+		levels, err := fetchTradeLevels(ctx, dataOpts)
+		if err != nil {
+			return err
+		}
+
+		return printJSON(ctx, models.NewTradeLevelRows(levels))
+	}
+
 	return runDataTablesSingleRequestCommand[models.TradeLevel](ctx, "/TradeLevels/GetTradeLevels", datatables.TradeLevelColumns,
-		dataTableOptions{
-			start:    0,
-			length:   -1,
-			orderCol: 1,
-			orderDir: "desc",
-			filters:  buildTradeLevelFilters(opts),
-		},
+		dataOpts,
 		cmd.String("format"),
 		"query trade levels")
+}
+
+func fetchTradeLevels(ctx context.Context, opts dataTableOptions) ([]models.TradeLevel, error) {
+	vlClient, err := newCommandClient(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	request := newDataTablesRequest(datatables.TradeLevelColumns, opts)
+	var result []models.TradeLevel
+	if err := vlClient.PostDataTables(ctx, "/TradeLevels/GetTradeLevels", request.Encode(), &result); err != nil {
+		slog.Error("failed to query trade levels", "error", err)
+		return nil, fmt.Errorf("query trade levels: %w", err)
+	}
+	return result, nil
 }
 
 func runTradeLevelTouches(ctx context.Context, cmd *cli.Command) error {

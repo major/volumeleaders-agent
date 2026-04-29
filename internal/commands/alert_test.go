@@ -1,6 +1,7 @@
 package commands
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -8,8 +9,43 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/major/volumeleaders-agent/internal/models"
 	cli "github.com/urfave/cli/v3"
 )
+
+const alertConfigFixture = `[{
+	"AlertConfigKey": 1,
+	"UserKey": 99,
+	"Name": "Big sweeps",
+	"Tickers": "AAPL,MSFT",
+	"TradeRankLTE": 5,
+	"TradeVCDGTE": null,
+	"TradeMultGTE": null,
+	"TradeVolumeGTE": 1000000,
+	"TradeDollarsGTE": null,
+	"TradeConditions": "OBH",
+	"TradeClusterRankLTE": null,
+	"TradeClusterVCDGTE": null,
+	"TradeClusterMultGTE": null,
+	"TradeClusterVolumeGTE": null,
+	"TradeClusterDollarsGTE": null,
+	"TotalRankLTE": null,
+	"TotalVolumeGTE": null,
+	"TotalDollarsGTE": null,
+	"AHRankLTE": null,
+	"AHVolumeGTE": null,
+	"AHDollarsGTE": null,
+	"ClosingTradeRankLTE": null,
+	"ClosingTradeVCDGTE": null,
+	"ClosingTradeMultGTE": null,
+	"ClosingTradeVolumeGTE": null,
+	"ClosingTradeDollarsGTE": null,
+	"ClosingTradeConditions": "OSH",
+	"OffsettingPrint": false,
+	"PhantomPrint": false,
+	"Sweep": true,
+	"DarkPool": true
+}]`
 
 func TestRunAlertConfigs(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -22,10 +58,93 @@ func TestRunAlertConfigs(t *testing.T) {
 
 	ctx := contextWithTestClient(t, server.URL)
 	captureStdout(t, func() {
-		if err := runAlertConfigs(ctx, "json"); err != nil {
+		if err := runAlertConfigs(ctx, "", "json"); err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
 	})
+}
+
+func TestRunAlertConfigsDefaultFields(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		fmt.Fprint(w, dataTablesJSON(alertConfigFixture))
+	}))
+	t.Cleanup(server.Close)
+
+	ctx := contextWithTestClient(t, server.URL)
+	output := captureStdout(t, func() {
+		if err := runAlertConfigs(ctx, "", "json"); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+	})
+
+	rows := decodeAlertConfigRows(t, output)
+	assertAlertConfigFields(t, rows[0], alertConfigDefaultFields)
+	if rows[0]["AlertConfigKey"] != float64(1) {
+		t.Fatalf("expected AlertConfigKey 1, got %#v", rows[0]["AlertConfigKey"])
+	}
+}
+
+func TestRunAlertConfigsAllFields(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		fmt.Fprint(w, dataTablesJSON(alertConfigFixture))
+	}))
+	t.Cleanup(server.Close)
+
+	ctx := contextWithTestClient(t, server.URL)
+	output := captureStdout(t, func() {
+		if err := runAlertConfigs(ctx, "all", "json"); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+	})
+
+	rows := decodeAlertConfigRows(t, output)
+	allFields := jsonFieldNamesInOrder[models.AlertConfig]()
+	assertAlertConfigFields(t, rows[0], allFields)
+	if rows[0]["UserKey"] != float64(99) {
+		t.Fatalf("expected UserKey 99 in full output, got %#v", rows[0]["UserKey"])
+	}
+}
+
+func TestRunAlertConfigsExplicitFields(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		fmt.Fprint(w, dataTablesJSON(alertConfigFixture))
+	}))
+	t.Cleanup(server.Close)
+
+	ctx := contextWithTestClient(t, server.URL)
+	output := captureStdout(t, func() {
+		if err := runAlertConfigs(ctx, "AlertConfigKey,Name", "json"); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+	})
+
+	rows := decodeAlertConfigRows(t, output)
+	assertAlertConfigFields(t, rows[0], []string{"AlertConfigKey", "Name"})
+}
+
+func TestRunAlertConfigsInvalidFields(t *testing.T) {
+	ctx := contextWithTestClient(t, "http://example.invalid")
+	err := runAlertConfigs(ctx, "BadField", "json")
+	assertErrContains(t, err, "invalid field")
+}
+
+func TestRunAlertConfigsCSVDefaultFields(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		fmt.Fprint(w, dataTablesJSON(alertConfigFixture))
+	}))
+	t.Cleanup(server.Close)
+
+	ctx := contextWithTestClient(t, server.URL)
+	output := captureStdout(t, func() {
+		if err := runAlertConfigs(ctx, "", "csv"); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+	})
+
+	wantHeader := strings.Join(alertConfigDefaultFields, ",") + "\n"
+	if !strings.HasPrefix(output, wantHeader) {
+		t.Fatalf("expected CSV header %q, got %q", wantHeader, output)
+	}
 }
 
 func TestRunAlertConfigsServerError(t *testing.T) {
@@ -35,7 +154,7 @@ func TestRunAlertConfigsServerError(t *testing.T) {
 	t.Cleanup(server.Close)
 
 	ctx := contextWithTestClient(t, server.URL)
-	err := runAlertConfigs(ctx, "json")
+	err := runAlertConfigs(ctx, "", "json")
 	assertErrContains(t, err, "query alert configs")
 }
 
@@ -54,6 +173,32 @@ func TestRunAlertDelete(t *testing.T) {
 			t.Fatalf("unexpected error: %v", err)
 		}
 	})
+}
+
+func decodeAlertConfigRows(t *testing.T, output string) []map[string]any {
+	t.Helper()
+
+	var rows []map[string]any
+	if err := json.Unmarshal([]byte(output), &rows); err != nil {
+		t.Fatalf("decode alert config output: %v", err)
+	}
+	if len(rows) != 1 {
+		t.Fatalf("expected 1 alert config row, got %d", len(rows))
+	}
+	return rows
+}
+
+func assertAlertConfigFields(t *testing.T, row map[string]any, fields []string) {
+	t.Helper()
+
+	if len(row) != len(fields) {
+		t.Fatalf("expected %d fields, got %d: %#v", len(fields), len(row), row)
+	}
+	for _, field := range fields {
+		if _, ok := row[field]; !ok {
+			t.Fatalf("expected field %q in %#v", field, row)
+		}
+	}
 }
 
 func TestRunAlertDeleteServerError(t *testing.T) {

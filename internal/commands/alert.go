@@ -6,11 +6,24 @@ import (
 	"log/slog"
 	"slices"
 	"strconv"
+	"strings"
 
 	"github.com/major/volumeleaders-agent/internal/datatables"
 	"github.com/major/volumeleaders-agent/internal/models"
 	cli "github.com/urfave/cli/v3"
 )
+
+var alertConfigDefaultFields = []string{
+	"AlertConfigKey",
+	"Name",
+	"Tickers",
+	"TradeConditions",
+	"ClosingTradeConditions",
+	"DarkPool",
+	"Sweep",
+	"OffsettingPrint",
+	"PhantomPrint",
+}
 
 // NewAlertCommand returns the "alert" command group with all subcommands.
 func NewAlertCommand() *cli.Command {
@@ -22,9 +35,14 @@ func NewAlertCommand() *cli.Command {
 				Name:      "configs",
 				Usage:     "List saved alert configurations",
 				UsageText: "volumeleaders-agent alert configs",
-				Flags:     outputFormatFlags(),
+				Flags: slices.Concat(
+					[]cli.Flag{
+						&cli.StringFlag{Name: "fields", Usage: "Comma-separated fields to include (use 'all' for every field)"},
+					},
+					outputFormatFlags(),
+				),
 				Action: func(ctx context.Context, cmd *cli.Command) error {
-					return runAlertConfigs(ctx, cmd.String("format"))
+					return runAlertConfigs(ctx, cmd.String("fields"), cmd.String("format"))
 				},
 			},
 			{
@@ -165,8 +183,13 @@ func buildAlertConfigFields(cmd *cli.Command, key int) map[string]string {
 
 // --- Action handlers ---
 
-func runAlertConfigs(ctx context.Context, formatValue string) error {
+func runAlertConfigs(ctx context.Context, fieldsValue, formatValue string) error {
 	format, err := parseOutputFormat(formatValue)
+	if err != nil {
+		return err
+	}
+
+	fields, err := alertConfigFields(fieldsValue)
 	if err != nil {
 		return err
 	}
@@ -183,7 +206,23 @@ func runAlertConfigs(ctx context.Context, formatValue string) error {
 		return fmt.Errorf("query alert configs: %w", err)
 	}
 
-	return printDataTablesResult(ctx, configs, nil, format)
+	return printDataTablesResult(ctx, configs, fields, format)
+}
+
+func alertConfigFields(value string) ([]string, error) {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return alertConfigDefaultFields, nil
+	}
+	if strings.EqualFold(value, "all") {
+		return nil, nil
+	}
+
+	fields, err := parseJSONFieldList[models.AlertConfig](value)
+	if err != nil {
+		return nil, fmt.Errorf("parse alert config fields: %w", err)
+	}
+	return fields, nil
 }
 
 func runAlertDelete(ctx context.Context, key int) error {

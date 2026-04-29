@@ -17,6 +17,7 @@ import (
 type priceDataOptions struct {
 	ticker, format                 string
 	startDate, endDate             string
+	fields                         []string
 	volumeProfile, levels          int
 	minVolume, maxVolume           int
 	vcd, tradeCount                int
@@ -33,7 +34,65 @@ type priceDataOptions struct {
 
 type chartLevelsOptions struct {
 	ticker, startDate, endDate, format string
+	fields                             []string
 	levels                             int
+}
+
+var chartPriceDataDefaultFields = []string{
+	"DateKey",
+	"TimeKey",
+	"FullDateTime",
+	"OpenPrice",
+	"HighPrice",
+	"LowPrice",
+	"ClosePrice",
+	"Volume",
+	"Dollars",
+	"Trades",
+	"CumulativeDistribution",
+	"TradeRank",
+	"TradeRankSnapshot",
+	"TradeLevelRank",
+	"DollarsMultiplier",
+	"RelativeSize",
+	"DarkPoolTrade",
+	"LatePrint",
+	"OpeningTrade",
+	"ClosingTrade",
+	"SignaturePrint",
+	"PhantomPrint",
+	"Sweep",
+}
+
+var chartLevelDefaultFields = []string{
+	"Price",
+	"Dollars",
+	"Volume",
+	"Trades",
+	"RelativeSize",
+	"CumulativeDistribution",
+	"TradeLevelRank",
+	"Dates",
+}
+
+var chartCompanyDefaultFields = []string{
+	"Name",
+	"Ticker",
+	"Sector",
+	"Industry",
+	"MarketCap",
+	"CurrentPrice",
+	"OptionsEnabled",
+	"IPODate",
+	"AverageBlockSizeDollars",
+	"AverageDailyVolume",
+	"AverageTradeShares",
+	"AverageDailyRangePct",
+	"AverageClusterSizeDollars",
+	"AverageLevelSizeDollars",
+	"TotalTrades",
+	"FirstTradeDate",
+	"MaxDate",
 }
 
 // NewChartCommand returns the "chart" command group with all subcommands.
@@ -83,6 +142,7 @@ volumeleaders-agent chart price-data --ticker NVDA --start-date 2025-01-01 --end
 				&cli.IntFlag{Name: "include-closing", Value: 1, Usage: "Include closing trades (0/1)"},
 				&cli.IntFlag{Name: "include-phantom", Value: 1, Usage: "Include phantom prints (0/1)"},
 				&cli.IntFlag{Name: "include-offsetting", Value: 1, Usage: "Include offsetting trades (0/1)"},
+				&cli.StringFlag{Name: "fields", Usage: "Comma-separated PriceBar fields to include in output, or 'all' for every field"},
 			},
 			outputFormatFlags(),
 		),
@@ -95,11 +155,16 @@ volumeleaders-agent chart price-data --ticker NVDA --start-date 2025-01-01 --end
 			if err != nil {
 				return err
 			}
+			fields, err := chartFields[models.PriceBar](cmd.String("fields"), chartPriceDataDefaultFields)
+			if err != nil {
+				return fmt.Errorf("parsing fields flag: %w", err)
+			}
 			opts := priceDataOptions{
 				ticker:            ticker,
 				format:            cmd.String("format"),
 				startDate:         startDate,
 				endDate:           endDate,
+				fields:            fields,
 				volumeProfile:     cmd.Int("volume-profile"),
 				levels:            cmd.Int("levels"),
 				minVolume:         cmd.Int("min-volume"),
@@ -160,6 +225,7 @@ volumeleaders-agent chart levels --ticker TSLA --start-date 2025-01-01 --levels 
 			[]cli.Flag{
 				&cli.StringFlag{Name: "ticker", Usage: "Ticker symbol"},
 				&cli.IntFlag{Name: "levels", Value: 5, Usage: "Number of trade levels"},
+				&cli.StringFlag{Name: "fields", Usage: "Comma-separated TradeLevel fields to include in output, or 'all' for every field"},
 			},
 			outputFormatFlags(),
 		),
@@ -172,14 +238,19 @@ volumeleaders-agent chart levels --ticker TSLA --start-date 2025-01-01 --levels 
 			if err != nil {
 				return err
 			}
+			fields, err := chartFields[models.TradeLevel](cmd.String("fields"), chartLevelDefaultFields)
+			if err != nil {
+				return fmt.Errorf("parsing fields flag: %w", err)
+			}
 			opts := chartLevelsOptions{
 				ticker:    ticker,
 				startDate: startDate,
 				endDate:   endDate,
+				fields:    fields,
 				levels:    cmd.Int("levels"),
 				format:    cmd.String("format"),
 			}
-			return runChartLevels(ctx, opts)
+			return runChartLevels(ctx, &opts)
 		},
 	}
 }
@@ -191,13 +262,18 @@ func newCompanyCommand() *cli.Command {
 		UsageText: "volumeleaders-agent chart company AAPL",
 		Flags: []cli.Flag{
 			&cli.StringFlag{Name: "ticker", Usage: "Ticker symbol"},
+			&cli.StringFlag{Name: "fields", Usage: "Comma-separated Company fields to include in output, or 'all' for every field"},
 		},
 		Action: func(ctx context.Context, cmd *cli.Command) error {
 			ticker, err := singleTickerValue(cmd)
 			if err != nil {
 				return err
 			}
-			return runCompany(ctx, ticker)
+			fields, err := chartFields[models.Company](cmd.String("fields"), chartCompanyDefaultFields)
+			if err != nil {
+				return fmt.Errorf("parsing fields flag: %w", err)
+			}
+			return runCompany(ctx, ticker, fields)
 		},
 	}
 }
@@ -259,7 +335,11 @@ func runPriceData(ctx context.Context, opts *priceDataOptions) error {
 		}
 	}
 
-	return printDataTablesResult(ctx, bars, nil, format)
+	fields := opts.fields
+	if len(fields) == 0 {
+		fields = chartPriceDataDefaultFields
+	}
+	return printDataTablesResult(ctx, bars, fields, format)
 }
 
 func runChartSnapshot(ctx context.Context, ticker, dateKey string) error {
@@ -282,13 +362,14 @@ func runChartSnapshot(ctx context.Context, ticker, dateKey string) error {
 	return printJSON(ctx, resp.Snapshot)
 }
 
-func runChartLevels(ctx context.Context, opts chartLevelsOptions) error {
+func runChartLevels(ctx context.Context, opts *chartLevelsOptions) error {
 	return runDataTablesCommand[models.TradeLevel](ctx, "/Chart0/GetTradeLevels", datatables.TradeLevelColumns,
 		dataTableOptions{
 			start:    0,
 			length:   -1,
 			orderCol: 0,
 			orderDir: "desc",
+			fields:   chartFieldsOrDefault(opts.fields, chartLevelDefaultFields),
 			filters: map[string]string{
 				"StartDate": opts.startDate,
 				"EndDate":   opts.endDate,
@@ -300,7 +381,7 @@ func runChartLevels(ctx context.Context, opts chartLevelsOptions) error {
 		"query chart levels")
 }
 
-func runCompany(ctx context.Context, ticker string) error {
+func runCompany(ctx context.Context, ticker string, fields []string) error {
 	vlClient, err := newCommandClient(ctx)
 	if err != nil {
 		return err
@@ -313,5 +394,30 @@ func runCompany(ctx context.Context, ticker string) error {
 		return fmt.Errorf("query company: %w", err)
 	}
 
-	return printJSON(ctx, company)
+	return printSelectedJSON(ctx, company, chartFieldsOrDefault(fields, chartCompanyDefaultFields))
+}
+
+func chartFields[T any](value string, defaultFields []string) ([]string, error) {
+	if value == "" {
+		return defaultFields, nil
+	}
+	if value == "all" {
+		return jsonFieldNamesInOrder[T](), nil
+	}
+	return parseJSONFieldList[T](value)
+}
+
+func chartFieldsOrDefault(fields, defaultFields []string) []string {
+	if len(fields) == 0 {
+		return defaultFields
+	}
+	return fields
+}
+
+func printSelectedJSON[T any](ctx context.Context, item T, fields []string) error {
+	selected, err := selectJSONFields([]T{item}, fields)
+	if err != nil {
+		return err
+	}
+	return printJSON(ctx, selected[0])
 }

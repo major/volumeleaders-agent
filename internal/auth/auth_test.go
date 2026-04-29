@@ -96,6 +96,17 @@ func TestFetchXSRFToken(t *testing.T) {
 			wantSessionExpired: true,
 		},
 		{
+			name: "non login redirect does not mark session expired",
+			handler: func(w http.ResponseWriter, r *http.Request) {
+				if r.URL.Path == "/ExecutiveSummary" {
+					http.Redirect(w, r, "/NotLogin", http.StatusFound)
+					return
+				}
+				fmt.Fprint(w, "not login")
+			},
+			wantErr: "XSRF token not found",
+		},
+		{
 			name: "non 200 status",
 			handler: func(w http.ResponseWriter, _ *http.Request) {
 				http.Error(w, "forbidden", http.StatusForbidden)
@@ -236,6 +247,53 @@ func TestSafeRedirectPath(t *testing.T) {
 	got := safeRedirectPath(&http.Response{Request: req})
 	if got != "/Login" {
 		t.Fatalf("expected sanitized redirect path, got %q", got)
+	}
+}
+
+func TestNormalizeRedirectPath(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		path string
+		want string
+	}{
+		{
+			name: "login path lowercased",
+			path: "/Login",
+			want: "/login",
+		},
+		{
+			name: "missing leading slash",
+			path: "Login",
+			want: "/login",
+		},
+		{
+			name: "clean path",
+			path: "/Account/../Login",
+			want: "/login",
+		},
+		{
+			name: "non login remains exact path",
+			path: "/NotLogin",
+			want: "/notlogin",
+		},
+		{
+			name: "empty path becomes root",
+			path: "",
+			want: "/",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			got := normalizeRedirectPath(tt.path)
+			if got != tt.want {
+				t.Fatalf("normalizeRedirectPath(%q) = %q, want %q", tt.path, got, tt.want)
+			}
+		})
 	}
 }
 

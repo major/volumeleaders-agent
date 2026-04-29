@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"path"
 	"regexp"
 	"slices"
 	"strings"
@@ -89,8 +90,9 @@ func FetchXSRFToken(ctx context.Context, httpClient *http.Client, cookies map[st
 	}
 	defer resp.Body.Close()
 
-	if strings.Contains(resp.Request.URL.Path, "/Login") {
-		return "", sessionExpiredError{redirectPath: safeRedirectPath(resp)}
+	redirectPath := safeRedirectPath(resp)
+	if normalizeRedirectPath(redirectPath) == "/login" {
+		return "", sessionExpiredError{redirectPath: redirectPath}
 	}
 	if resp.StatusCode != http.StatusOK {
 		return "", fmt.Errorf("fetch XSRF token page: status %d", resp.StatusCode)
@@ -190,11 +192,21 @@ func safeRedirectPath(resp *http.Response) string {
 	if resp == nil || resp.Request == nil || resp.Request.URL == nil {
 		return "unknown redirect target"
 	}
-	path := resp.Request.URL.EscapedPath()
-	if path == "" {
+	escapedPath := resp.Request.URL.EscapedPath()
+	if escapedPath == "" {
 		return "/"
 	}
-	return path
+	return escapedPath
+}
+
+func normalizeRedirectPath(redirectPath string) string {
+	if redirectPath == "" {
+		return "/"
+	}
+	if !strings.HasPrefix(redirectPath, "/") {
+		redirectPath = "/" + redirectPath
+	}
+	return strings.ToLower(path.Clean(redirectPath))
 }
 
 func setBrowserHeaders(req *http.Request) {

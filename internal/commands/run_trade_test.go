@@ -7,7 +7,9 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strconv"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -264,6 +266,7 @@ func TestTradeListDefaultJSONUsesCompactRows(t *testing.T) {
 	wantFields := []string{
 		"Date",
 		"FullDateTime",
+		"FullTimeString24",
 		"Ticker",
 		"Name",
 		"Sector",
@@ -281,7 +284,13 @@ func TestTradeListDefaultJSONUsesCompactRows(t *testing.T) {
 		"Sweep",
 		"LatePrint",
 		"SignaturePrint",
+		"OpeningTrade",
+		"ClosingTrade",
+		"PhantomPrint",
 		"TradeConditions",
+		"FrequencyLast30TD",
+		"FrequencyLast90TD",
+		"FrequencyLast1CY",
 		"RSIHour",
 		"RSIDay",
 	}
@@ -345,6 +354,59 @@ func TestTradeListDefaultJSONUsesParsedFormat(t *testing.T) {
 	}
 	if _, ok := got[0]["TradeID"]; ok {
 		t.Fatal("did not expect raw TradeID field")
+	}
+}
+
+func TestTradeListDefaultJSONAllResultsUsesPagination(t *testing.T) {
+	totalRecords := paginationPageSize + 1
+	var requestCount atomic.Int32
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requestCount.Add(1)
+		body, _ := io.ReadAll(r.Body)
+		params, _ := url.ParseQuery(string(body))
+
+		if params.Get("start") == "0" {
+			items := make([]string, paginationPageSize)
+			for i := range items {
+				items[i] = `{"Ticker":"SPY","TradeID":98765,"Dollars":1}`
+			}
+			fmt.Fprint(w, dataTablesJSONPage("["+strings.Join(items, ",")+"]", totalRecords))
+			return
+		}
+
+		fmt.Fprint(w, dataTablesJSONPage(`[{"Ticker":"QQQ","TradeID":98766,"Dollars":2}]`, totalRecords))
+	}))
+	t.Cleanup(server.Close)
+
+	ctx := contextWithTestClient(t, server.URL)
+	output := captureStdout(t, func() {
+		root := &cli.Command{Commands: []*cli.Command{newTradeListCommand()}}
+		if err := root.Run(ctx, []string{
+			"app", "list",
+			"--start-date", "2025-04-21",
+			"--end-date", "2025-04-21",
+			"--length", "-1",
+		}); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+	})
+
+	var got []map[string]json.RawMessage
+	if err := json.Unmarshal([]byte(output), &got); err != nil {
+		t.Fatalf("unmarshal compact output: %v", err)
+	}
+	if gotRequests := requestCount.Load(); gotRequests != 2 {
+		t.Fatalf("request count = %d, want 2", gotRequests)
+	}
+	if len(got) != totalRecords {
+		t.Fatalf("row count = %d, want %d", len(got), totalRecords)
+	}
+	if _, ok := got[len(got)-1]["Ticker"]; !ok {
+		t.Fatal("expected compact Ticker field on final page")
+	}
+	if _, ok := got[len(got)-1]["TradeID"]; ok {
+		t.Fatal("did not expect raw TradeID field on final page")
 	}
 }
 
@@ -1085,6 +1147,35 @@ func TestTradeListSummaryRejectsNonJSONFormat(t *testing.T) {
 	assertErrContains(t, err, "--format cannot be used with --summary")
 }
 
+func TestTradeListSummaryUsesParsedJSONFormat(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		fmt.Fprint(w, dataTablesJSON(`[{"Date":"/Date(1745193600000)/","Ticker":"SPY","Dollars":100}]`))
+	}))
+	t.Cleanup(server.Close)
+
+	ctx := contextWithTestClient(t, server.URL)
+	output := captureStdout(t, func() {
+		root := &cli.Command{Commands: []*cli.Command{newTradeListCommand()}}
+		if err := root.Run(ctx, []string{
+			"app", "list",
+			"--start-date", "2025-04-21",
+			"--end-date", "2025-04-21",
+			"--summary",
+			"--format", "JSON",
+		}); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+	})
+
+	var got models.TradeSummary
+	if err := json.Unmarshal([]byte(output), &got); err != nil {
+		t.Fatalf("unmarshal summary output: %v", err)
+	}
+	if got.TotalTrades != 1 {
+		t.Fatalf("total trades = %d, want 1", got.TotalTrades)
+	}
+}
+
 func TestTradeListRejectsGroupByWithoutSummary(t *testing.T) {
 	ctx := contextWithTestClient(t, "http://127.0.0.1")
 	root := &cli.Command{Commands: []*cli.Command{newTradeListCommand()}}
@@ -1097,28 +1188,61 @@ func TestTradeListRejectsGroupByWithoutSummary(t *testing.T) {
 	assertErrContains(t, err, "--group-by only works with --summary")
 }
 
-func TestTradeListSummaryAllResultsStopsAtPaginationCap(t *testing.T) {
+func TestTradeListSummaryAllResultsContinuesPastFormerPaginationCap(t *testing.T) {
+	const formerPaginationCap = 100
+
+	totalRecords := paginationPageSize*formerPaginationCap + 1
 	items := make([]string, paginationPageSize)
 	for i := range items {
 		items[i] = `{"Date":"/Date(1745193600000)/","Ticker":"SPY","Dollars":1}`
 	}
 	fullPage := "[" + strings.Join(items, ",") + "]"
+	finalPage := `[{"Date":"/Date(1745193600000)/","Ticker":"SPY","Dollars":2}]`
+	var requestCount int
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		fmt.Fprint(w, dataTablesJSONPage(fullPage, 0))
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requestCount++
+		body, _ := io.ReadAll(r.Body)
+		params, _ := url.ParseQuery(string(body))
+		start, _ := strconv.Atoi(params.Get("start"))
+
+		if start < paginationPageSize*formerPaginationCap {
+			fmt.Fprint(w, dataTablesJSONPage(fullPage, totalRecords))
+			return
+		}
+
+		fmt.Fprint(w, dataTablesJSONPage(finalPage, totalRecords))
 	}))
 	t.Cleanup(server.Close)
 
 	ctx := contextWithTestClient(t, server.URL)
-	root := &cli.Command{Commands: []*cli.Command{newTradeListCommand()}}
-	err := root.Run(ctx, []string{
-		"app", "list",
-		"--start-date", "2025-04-21",
-		"--end-date", "2025-04-21",
-		"--summary",
-		"--length", "-1",
+	output := captureStdout(t, func() {
+		root := &cli.Command{Commands: []*cli.Command{newTradeListCommand()}}
+		if err := root.Run(ctx, []string{
+			"app", "list",
+			"--start-date", "2025-04-21",
+			"--end-date", "2025-04-21",
+			"--summary",
+			"--length", "-1",
+		}); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
 	})
-	assertErrContains(t, err, "query trades: pagination exceeded")
+
+	var got models.TradeSummary
+	if err := json.Unmarshal([]byte(output), &got); err != nil {
+		t.Fatalf("unmarshal summary output: %v", err)
+	}
+	if requestCount != formerPaginationCap+1 {
+		t.Fatalf("request count = %d, want %d", requestCount, formerPaginationCap+1)
+	}
+	if got.TotalTrades != totalRecords {
+		t.Fatalf("total trades = %d, want %d", got.TotalTrades, totalRecords)
+	}
+	wantDollars := float64(paginationPageSize*formerPaginationCap + 2)
+	if got.TotalDollars != wantDollars {
+		t.Fatalf("total dollars = %v, want %v", got.TotalDollars, wantDollars)
+	}
 }
 
 func TestTradeListInvalidFormatWithWatchlistDoesNotQueryAPI(t *testing.T) {

@@ -32,7 +32,7 @@ volumeleaders-agent trade preset-tickers --preset "Megacaps"
 
 Primary individual-print query. Optional flags: `--start-date`, `--end-date`, `--days`, ticker aliases, positional tickers, `--sector`, `--preset`, `--watchlist`, `--fields`, `--format`, `--summary`, `--group-by`, trade shared flags, pagination.
 
-Trade retrieval is capped at 50 rows per request. `trade list` defaults to `--length 50` and rejects `--length -1`, `--length 0`, and values above 50. Use narrower dates, ticker filters, presets, or watchlists instead of asking for more than 50 individual trades.
+Trade retrieval is capped at 50 rows per request. `trade list` defaults to `--length 10` and rejects `--length -1`, `--length 0`, and values above 50. Use explicit `--length 50` plus narrower dates, ticker filters, presets, or watchlists when more rows are needed.
 
 Default JSON returns compact analysis rows, not the full raw API row. It keeps trade timing, ticker/company context, price/volume/dollar size, rank, relative-size metrics, key boolean traits, frequency windows, trade conditions, and RSI. Repetitive query dates, internal numeric keys, raw bid/ask, redundant volume leaderboard totals, `TotalRows`, and feed metadata are omitted to reduce tokens.
 

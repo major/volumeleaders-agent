@@ -17,6 +17,7 @@ import (
 
 const (
 	maxTradeRequestLength       = 50
+	maxTradeLevelRequestLength  = 50
 	tradeListTickerLookbackDays = 365
 )
 
@@ -260,7 +261,7 @@ Dates are optional. Defaults to 1-year lookback ending today. Use --days for sho
 				&cli.IntFlag{Name: "vcd", Value: 0, Usage: "VCD filter"},
 				&cli.IntFlag{Name: "relative-size", Value: 0, Usage: "Relative size threshold"},
 				&cli.IntFlag{Name: "trade-level-rank", Value: -1, Usage: "Trade level rank filter"},
-				&cli.IntFlag{Name: "trade-level-count", Value: 10, Usage: "Number of price levels to return"},
+				&cli.IntFlag{Name: "trade-level-count", Value: 10, Usage: "Number of price levels to return (1-50)"},
 				&cli.StringFlag{Name: "fields", Usage: "Comma-separated trade level fields to include in output"},
 			},
 			outputFormatFlags(),
@@ -288,7 +289,7 @@ volumeleaders-agent trade level-touches --tickers NVDA,AMD --trade-level-rank 5`
 				&cli.IntFlag{Name: "trade-level-rank", Value: 10, Usage: "Trade level rank filter"},
 			},
 			outputFormatFlags(),
-			paginationFlags(100, 0, "desc"),
+			paginationFlags(maxTradeLevelRequestLength, 0, "desc"),
 		),
 		Action: runTradeLevelTouches,
 	}
@@ -428,6 +429,20 @@ func runTradeList(ctx context.Context, cmd *cli.Command) error {
 func validateTradeRequestLength(length int) error {
 	if length < 1 || length > maxTradeRequestLength {
 		return fmt.Errorf("--length must be between 1 and %d for trade retrieval", maxTradeRequestLength)
+	}
+	return nil
+}
+
+func validateTradeLevelCount(count int) error {
+	if count < 1 || count > maxTradeLevelRequestLength {
+		return fmt.Errorf("--trade-level-count must be between 1 and %d for trade level retrieval", maxTradeLevelRequestLength)
+	}
+	return nil
+}
+
+func validateTradeLevelTouchesLength(length int) error {
+	if length < 1 || length > maxTradeLevelRequestLength {
+		return fmt.Errorf("--length must be between 1 and %d for trade level touch retrieval", maxTradeLevelRequestLength)
 	}
 	return nil
 }
@@ -807,9 +822,12 @@ func runTradeLevels(ctx context.Context, cmd *cli.Command) error {
 		tradeLevelRank:  cmd.Int("trade-level-rank"),
 		tradeLevelCount: cmd.Int("trade-level-count"),
 	}
+	if err := validateTradeLevelCount(opts.tradeLevelCount); err != nil {
+		return err
+	}
 	dataOpts := dataTableOptions{
 		start:    0,
-		length:   -1,
+		length:   opts.tradeLevelCount,
 		orderCol: 1,
 		orderDir: "desc",
 		filters:  buildTradeLevelFilters(opts),
@@ -849,6 +867,9 @@ func fetchTradeLevels(ctx context.Context, opts dataTableOptions) ([]models.Trad
 func runTradeLevelTouches(ctx context.Context, cmd *cli.Command) error {
 	startDate, endDate, err := requiredDateRange(cmd)
 	if err != nil {
+		return err
+	}
+	if err := validateTradeLevelTouchesLength(cmd.Int("length")); err != nil {
 		return err
 	}
 	tickers := multiTickerValue(cmd)

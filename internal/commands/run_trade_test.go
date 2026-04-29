@@ -515,7 +515,7 @@ func TestTradeLevelsDefaultPayload(t *testing.T) {
 
 	want := map[string]string{
 		"start":     "0",
-		"length":    "-1",
+		"length":    "10",
 		"StartDate": "2025-04-29",
 		"EndDate":   "2026-04-29",
 		"Ticker":    "AMD",
@@ -525,6 +525,56 @@ func TestTradeLevelsDefaultPayload(t *testing.T) {
 		if got := form.Get(key); got != value {
 			t.Errorf("%s = %q, want %q", key, got, value)
 		}
+	}
+}
+
+func TestTradeLevelsRejectsUnsafeLevelCount(t *testing.T) {
+	for _, count := range []string{"-1", "0", "51"} {
+		t.Run(count, func(t *testing.T) {
+			var requestCount int
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				requestCount++
+				fmt.Fprint(w, dataTablesJSON(`[]`))
+			}))
+			t.Cleanup(server.Close)
+
+			ctx := contextWithTestClient(t, server.URL)
+			root := &cli.Command{Commands: []*cli.Command{newTradeLevelsCommand()}}
+			err := root.Run(ctx, []string{
+				"app", "levels", "AMD",
+				"--trade-level-count", count,
+			})
+			assertErrContains(t, err, "--trade-level-count must be between 1 and 50 for trade level retrieval")
+			if requestCount != 0 {
+				t.Fatalf("expected invalid trade level count to fail before API query, got %d requests", requestCount)
+			}
+		})
+	}
+}
+
+func TestTradeLevelTouchesRejectsUnsafeLength(t *testing.T) {
+	for _, length := range []string{"-1", "0", "51"} {
+		t.Run(length, func(t *testing.T) {
+			var requestCount int
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				requestCount++
+				fmt.Fprint(w, dataTablesJSON(`[]`))
+			}))
+			t.Cleanup(server.Close)
+
+			ctx := contextWithTestClient(t, server.URL)
+			root := &cli.Command{Commands: []*cli.Command{newTradeLevelTouchesCommand()}}
+			err := root.Run(ctx, []string{
+				"app", "level-touches",
+				"--start-date", "2025-04-21",
+				"--end-date", "2025-04-21",
+				"--length", length,
+			})
+			assertErrContains(t, err, "--length must be between 1 and 50 for trade level touch retrieval")
+			if requestCount != 0 {
+				t.Fatalf("expected invalid trade level touch length to fail before API query, got %d requests", requestCount)
+			}
+		})
 	}
 }
 

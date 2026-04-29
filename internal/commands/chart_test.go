@@ -255,7 +255,7 @@ func TestRunCompanyFieldsAllIncludesFullModel(t *testing.T) {
 
 	ctx := contextWithTestClient(t, server.URL)
 	output := captureStdout(t, func() {
-		fields, err := chartFields[models.Company]("all", chartCompanyDefaultFields)
+		fields, err := outputFields[models.Company]("all", chartCompanyDefaultFields)
 		if err != nil {
 			t.Fatalf("unexpected field parse error: %v", err)
 		}

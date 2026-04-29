@@ -155,7 +155,7 @@ volumeleaders-agent chart price-data --ticker NVDA --start-date 2025-01-01 --end
 			if err != nil {
 				return err
 			}
-			fields, err := chartFields[models.PriceBar](cmd.String("fields"), chartPriceDataDefaultFields)
+			fields, err := outputFields[models.PriceBar](cmd.String("fields"), chartPriceDataDefaultFields)
 			if err != nil {
 				return fmt.Errorf("parsing fields flag: %w", err)
 			}
@@ -238,7 +238,7 @@ volumeleaders-agent chart levels --ticker TSLA --start-date 2025-01-01 --levels 
 			if err != nil {
 				return err
 			}
-			fields, err := chartFields[models.TradeLevel](cmd.String("fields"), chartLevelDefaultFields)
+			fields, err := outputFields[models.TradeLevel](cmd.String("fields"), chartLevelDefaultFields)
 			if err != nil {
 				return fmt.Errorf("parsing fields flag: %w", err)
 			}
@@ -269,7 +269,7 @@ func newCompanyCommand() *cli.Command {
 			if err != nil {
 				return err
 			}
-			fields, err := chartFields[models.Company](cmd.String("fields"), chartCompanyDefaultFields)
+			fields, err := outputFields[models.Company](cmd.String("fields"), chartCompanyDefaultFields)
 			if err != nil {
 				return fmt.Errorf("parsing fields flag: %w", err)
 			}
@@ -369,7 +369,7 @@ func runChartLevels(ctx context.Context, opts *chartLevelsOptions) error {
 			length:   -1,
 			orderCol: 0,
 			orderDir: "desc",
-			fields:   chartFieldsOrDefault(opts.fields, chartLevelDefaultFields),
+			fields:   outputFieldsOrDefault(opts.fields, chartLevelDefaultFields),
 			filters: map[string]string{
 				"StartDate": opts.startDate,
 				"EndDate":   opts.endDate,
@@ -394,24 +394,7 @@ func runCompany(ctx context.Context, ticker string, fields []string) error {
 		return fmt.Errorf("query company: %w", err)
 	}
 
-	return printSelectedJSON(ctx, company, chartFieldsOrDefault(fields, chartCompanyDefaultFields))
-}
-
-func chartFields[T any](value string, defaultFields []string) ([]string, error) {
-	if value == "" {
-		return defaultFields, nil
-	}
-	if value == "all" {
-		return jsonFieldNamesInOrder[T](), nil
-	}
-	return parseJSONFieldList[T](value)
-}
-
-func chartFieldsOrDefault(fields, defaultFields []string) []string {
-	if len(fields) == 0 {
-		return defaultFields
-	}
-	return fields
+	return printSelectedJSON(ctx, company, outputFieldsOrDefault(fields, chartCompanyDefaultFields))
 }
 
 func printSelectedJSON[T any](ctx context.Context, item T, fields []string) error {

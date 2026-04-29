@@ -217,6 +217,23 @@ func parseJSONFieldList[T any](value string) ([]string, error) {
 	return fields, nil
 }
 
+func outputFields[T any](value string, defaultFields []string) ([]string, error) {
+	if value == "" {
+		return defaultFields, nil
+	}
+	if value == "all" {
+		return jsonFieldNamesInOrder[T](), nil
+	}
+	return parseJSONFieldList[T](value)
+}
+
+func outputFieldsOrDefault(fields, defaultFields []string) []string {
+	if len(fields) == 0 {
+		return defaultFields
+	}
+	return fields
+}
+
 func jsonFieldNames[T any]() []string {
 	fields := jsonFieldNamesInOrder[T]()
 	slices.Sort(fields)

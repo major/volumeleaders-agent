@@ -71,13 +71,16 @@ JSON: `dateRange`, `daily`, `totals`. Daily rows include `date`, `bear`, `bull`,
 
 ## Clusters and cluster bombs
 
-`trade clusters` finds multiple institutional trades converging at similar prices. Requires a complete date range or `--days`. Defaults: `--min-dollars 10000000`, `--length 1000`, `--order-col 1`, `--order-dir desc`. Optional filters: ticker aliases, positional tickers, `--sector`, volume/price/dollar ranges, `--vcd`, `--security-type`, `--relative-size`, `--trade-cluster-rank`, format, pagination.
+`trade clusters` finds multiple institutional trades converging at similar prices. Requires a complete date range or `--days`. Defaults: `--min-dollars 10000000`, `--length 1000`, `--order-col 1`, `--order-dir desc`. Optional filters: ticker aliases, positional tickers, `--sector`, volume/price/dollar ranges, `--vcd`, `--security-type`, `--relative-size`, `--trade-cluster-rank`, `--fields`, format, pagination.
+
+Cluster output defaults to compact agent-friendly fields: `Date`, `Ticker`, `Price`, `Dollars`, `Volume`, `TradeCount`, `DollarsMultiplier`, `CumulativeDistribution`, `TradeClusterRank`, `MinFullDateTime`, `MaxFullDateTime`. Use `--fields all` for the full API model, or `--fields FIELD1,FIELD2` for a custom validated field list.
 
 `trade cluster-bombs` finds sudden, aggressive bursts tightly grouped in time and price. Requires a complete date range or `--days`. Defaults: `--min-dollars 0`, `--security-type 0`, `--relative-size 0`, `--length 100`. It accepts ticker aliases and positional tickers, has no price range filters, and uses `--trade-cluster-bomb-rank`.
 
 ```bash
 volumeleaders-agent trade clusters --start-date 2026-04-01 --end-date 2026-04-28 --min-dollars 50000000
 volumeleaders-agent trade clusters AAPL MSFT --days 5
+volumeleaders-agent trade clusters APH --start-date 2026-01-01 --end-date 2026-04-29 --fields all
 volumeleaders-agent trade cluster-bombs --start-date 2026-04-28 --end-date 2026-04-28
 ```
 
@@ -92,18 +95,19 @@ volumeleaders-agent trade alerts --date 2026-04-28
 volumeleaders-agent trade cluster-alerts --date 2026-04-28 --format tsv
 ```
 
-Trade alert fields include `Ticker`, `Name`, `AlertType`, `Price`, `TradeRank`, `VolumeCumulativeDistribution`, `DollarsMultiplier`, `Volume`, `Dollars`, booleans, `FullDateTime`, `InProcess`, `Complete`. Cluster alert fields match `trade clusters`.
+Trade alert fields include `Ticker`, `Name`, `AlertType`, `Price`, `TradeRank`, `VolumeCumulativeDistribution`, `DollarsMultiplier`, `Volume`, `Dollars`, booleans, `FullDateTime`, `InProcess`, `Complete`. Cluster alert fields use the full cluster-shaped model rather than the compact default from `trade clusters`.
 
 ## Levels and level touches
 
 `trade levels` finds significant institutional prices for one ticker. Required: `--ticker` (aliases accepted) or one positional ticker. Optional: `--start-date`, `--end-date`, `--days`, shared ranges, `--vcd`, `--trade-level-rank`, `--trade-level-count`, `--fields`, `--format`. Defaults to a 1-year lookback when dates are omitted, `--trade-level-count 10`, and non-standard `--relative-size 0`. It does not expose pagination flags. Trade level retrieval is capped at 50 rows per request, so `--trade-level-count` must be between 1 and 50.
 
-Default `trade levels` JSON returns compact analysis rows. It keeps level price, dollars, volume, trade count, relative size, cumulative distribution, rank, and min/max dates. Repetitive single-ticker metadata (`Ticker`, `Name`) and the verbose `Dates` list are omitted to reduce tokens. Use `--fields Ticker,Name,Dates` or another explicit field list when those raw API fields are needed. CSV/TSV without `--fields` still use the full raw trade level row columns.
+Default `trade levels` JSON returns compact analysis rows. It keeps level price, dollars, volume, trade count, relative size, cumulative distribution, rank, and min/max dates. Repetitive single-ticker metadata (`Ticker`, `Name`) and the verbose `Dates` list are omitted to reduce tokens. Use `--fields all`, `--fields Ticker,Name,Dates`, or another explicit field list when raw API fields are needed. CSV/TSV without `--fields` still use the full raw trade level row columns.
 
 `trade level-touches` finds events where price revisits institutional levels. Required: complete `--start-date`/`--end-date` range or `--days`. Optional: ticker aliases, positional tickers, volume/price/dollar ranges, `--vcd`, `--trade-level-rank`, format, pagination. Defaults: `--relative-size 0`, `--trade-level-rank 10`, `--length 50`, `--order-col 0`, `--order-dir desc`. Level-touch retrieval rejects `--length -1`, `--length 0`, and values above 50.
 
 ```bash
 volumeleaders-agent trade levels AAPL --days 30
+volumeleaders-agent trade levels AAPL --days 30 --fields all
 volumeleaders-agent trade level-touches XLE --days 5
 ```
 

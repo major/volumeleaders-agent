@@ -15,7 +15,7 @@ volumeleaders-agent --pretty daily summary --date 2026-04-28 --limit 5
 
 Output sections: `date`, `top_institutional_volume_tickers`, `top_clusters_by_dollars`, `top_clusters_by_multiplier`, `repeated_cluster_tickers`, `sector_totals`, `cluster_bombs`, `level_touches` split by relative size and dollars, `leveraged_etf_sentiment`, `market_exhaustion`.
 
-Data sources: institutional volume, trade clusters, cluster bombs, level touches, leveraged ETF sentiment via `Trades/GetTrades`, and exhaustion scores.
+Data sources: institutional volume, trade clusters, cluster bombs, level touches, leveraged ETF sentiment via one capped 50-row `Trades/GetTrades` request, and exhaustion scores.
 
 Follow up with:
 

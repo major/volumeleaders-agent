@@ -446,6 +446,124 @@ func TestTradeLevelsDefaultPayload(t *testing.T) {
 	}
 }
 
+func TestTradeLevelsDefaultJSONUsesCompactRows(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/TradeLevels/GetTradeLevels" {
+			t.Errorf("expected path /TradeLevels/GetTradeLevels, got %s", r.URL.Path)
+		}
+		fmt.Fprint(w, dataTablesJSON(`[
+			{
+				"Ticker":"AMD",
+				"Name":"Advanced Micro Devices, Inc.",
+				"Price":148.25,
+				"Dollars":25000000,
+				"Volume":168634,
+				"Trades":4,
+				"RelativeSize":6.75,
+				"CumulativeDistribution":0.94,
+				"TradeLevelRank":3,
+				"MinDate":"/Date(1745193600000)/",
+				"MaxDate":"/Date(1745280000000)/",
+				"Dates":"2025-04-21,2025-04-22"
+			}
+		]`))
+	}))
+	t.Cleanup(server.Close)
+
+	ctx := contextWithTestClient(t, server.URL)
+	output := captureStdout(t, func() {
+		root := &cli.Command{Commands: []*cli.Command{newTradeLevelsCommand()}}
+		if err := root.Run(ctx, []string{
+			"app", "levels", "AMD",
+			"--start-date", "2025-04-21",
+			"--end-date", "2025-04-22",
+		}); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+	})
+
+	var got []map[string]json.RawMessage
+	if err := json.Unmarshal([]byte(output), &got); err != nil {
+		t.Fatalf("unmarshal compact output: %v", err)
+	}
+	if len(got) != 1 {
+		t.Fatalf("expected one row, got %d", len(got))
+	}
+
+	wantFields := []string{
+		"Price",
+		"Dollars",
+		"Volume",
+		"Trades",
+		"RelativeSize",
+		"CumulativeDistribution",
+		"TradeLevelRank",
+		"MinDate",
+		"MaxDate",
+	}
+	for _, field := range wantFields {
+		if _, ok := got[0][field]; !ok {
+			t.Fatalf("expected compact field %s", field)
+		}
+	}
+
+	omittedFields := []string{"Ticker", "Name", "Dates"}
+	for _, field := range omittedFields {
+		if _, ok := got[0][field]; ok {
+			t.Fatalf("did not expect noisy field %s", field)
+		}
+	}
+}
+
+func TestTradeLevelsFieldsFiltersOutput(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/TradeLevels/GetTradeLevels" {
+			t.Errorf("expected path /TradeLevels/GetTradeLevels, got %s", r.URL.Path)
+		}
+		fmt.Fprint(w, dataTablesJSON(`[
+			{
+				"Ticker":"AMD",
+				"Name":"Advanced Micro Devices, Inc.",
+				"Price":148.25,
+				"Dollars":25000000,
+				"Dates":"2025-04-21,2025-04-22"
+			}
+		]`))
+	}))
+	t.Cleanup(server.Close)
+
+	ctx := contextWithTestClient(t, server.URL)
+	output := captureStdout(t, func() {
+		root := &cli.Command{Commands: []*cli.Command{newTradeLevelsCommand()}}
+		if err := root.Run(ctx, []string{
+			"app", "levels", "AMD",
+			"--start-date", "2025-04-21",
+			"--end-date", "2025-04-22",
+			"--fields", "Ticker,Name,Dates",
+		}); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+	})
+
+	var got []map[string]json.RawMessage
+	if err := json.Unmarshal([]byte(output), &got); err != nil {
+		t.Fatalf("unmarshal field-filtered output: %v", err)
+	}
+	if len(got) != 1 {
+		t.Fatalf("expected one row, got %d", len(got))
+	}
+
+	wantFields := []string{"Ticker", "Name", "Dates"}
+	for _, field := range wantFields {
+		if _, ok := got[0][field]; !ok {
+			t.Fatalf("expected requested field %s", field)
+		}
+	}
+	if _, ok := got[0]["Price"]; ok {
+		t.Fatal("did not expect unrequested Price field")
+	}
+}
+
 func TestTradeSentimentAggregatesLeveragedFlow(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/Trades/GetTrades" {

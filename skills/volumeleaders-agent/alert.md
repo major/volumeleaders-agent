@@ -4,19 +4,22 @@ Manage saved alert configurations. Alerts trigger when trades or clusters match 
 
 | Command | Use when | Required | Output |
 |---|---|---|---|
-| `alert configs` | List alert configs | none | JSON, CSV, TSV |
+| `alert configs` | List alert configs | optional `--fields` | JSON, CSV, TSV |
 | `alert delete` | Delete a config | `--key` | JSON |
 | `alert create` | Create a config | `--name` | JSON |
 | `alert edit` | Replace/update a config | `--key` | JSON |
 
 ```bash
 volumeleaders-agent alert configs --format csv
+volumeleaders-agent alert configs --fields all --format csv
 volumeleaders-agent alert create --name "Top Trades" --tickers "AAPL,MSFT" --trade-rank-lte 5
 volumeleaders-agent alert edit --key 12345 --trade-rank-lte 3
 volumeleaders-agent alert delete --key 12345
 ```
 
-`alert configs` fields include `AlertConfigKey` for edit/delete, `Name`, `Tickers`, and threshold fields. Threshold names follow `{Category}{Metric}{LTE|GTE}` where LTE is maximum rank and GTE is minimum value.
+`alert configs` defaults to a compact LLM-friendly field set: `AlertConfigKey`, `Name`, `Tickers`, `TradeConditions`, `ClosingTradeConditions`, `DarkPool`, `Sweep`, `OffsettingPrint`, and `PhantomPrint`. Use `--fields FieldA,FieldB` to request specific JSON fields, or `--fields all` for the full alert model with every threshold. CSV/TSV headers follow the same field selection.
+
+Full `alert configs` fields include `AlertConfigKey` for edit/delete, `UserKey`, `Name`, `Tickers`, and threshold fields. Threshold names follow `{Category}{Metric}{LTE|GTE}` where LTE is maximum rank and GTE is minimum value.
 
 Create/edit options: `--name` max 50 chars, `--ticker-group AllTickers|SelectedTickers`, `--tickers` comma-separated and auto-selects `SelectedTickers`.
 

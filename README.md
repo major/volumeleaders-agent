@@ -43,7 +43,6 @@ All commands emit compact JSON to stdout by default. Use `--pretty` for indented
 | `trade` | Institutional trades, clusters, cluster bombs, price levels | [skills/volumeleaders-agent/trade.md](skills/volumeleaders-agent/trade.md) |
 | `daily` | Compact daily institutional activity summaries | [skills/volumeleaders-agent/daily.md](skills/volumeleaders-agent/daily.md) |
 | `volume` | Volume leaderboards (institutional, after-hours, total) | [skills/volumeleaders-agent/volume.md](skills/volumeleaders-agent/volume.md) |
-| `chart` | Price bars with trade overlays, snapshots, company metadata | [skills/volumeleaders-agent/chart.md](skills/volumeleaders-agent/chart.md) |
 | `market` | Market-wide snapshots, earnings calendar, exhaustion scores | [skills/volumeleaders-agent/market.md](skills/volumeleaders-agent/market.md) |
 | `alert` | Saved alert configurations | [skills/volumeleaders-agent/alert.md](skills/volumeleaders-agent/alert.md) |
 | `watchlist` | Saved watchlists and their tickers | [skills/volumeleaders-agent/watchlist.md](skills/volumeleaders-agent/watchlist.md) |

@@ -1,5 +1,5 @@
 // Package models defines the response types returned by the VolumeLeaders API,
-// including trades, charts, earnings, alerts, and watchlists.
+// including trades, earnings, alerts, and watchlists.
 package models
 
 import (

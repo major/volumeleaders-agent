@@ -5,7 +5,6 @@ description: |
   - Looking up institutional block trades, clusters, or price levels for a ticker
   - Checking daily institutional activity summaries
   - Finding volume leaders (institutional, after-hours, total)
-  - Getting price bars with trade overlays or company metadata
   - Checking market-wide snapshots, earnings calendar, or exhaustion signals
   - Managing trade alerts or watchlists
   Triggers: "volumeleaders", "institutional trades", "block trades", "volume leaders", "trade clusters", "market exhaustion", "dark pool", "sweep"
@@ -13,7 +12,7 @@ description: |
 
 # volumeleaders-agent
 
-CLI for VolumeLeaders institutional trade data. Use it for trades, daily summaries, volume leaderboards, charts, market data, alerts, and watchlists. Binary: `volumeleaders-agent`.
+CLI for VolumeLeaders institutional trade data. Use it for trades, daily summaries, volume leaderboards, market data, alerts, and watchlists. Binary: `volumeleaders-agent`.
 
 Auth: reads browser cookies. If auth fails with exit code 2 and `Authentication required: VolumeLeaders session has expired.`, the user must log in at https://www.volumeleaders.com in their browser, then retry.
 
@@ -28,7 +27,6 @@ This is the entry point. Command details are split by command group:
 | [trade.md](trade.md) | Trade list, sentiment, clusters, cluster bombs, alerts, levels, level touches |
 | [daily.md](daily.md) | Daily institutional activity summaries |
 | [volume.md](volume.md) | Volume leaderboards (institutional, after-hours, total) |
-| [chart.md](chart.md) | Price bars with trade overlays, snapshots, levels, company metadata |
 | [market.md](market.md) | Market snapshots, earnings calendar, exhaustion signals |
 | [alert.md](alert.md) | Alert configuration management |
 | [watchlist.md](watchlist.md) | Watchlist management and ticker retrieval |
@@ -49,10 +47,6 @@ This is the entry point. Command details are split by command group:
 | See institutional volume leaders | `volume institutional --date D` | [volume.md](volume.md) |
 | See after-hours institutional leaders | `volume ah-institutional --date D` | [volume.md](volume.md) |
 | See total volume leaders | `volume total --date D` | [volume.md](volume.md) |
-| Get 1-min bars with trade overlays | `chart price-data X --days N` | [chart.md](chart.md) |
-| Get bid/ask/last quote | `chart snapshot X --date-key D` | JSON only |
-| Get chart-ready levels | `chart levels X --days N` | Fewer filters than `trade levels` |
-| Get company metadata | `chart company X` | JSON only |
 | Get current prices | `market snapshots` | JSON object |
 | Find earnings with prior institutional activity | `market earnings --days N` | CSV/TSV supported |
 | Check exhaustion/reversal signals | `market exhaustion [--date D]` | Lower rank = stronger signal |
@@ -66,21 +60,19 @@ This is the entry point. Command details are split by command group:
 2. `volume institutional --date D` for top dollar movers.
 3. `trade list X --days N` for individual prints.
 4. `trade levels X --days N` for support/resistance.
-5. `chart company X` for company context.
-6. `chart price-data X --days N` for bar-level overlays.
 
 ## Global Conventions
 
 - Dates: `YYYY-MM-DD`. Commands with date ranges accept either `--start-date D --end-date D` or `--days N`; `--days` counts backward from today unless `--end-date` is also set, and cannot be combined with `--start-date`.
 - Pagination: `--start` offset, `--length` count, `--length -1` means all rows unless the command file documents a stricter endpoint limit, `--order-col` sort column index, `--order-dir asc|desc`.
 - Toggle filters: `-1` all/unfiltered, `0` exclude, `1` include/only.
-- Tickers: `--tickers` is comma-separated, `--ticker` is single-symbol. Commands that take tickers generally accept positional tickers too, for example `trade list XLE XLK` or `chart company AAPL`. Trade and volume ticker filters also accept `--symbol` and `--symbols` aliases.
+- Tickers: `--tickers` is comma-separated, `--ticker` is single-symbol. Commands that take tickers generally accept positional tickers too, for example `trade list XLE XLK`. Trade and volume ticker filters also accept `--symbol` and `--symbols` aliases.
 - Output formats: list-style commands may support `--format json|csv|tsv`. CSV/TSV include headers, booleans render as `true`/`false`, null/missing values render as empty cells. Nested summaries and single-object commands are JSON-only unless their command file says otherwise.
 - Performance: use explicit dates and tickers when possible. `trade list` defaults to `--length 10`, and individual trade and trade-level retrieval commands are capped at 50 rows per request to protect the VolumeLeaders backend.
 
 ## Trade Shared Flags
 
-These defaults apply to trade commands only unless a subcommand overrides them. Chart commands use different names for some filters, see `chart.md`.
+These defaults apply to trade commands only unless a subcommand overrides them.
 
 | Flag | Default | Notes |
 |---|---|---|

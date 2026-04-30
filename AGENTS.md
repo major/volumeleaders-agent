@@ -14,7 +14,6 @@ Command-to-skill mapping:
 - `internal/commands/trade.go`, `internal/commands/presets.go` -> `skills/volumeleaders-agent/trade.md`
 - `internal/commands/daily.go` -> `skills/volumeleaders-agent/daily.md`
 - `internal/commands/volume.go` -> `skills/volumeleaders-agent/volume.md`
-- `internal/commands/chart.go` -> `skills/volumeleaders-agent/chart.md`
 - `internal/commands/market.go` -> `skills/volumeleaders-agent/market.md`
 - `internal/commands/alert.go` -> `skills/volumeleaders-agent/alert.md`
 - `internal/commands/watchlist.go` -> `skills/volumeleaders-agent/watchlist.md`
@@ -26,7 +25,7 @@ Command-to-skill mapping:
 cmd/volumeleaders-agent/main.go    Entry point
 internal/auth/                     Browser cookie + XSRF token extraction
 internal/client/                   HTTP client (DataTables + JSON requests)
-internal/commands/                 CLI command definitions (7 groups, 22 subcommands)
+internal/commands/                 CLI command definitions (6 groups, 27 subcommands)
 internal/datatables/               DataTables protocol encoding + column definitions
 internal/models/                   Response type definitions
 skills/volumeleaders-agent/        LLM skill files for agent integration

@@ -3,7 +3,6 @@ name: volumeleaders-agent
 description: |
   CLI for querying institutional trade data from VolumeLeaders. Use when:
   - Looking up institutional block trades, clusters, or price levels for a ticker
-  - Checking daily institutional activity summaries
   - Finding volume leaders (institutional, after-hours, total)
   - Checking market-wide snapshots, earnings calendar, or exhaustion signals
   - Managing trade alerts or watchlists
@@ -12,7 +11,7 @@ description: |
 
 # volumeleaders-agent
 
-CLI for VolumeLeaders institutional trade data. Use it for trades, daily summaries, volume leaderboards, market data, alerts, and watchlists. Binary: `volumeleaders-agent`.
+CLI for VolumeLeaders institutional trade data. Use it for trades, volume leaderboards, market data, alerts, and watchlists. Binary: `volumeleaders-agent`.
 
 Auth: reads browser cookies. If auth fails with exit code 2 and `Authentication required: VolumeLeaders session has expired.`, the user must log in at https://www.volumeleaders.com in their browser, then retry.
 
@@ -36,7 +35,6 @@ Use this skill for domain meaning, workflows, and gotchas that the schema cannot
 
 | Goal | Start with | Notes |
 |---|---|---|
-| Understand a full trading day quickly | `daily summary --date D` | Compact market-wide read with follow-up signals |
 | Find individual institutional prints | `trade list X --days N` | Use ticker filters, presets, or watchlists to stay inside caps |
 | Compare leveraged ETF bull/bear flow | `trade sentiment --days N` | Fixed leveraged ETF universe, not signed buy/sell flow |
 | Find converging price-level activity | `trade clusters --days N` | Cluster conviction around similar prices |
@@ -56,12 +54,11 @@ Use this skill for domain meaning, workflows, and gotchas that the schema cannot
 
 ## Analysis Workflow
 
-1. `daily summary --date D` for the broad read.
-2. `volume institutional --date D` for top dollar movers.
-3. `trade list X --days N` for individual prints.
-4. `trade levels X --days N` for support/resistance.
-5. `trade clusters X --days N` when prints appear concentrated around a price.
-6. `market earnings --days N` and `market exhaustion [--date D]` for event and reversal context.
+1. `volume institutional --date D` for top dollar movers.
+2. `trade list X --days N` for individual prints.
+3. `trade levels X --days N` for support/resistance.
+4. `trade clusters X --days N` when prints appear concentrated around a price.
+5. `market earnings --days N` and `market exhaustion [--date D]` for event and reversal context.
 
 ## Global Conventions
 
@@ -86,9 +83,7 @@ Shared trade filters include volume, price, dollars, conditions, VCD, relative s
 
 `trade levels` finds significant institutional prices for one ticker. It defaults to a 1-year lookback when dates are omitted, uses non-standard `--relative-size 0`, and caps level count from 1 to 50. Default JSON is compact and omits repetitive ticker metadata and the verbose `Dates` list. `trade level-touches` finds events where price revisits institutional levels, defaults to `--length 50`, and rejects `--length -1`, `--length 0`, and values above 50.
 
-## Daily, Volume, and Market Guidance
-
-`daily summary` is the best first command for a fast market-wide institutional activity read. It returns compact nested JSON for one trading day with sections such as `institutional_volume`, `clusters`, `cluster_bombs`, `level_touches`, `leveraged_etf_sentiment`, and `market_exhaustion`. The `top_by` field explains why a cluster or level-touch row was selected, usually dollars, multiplier, relative size, or both. The summary intentionally omits mixed sector totals because combining dollars and volume across endpoint summaries can double count the same activity. Data sources include institutional volume, clusters, cluster bombs, level touches, leveraged ETF sentiment via one capped 50-row `Trades/GetTrades` request, and exhaustion scores.
+## Volume and Market Guidance
 
 Volume commands rank stocks by trading activity and require `--date`. The default sort is `--order-dir asc`, unlike most trade commands. Output uses the same Trade model as `trade list`; key fields include institutional dollars/volume, after-hours institutional dollars/volume, closing trade dollars/volume, total dollars/volume, average daily volume, percent daily volume, close price, and RSI.
 
@@ -118,7 +113,6 @@ Watchlist configs define reusable filters and ticker groups. `watchlist tickers`
 
 ```bash
 volumeleaders-agent schema --command "trade list"
-volumeleaders-agent daily summary --date 2026-04-28
 volumeleaders-agent volume institutional --date 2026-04-28
 volumeleaders-agent trade list XLE --days 5
 volumeleaders-agent trade list --tickers SPY,QQQ --start-date 2026-04-21 --end-date 2026-04-28 --summary --group-by ticker,day --length 50

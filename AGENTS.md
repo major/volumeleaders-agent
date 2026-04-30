@@ -20,7 +20,7 @@ Command documentation mapping:
 cmd/volumeleaders-agent/main.go    Entry point
 internal/auth/                     Browser cookie + XSRF token extraction
 internal/client/                   HTTP client (DataTables + JSON requests)
-internal/commands/                 CLI command definitions (7 top-level commands, 27 subcommands)
+internal/commands/                 CLI command definitions (6 top-level commands, 26 subcommands)
 internal/datatables/               DataTables protocol encoding + column definitions
 internal/models/                   Response type definitions
 skills/volumeleaders-agent/SKILL.md Single schema-first LLM skill guide

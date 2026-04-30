@@ -18,7 +18,7 @@ func TestNewAppStructure(t *testing.T) {
 
 	// Verify all top-level command groups are registered.
 	expected := map[string]bool{
-		"trade": false, "daily": false, "volume": false,
+		"trade": false, "volume": false,
 		"market": false, "alert": false, "watchlist": false,
 		"schema": false,
 	}
@@ -57,7 +57,6 @@ func TestNewAppSubcommandCounts(t *testing.T) {
 
 	expected := map[string]int{
 		"trade":     10,
-		"daily":     1,
 		"volume":    3,
 		"market":    3,
 		"alert":     4,

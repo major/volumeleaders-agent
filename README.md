@@ -41,7 +41,6 @@ Commands emit compact JSON to stdout by default. Use `--pretty` for indented out
 | Group | Purpose |
 |---|---|
 | `trade` | Institutional trades, clusters, cluster bombs, price levels |
-| `daily` | Compact daily institutional activity summaries |
 | `volume` | Volume leaderboards (institutional, after-hours, total) |
 | `market` | Market-wide snapshots, earnings calendar, exhaustion scores |
 | `alert` | Saved alert configurations |

@@ -7,18 +7,12 @@ Go CLI tool for querying institutional trade data from [VolumeLeaders](https://w
 When modifying CLI commands, flags, models, or behavior:
 
 - Update `AGENTS.md` if the change affects project structure, build process, or conventions.
-- Update the relevant skill file(s) in `skills/volumeleaders-agent/` to reflect new/changed/removed commands, flags, defaults, or output formats. Skill files are the primary reference for LLM agents using this tool.
+- Keep the generated `schema` command as the source of truth for command names, flags, aliases, defaults, and examples. Update `skills/volumeleaders-agent/SKILL.md` only when behavior, workflows, output conventions, or domain gotchas change.
 
-Command-to-skill mapping:
+Command documentation mapping:
 
-- `internal/commands/trade.go`, `internal/commands/presets.go` -> `skills/volumeleaders-agent/trade.md`
-- `internal/commands/daily.go` -> `skills/volumeleaders-agent/daily.md`
-- `internal/commands/volume.go` -> `skills/volumeleaders-agent/volume.md`
-- `internal/commands/market.go` -> `skills/volumeleaders-agent/market.md`
-- `internal/commands/alert.go` -> `skills/volumeleaders-agent/alert.md`
-- `internal/commands/watchlist.go` -> `skills/volumeleaders-agent/watchlist.md`
-- `internal/commands/schema.go` -> `skills/volumeleaders-agent/SKILL.md`
-- Shared conventions and command chooser updates -> `skills/volumeleaders-agent/SKILL.md`
+- All command groups -> `volumeleaders-agent schema` for command shape and `skills/volumeleaders-agent/SKILL.md` for semantic guidance.
+- Shared conventions, workflows, output behavior, auth guidance, and domain gotchas -> `skills/volumeleaders-agent/SKILL.md`.
 
 ## Project Layout
 
@@ -29,7 +23,7 @@ internal/client/                   HTTP client (DataTables + JSON requests)
 internal/commands/                 CLI command definitions (7 top-level commands, 27 subcommands)
 internal/datatables/               DataTables protocol encoding + column definitions
 internal/models/                   Response type definitions
-skills/volumeleaders-agent/        LLM skill files for agent integration
+skills/volumeleaders-agent/SKILL.md Single schema-first LLM skill guide
 ```
 
 ## Build and Test
@@ -59,7 +53,7 @@ make install    # Install to $GOPATH/bin
 - For `internal/auth/**/*.go`, check cookie extraction, browser profile handling, and token lookup paths for credential safety, useful error messages, and graceful behavior when browsers or cookies are unavailable.
 - For `internal/client/**/*.go`, check HTTP status handling, request context propagation, response body closure, DataTables encoding, and errors that explain the endpoint or operation that failed.
 - For `internal/models/**/*.go`, verify JSON tags match VolumeLeaders response fields and that model changes do not silently drop data needed by commands, summaries, or CSV/TSV output.
-- For `internal/commands/**/*.go`, verify command behavior matches README, `skills/volumeleaders-agent/*.md`, and the conventions above. If commands, flags, models, or output formats change, require matching skill documentation updates.
+- For `internal/commands/**/*.go`, verify command behavior matches README, `volumeleaders-agent schema`, `skills/volumeleaders-agent/SKILL.md`, and the conventions above. If commands, flags, aliases, defaults, or examples change, require schema coverage. If workflows, behavior, models, or output formats change, require matching `SKILL.md` updates.
 - For tests, expect table-driven subtests with `t.Run`, parallelization where safe, `t.TempDir()` for filesystem work, deterministic fixtures, and assertions on observable behavior rather than implementation details. Do not request arbitrary coverage percentage changes.
 - For GitHub Actions workflows, treat unpinned actions, excessive permissions, secret exposure in logs, or unsafe pull request execution patterns as P1.
 - For `Makefile`, check that non-file targets are declared `.PHONY` and avoid adding flags that duplicate tool defaults.

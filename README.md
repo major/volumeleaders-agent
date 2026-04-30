@@ -25,7 +25,7 @@ Pre-built binaries (signed with [Sigstore](https://www.sigstore.dev/)) are attac
 
 ```bash
 # Today's top institutional volume movers
-volumeleaders-agent volume institutional
+volumeleaders-agent volume institutional --date 2026-04-28
 
 # Large trades in a specific ticker
 volumeleaders-agent trade list --tickers NVDA --start-date 2025-01-01 --end-date 2025-04-24
@@ -34,20 +34,21 @@ volumeleaders-agent trade list --tickers NVDA --start-date 2025-01-01 --end-date
 volumeleaders-agent --pretty market exhaustion
 ```
 
-All commands emit compact JSON to stdout by default. Use `--pretty` for indented output. Errors go to stderr.
+Commands emit compact JSON to stdout by default. Use `--pretty` for indented output. Errors go to stderr. The `schema` command is the exception: it always emits raw indented JSON for machine-readable CLI introspection.
 
 ## Commands
 
-| Group | Purpose | Docs |
-|---|---|---|
-| `trade` | Institutional trades, clusters, cluster bombs, price levels | [skills/volumeleaders-agent/trade.md](skills/volumeleaders-agent/trade.md) |
-| `daily` | Compact daily institutional activity summaries | [skills/volumeleaders-agent/daily.md](skills/volumeleaders-agent/daily.md) |
-| `volume` | Volume leaderboards (institutional, after-hours, total) | [skills/volumeleaders-agent/volume.md](skills/volumeleaders-agent/volume.md) |
-| `market` | Market-wide snapshots, earnings calendar, exhaustion scores | [skills/volumeleaders-agent/market.md](skills/volumeleaders-agent/market.md) |
-| `alert` | Saved alert configurations | [skills/volumeleaders-agent/alert.md](skills/volumeleaders-agent/alert.md) |
-| `watchlist` | Saved watchlists and their tickers | [skills/volumeleaders-agent/watchlist.md](skills/volumeleaders-agent/watchlist.md) |
+| Group | Purpose |
+|---|---|
+| `trade` | Institutional trades, clusters, cluster bombs, price levels |
+| `daily` | Compact daily institutional activity summaries |
+| `volume` | Volume leaderboards (institutional, after-hours, total) |
+| `market` | Market-wide snapshots, earnings calendar, exhaustion scores |
+| `alert` | Saved alert configurations |
+| `watchlist` | Saved watchlists and their tickers |
+| `schema` | JSON schema of all commands and flags |
 
-See [skills/volumeleaders-agent/SKILL.md](skills/volumeleaders-agent/SKILL.md) for full flag reference, filter conventions, and a decision tree for picking the right command.
+Use `volumeleaders-agent schema` for the machine-readable command and flag reference. See [skills/volumeleaders-agent/SKILL.md](skills/volumeleaders-agent/SKILL.md) for schema-first agent guidance, filter conventions, workflows, and domain gotchas.
 
 ## Build
 

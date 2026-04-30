@@ -12,7 +12,7 @@ import (
 
 // NewApp returns the root CLI command with all subcommand groups registered.
 func NewApp(version string) *cli.Command {
-	return &cli.Command{
+	app := &cli.Command{
 		Name:    "volumeleaders-agent",
 		Version: version,
 		Usage:   "CLI tool for querying VolumeLeaders institutional trade data",
@@ -33,4 +33,6 @@ func NewApp(version string) *cli.Command {
 			NewWatchlistCommand(),
 		},
 	}
+	app.Commands = append(app.Commands, SchemaCommand(app, os.Stdout))
+	return app
 }

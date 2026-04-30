@@ -16,7 +16,7 @@ CLI for VolumeLeaders institutional trade data. Use it for trades, daily summari
 
 Auth: reads browser cookies. If auth fails with exit code 2 and `Authentication required: VolumeLeaders session has expired.`, the user must log in at https://www.volumeleaders.com in their browser, then retry.
 
-Output: compact JSON to stdout by default. Put `--pretty` before the command group for indented JSON. Errors/logs go to stderr.
+Output: compact JSON to stdout by default. Put `--pretty` before the command group for indented JSON. The `schema` command always emits raw indented JSON for machine-readable CLI introspection. Errors/logs go to stderr.
 
 ## Companion Files
 
@@ -30,6 +30,7 @@ This is the entry point. Command details are split by command group:
 | [market.md](market.md) | Market snapshots, earnings calendar, exhaustion signals |
 | [alert.md](alert.md) | Alert configuration management |
 | [watchlist.md](watchlist.md) | Watchlist management and ticker retrieval |
+| This file | `schema` command for machine-readable CLI introspection |
 
 ## Command Chooser
 
@@ -53,6 +54,7 @@ This is the entry point. Command details are split by command group:
 | Manage alert configs | `alert configs/create/edit/delete` | [alert.md](alert.md) |
 | Manage watchlists | `watchlist configs/create/edit/delete` | [watchlist.md](watchlist.md) |
 | Get watchlist tickers | `watchlist tickers --watchlist-key K` | Key from `watchlist configs` |
+| Inspect available commands and flags | `schema [--command "group subcommand"]` | Raw JSON, no VolumeLeaders auth required |
 
 ## Analysis Workflow
 
@@ -68,6 +70,7 @@ This is the entry point. Command details are split by command group:
 - Toggle filters: `-1` all/unfiltered, `0` exclude, `1` include/only.
 - Tickers: `--tickers` is comma-separated, `--ticker` is single-symbol. Commands that take tickers generally accept positional tickers too, for example `trade list XLE XLK`. Trade and volume ticker filters also accept `--symbol` and `--symbols` aliases.
 - Output formats: list-style commands may support `--format json|csv|tsv`. CSV/TSV include headers, booleans render as `true`/`false`, null/missing values render as empty cells. Nested summaries and single-object commands are JSON-only unless their command file says otherwise.
+- Schema output: `schema` always emits raw indented JSON with `commands` and `global_flags` keys. Use `--command "trade list"` or another space-separated command path to filter to one command.
 - Performance: use explicit dates and tickers when possible. `trade list` defaults to `--length 10`, and individual trade and trade-level retrieval commands are capped at 50 rows per request to protect the VolumeLeaders backend.
 
 ## Trade Shared Flags

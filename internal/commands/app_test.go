@@ -16,10 +16,11 @@ func TestNewAppStructure(t *testing.T) {
 		t.Errorf("expected version %q, got %q", "1.0.0-test", app.Version)
 	}
 
-	// Verify all 6 command groups are registered.
+	// Verify all top-level command groups are registered.
 	expected := map[string]bool{
 		"trade": false, "daily": false, "volume": false,
 		"market": false, "alert": false, "watchlist": false,
+		"schema": false,
 	}
 	if got, want := len(app.Commands), len(expected); got != want {
 		t.Errorf("expected %d command groups, got %d", want, got)
@@ -61,6 +62,7 @@ func TestNewAppSubcommandCounts(t *testing.T) {
 		"market":    3,
 		"alert":     4,
 		"watchlist": 6,
+		"schema":    0,
 	}
 
 	for _, cmd := range app.Commands {

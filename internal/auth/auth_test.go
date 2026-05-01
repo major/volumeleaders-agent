@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"bytes"
 	"compress/gzip"
 	"context"
 	"errors"
@@ -130,6 +131,14 @@ func TestFetchXSRFToken(t *testing.T) {
 			},
 			wantErr: "XSRF token not found",
 		},
+		{
+			name: "invalid gzip response",
+			handler: func(w http.ResponseWriter, _ *http.Request) {
+				w.Header().Set("Content-Encoding", "gzip")
+				fmt.Fprint(w, "not gzip")
+			},
+			wantErr: "decompress XSRF token page",
+		},
 	}
 
 	for _, tt := range tests {
@@ -168,6 +177,41 @@ func TestFetchXSRFToken(t *testing.T) {
 				t.Errorf("expected token %q, got %q", tt.wantToken, token)
 			}
 		})
+	}
+}
+
+func TestSessionExpiredErrorDetail(t *testing.T) {
+	t.Parallel()
+
+	err := sessionExpiredError{redirectPath: "/Login"}
+	if got := err.Detail(); got != "requested host www.volumeleaders.com redirected to /Login" {
+		t.Fatalf("Detail() = %q", got)
+	}
+}
+
+func TestAuthCookies(t *testing.T) {
+	t.Parallel()
+
+	cookies := kooky.Cookies{
+		{Cookie: http.Cookie{Name: "ASP.NET_SessionId", Value: "session-cookie"}},
+		{Cookie: http.Cookie{Name: ".ASPXAUTH", Value: "auth-cookie"}},
+		{Cookie: http.Cookie{Name: "__RequestVerificationToken", Value: "cookie-token"}},
+		{Cookie: http.Cookie{Name: "unrelated", Value: "ignored"}},
+	}
+
+	got := authCookies(cookies)
+	want := map[string]string{
+		"ASP.NET_SessionId":          "session-cookie",
+		".ASPXAUTH":                  "auth-cookie",
+		"__RequestVerificationToken": "cookie-token",
+	}
+	if len(got) != len(want) {
+		t.Fatalf("authCookies() len = %d, want %d: %v", len(got), len(want), got)
+	}
+	for name, wantValue := range want {
+		if got[name] != wantValue {
+			t.Fatalf("authCookies()[%q] = %q, want %q", name, got[name], wantValue)
+		}
 	}
 }
 
@@ -219,6 +263,22 @@ func TestCookieDiagnostic(t *testing.T) {
 				"/home/",
 			},
 		},
+		{
+			name:  "counts cookies without browser metadata as one unknown store",
+			found: map[string]string{},
+			allCookies: kooky.Cookies{
+				{Cookie: http.Cookie{Name: "ASP.NET_SessionId", Value: "expired-session-cookie"}},
+				{Cookie: http.Cookie{Name: ".ASPXAUTH", Value: "expired-auth-cookie"}},
+			},
+			wantParts: []string{
+				"browser stores with VolumeLeaders cookies: 1",
+				"matching required cookies found but not usable as valid cookies: ASP.NET_SessionId, .ASPXAUTH",
+			},
+			forbidParts: []string{
+				"expired-session-cookie",
+				"expired-auth-cookie",
+			},
+		},
 	}
 
 	for _, tt := range tests {
@@ -243,10 +303,58 @@ func TestCookieDiagnostic(t *testing.T) {
 func TestSafeRedirectPath(t *testing.T) {
 	t.Parallel()
 
-	req := httptest.NewRequest(http.MethodGet, "https://www.volumeleaders.com/Login?returnUrl=%2FAccount", http.NoBody)
-	got := safeRedirectPath(&http.Response{Request: req})
-	if got != "/Login" {
-		t.Fatalf("expected sanitized redirect path, got %q", got)
+	tests := []struct {
+		name string
+		resp *http.Response
+		want string
+	}{
+		{
+			name: "sanitizes query from redirect URL",
+			resp: &http.Response{Request: httptest.NewRequest(http.MethodGet, "https://www.volumeleaders.com/Login?returnUrl=%2FAccount", http.NoBody)},
+			want: "/Login",
+		},
+		{
+			name: "unknown when response is nil",
+			resp: nil,
+			want: "unknown redirect target",
+		},
+		{
+			name: "unknown when request is nil",
+			resp: &http.Response{},
+			want: "unknown redirect target",
+		},
+		{
+			name: "root path remains slash",
+			resp: &http.Response{Request: httptest.NewRequest(http.MethodGet, "https://www.volumeleaders.com", http.NoBody)},
+			want: "/",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			if got := safeRedirectPath(tt.resp); got != tt.want {
+				t.Fatalf("safeRedirectPath() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestSetBrowserHeadersOverwritesExistingValues(t *testing.T) {
+	t.Parallel()
+
+	req := httptest.NewRequest(http.MethodGet, "https://www.volumeleaders.com/ExecutiveSummary", bytes.NewReader(nil))
+	req.Header.Set("User-Agent", "old-agent")
+	req.Header.Set("Accept-Encoding", "identity")
+
+	setBrowserHeaders(req)
+
+	if got := req.Header.Get("User-Agent"); got != UserAgent {
+		t.Fatalf("User-Agent = %q, want %q", got, UserAgent)
+	}
+	if got := req.Header.Get("Accept-Encoding"); got != "gzip, deflate, br" {
+		t.Fatalf("Accept-Encoding = %q", got)
 	}
 }
 

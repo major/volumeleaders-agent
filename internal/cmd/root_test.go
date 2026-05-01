@@ -2,8 +2,11 @@ package cmd
 
 import (
 	"bytes"
+	"errors"
 	"strings"
 	"testing"
+
+	"github.com/spf13/cobra"
 )
 
 func TestRootCommandWiresStructCLIFeatures(t *testing.T) {
@@ -45,5 +48,30 @@ func TestRootCommandWiresStructCLIFeatures(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestNewRootCmdWrapsCommandFactoryError(t *testing.T) {
+	wantErr := errors.New("factory failed")
+	oldFactories := rootCommandFactories
+	rootCommandFactories = []commandFactory{
+		{
+			name: "broken",
+			new: func() (*cobra.Command, error) {
+				return nil, wantErr
+			},
+		},
+	}
+	t.Cleanup(func() { rootCommandFactories = oldFactories })
+
+	_, err := NewRootCmd()
+	if err == nil {
+		t.Fatal("expected command factory error")
+	}
+	if !errors.Is(err, wantErr) {
+		t.Fatalf("expected wrapped factory error, got %v", err)
+	}
+	if !strings.Contains(err.Error(), "create broken command") {
+		t.Fatalf("expected command name context, got %v", err)
 	}
 }

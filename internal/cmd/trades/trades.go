@@ -31,7 +31,8 @@ const (
 	getTradeClustersPath = "https://www.volumeleaders.com/TradeClusters/GetTradeClusters"
 	tradesPage           = "https://www.volumeleaders.com/Trades"
 	tradeClustersPage    = "https://www.volumeleaders.com/TradeClusters"
-	tradeLLMFieldGuide   = "LLM field guide: RelativeSize is a request filter for minimum relative size. Captured browser values are 0, 5, 10, 25, 50, and 100, where 0 means any size and the others mean at least that many times the ticker's average dollar trade size. DollarsMultiplier, shown as RS in the UI, is the returned relative size value: trade dollars divided by average dollars for that ticker. VolumeLeaders highlights trades at or above 25x average size. CumulativeDistribution, shown as PCT in the UI, is the trade's percentile rank relative to other trades for the same ticker. Conditions carries RSI condition filters: OBD means overbought daily, OBH means overbought hourly, OSD means oversold daily, and OSH means oversold hourly. Captured defaults use -1 for no RSI condition filter. IgnoreOBD, IgnoreOBH, IgnoreOSD, and IgnoreOSH mean do not consider that RSI condition; they do not mean exclude matching rows. VCD is unknown; captures and code only show 0 or 0.00, so the CLI preserves the captured value and does not expose it as a user-facing filter."
+	tradeLLMFieldGuide   = "LLM field guide: RelativeSize is a request filter for minimum relative size. Captured browser values are 0, 5, 10, 25, 50, and 100, where 0 means any size and the others mean at least that many times the ticker's average dollar trade size. DollarsMultiplier, shown as RS in the UI, is the returned relative size value: trade dollars divided by average dollars for that ticker. VolumeLeaders highlights trades at or above 25x average size. CumulativeDistribution, shown as PCT in the UI, is the trade's percentile rank relative to other trades for the same ticker. Conditions carries RSI condition filters: OBD means overbought daily, OBH means overbought hourly, OSD means oversold daily, and OSH means oversold hourly. Captured defaults use -1 for no RSI condition filter. IgnoreOBD, IgnoreOBH, IgnoreOSD, and IgnoreOSH mean do not consider that RSI condition; they do not mean exclude matching rows. VCD appears to carry the minimum CumulativeDistribution percentile. Captures use 0 for no percentile filter and 99 for the 99th percentile or above."
+	ignoredRSIConditions = "IgnoreOBD,IgnoreOBH,IgnoreOSD,IgnoreOSH"
 )
 
 var (
@@ -218,9 +219,23 @@ type getTradeClustersRequestOptions struct {
 	length                 int
 	minVolume              string
 	maxDollars             string
+	conditions             string
 	vcd                    string
 	relativeSize           string
+	darkPools              string
+	sweeps                 string
+	latePrints             string
+	signaturePrints        string
+	evenShared             string
 	securityTypeKey        string
+	marketCap              string
+	includePremarket       string
+	includeRTH             string
+	includeAH              string
+	includeOpening         string
+	includeClosing         string
+	includePhantom         string
+	includeOffsetting      string
 	sectorIndustry         string
 	presetSearchTemplateID string
 }
@@ -236,7 +251,18 @@ type getTradesRequestOptions struct {
 	vcd                    string
 	relativeSize           string
 	darkPools              string
+	sweeps                 string
+	latePrints             string
 	signaturePrints        string
+	evenShared             string
+	securityTypeKey        string
+	tradeRankSnapshot      string
+	marketCap              string
+	includePremarket       string
+	includeRTH             string
+	includeAH              string
+	includeOpening         string
+	includeClosing         string
 	includePhantom         string
 	includeOffsetting      string
 	sectorIndustry         string
@@ -270,14 +296,35 @@ type tradeOutput struct {
 }
 
 type rankedPreset struct {
-	use      string
-	aliases  []string
-	short    string
-	long     string
-	example  string
-	rank     int
-	length   int
-	presetID string
+	use               string
+	aliases           []string
+	short             string
+	long              string
+	example           string
+	rank              int
+	length            int
+	minVolume         string
+	maxDollars        string
+	conditions        string
+	vcd               string
+	relativeSize      string
+	darkPools         string
+	sweeps            string
+	latePrints        string
+	signaturePrints   string
+	evenShared        string
+	securityTypeKey   string
+	tradeRankSnapshot string
+	marketCap         string
+	includePremarket  string
+	includeRTH        string
+	includeAH         string
+	includeOpening    string
+	includeClosing    string
+	includePhantom    string
+	includeOffsetting string
+	sectorIndustry    string
+	presetID          string
 }
 
 type signalPreset struct {
@@ -303,20 +350,34 @@ type conditionPreset struct {
 }
 
 type clusterPreset struct {
-	use              string
-	aliases          []string
-	short            string
-	long             string
-	example          string
-	tradeClusterRank int
-	length           int
-	minVolume        string
-	maxDollars       string
-	vcd              string
-	relativeSize     string
-	securityTypeKey  string
-	sectorIndustry   string
-	presetID         string
+	use               string
+	aliases           []string
+	short             string
+	long              string
+	example           string
+	tradeClusterRank  int
+	length            int
+	minVolume         string
+	maxDollars        string
+	conditions        string
+	vcd               string
+	relativeSize      string
+	darkPools         string
+	sweeps            string
+	latePrints        string
+	signaturePrints   string
+	evenShared        string
+	securityTypeKey   string
+	marketCap         string
+	includePremarket  string
+	includeRTH        string
+	includeAH         string
+	includeOpening    string
+	includeClosing    string
+	includePhantom    string
+	includeOffsetting string
+	sectorIndustry    string
+	presetID          string
 }
 
 type tradeRequestConfig struct {
@@ -465,6 +526,46 @@ func NewTop100Command() (*cobra.Command, error) {
 	})
 }
 
+// NewTop3010x99PctCommand builds the top 30, 10x relative size, 99th percentile trades command.
+func NewTop3010x99PctCommand() (*cobra.Command, error) {
+	return newRankedCommand(top3010x99PctTradePreset())
+}
+
+// NewTop3010x99PctClustersCommand builds the cluster equivalent of the top 30, 10x relative size, 99th percentile command.
+func NewTop3010x99PctClustersCommand() (*cobra.Command, error) {
+	return newClusterCommand(top3010x99PctClusterPreset())
+}
+
+// NewTop100DarkPool20xCommand builds the top 100, 20x relative size, dark-pool trades command.
+func NewTop100DarkPool20xCommand() (*cobra.Command, error) {
+	return newRankedCommand(top100DarkPool20xTradePreset())
+}
+
+// NewTop100DarkPool20xClustersCommand builds the cluster equivalent of the top 100, 20x relative size, dark-pool command.
+func NewTop100DarkPool20xClustersCommand() (*cobra.Command, error) {
+	return newClusterCommand(top100DarkPool20xClusterPreset())
+}
+
+// NewTop100LeveragedETFsCommand builds the top 100 leveraged ETF trades command.
+func NewTop100LeveragedETFsCommand() (*cobra.Command, error) {
+	return newRankedCommand(top100LeveragedETFsTradePreset())
+}
+
+// NewTop100LeveragedETFsClustersCommand builds the cluster equivalent of the top 100 leveraged ETF command.
+func NewTop100LeveragedETFsClustersCommand() (*cobra.Command, error) {
+	return newClusterCommand(top100LeveragedETFsClusterPreset())
+}
+
+// NewTop100DarkPoolSweepsCommand builds the top 100 dark-pool sweep trades command.
+func NewTop100DarkPoolSweepsCommand() (*cobra.Command, error) {
+	return newRankedCommand(top100DarkPoolSweepsTradePreset())
+}
+
+// NewTop100DarkPoolSweepsClustersCommand builds the cluster equivalent of the top 100 dark-pool sweep command.
+func NewTop100DarkPoolSweepsClustersCommand() (*cobra.Command, error) {
+	return newClusterCommand(top100DarkPoolSweepsClusterPreset())
+}
+
 // NewPhantomCommand builds the phantom trades command.
 func NewPhantomCommand() (*cobra.Command, error) {
 	return newSignalCommand(&signalPreset{
@@ -519,6 +620,189 @@ func NewOversoldCommand() (*cobra.Command, error) {
 		conditions: "OSD,OSH",
 		presetID:   "85",
 	})
+}
+
+// NewOverboughtClustersCommand builds the RSI overbought trade clusters command.
+func NewOverboughtClustersCommand() (*cobra.Command, error) {
+	return newClusterCommand(overboughtClusterPreset())
+}
+
+// NewOversoldClustersCommand builds the RSI oversold trade clusters command.
+func NewOversoldClustersCommand() (*cobra.Command, error) {
+	return newClusterCommand(oversoldClusterPreset())
+}
+
+func top3010x99PctTradePreset() *rankedPreset {
+	return &rankedPreset{
+		use:               "top30-10x-99pct",
+		aliases:           []string{"top30-rank-over-10x-relative-size-in-99th-percentile"},
+		short:             "Fetch top 30 trades at least 10x relative size in the 99th percentile",
+		long:              "Fetch VolumeLeaders trades for one day where each trade ranks in the stock's all-time top 30, is at least 10x relative size, and is in the 99th CumulativeDistribution percentile.",
+		example:           "volumeleaders-agent top30-10x-99pct --date 2026-04-30\nvolumeleaders-agent top30-10x-99pct --date 2026-04-30 --tickers AAPL,MSFT",
+		rank:              30,
+		length:            100,
+		minVolume:         "10000",
+		maxDollars:        "10000000000",
+		conditions:        ignoredRSIConditions,
+		vcd:               "99",
+		relativeSize:      "10",
+		darkPools:         "-1",
+		signaturePrints:   "0",
+		includePhantom:    "-1",
+		includeOffsetting: "-1",
+		presetID:          "212",
+	}
+}
+
+func top3010x99PctClusterPreset() *clusterPreset {
+	return tradePresetToClusterPreset(top3010x99PctTradePreset(), "top30-10x-99pct-clusters", []string{"top30-rank-over-10x-relative-size-in-99th-percentile-clusters"}, "Fetch top 30 trade clusters at least 10x relative size in the 99th percentile", "Fetch VolumeLeaders trade clusters for one day where each cluster ranks in the stock's all-time top 30, is at least 10x relative size, and is in the 99th CumulativeDistribution percentile.", "volumeleaders-agent top30-10x-99pct-clusters --date 2026-04-30\nvolumeleaders-agent top30-10x-99pct-clusters --date 2026-04-30 --tickers AAPL,MSFT")
+}
+
+func top100DarkPool20xTradePreset() *rankedPreset {
+	return &rankedPreset{
+		use:               "top100-dark-pool-20x",
+		aliases:           []string{"top100-over-20x-relative-size-dark-pool-trades-only"},
+		short:             "Fetch top 100 dark-pool trades at least 20x relative size",
+		long:              "Fetch VolumeLeaders dark-pool trades for one day where each trade ranks in the stock's all-time top 100 and is at least 20x relative size.",
+		example:           "volumeleaders-agent top100-dark-pool-20x --date 2026-04-30\nvolumeleaders-agent top100-dark-pool-20x --date 2026-04-30 --tickers AAPL,MSFT",
+		rank:              100,
+		length:            100,
+		minVolume:         "10000",
+		maxDollars:        "10000000000",
+		conditions:        ignoredRSIConditions,
+		vcd:               "0",
+		relativeSize:      "20",
+		darkPools:         "1",
+		signaturePrints:   "0",
+		includePhantom:    "-1",
+		includeOffsetting: "-1",
+		presetID:          "183",
+	}
+}
+
+func top100DarkPool20xClusterPreset() *clusterPreset {
+	return tradePresetToClusterPreset(top100DarkPool20xTradePreset(), "top100-dark-pool-20x-clusters", []string{"top100-over-20x-relative-size-dark-pool-trades-only-clusters"}, "Fetch top 100 dark-pool trade clusters at least 20x relative size", "Fetch VolumeLeaders dark-pool trade clusters for one day where each cluster ranks in the stock's all-time top 100 and is at least 20x relative size.", "volumeleaders-agent top100-dark-pool-20x-clusters --date 2026-04-30\nvolumeleaders-agent top100-dark-pool-20x-clusters --date 2026-04-30 --tickers AAPL,MSFT")
+}
+
+func top100LeveragedETFsTradePreset() *rankedPreset {
+	return &rankedPreset{
+		use:               "top100-leveraged-etfs",
+		aliases:           []string{"top100-leveraged-etfs-only"},
+		short:             "Fetch top 100 leveraged ETF trades",
+		long:              "Fetch VolumeLeaders leveraged ETF trades for one day where each trade ranks in the ticker's all-time top 100 trades.",
+		example:           "volumeleaders-agent top100-leveraged-etfs --date 2026-04-30\nvolumeleaders-agent top100-leveraged-etfs --date 2026-04-30 --tickers TQQQ,SQQQ",
+		rank:              100,
+		length:            100,
+		minVolume:         "10000",
+		maxDollars:        "1000000000000",
+		conditions:        ignoredRSIConditions,
+		vcd:               "0",
+		relativeSize:      "0",
+		darkPools:         "-1",
+		signaturePrints:   "-1",
+		includePhantom:    "-1",
+		includeOffsetting: "-1",
+		sectorIndustry:    "X B",
+		presetID:          "4724",
+	}
+}
+
+func top100LeveragedETFsClusterPreset() *clusterPreset {
+	return tradePresetToClusterPreset(top100LeveragedETFsTradePreset(), "top100-leveraged-etfs-clusters", []string{"top100-leveraged-etfs-only-clusters"}, "Fetch top 100 leveraged ETF trade clusters", "Fetch VolumeLeaders leveraged ETF trade clusters for one day where each cluster ranks in the ticker's all-time top 100 clusters.", "volumeleaders-agent top100-leveraged-etfs-clusters --date 2026-04-30\nvolumeleaders-agent top100-leveraged-etfs-clusters --date 2026-04-30 --tickers TQQQ,SQQQ")
+}
+
+func top100DarkPoolSweepsTradePreset() *rankedPreset {
+	return &rankedPreset{
+		use:               "top100-dark-pool-sweeps",
+		short:             "Fetch top 100 dark-pool sweep trades",
+		long:              "Fetch VolumeLeaders dark-pool sweep trades for one day where each trade ranks in the stock's all-time top 100. This preset includes premarket and regular-hours trades, while excluding after-hours, opening, closing, and phantom prints as captured from the browser.",
+		example:           "volumeleaders-agent top100-dark-pool-sweeps --date 2026-04-30\nvolumeleaders-agent top100-dark-pool-sweeps --date 2026-04-30 --tickers AAPL,MSFT",
+		rank:              100,
+		length:            100,
+		minVolume:         "10000",
+		maxDollars:        "100000000000",
+		conditions:        ignoredRSIConditions,
+		vcd:               "0",
+		relativeSize:      "0",
+		darkPools:         "1",
+		sweeps:            "1",
+		signaturePrints:   "0",
+		includePremarket:  "1",
+		includeRTH:        "1",
+		includeAH:         "0",
+		includeOpening:    "0",
+		includeClosing:    "0",
+		includePhantom:    "0",
+		includeOffsetting: "-1",
+		presetID:          "2163",
+	}
+}
+
+func top100DarkPoolSweepsClusterPreset() *clusterPreset {
+	return tradePresetToClusterPreset(top100DarkPoolSweepsTradePreset(), "top100-dark-pool-sweeps-clusters", nil, "Fetch top 100 dark-pool sweep trade clusters", "Fetch VolumeLeaders dark-pool sweep trade clusters for one day where each cluster ranks in the stock's all-time top 100. This preset includes premarket and regular-hours clusters, while excluding after-hours, opening, closing, and phantom prints as captured from the browser.", "volumeleaders-agent top100-dark-pool-sweeps-clusters --date 2026-04-30\nvolumeleaders-agent top100-dark-pool-sweeps-clusters --date 2026-04-30 --tickers AAPL,MSFT")
+}
+
+func overboughtClusterPreset() *clusterPreset {
+	return conditionClusterPreset("overbought-clusters", []string{"rsi-overbought-clusters"}, "Fetch trade clusters with overbought daily or hourly RSI conditions", "Fetch VolumeLeaders trade clusters for one day where the captured RSI condition filter requires daily or hourly overbought matches.", "volumeleaders-agent overbought-clusters --date 2026-04-30\nvolumeleaders-agent overbought-clusters --date 2026-04-30 --tickers AAPL,MSFT", "OBD,OBH,", "84")
+}
+
+func oversoldClusterPreset() *clusterPreset {
+	return conditionClusterPreset("oversold-clusters", []string{"rsi-oversold-clusters"}, "Fetch trade clusters with oversold daily or hourly RSI conditions", "Fetch VolumeLeaders trade clusters for one day where the captured RSI condition filter requires daily or hourly oversold matches.", "volumeleaders-agent oversold-clusters --date 2026-04-30\nvolumeleaders-agent oversold-clusters --date 2026-04-30 --tickers AAPL,MSFT", "OSD,OSH", "85")
+}
+
+func tradePresetToClusterPreset(preset *rankedPreset, use string, aliases []string, short, long, example string) *clusterPreset {
+	return &clusterPreset{
+		use:               use,
+		aliases:           aliases,
+		short:             short,
+		long:              long,
+		example:           example,
+		tradeClusterRank:  preset.rank,
+		length:            preset.length,
+		minVolume:         preset.minVolume,
+		maxDollars:        preset.maxDollars,
+		conditions:        preset.conditions,
+		vcd:               preset.vcd,
+		relativeSize:      preset.relativeSize,
+		darkPools:         preset.darkPools,
+		sweeps:            preset.sweeps,
+		latePrints:        preset.latePrints,
+		signaturePrints:   preset.signaturePrints,
+		evenShared:        preset.evenShared,
+		securityTypeKey:   preset.securityTypeKey,
+		marketCap:         preset.marketCap,
+		includePremarket:  preset.includePremarket,
+		includeRTH:        preset.includeRTH,
+		includeAH:         preset.includeAH,
+		includeOpening:    preset.includeOpening,
+		includeClosing:    preset.includeClosing,
+		includePhantom:    preset.includePhantom,
+		includeOffsetting: preset.includeOffsetting,
+		sectorIndustry:    preset.sectorIndustry,
+		presetID:          preset.presetID,
+	}
+}
+
+func conditionClusterPreset(use string, aliases []string, short, long, example, conditions, presetID string) *clusterPreset {
+	return &clusterPreset{
+		use:               use,
+		aliases:           aliases,
+		short:             short,
+		long:              long,
+		example:           example,
+		tradeClusterRank:  100,
+		length:            defaultTradeLimit,
+		minVolume:         "10000",
+		maxDollars:        "10000000000",
+		conditions:        conditions,
+		vcd:               "0",
+		relativeSize:      "5",
+		darkPools:         "-1",
+		signaturePrints:   "0",
+		includePhantom:    "-1",
+		includeOffsetting: "-1",
+		presetID:          presetID,
+	}
 }
 
 func newRankedCommand(preset *rankedPreset) (*cobra.Command, error) {
@@ -1114,14 +1398,28 @@ func defaultGetTradeClustersRequestOptions() getTradeClustersRequestOptions {
 
 func defaultClusterPreset() *clusterPreset {
 	return &clusterPreset{
-		tradeClusterRank: -1,
-		minVolume:        "0",
-		maxDollars:       "30000000000",
-		vcd:              "0",
-		relativeSize:     "0",
-		securityTypeKey:  "-1",
-		sectorIndustry:   "",
-		presetID:         "87",
+		tradeClusterRank:  -1,
+		minVolume:         "0",
+		maxDollars:        "30000000000",
+		conditions:        "-1",
+		vcd:               "0",
+		relativeSize:      "0",
+		darkPools:         "-1",
+		sweeps:            "-1",
+		latePrints:        "-1",
+		signaturePrints:   "-1",
+		evenShared:        "-1",
+		securityTypeKey:   "-1",
+		marketCap:         "0",
+		includePremarket:  "1",
+		includeRTH:        "1",
+		includeAH:         "1",
+		includeOpening:    "1",
+		includeClosing:    "1",
+		includePhantom:    "1",
+		includeOffsetting: "1",
+		sectorIndustry:    "",
+		presetID:          "87",
 	}
 }
 
@@ -1133,9 +1431,23 @@ func clusterPresetRequestOptions(preset *clusterPreset) getTradeClustersRequestO
 		length:                 clusterPresetDefaultLimit(preset),
 		minVolume:              clusterPresetString(preset.minVolume, "0"),
 		maxDollars:             clusterPresetString(preset.maxDollars, "30000000000"),
+		conditions:             clusterPresetString(preset.conditions, "-1"),
 		vcd:                    clusterPresetString(preset.vcd, "0"),
 		relativeSize:           clusterPresetString(preset.relativeSize, "0"),
+		darkPools:              clusterPresetString(preset.darkPools, "-1"),
+		sweeps:                 clusterPresetString(preset.sweeps, "-1"),
+		latePrints:             clusterPresetString(preset.latePrints, "-1"),
+		signaturePrints:        clusterPresetString(preset.signaturePrints, "-1"),
+		evenShared:             clusterPresetString(preset.evenShared, "-1"),
 		securityTypeKey:        clusterPresetString(preset.securityTypeKey, "-1"),
+		marketCap:              clusterPresetString(preset.marketCap, "0"),
+		includePremarket:       clusterPresetString(preset.includePremarket, "1"),
+		includeRTH:             clusterPresetString(preset.includeRTH, "1"),
+		includeAH:              clusterPresetString(preset.includeAH, "1"),
+		includeOpening:         clusterPresetString(preset.includeOpening, "1"),
+		includeClosing:         clusterPresetString(preset.includeClosing, "1"),
+		includePhantom:         clusterPresetString(preset.includePhantom, "1"),
+		includeOffsetting:      clusterPresetString(preset.includeOffsetting, "1"),
 		sectorIndustry:         preset.sectorIndustry,
 		presetSearchTemplateID: clusterPresetString(preset.presetID, "87"),
 	}
@@ -1174,7 +1486,18 @@ func defaultGetTradesRequestOptions() getTradesRequestOptions {
 		vcd:                    "0",
 		relativeSize:           "5",
 		darkPools:              "-1",
+		sweeps:                 "-1",
+		latePrints:             "-1",
 		signaturePrints:        "-1",
+		evenShared:             "-1",
+		securityTypeKey:        "-1",
+		tradeRankSnapshot:      "-1",
+		marketCap:              "0",
+		includePremarket:       "1",
+		includeRTH:             "1",
+		includeAH:              "1",
+		includeOpening:         "1",
+		includeClosing:         "1",
 		includePhantom:         "1",
 		includeOffsetting:      "1",
 		sectorIndustry:         "",
@@ -1187,17 +1510,28 @@ func rankedGetTradesRequestOptions(preset *rankedPreset) getTradesRequestOptions
 		tradeRank:              preset.rank,
 		draw:                   1,
 		start:                  0,
-		length:                 preset.length,
-		minVolume:              "10000",
-		maxDollars:             "100000000000",
-		conditions:             "IgnoreOBD,IgnoreOBH,IgnoreOSD,IgnoreOSH",
-		vcd:                    "0",
-		relativeSize:           "0",
-		darkPools:              "-1",
-		signaturePrints:        "-1",
-		includePhantom:         "-1",
-		includeOffsetting:      "-1",
-		sectorIndustry:         "",
+		length:                 clusterPresetDefaultLimit(&clusterPreset{length: preset.length}),
+		minVolume:              clusterPresetString(preset.minVolume, "10000"),
+		maxDollars:             clusterPresetString(preset.maxDollars, "100000000000"),
+		conditions:             clusterPresetString(preset.conditions, ignoredRSIConditions),
+		vcd:                    clusterPresetString(preset.vcd, "0"),
+		relativeSize:           clusterPresetString(preset.relativeSize, "0"),
+		darkPools:              clusterPresetString(preset.darkPools, "-1"),
+		sweeps:                 clusterPresetString(preset.sweeps, "-1"),
+		latePrints:             clusterPresetString(preset.latePrints, "-1"),
+		signaturePrints:        clusterPresetString(preset.signaturePrints, "-1"),
+		evenShared:             clusterPresetString(preset.evenShared, "-1"),
+		securityTypeKey:        clusterPresetString(preset.securityTypeKey, "-1"),
+		tradeRankSnapshot:      clusterPresetString(preset.tradeRankSnapshot, "-1"),
+		marketCap:              clusterPresetString(preset.marketCap, "0"),
+		includePremarket:       clusterPresetString(preset.includePremarket, "1"),
+		includeRTH:             clusterPresetString(preset.includeRTH, "1"),
+		includeAH:              clusterPresetString(preset.includeAH, "1"),
+		includeOpening:         clusterPresetString(preset.includeOpening, "1"),
+		includeClosing:         clusterPresetString(preset.includeClosing, "1"),
+		includePhantom:         clusterPresetString(preset.includePhantom, "-1"),
+		includeOffsetting:      clusterPresetString(preset.includeOffsetting, "-1"),
+		sectorIndustry:         preset.sectorIndustry,
 		presetSearchTemplateID: preset.presetID,
 	}
 }
@@ -1214,7 +1548,18 @@ func signalGetTradesRequestOptions(preset *signalPreset) getTradesRequestOptions
 		vcd:                    "0",
 		relativeSize:           "0",
 		darkPools:              preset.darkPools,
+		sweeps:                 "-1",
+		latePrints:             "-1",
 		signaturePrints:        "-1",
+		evenShared:             "-1",
+		securityTypeKey:        "-1",
+		tradeRankSnapshot:      "-1",
+		marketCap:              "0",
+		includePremarket:       "1",
+		includeRTH:             "1",
+		includeAH:              "1",
+		includeOpening:         "1",
+		includeClosing:         "1",
 		includePhantom:         preset.phantom,
 		includeOffsetting:      preset.offsetting,
 		sectorIndustry:         "",
@@ -1234,7 +1579,18 @@ func conditionGetTradesRequestOptions(preset *conditionPreset) getTradesRequestO
 		vcd:                    "0",
 		relativeSize:           "5",
 		darkPools:              "-1",
+		sweeps:                 "-1",
+		latePrints:             "-1",
 		signaturePrints:        "0",
+		evenShared:             "-1",
+		securityTypeKey:        "-1",
+		tradeRankSnapshot:      "-1",
+		marketCap:              "0",
+		includePremarket:       "1",
+		includeRTH:             "1",
+		includeAH:              "1",
+		includeOpening:         "1",
+		includeClosing:         "1",
 		includePhantom:         "-1",
 		includeOffsetting:      "-1",
 		sectorIndustry:         "",
@@ -1288,7 +1644,13 @@ func setTradeClustersQueryParams(values url.Values, tradeDate, tickers string, o
 	values.Set("EndDate", tradeDate)
 	values.Set("MinVolume", options.minVolume)
 	values.Set("MaxVolume", "2000000000")
+	values.Set("Conditions", options.conditions)
 	values.Set("VCD", options.vcd)
+	values.Set("DarkPools", options.darkPools)
+	values.Set("Sweeps", options.sweeps)
+	values.Set("LatePrints", options.latePrints)
+	values.Set("SignaturePrints", options.signaturePrints)
+	values.Set("EvenShared", options.evenShared)
 	values.Set("SecurityTypeKey", options.securityTypeKey)
 	values.Set("RelativeSize", options.relativeSize)
 	values.Set("MinPrice", "0")
@@ -1296,6 +1658,14 @@ func setTradeClustersQueryParams(values url.Values, tradeDate, tickers string, o
 	values.Set("MinDollars", "500000")
 	values.Set("MaxDollars", options.maxDollars)
 	values.Set("TradeClusterRank", fmt.Sprintf("%d", options.tradeClusterRank))
+	values.Set("MarketCap", options.marketCap)
+	values.Set("IncludePremarket", options.includePremarket)
+	values.Set("IncludeRTH", options.includeRTH)
+	values.Set("IncludeAH", options.includeAH)
+	values.Set("IncludeOpening", options.includeOpening)
+	values.Set("IncludeClosing", options.includeClosing)
+	values.Set("IncludePhantom", options.includePhantom)
+	values.Set("IncludeOffsetting", options.includeOffsetting)
 	values.Set("SectorIndustry", options.sectorIndustry)
 }
 
@@ -1309,23 +1679,23 @@ func setSharedQueryParams(values url.Values, tradeDate, tickers string, options 
 	values.Set("VCD", options.vcd)
 	values.Set("RelativeSize", options.relativeSize)
 	values.Set("DarkPools", options.darkPools)
-	values.Set("Sweeps", "-1")
-	values.Set("LatePrints", "-1")
+	values.Set("Sweeps", options.sweeps)
+	values.Set("LatePrints", options.latePrints)
 	values.Set("SignaturePrints", options.signaturePrints)
-	values.Set("EvenShared", "-1")
-	values.Set("SecurityTypeKey", "-1")
+	values.Set("EvenShared", options.evenShared)
+	values.Set("SecurityTypeKey", options.securityTypeKey)
 	values.Set("MinPrice", "0")
 	values.Set("MaxPrice", "100000")
 	values.Set("MinDollars", "500000")
 	values.Set("MaxDollars", options.maxDollars)
 	values.Set("TradeRank", fmt.Sprintf("%d", options.tradeRank))
-	values.Set("TradeRankSnapshot", "-1")
-	values.Set("MarketCap", "0")
-	values.Set("IncludePremarket", "1")
-	values.Set("IncludeRTH", "1")
-	values.Set("IncludeAH", "1")
-	values.Set("IncludeOpening", "1")
-	values.Set("IncludeClosing", "1")
+	values.Set("TradeRankSnapshot", options.tradeRankSnapshot)
+	values.Set("MarketCap", options.marketCap)
+	values.Set("IncludePremarket", options.includePremarket)
+	values.Set("IncludeRTH", options.includeRTH)
+	values.Set("IncludeAH", options.includeAH)
+	values.Set("IncludeOpening", options.includeOpening)
+	values.Set("IncludeClosing", options.includeClosing)
 	values.Set("IncludePhantom", options.includePhantom)
 	values.Set("IncludeOffsetting", options.includeOffsetting)
 	values.Set("SectorIndustry", options.sectorIndustry)

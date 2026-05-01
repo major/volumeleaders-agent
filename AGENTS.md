@@ -7,6 +7,7 @@ Go CLI for [VolumeLeaders](https://www.volumeleaders.com). Uses structcli for hu
 When modifying CLI commands, flags, output behavior, or authentication behavior:
 
 - Update `AGENTS.md` if the change affects project structure, build process, or conventions.
+- Keep `AGENTS.md` updated whenever project behavior, command behavior, authentication behavior, verification expectations, or contributor/agent conventions change.
 - Keep README examples aligned with the exported CLI and auth package behavior.
 
 ## Project Layout
@@ -26,10 +27,16 @@ make test       # Run tests
 make lint       # Run linters
 ```
 
+## Verification
+
+- Run local verification such as `make test`, `make lint`, and `make build` for implementation work.
+- Do not run Oracle review or other external AI review at the end of a task unless the user explicitly requests it.
+
 ## Conventions
 
 - Commands should use structcli options structs for flags so `--jsonschema=tree`, `env-vars`, `config-keys`, and `--mcp` stay accurate for humans and agents.
 - Treat structcli-visible code metadata as the source of truth for command behavior. When adding or changing commands, flags, filters, defaults, examples, output shapes, field meanings, or caveats, update option struct tags (`flagdescr`, `flagenv`, `flaggroup`, `flagrequired`), command `Short`/`Long` text, examples, and any embedded field guides so `--jsonschema=tree`, help output, `env-vars`, `config-keys`, and MCP discovery remain understandable without loading README files or skill files.
+- Err on the side of adding too many helpful comments rather than too few, especially around non-obvious API filters, command grouping, authentication edge cases, and behavior copied from browser captures.
 - Command output should be stable JSON by default. Errors should rely on structcli/cobra error handling and include actionable context without leaking credentials.
 - Authentication errors must include useful troubleshooting context without exposing browser cookies, XSRF tokens, session values, profile paths, or other secrets.
 - Context cancellation must propagate through browser cookie extraction and token lookup paths.

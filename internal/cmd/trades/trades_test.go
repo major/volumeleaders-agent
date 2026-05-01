@@ -502,6 +502,140 @@ func TestRankedTradesCommands(t *testing.T) {
 	}
 }
 
+func TestHARDerivedRankedTradeCommands(t *testing.T) {
+	tests := []struct {
+		name       string
+		newCommand func() (*cobra.Command, error)
+		wantPreset *rankedPreset
+	}{
+		{
+			name:       "top 30 10x 99th percentile trades",
+			newCommand: NewTop3010x99PctCommand,
+			wantPreset: top3010x99PctTradePreset(),
+		},
+		{
+			name:       "top 100 dark pool 20x trades",
+			newCommand: NewTop100DarkPool20xCommand,
+			wantPreset: top100DarkPool20xTradePreset(),
+		},
+		{
+			name:       "top 100 leveraged ETF trades",
+			newCommand: NewTop100LeveragedETFsCommand,
+			wantPreset: top100LeveragedETFsTradePreset(),
+		},
+		{
+			name:       "top 100 dark pool sweep trades",
+			newCommand: NewTop100DarkPoolSweepsCommand,
+			wantPreset: top100DarkPoolSweepsTradePreset(),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				options := rankedGetTradesRequestOptions(tt.wantPreset)
+				assertGetTradesRequestWithOptions(t, r, "2026-04-30", "AAPL", &options)
+				fmt.Fprint(w, `{"draw":1,"recordsTotal":1,"recordsFiltered":1,"data":[{"Ticker":"AAPL","TradeRank":1}]}`)
+			}))
+			t.Cleanup(server.Close)
+
+			withCommandDependencies(t, server.Client(), server.URL, nil, nil)
+
+			cmd, err := tt.newCommand()
+			if err != nil {
+				t.Fatalf("new command error = %v", err)
+			}
+
+			var stdout bytes.Buffer
+			cmd.SetOut(&stdout)
+			cmd.SetErr(io.Discard)
+			cmd.SetArgs([]string{"--date", "2026-04-30", "--ticker", "aapl"})
+
+			if err := cmd.Execute(); err != nil {
+				t.Fatalf("Execute() error = %v", err)
+			}
+
+			var got RankedResult
+			if err := json.Unmarshal(stdout.Bytes(), &got); err != nil {
+				t.Fatalf("unmarshal output: %v\noutput: %s", err, stdout.String())
+			}
+			if got.RankLimit != tt.wantPreset.rank {
+				t.Fatalf("RankLimit = %d, want %d", got.RankLimit, tt.wantPreset.rank)
+			}
+			if len(got.Rows) != 1 {
+				t.Fatalf("len(Rows) = %d, want 1", len(got.Rows))
+			}
+		})
+	}
+}
+
+func TestHARDerivedRankedClusterCommands(t *testing.T) {
+	tests := []struct {
+		name       string
+		newCommand func() (*cobra.Command, error)
+		wantPreset *clusterPreset
+	}{
+		{
+			name:       "top 30 10x 99th percentile clusters",
+			newCommand: NewTop3010x99PctClustersCommand,
+			wantPreset: top3010x99PctClusterPreset(),
+		},
+		{
+			name:       "top 100 dark pool 20x clusters",
+			newCommand: NewTop100DarkPool20xClustersCommand,
+			wantPreset: top100DarkPool20xClusterPreset(),
+		},
+		{
+			name:       "top 100 leveraged ETF clusters",
+			newCommand: NewTop100LeveragedETFsClustersCommand,
+			wantPreset: top100LeveragedETFsClusterPreset(),
+		},
+		{
+			name:       "top 100 dark pool sweep clusters",
+			newCommand: NewTop100DarkPoolSweepsClustersCommand,
+			wantPreset: top100DarkPoolSweepsClusterPreset(),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				options := clusterPresetRequestOptions(tt.wantPreset)
+				assertGetTradeClustersRequestWithOptions(t, r, "2026-04-30", "AAPL", &options)
+				fmt.Fprint(w, `{"draw":1,"data":[{"Ticker":"AAPL","TradeClusterRank":1,"TradeCount":3,"TotalRows":1}]}`)
+			}))
+			t.Cleanup(server.Close)
+
+			withCommandDependencies(t, server.Client(), server.URL, nil, nil)
+
+			cmd, err := tt.newCommand()
+			if err != nil {
+				t.Fatalf("new command error = %v", err)
+			}
+
+			var stdout bytes.Buffer
+			cmd.SetOut(&stdout)
+			cmd.SetErr(io.Discard)
+			cmd.SetArgs([]string{"--date", "2026-04-30", "--ticker", "aapl"})
+
+			if err := cmd.Execute(); err != nil {
+				t.Fatalf("Execute() error = %v", err)
+			}
+
+			var got ClusterResult
+			if err := json.Unmarshal(stdout.Bytes(), &got); err != nil {
+				t.Fatalf("unmarshal output: %v\noutput: %s", err, stdout.String())
+			}
+			if got.RankLimit != tt.wantPreset.tradeClusterRank {
+				t.Fatalf("RankLimit = %d, want %d", got.RankLimit, tt.wantPreset.tradeClusterRank)
+			}
+			if len(got.Rows) != 1 {
+				t.Fatalf("len(Rows) = %d, want 1", len(got.Rows))
+			}
+		})
+	}
+}
+
 func TestSignalTradesCommands(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -672,6 +806,76 @@ func TestConditionTradesCommands(t *testing.T) {
 			}
 			if len(got.Trades) != 0 {
 				t.Fatalf("len(Trades) = %d, want 0 for default array shape", len(got.Trades))
+			}
+		})
+	}
+}
+
+func TestConditionClusterCommands(t *testing.T) {
+	tests := []struct {
+		name        string
+		newCommand  func() (*cobra.Command, error)
+		wantPreset  *clusterPreset
+		wantTickers string
+		wantLength  int
+	}{
+		{
+			name:       "overbought clusters",
+			newCommand: NewOverboughtClustersCommand,
+			wantPreset: overboughtClusterPreset(),
+			wantLength: defaultTradeLimit,
+		},
+		{
+			name:        "oversold clusters with tickers",
+			newCommand:  NewOversoldClustersCommand,
+			wantPreset:  oversoldClusterPreset(),
+			wantTickers: "PLTR",
+			wantLength:  7,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				options := clusterPresetRequestOptions(tt.wantPreset)
+				options.length = tt.wantLength
+				assertGetTradeClustersRequestWithOptions(t, r, "2026-04-30", tt.wantTickers, &options)
+				fmt.Fprint(w, `{"draw":1,"data":[{"Ticker":"PLTR","RSIHour":72,"RSIDay":81,"TradeClusterRank":5,"TotalRows":2}]}`)
+			}))
+			t.Cleanup(server.Close)
+
+			withCommandDependencies(t, server.Client(), server.URL, nil, nil)
+
+			cmd, err := tt.newCommand()
+			if err != nil {
+				t.Fatalf("new command error = %v", err)
+			}
+
+			var stdout bytes.Buffer
+			cmd.SetOut(&stdout)
+			cmd.SetErr(io.Discard)
+			if tt.wantTickers == "" {
+				cmd.SetArgs([]string{"--date", "2026-04-30"})
+			} else {
+				cmd.SetArgs([]string{"--date", "2026-04-30", "--ticker", "pltr", "--limit", "7"})
+			}
+
+			if err := cmd.Execute(); err != nil {
+				t.Fatalf("Execute() error = %v", err)
+			}
+
+			var got ClusterResult
+			if err := json.Unmarshal(stdout.Bytes(), &got); err != nil {
+				t.Fatalf("unmarshal output: %v\noutput: %s", err, stdout.String())
+			}
+			if got.Status != "ok" {
+				t.Fatalf("Status = %q, want ok", got.Status)
+			}
+			if got.RankLimit != tt.wantPreset.tradeClusterRank {
+				t.Fatalf("RankLimit = %d, want %d", got.RankLimit, tt.wantPreset.tradeClusterRank)
+			}
+			if len(got.Rows) != 1 {
+				t.Fatalf("len(Rows) = %d, want 1", len(got.Rows))
 			}
 		})
 	}

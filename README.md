@@ -66,7 +66,7 @@ These names come from VolumeLeaders' browser forms and JSON responses, so some a
 - `DollarsMultiplier`, shown as `RS` in the UI, is the returned relative size value: trade dollars divided by average dollars for that ticker. VolumeLeaders highlights trades at or above `25x` average size.
 - `CumulativeDistribution`, shown as `PCT` in the UI, is the trade's percentile rank relative to other trades for the same ticker.
 - `Conditions` carries RSI condition filters. `OBD` means overbought daily, `OBH` means overbought hourly, `OSD` means oversold daily, and `OSH` means oversold hourly. Captured defaults use `-1` for no RSI condition filter. Code presets may also contain `IgnoreOBD`, `IgnoreOBH`, `IgnoreOSD`, and `IgnoreOSH`; treat those as “do not consider this RSI condition” values rather than “exclude matching rows.”
-- `VCD` is currently unknown. Captures and code only show `0` or `0.00`, so the CLI preserves the captured value and does not expose it as a user-facing filter.
+- `VCD` appears to carry the minimum `CumulativeDistribution` percentile. Captures use `0` for no percentile filter and `99` for the 99th percentile or above.
 
 ## RSI overbought and oversold trades
 
@@ -79,7 +79,9 @@ volumeleaders-agent oversold --date 2026-04-30 --tickers AAPL,MSFT
 
 The `overbought` and `oversold` commands replay VolumeLeaders RSI-condition searches captured from the browser. `overbought` sends `Conditions=OBD,OBH,` with preset `84`, which requires daily or hourly overbought RSI matches. `oversold` sends `Conditions=OSD,OSH` with preset `85`, which requires daily or hourly oversold RSI matches. Both commands use the same compact trade output shape and flags as `trades`, including `--limit`, `--fields`, `--preset-fields core|signals|full`, `--shape array|objects`, and `--pretty`.
 
-Use `--preset-fields signals` when an LLM needs the raw signal columns behind these filters, especially `RSIHour`, `RSIDay`, `CumulativeDistribution`, and `DollarsMultiplier`. The date flags can also be set with `VOLUMELEADERS_AGENT_OVERBOUGHT_DATE` and `VOLUMELEADERS_AGENT_OVERSOLD_DATE`.
+Cluster equivalents are available as `overbought-clusters` and `oversold-clusters`. They send the same RSI filters to `TradeClusters/GetTradeClusters`, use `TradeClusterRank=100`, and support the cluster output flags described below.
+
+Use `--preset-fields signals` when an LLM needs the raw signal columns behind these filters, especially `RSIHour`, `RSIDay`, `CumulativeDistribution`, and `DollarsMultiplier`. The date flags can also be set with `VOLUMELEADERS_AGENT_OVERBOUGHT_DATE`, `VOLUMELEADERS_AGENT_OVERBOUGHT_CLUSTERS_DATE`, `VOLUMELEADERS_AGENT_OVERSOLD_DATE`, and `VOLUMELEADERS_AGENT_OVERSOLD_CLUSTERS_DATE`.
 
 
 ## Disproportionately large trade clusters
@@ -147,6 +149,24 @@ The ranked commands return the same token-efficient trade output shape as `trade
   ]
 }
 ```
+
+## HAR-derived ranked filters
+
+```bash
+volumeleaders-agent top30-10x-99pct --date 2026-04-30
+volumeleaders-agent top100-dark-pool-20x --date 2026-04-30
+volumeleaders-agent top100-leveraged-etfs --date 2026-04-30
+volumeleaders-agent top100-dark-pool-sweeps --date 2026-04-30
+```
+
+These commands replay additional `Trades/GetTrades` filters captured from browser HAR files:
+
+- `top30-10x-99pct`: `TradeRank=30`, `RelativeSize=10`, and `VCD=99` for trades in the 99th percentile or above.
+- `top100-dark-pool-20x`: `TradeRank=100`, `DarkPools=1`, and `RelativeSize=20`.
+- `top100-leveraged-etfs`: `TradeRank=100` and `SectorIndustry="X B"` for leveraged ETFs.
+- `top100-dark-pool-sweeps`: `TradeRank=100`, `DarkPools=1`, `Sweeps=1`, and captured session filters that include premarket and regular-hours prints while excluding after-hours, opening, closing, and phantom prints.
+
+Each filter also has a trade-cluster equivalent: `top30-10x-99pct-clusters`, `top100-dark-pool-20x-clusters`, `top100-leveraged-etfs-clusters`, and `top100-dark-pool-sweeps-clusters`. The cluster commands send the same filters to `TradeClusters/GetTradeClusters` with `TradeClusterRank` matching the trade command's `TradeRank`.
 
 ## Phantom and offsetting trades
 

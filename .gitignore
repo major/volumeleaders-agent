@@ -28,6 +28,9 @@ go.work.sum
 # env file
 .env
 
+# Browser/API captures can include cookies, XSRF tokens, and session metadata.
+*.har
+
 # Editor/IDE
 # .idea/
 # .vscode/

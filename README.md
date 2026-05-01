@@ -59,7 +59,7 @@ volumeleaders-agent config-keys        # Config key reference
 volumeleaders-agent --mcp              # Run stdio MCP server
 ```
 
-The date flag can also be set with `VOLUMELEADERS_AGENT_TRADES_DATE`.
+The date flag can also be set with the environment variable shown by `volumeleaders-agent env-vars`, for example `VOLUMELEADERS_AGENT_TRADES_DATE`.
 
 ## All-time ranked trades
 
@@ -85,6 +85,35 @@ The ranked commands return stable JSON with the requested date, rank limit, Data
       "Ticker": "SNDQ",
       "TradeRank": 1,
       "Dollars": 15623499.12
+    }
+  ]
+}
+```
+
+## Phantom and offsetting trades
+
+```bash
+volumeleaders-agent phantom --date 2026-04-30
+volumeleaders-agent offsetting --date 2026-04-30
+volumeleaders-agent phantom --date 2026-04-30 --tickers PLTR,NVDA
+```
+
+The `phantom` command fetches trades where VolumeLeaders marks the trade price as far from the current price. These prints can hint at where price may move later, but they are not guaranteed signals. The `offsetting` command fetches trades where nearly matching share sizes appear on different dates, which can hint that a trader entered and later exited a position.
+
+Both commands use the same `Trades/GetTrades` auth and response handling as `trades`, and both return stable JSON with the requested date, DataTables record counts, and raw trade objects:
+
+```json
+{
+  "status": "ok",
+  "date": "2026-04-30",
+  "recordsTotal": 12,
+  "recordsFiltered": 12,
+  "trades": [
+    {
+      "Ticker": "PLTR",
+      "PhantomPrint": 1,
+      "OffsettingTradeDate": "/Date(-2208988800000)/",
+      "Dollars": 1739337.39
     }
   ]
 }

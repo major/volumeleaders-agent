@@ -33,7 +33,15 @@ func NewRootCmd() (*cobra.Command, error) {
 	if err != nil {
 		return nil, fmt.Errorf("create top100 command: %w", err)
 	}
-	rootCmd.AddCommand(tradesCmd, top10Cmd, top100Cmd)
+	phantomCmd, err := trades.NewPhantomCommand()
+	if err != nil {
+		return nil, fmt.Errorf("create phantom command: %w", err)
+	}
+	offsettingCmd, err := trades.NewOffsettingCommand()
+	if err != nil {
+		return nil, fmt.Errorf("create offsetting command: %w", err)
+	}
+	rootCmd.AddCommand(tradesCmd, top10Cmd, top100Cmd, phantomCmd, offsettingCmd)
 
 	if err := structcli.Setup(rootCmd,
 		structcli.WithAppName(appName),

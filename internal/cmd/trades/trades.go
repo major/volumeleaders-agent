@@ -44,6 +44,12 @@ type RankedOptions struct {
 	Tickers string `flag:"tickers" flagdescr:"Optional ticker filter. Use one symbol or a comma-delimited list without spaces, for example AAPL or AAPL,MSFT." flagenv:"true" flaggroup:"Query" mod:"trim"`
 }
 
+// SignalOptions defines the LLM-readable contract for fetching trade signal presets.
+type SignalOptions struct {
+	Date    string `flag:"date" flagshort:"d" flagdescr:"Single trading date to query, formatted as YYYY-MM-DD. Trade signal presets are intentionally limited to one day." flagenv:"true" flagrequired:"true" flaggroup:"Query" validate:"required" mod:"trim"`
+	Tickers string `flag:"tickers" flagdescr:"Optional ticker filter. Use one symbol or a comma-delimited list without spaces, for example AAPL or AAPL,MSFT." flagenv:"true" flaggroup:"Query" mod:"trim"`
+}
+
 // Result is the stable response shape for the unusual trades command.
 type Result struct {
 	Status          string            `json:"status"`
@@ -84,6 +90,7 @@ type getTradesRequestOptions struct {
 	maxDollars             string
 	conditions             string
 	relativeSize           string
+	darkPools              string
 	includePhantom         string
 	includeOffsetting      string
 	presetSearchTemplateID string
@@ -98,6 +105,18 @@ type rankedPreset struct {
 	rank     int
 	length   int
 	presetID string
+}
+
+type signalPreset struct {
+	use        string
+	aliases    []string
+	short      string
+	long       string
+	example    string
+	phantom    string
+	offsetting string
+	darkPools  string
+	presetID   string
 }
 
 var getTradesColumns = []tradeColumn{
@@ -167,6 +186,36 @@ func NewTop100Command() (*cobra.Command, error) {
 	})
 }
 
+// NewPhantomCommand builds the phantom trades command.
+func NewPhantomCommand() (*cobra.Command, error) {
+	return newSignalCommand(&signalPreset{
+		use:        "phantom",
+		aliases:    []string{"phantom-trades"},
+		short:      "Fetch phantom trades far from the current price",
+		long:       "Fetch VolumeLeaders phantom trades for one day. Phantom trades are prints where the trade price is far from the current price and may hint at future price magnets, though they are not guaranteed signals.",
+		example:    "volumeleaders-agent phantom --date 2026-04-30\nvolumeleaders-agent phantom --date 2026-04-30 --tickers AAPL,MSFT",
+		phantom:    "1",
+		offsetting: "0",
+		darkPools:  "1",
+		presetID:   "857",
+	})
+}
+
+// NewOffsettingCommand builds the offsetting trades command.
+func NewOffsettingCommand() (*cobra.Command, error) {
+	return newSignalCommand(&signalPreset{
+		use:        "offsetting",
+		aliases:    []string{"offsetting-trades"},
+		short:      "Fetch trades with nearly matching offsetting prints",
+		long:       "Fetch VolumeLeaders offsetting trades for one day. Offsetting trades show prints with nearly matching share sizes across dates, which can hint that a trader entered and later exited a position.",
+		example:    "volumeleaders-agent offsetting --date 2026-04-30\nvolumeleaders-agent offsetting --date 2026-04-30 --tickers AAPL,MSFT",
+		phantom:    "0",
+		offsetting: "1",
+		darkPools:  "-1",
+		presetID:   "858",
+	})
+}
+
 func newRankedCommand(preset *rankedPreset) (*cobra.Command, error) {
 	opts := &RankedOptions{}
 	cmd := &cobra.Command{
@@ -177,6 +226,27 @@ func newRankedCommand(preset *rankedPreset) (*cobra.Command, error) {
 		Example: preset.example,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			return runRanked(cmd.Context(), cmd, opts, preset)
+		},
+	}
+
+	if err := structcli.Bind(cmd, opts); err != nil {
+		return nil, fmt.Errorf("bind %s options: %w", preset.use, err)
+	}
+	cmd.Flags().StringVar(&opts.Tickers, "ticker", "", "Optional ticker filter. Alias for --tickers.")
+
+	return cmd, nil
+}
+
+func newSignalCommand(preset *signalPreset) (*cobra.Command, error) {
+	opts := &SignalOptions{}
+	cmd := &cobra.Command{
+		Use:     preset.use,
+		Aliases: preset.aliases,
+		Short:   preset.short,
+		Long:    preset.long,
+		Example: preset.example,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			return runSignal(cmd.Context(), cmd, opts, preset)
 		},
 	}
 
@@ -273,6 +343,48 @@ func runRanked(ctx context.Context, cmd *cobra.Command, opts *RankedOptions, pre
 	return nil
 }
 
+func runSignal(ctx context.Context, cmd *cobra.Command, opts *SignalOptions, preset *signalPreset) error {
+	select {
+	case <-ctx.Done():
+		return fmt.Errorf("run %s command: %w", preset.use, ctx.Err())
+	default:
+	}
+
+	tradeDate, err := time.Parse(dateLayout, opts.Date)
+	if err != nil {
+		return fmt.Errorf("invalid date %q: use YYYY-MM-DD: %w", opts.Date, err)
+	}
+	formattedDate := tradeDate.Format(dateLayout)
+	tickers, err := normalizeTickers(opts.Tickers)
+	if err != nil {
+		return err
+	}
+
+	apiResponse, err := fetchSignalTrades(ctx, formattedDate, tickers, preset)
+	if err != nil {
+		return err
+	}
+
+	result := Result{
+		Status:          "ok",
+		Date:            formattedDate,
+		RecordsTotal:    apiResponse.RecordsTotal,
+		RecordsFiltered: apiResponse.RecordsFiltered,
+		Trades:          apiResponse.Data,
+	}
+	if result.Trades == nil {
+		result.Trades = []json.RawMessage{}
+	}
+
+	encoder := json.NewEncoder(cmd.OutOrStdout())
+	encoder.SetIndent("", "  ")
+	if err := encoder.Encode(result); err != nil {
+		return fmt.Errorf("encode %s response: %w", preset.use, err)
+	}
+
+	return nil
+}
+
 func fetchDisproportionatelyLargeTrades(ctx context.Context, tradeDate, tickers string) (getTradesResponse, error) {
 	options := defaultGetTradesRequestOptions()
 	return fetchTrades(ctx, tradeDate, tickers, &options)
@@ -280,6 +392,11 @@ func fetchDisproportionatelyLargeTrades(ctx context.Context, tradeDate, tickers 
 
 func fetchRankedTrades(ctx context.Context, tradeDate, tickers string, preset *rankedPreset) (getTradesResponse, error) {
 	options := rankedGetTradesRequestOptions(preset)
+	return fetchTrades(ctx, tradeDate, tickers, &options)
+}
+
+func fetchSignalTrades(ctx context.Context, tradeDate, tickers string, preset *signalPreset) (getTradesResponse, error) {
+	options := signalGetTradesRequestOptions(preset)
 	return fetchTrades(ctx, tradeDate, tickers, &options)
 }
 
@@ -345,6 +462,7 @@ func defaultGetTradesRequestOptions() getTradesRequestOptions {
 		maxDollars:             "30000000000",
 		conditions:             "-1",
 		relativeSize:           "5",
+		darkPools:              "-1",
 		includePhantom:         "1",
 		includeOffsetting:      "1",
 		presetSearchTemplateID: "87",
@@ -359,8 +477,24 @@ func rankedGetTradesRequestOptions(preset *rankedPreset) getTradesRequestOptions
 		maxDollars:             "100000000000",
 		conditions:             "IgnoreOBD,IgnoreOBH,IgnoreOSD,IgnoreOSH",
 		relativeSize:           "0",
+		darkPools:              "-1",
 		includePhantom:         "-1",
 		includeOffsetting:      "-1",
+		presetSearchTemplateID: preset.presetID,
+	}
+}
+
+func signalGetTradesRequestOptions(preset *signalPreset) getTradesRequestOptions {
+	return getTradesRequestOptions{
+		tradeRank:              -1,
+		length:                 100,
+		minVolume:              "0",
+		maxDollars:             "100000000000",
+		conditions:             "IgnoreOBD,IgnoreOBH,IgnoreOSD,IgnoreOSH",
+		relativeSize:           "0",
+		darkPools:              preset.darkPools,
+		includePhantom:         preset.phantom,
+		includeOffsetting:      preset.offsetting,
 		presetSearchTemplateID: preset.presetID,
 	}
 }
@@ -390,7 +524,7 @@ func tradesReferer(tradeDate, tickers string, options *getTradesRequestOptions) 
 	query.Set("Conditions", options.conditions)
 	query.Set("VCD", "0")
 	query.Set("RelativeSize", options.relativeSize)
-	query.Set("DarkPools", "-1")
+	query.Set("DarkPools", options.darkPools)
 	query.Set("Sweeps", "-1")
 	query.Set("LatePrints", "-1")
 	query.Set("SignaturePrints", "-1")
@@ -448,7 +582,7 @@ func getTradesForm(tradeDate, tickers string, options *getTradesRequestOptions) 
 	form.Set("VCD", "0")
 	form.Set("SecurityTypeKey", "-1")
 	form.Set("RelativeSize", options.relativeSize)
-	form.Set("DarkPools", "-1")
+	form.Set("DarkPools", options.darkPools)
 	form.Set("Sweeps", "-1")
 	form.Set("LatePrints", "-1")
 	form.Set("SignaturePrints", "-1")

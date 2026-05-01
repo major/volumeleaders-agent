@@ -413,6 +413,33 @@ func TestDeleteWatchListCommandRejectsApplicationErrorResponse(t *testing.T) {
 	}
 }
 
+func TestDeleteWatchListCommandHandlesGzipResponse(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assertDeleteWatchListRequest(t, r, 4952)
+		w.Header().Set("Content-Encoding", "gzip")
+		gz := gzip.NewWriter(w)
+		_, _ = gz.Write([]byte(`{"success":true}`))
+		if err := gz.Close(); err != nil {
+			t.Fatalf("close gzip writer: %v", err)
+		}
+	}))
+	t.Cleanup(server.Close)
+
+	withCommandDependencies(t, server.Client(), server.URL+"/WatchListConfigs/DeleteWatchList", nil, nil)
+
+	cmd, err := NewDeleteCommand()
+	if err != nil {
+		t.Fatalf("NewDeleteCommand() error = %v", err)
+	}
+	cmd.SetOut(io.Discard)
+	cmd.SetErr(io.Discard)
+	cmd.SetArgs([]string{"--search-template-key", "4952"})
+
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("Execute() error = %v", err)
+	}
+}
+
 func TestDeleteWatchListCommandRequiresSearchTemplateKey(t *testing.T) {
 	withCommandDependencies(t, http.DefaultClient, deleteWatchListPath, nil, nil)
 

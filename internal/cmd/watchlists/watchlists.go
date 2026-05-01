@@ -716,7 +716,12 @@ func deleteWatchList(ctx context.Context, searchTemplateKey int) error {
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("DeleteWatchList request returned status %d", resp.StatusCode)
 	}
-	if err := decodeDeleteWatchListResponse(resp.Body); err != nil {
+	bodyReader, closeReader, err := responseBodyReader(resp, "DeleteWatchList")
+	if err != nil {
+		return err
+	}
+	defer closeReader()
+	if err := decodeDeleteWatchListResponse(bodyReader); err != nil {
 		return err
 	}
 

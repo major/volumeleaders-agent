@@ -430,10 +430,9 @@ func TestTradesCommandFullPresetKeepsRawTrades(t *testing.T) {
 	}
 }
 
-func TestTradesCommandSignalsPresetIncludesSignalFields(t *testing.T) {
+func TestTradesCommandRejectsSignalsPreset(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assertGetTradesRequest(t, r, "2026-04-30", "PLTR")
-		fmt.Fprint(w, `{"draw":1,"recordsTotal":1,"recordsFiltered":1,"data":[{"Ticker":"PLTR","PhantomPrint":true,"InsideBar":false,"Industry":"Software"}]}`)
+		t.Fatalf("request should not be sent for removed signals preset: %s", r.URL.String())
 	}))
 	t.Cleanup(server.Close)
 
@@ -449,23 +448,8 @@ func TestTradesCommandSignalsPresetIncludesSignalFields(t *testing.T) {
 	cmd.SetErr(io.Discard)
 	cmd.SetArgs([]string{"--date", "2026-04-30", "--ticker", "PLTR", "--preset-fields", "signals"})
 
-	if err := cmd.Execute(); err != nil {
-		t.Fatalf("Execute() error = %v", err)
-	}
-
-	var got Result
-	if err := json.Unmarshal(stdout.Bytes(), &got); err != nil {
-		t.Fatalf("unmarshal output: %v\noutput: %s", err, stdout.String())
-	}
-	if strings.Join(got.Fields, ",") != strings.Join(tradeFieldPresets["signals"], ",") {
-		t.Fatalf("Fields = %v, want signals preset", got.Fields)
-	}
-	phantomIndex := indexOf(got.Fields, "PhantomPrint")
-	if phantomIndex < 0 {
-		t.Fatalf("signals preset omitted PhantomPrint: %v", got.Fields)
-	}
-	if string(got.Rows[0][phantomIndex]) != "true" {
-		t.Fatalf("PhantomPrint cell = %s, want true", string(got.Rows[0][phantomIndex]))
+	if err := cmd.Execute(); err == nil || !strings.Contains(err.Error(), "use core or full") {
+		t.Fatalf("Execute() error = %v, want core/full preset guidance", err)
 	}
 }
 
@@ -1778,15 +1762,6 @@ func assertFormValue(t *testing.T, form url.Values, name, want string) {
 	if got := form.Get(name); got != want {
 		t.Fatalf("form[%s] = %q, want %q", name, got, want)
 	}
-}
-
-func indexOf(values []string, want string) int {
-	for i, value := range values {
-		if value == want {
-			return i
-		}
-	}
-	return -1
 }
 
 type failingWriter struct{}

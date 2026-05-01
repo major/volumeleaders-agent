@@ -61,30 +61,6 @@ var tradeFieldPresets = map[string][]string{
 		"TradeRank",
 		"LastComparibleTradeDate",
 	},
-	"signals": {
-		"Ticker",
-		"FullTimeString24",
-		"Price",
-		"Dollars",
-		"DollarsMultiplier",
-		"Volume",
-		"CumulativeDistribution",
-		"TradeRank",
-		"TradeRankSnapshot",
-		"DarkPool",
-		"Sweep",
-		"LatePrint",
-		"SignaturePrint",
-		"PhantomPrint",
-		"InsideBar",
-		"RSIHour",
-		"RSIDay",
-		"FrequencyLast30TD",
-		"FrequencyLast90TD",
-		"FrequencyLast1CY",
-		"Sector",
-		"Industry",
-	},
 }
 
 var clusterFieldPresets = map[string][]string{
@@ -100,24 +76,6 @@ var clusterFieldPresets = map[string][]string{
 		"TradeClusterRank",
 		"Sector",
 	},
-	"signals": {
-		"Ticker",
-		"MinFullTimeString24",
-		"MaxFullTimeString24",
-		"Price",
-		"Dollars",
-		"DollarsMultiplier",
-		"Volume",
-		"TradeCount",
-		"CumulativeDistribution",
-		"TradeClusterRank",
-		"AverageBlockSizeShares",
-		"AverageBlockSizeDollars",
-		"InsideBar",
-		"DoubleInsideBar",
-		"Sector",
-		"Industry",
-	},
 }
 
 // Options defines the LLM-readable contract for fetching unusual trades.
@@ -128,7 +86,7 @@ type Options struct {
 	Sweeps       bool   `flag:"sweeps" flagdescr:"Filter to sweep orders only. Sweeps are orders spread across multiple exchanges to get done quickly; leave false to include both sweep and block executions." flagenv:"true" flaggroup:"Filters"`
 	Limit        int    `flag:"limit" flagdescr:"Maximum trade rows to return. Must be between 1 and 100. Defaults to 100 when omitted." flagenv:"true" flaggroup:"Output"`
 	Fields       string `flag:"fields" flagdescr:"Comma-separated trade fields to include. Overrides --preset-fields. Use upstream field names such as Ticker,Dollars,TradeRank." flagenv:"true" flaggroup:"Output" mod:"trim"`
-	PresetFields string `flag:"preset-fields" flagdescr:"Field preset to include: core, signals, or full. Defaults to core for token-efficient output." flagenv:"true" flaggroup:"Output" mod:"trim"`
+	PresetFields string `flag:"preset-fields" flagdescr:"Field preset to include: core or full. Defaults to core for token-efficient output." flagenv:"true" flaggroup:"Output" mod:"trim"`
 	Shape        string `flag:"shape" flagdescr:"Trade row shape: array or objects. Array is the default and is most token-efficient." flagenv:"true" flaggroup:"Output" mod:"trim"`
 	Pretty       bool   `flag:"pretty" flagdescr:"Pretty-print JSON output. Compact JSON is the default for token-efficient LLM and MCP use." flagenv:"true" flaggroup:"Output"`
 }
@@ -139,7 +97,7 @@ type RankedOptions struct {
 	Tickers      string `flag:"tickers" flagdescr:"Optional ticker filter. Use one symbol or a comma-delimited list without spaces, for example AAPL or AAPL,MSFT." flagenv:"true" flaggroup:"Query" mod:"trim"`
 	Limit        int    `flag:"limit" flagdescr:"Maximum trade rows to return. Must be between 1 and 100. Defaults to the command preset when omitted." flagenv:"true" flaggroup:"Output"`
 	Fields       string `flag:"fields" flagdescr:"Comma-separated trade fields to include. Overrides --preset-fields. Use upstream field names such as Ticker,Dollars,TradeRank." flagenv:"true" flaggroup:"Output" mod:"trim"`
-	PresetFields string `flag:"preset-fields" flagdescr:"Field preset to include: core, signals, or full. Defaults to core for token-efficient output." flagenv:"true" flaggroup:"Output" mod:"trim"`
+	PresetFields string `flag:"preset-fields" flagdescr:"Field preset to include: core or full. Defaults to core for token-efficient output." flagenv:"true" flaggroup:"Output" mod:"trim"`
 	Shape        string `flag:"shape" flagdescr:"Trade row shape: array or objects. Array is the default and is most token-efficient." flagenv:"true" flaggroup:"Output" mod:"trim"`
 	Pretty       bool   `flag:"pretty" flagdescr:"Pretty-print JSON output. Compact JSON is the default for token-efficient LLM and MCP use." flagenv:"true" flaggroup:"Output"`
 }
@@ -150,7 +108,7 @@ type ClusterOptions struct {
 	Tickers      string `flag:"tickers" flagdescr:"Optional ticker filter. Use one symbol or a comma-delimited list without spaces, for example AAPL or AAPL,MSFT." flagenv:"true" flaggroup:"Query" mod:"trim"`
 	Limit        int    `flag:"limit" flagdescr:"Maximum cluster rows to return. Must be between 1 and 100. Defaults to 100 when omitted." flagenv:"true" flaggroup:"Output"`
 	Fields       string `flag:"fields" flagdescr:"Comma-separated cluster fields to include. Overrides --preset-fields. Use upstream field names such as Ticker,Dollars,TradeCount,TradeClusterRank." flagenv:"true" flaggroup:"Output" mod:"trim"`
-	PresetFields string `flag:"preset-fields" flagdescr:"Field preset to include: core, signals, or full. Defaults to core for token-efficient output." flagenv:"true" flaggroup:"Output" mod:"trim"`
+	PresetFields string `flag:"preset-fields" flagdescr:"Field preset to include: core or full. Defaults to core for token-efficient output." flagenv:"true" flaggroup:"Output" mod:"trim"`
 	Shape        string `flag:"shape" flagdescr:"Cluster row shape: array or objects. Array is the default and is most token-efficient." flagenv:"true" flaggroup:"Output" mod:"trim"`
 	Pretty       bool   `flag:"pretty" flagdescr:"Pretty-print JSON output. Compact JSON is the default for token-efficient LLM and MCP use." flagenv:"true" flaggroup:"Output"`
 }
@@ -161,7 +119,7 @@ type SignalOptions struct {
 	Tickers      string `flag:"tickers" flagdescr:"Optional ticker filter. Use one symbol or a comma-delimited list without spaces, for example AAPL or AAPL,MSFT." flagenv:"true" flaggroup:"Query" mod:"trim"`
 	Limit        int    `flag:"limit" flagdescr:"Maximum trade rows to return. Must be between 1 and 100. Defaults to 100 when omitted." flagenv:"true" flaggroup:"Output"`
 	Fields       string `flag:"fields" flagdescr:"Comma-separated trade fields to include. Overrides --preset-fields. Use upstream field names such as Ticker,Dollars,TradeRank." flagenv:"true" flaggroup:"Output" mod:"trim"`
-	PresetFields string `flag:"preset-fields" flagdescr:"Field preset to include: core, signals, or full. Defaults to core for token-efficient output." flagenv:"true" flaggroup:"Output" mod:"trim"`
+	PresetFields string `flag:"preset-fields" flagdescr:"Field preset to include: core or full. Defaults to core for token-efficient output." flagenv:"true" flaggroup:"Output" mod:"trim"`
 	Shape        string `flag:"shape" flagdescr:"Trade row shape: array or objects. Array is the default and is most token-efficient." flagenv:"true" flaggroup:"Output" mod:"trim"`
 	Pretty       bool   `flag:"pretty" flagdescr:"Pretty-print JSON output. Compact JSON is the default for token-efficient LLM and MCP use." flagenv:"true" flaggroup:"Output"`
 }
@@ -1081,7 +1039,7 @@ func normalizeFields(rawFields, rawPreset string, presets map[string][]string) (
 	}
 	fields, ok := presets[preset]
 	if !ok {
-		return nil, fmt.Errorf("invalid preset-fields %q: use core, signals, or full", rawPreset)
+		return nil, fmt.Errorf("invalid preset-fields %q: use core or full", rawPreset)
 	}
 
 	return append([]string(nil), fields...), nil

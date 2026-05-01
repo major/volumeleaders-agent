@@ -47,7 +47,7 @@ Trade commands return compact, stable JSON with the requested date, DataTables r
 }
 ```
 
-All top-level trade commands support `--limit`, `--fields`, `--preset-fields core|signals|full`, `--shape array|objects`, and `--pretty`. Use `--preset-fields signals` for a richer LLM-friendly projection, `--fields Ticker,Dollars,TradeRank` for a custom projection, `--shape objects` when repeated key names are acceptable, or `--preset-fields full` to return raw upstream `trades` objects. Structcli features are available from the scaffold:
+All top-level trade commands support `--limit`, `--fields`, `--preset-fields core|full`, `--shape array|objects`, and `--pretty`. Use `--fields Ticker,Dollars,TradeRank` for a custom projection, `--shape objects` when repeated key names are acceptable, or `--preset-fields full` to return raw upstream `trades` objects. Structcli features are available from the scaffold:
 
 ```bash
 volumeleaders-agent --jsonschema=tree  # Full command schema for agents
@@ -84,11 +84,11 @@ volumeleaders-agent overbought --date 2026-04-30 --limit 10
 volumeleaders-agent oversold --date 2026-04-30 --tickers AAPL,MSFT
 ```
 
-The `overbought` and `oversold` commands replay VolumeLeaders RSI-condition searches captured from the browser. `overbought` sends `Conditions=OBD,OBH,` with preset `84`, which requires daily or hourly overbought RSI matches. `oversold` sends `Conditions=OSD,OSH` with preset `85`, which requires daily or hourly oversold RSI matches. Both commands use the same compact trade output shape and flags as `trades`, including `--limit`, `--fields`, `--preset-fields core|signals|full`, `--shape array|objects`, and `--pretty`.
+The `overbought` and `oversold` commands replay VolumeLeaders RSI-condition searches captured from the browser. `overbought` sends `Conditions=OBD,OBH,` with preset `84`, which requires daily or hourly overbought RSI matches. `oversold` sends `Conditions=OSD,OSH` with preset `85`, which requires daily or hourly oversold RSI matches. Both commands use the same compact trade output shape and flags as `trades`, including `--limit`, `--fields`, `--preset-fields core|full`, `--shape array|objects`, and `--pretty`.
 
 Cluster equivalents are available as `overbought-clusters` and `oversold-clusters`. They send the same RSI filters to `TradeClusters/GetTradeClusters`, use `TradeClusterRank=100`, and support the cluster output flags described below.
 
-Use `--preset-fields signals` when an LLM needs the raw signal columns behind these filters, especially `RSIHour`, `RSIDay`, `CumulativeDistribution`, and `DollarsMultiplier`. The date flags can also be set with `VOLUMELEADERS_AGENT_OVERBOUGHT_DATE`, `VOLUMELEADERS_AGENT_OVERBOUGHT_CLUSTERS_DATE`, `VOLUMELEADERS_AGENT_OVERSOLD_DATE`, and `VOLUMELEADERS_AGENT_OVERSOLD_CLUSTERS_DATE`.
+Use `--fields` when an LLM needs specific raw signal columns behind these filters, such as `RSIHour`, `RSIDay`, `CumulativeDistribution`, and `DollarsMultiplier`, or `--preset-fields full` when the full upstream object is acceptable. The date flags can also be set with `VOLUMELEADERS_AGENT_OVERBOUGHT_DATE`, `VOLUMELEADERS_AGENT_OVERBOUGHT_CLUSTERS_DATE`, `VOLUMELEADERS_AGENT_OVERSOLD_DATE`, and `VOLUMELEADERS_AGENT_OVERSOLD_CLUSTERS_DATE`.
 
 
 ## Disproportionately large trade clusters
@@ -128,7 +128,7 @@ volumeleaders-agent top10-clusters --date 2026-04-30 --tickers AAPL,MSFT
 
 The `top10-clusters` and `top100-clusters` commands query `TradeClusters/GetTradeClusters` and return cluster rows for VolumeLeaders' all-time cluster rank filters (`TradeClusterRank=10` or `100`). Phantom and offsetting are trade-only presets and do not have cluster commands.
 
-These commands support the same cluster output flags as `trade-clusters`, including `--limit`, `--fields`, `--preset-fields core|signals|full`, `--shape array|objects`, and `--pretty`. Each command also exposes a matching date environment variable, for example `VOLUMELEADERS_AGENT_TOP10_CLUSTERS_DATE`.
+These commands support the same cluster output flags as `trade-clusters`, including `--limit`, `--fields`, `--preset-fields core|full`, `--shape array|objects`, and `--pretty`. Each command also exposes a matching date environment variable, for example `VOLUMELEADERS_AGENT_TOP10_CLUSTERS_DATE`.
 
 ## All-time ranked trades
 

@@ -59,18 +59,6 @@ reviews:
         - Verify no credentials are logged or exposed in error messages
         - Cookie/token handling must degrade gracefully on errors
 
-    - path: "internal/client/**/*.go"
-      instructions: |
-        HTTP client review:
-        - HTTP errors must be handled with context
-        - Verify proper context propagation for cancellation
-
-    - path: "internal/models/**/*.go"
-      instructions: |
-        Data model review:
-        - Verify JSON tags match expected field names
-        - Check for missing fields that could cause silent data loss on unmarshal
-
     - path: "**/*_test.go"
       instructions: |
         Focus on test quality:
@@ -86,9 +74,6 @@ reviews:
         Makefile validation:
         - .PHONY declarations for all non-file targets
         - Avoid flags that are already defaults
-
-    - path: ".goreleaser.yml"
-      instructions: "Verify goreleaser v2 config, CGO disabled, correct platform matrix"
 
 chat:
   auto_reply: true

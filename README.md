@@ -7,55 +7,25 @@
 [![Go Report Card](https://goreportcard.com/badge/github.com/major/volumeleaders-agent)](https://goreportcard.com/report/github.com/major/volumeleaders-agent)
 [![Go Reference](https://pkg.go.dev/badge/github.com/major/volumeleaders-agent.svg)](https://pkg.go.dev/github.com/major/volumeleaders-agent)
 
-Go CLI for querying institutional trade data from [VolumeLeaders](https://www.volumeleaders.com). Surfaces large block trades, trade clusters, price levels, volume leaderboards, and market-wide signals that indicate institutional activity.
+Go authentication package for [VolumeLeaders](https://www.volumeleaders.com). It extracts browser session cookies and fetches the XSRF token needed to authenticate requests against the VolumeLeaders web application.
 
 ## Prerequisites
 
-You must be logged into volumeleaders.com in a supported browser (Chrome, Firefox, Edge, etc.). The CLI extracts session cookies directly from the browser's cookie store, so no API keys or manual token management is needed.
+You must be logged into volumeleaders.com in a supported browser (Chrome, Firefox, Edge, etc.). The auth package extracts session cookies directly from the browser's cookie store, so no API keys or manual token management is needed.
 
-## Install
+## Package
 
-```bash
-go install github.com/major/volumeleaders-agent/cmd/volumeleaders-agent@latest
+```go
+import "github.com/major/volumeleaders-agent/internal/auth"
 ```
 
-Pre-built binaries (signed with [Sigstore](https://www.sigstore.dev/)) are attached to each [GitHub release](https://github.com/major/volumeleaders-agent/releases).
-
-## Quick start
-
-```bash
-# Today's top institutional volume movers
-volumeleaders-agent volume institutional --date 2026-04-28
-
-# Large trades in a specific ticker
-volumeleaders-agent trade list --tickers NVDA --start-date 2025-01-01 --end-date 2025-04-24
-
-# Market exhaustion signals
-volumeleaders-agent --pretty market exhaustion
-```
-
-Commands emit compact JSON to stdout by default. Use `--pretty` for indented output. Errors go to stderr. The `schema` command is the exception: it always emits raw indented JSON for machine-readable CLI introspection.
-
-## Commands
-
-| Group | Purpose |
-|---|---|
-| `trade` | Institutional trades, clusters, cluster bombs, price levels |
-| `volume` | Volume leaderboards (institutional, after-hours, total) |
-| `market` | Market-wide snapshots, earnings calendar, exhaustion scores |
-| `alert` | Saved alert configurations |
-| `watchlist` | Saved watchlists and their tickers |
-| `schema` | JSON schema of all commands and flags |
-
-Use `volumeleaders-agent schema` for the machine-readable command and flag reference. See [skills/volumeleaders-agent/SKILL.md](skills/volumeleaders-agent/SKILL.md) for schema-first agent guidance, filter conventions, workflows, and domain gotchas.
+The CLI commands and generated skill guide have been removed while the package is reworked.
 
 ## Build
 
 ```bash
-make build      # Build binary
 make test       # Run tests
 make lint       # Run golangci-lint
-make install    # Install to $GOPATH/bin
 ```
 
 ## License

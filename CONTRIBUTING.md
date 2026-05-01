@@ -5,7 +5,6 @@
 ```bash
 git clone https://github.com/major/volumeleaders-agent.git
 cd volumeleaders-agent
-make build
 make test
 make lint
 ```
@@ -19,9 +18,8 @@ Linting uses [golangci-lint](https://golangci-lint.run/) with the config in `.go
 A few conventions to follow when writing code:
 
 - Tests use table-driven style with `t.Parallel()` at the top of each test and subtest.
-- All commands write compact JSON to stdout. Errors go to stderr via `slog`. Use `--pretty` for indented output.
-- Dates on the CLI use `YYYY-MM-DD` format and are converted internally as needed.
-- Boolean/toggle filters use integers: `-1` means all/unfiltered, `0` means exclude, `1` means include.
+- Authentication errors include useful troubleshooting context without exposing cookies, tokens, browser profile paths, or other secrets.
+- Context cancellation must propagate through browser cookie extraction and token lookup paths.
 
 ## Pull Requests
 
@@ -33,7 +31,7 @@ Fork the repo, create a branch, and open a PR against `main`.
 
 ## Code Style
 
-Follow the patterns already in the codebase. `make lint` catches most issues. When in doubt, look at how existing commands in `internal/commands/` are structured and match that style.
+Follow the patterns already in the codebase. `make lint` catches most issues. When in doubt, match the style in `internal/auth/`.
 
 ## License
 

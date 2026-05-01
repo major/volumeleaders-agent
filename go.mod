@@ -4,10 +4,7 @@ go 1.26.0
 
 toolchain go1.26.2
 
-require (
-	github.com/browserutils/kooky v0.2.9
-	github.com/urfave/cli/v3 v3.8.0
-)
+require github.com/browserutils/kooky v0.2.9
 
 require (
 	github.com/browserutils/ese v0.0.0-20260314233042-37b6a03a93ce // indirect

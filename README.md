@@ -62,24 +62,32 @@ The date flag can also be set with the environment variable shown by `volumelead
 
 ```bash
 volumeleaders-agent watchlists
+volumeleaders-agent watchlists --search-template-key 4952 --preset-fields expanded
 volumeleaders-agent watchlists --preset-fields expanded --pretty
 volumeleaders-agent watchlists --fields Name,Tickers,MaxTradeRank,IncludedTradeTypes
+volumeleaders-agent save-watchlist --name "Big dark-pool sweeps" --min-dollars 10000000 --min-relative-size 5
+volumeleaders-agent save-watchlist --search-template-key 4952 --name BigOnes --tickers AAPL,MSFT --min-dollars 10000000 --max-trade-rank 10
+volumeleaders-agent delete-watchlist --search-template-key 4952
 ```
 
 The `watchlists` command lists saved watchlist filters configured in the authenticated VolumeLeaders account. These watchlists are saved criteria for trades or clusters, so they may filter by ticker, dollar size, price, relative size, rank, RSI conditions, venue, print type, session, auction status, phantom prints, and offsetting trades.
 
-The default `--preset-fields core --shape array` output is compact JSON for LLM workflows:
+The `save-watchlist` command creates or fully replaces those saved filters through the same authenticated `WatchListConfig` browser form. Omit `--search-template-key` or set it to `0` to create a new watchlist. Set `--search-template-key` to an existing `SearchTemplateKey` from `volumeleaders-agent watchlists` to replace that watchlist with the complete criteria passed to the command. Browser defaults include all print/session/venue checkboxes, all security types, no rank limit, no RSI condition filters, and no ticker restriction unless you pass the matching flags.
+
+The `delete-watchlist` command removes a saved filter by posting the browser-compatible `WatchListConfigs/DeleteWatchList` request with the selected `SearchTemplateKey`.
+
+The default `--preset-fields summary --shape array` output is compact JSON for picking a specific watchlist before requesting details:
 
 ```json
 {
   "status": "ok",
   "count": 1,
-  "fields": ["SearchTemplateKey", "Name", "Tickers", "MinVolume", "MaxVolume", "MinDollars", "MaxDollars", "MinPrice", "MaxPrice", "MinRelativeSize", "MaxTradeRank", "Conditions", "IncludedTradeTypes"],
-  "rows": [[4952, "BigOnes", "", 0, 2000000000, 10000000, 300000000000, 5, 100000, 5, 10, "IgnoreOBD,IgnoreOBH,IgnoreOSD,IgnoreOSH", ["NormalPrints", "DarkPools", "Sweeps", "OffsettingTrades"]]]
+  "fields": ["SearchTemplateKey", "Name"],
+  "rows": [[4952, "BigOnes"]]
 }
 ```
 
-Use `--preset-fields expanded` to include annotated non-internal watchlist filter fields, `--preset-fields full` to return raw upstream objects, `--shape objects` for repeated key names, or `--pretty` for readable JSON. The output flags can also be set with environment variables shown by `volumeleaders-agent env-vars`, for example `VOLUMELEADERS_AGENT_WATCHLISTS_PRESET_FIELDS`. See [`docs/fields.md`](docs/fields.md#watchlist-fields) for the longer field reference derived from `Getwatchlists.jsonc`, including selected-field semantics, security type codes, and internal-only fields to ignore.
+Use `--search-template-key` with `--preset-fields expanded` to inspect one saved watchlist's configuration, `--preset-fields full` to return raw upstream objects, `--shape objects` for repeated key names, or `--pretty` for readable JSON. The output flags can also be set with environment variables shown by `volumeleaders-agent env-vars`, for example `VOLUMELEADERS_AGENT_WATCHLISTS_PRESET_FIELDS`. See [`docs/fields.md`](docs/fields.md#watchlist-fields) for the longer field reference derived from `Getwatchlists.jsonc`, including selected-field semantics, security type codes, and internal-only fields to ignore.
 
 ## LLM field guide for trade filters and signal fields
 

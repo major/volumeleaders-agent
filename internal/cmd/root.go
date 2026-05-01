@@ -22,6 +22,8 @@ var rootCommandFactories = []commandFactory{
 	// Watchlists are account-level saved filters, so keep them before dated trade
 	// commands that callers may choose after inspecting the configured criteria.
 	{name: "watchlists", new: watchlists.NewCommand},
+	{name: "save-watchlist", new: watchlists.NewSaveCommand},
+	{name: "delete-watchlist", new: watchlists.NewDeleteCommand},
 
 	// Keep individual trade commands together so the help, JSON schema, and MCP
 	// discovery output read in the same order a user would browse trade filters.

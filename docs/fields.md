@@ -4,8 +4,9 @@ This page explains the upstream VolumeLeaders trade, cluster, and watchlist JSON
 
 ## Presets
 
-- `core`: compact default for LLM workflows. Emits the most useful table fields plus derived `CalendarEvent` and `AuctionTrade` where available.
-- `expanded`: all annotated non-internal signal fields. Still excludes raw upstream internals, always-zero fields, and always-null fields.
+- Trade and cluster `core`: compact default for LLM workflows. Emits the most useful table fields plus derived `CalendarEvent` and `AuctionTrade` where available.
+- Watchlist `summary`: compact watchlist default with only `SearchTemplateKey` and `Name`, so callers can choose a saved filter before requesting details.
+- `expanded`: all annotated non-internal signal fields for trades and clusters, or the saved filter configuration fields for watchlists. Still excludes raw upstream internals, always-zero fields, and always-null fields.
 - `full`: raw upstream payload. Use only for debugging or when a field has not been classified yet.
 
 Array output is the most token-efficient shape because field names appear once in `fields` and row values follow the same order in `rows`. Object output repeats field names per row but is easier to inspect manually.
@@ -64,7 +65,7 @@ Cluster exclusions include `SecurityKey`, `ClosePrice`, `AverageBlockSizeShares`
 
 ## Watchlist fields
 
-The `watchlists` command lists saved account-level watchlist filters from `WatchListConfigs/GetWatchLists`. These are not necessarily traditional ticker watchlists. They are saved criteria for which trades or clusters should appear in the VolumeLeaders watchlist UI.
+The `watchlists` command lists saved account-level watchlist filters from `WatchListConfigs/GetWatchLists`. Its default `summary` preset returns only `SearchTemplateKey` and `Name` so callers can pick a watchlist before requesting criteria fields. The `save-watchlist` command creates or updates those filters by posting the authenticated `WatchListConfig` form, and `delete-watchlist` removes one by posting `WatchListConfigs/DeleteWatchList` with the selected key. These are not necessarily traditional ticker watchlists. They are saved criteria for which trades or clusters should appear in the VolumeLeaders watchlist UI.
 
 - `SearchTemplateKey`: unique identifier for the saved watchlist template.
 - `UserKey`: unique identifier for the user who created the watchlist.

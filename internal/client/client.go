@@ -6,10 +6,12 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"mime/multipart"
 	"net/http"
 	"net/url"
+	"sync"
 	"time"
 
 	"github.com/major/volumeleaders-agent/internal/auth"
@@ -27,6 +29,7 @@ type Client struct {
 	baseURL          string
 	cookies          map[string]string
 	xsrfToken        string
+	closeOnce        sync.Once
 }
 
 // NewForTesting creates a Client for test use, bypassing browser-based
@@ -92,6 +95,16 @@ func New(ctx context.Context) (*Client, error) {
 		cookies:          cookies,
 		xsrfToken:        xsrfToken,
 	}, nil
+}
+
+// Close releases resources held by both resty clients.
+// It is safe to call Close more than once.
+func (c *Client) Close() error {
+	var err error
+	c.closeOnce.Do(func() {
+		err = errors.Join(c.client.Close(), c.noRedirectClient.Close())
+	})
+	return err
 }
 
 func buildRequestMiddleware(xsrfToken string) resty.RequestMiddleware {

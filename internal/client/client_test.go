@@ -448,3 +448,49 @@ func assertErrorContains(t *testing.T, err error, want string) {
 		t.Fatalf("expected error containing %q, got %v", want, err)
 	}
 }
+
+func TestClose(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		calls   int
+		wantErr bool
+	}{
+		{
+			name:    "single close returns nil",
+			calls:   1,
+			wantErr: false,
+		},
+		{
+			name:    "double close does not panic",
+			calls:   2,
+			wantErr: false,
+		},
+		{
+			name:    "triple close does not panic",
+			calls:   3,
+			wantErr: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			client := newTestClient("http://localhost")
+
+			var lastErr error
+			for i := 0; i < tt.calls; i++ {
+				lastErr = client.Close()
+			}
+
+			if tt.wantErr && lastErr == nil {
+				t.Errorf("expected error, got nil")
+			}
+			if !tt.wantErr && lastErr != nil {
+				t.Errorf("expected nil, got error: %v", lastErr)
+			}
+		})
+	}
+}

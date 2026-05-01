@@ -58,6 +58,34 @@ volumeleaders-agent --mcp              # Run stdio MCP server
 
 The date flag can also be set with the environment variable shown by `volumeleaders-agent env-vars`, for example `VOLUMELEADERS_AGENT_TRADES_DATE`.
 
+
+## Disproportionately large trade clusters
+
+```bash
+volumeleaders-agent trade-clusters --date 2026-04-30
+volumeleaders-agent trade-clusters --date 2026-04-30 --limit 10
+volumeleaders-agent trade-clusters --date 2026-04-30 --tickers AAPL,IONQ
+```
+
+The `trade-clusters` command fetches VolumeLeaders' disproportionately large trade clusters preset for one trading day. A trade cluster is a group of smaller trades that occur close together in time and add up to a larger dollar-volume event, so the command uses `TradeClusters/GetTradeClusters` rather than the single-trade `Trades/GetTrades` endpoint. The request mirrors the browser's cluster form, including the `TradeClusterRank`, relative size, price, dollar, and sector filters captured from the VolumeLeaders UI.
+
+Cluster commands return the same compact JSON envelope as trade commands, but cluster rows are emitted under `clusters` when using `--shape objects` or `--preset-fields full`. The default core fields include cluster-specific values such as `MinFullTimeString24`, `MaxFullTimeString24`, `TradeCount`, and `TradeClusterRank`:
+
+```json
+{
+  "status": "ok",
+  "date": "2026-04-30",
+  "recordsTotal": 3213,
+  "recordsFiltered": 3213,
+  "fields": ["Ticker", "MinFullTimeString24", "MaxFullTimeString24", "Price", "Dollars", "DollarsMultiplier", "Volume", "TradeCount", "TradeClusterRank", "Sector"],
+  "rows": [
+    ["AAPL", "10:01:04", "10:01:08", 203.25, 1250000, 4.2, 6150, 7, 14, "Technology"]
+  ]
+}
+```
+
+The date flag can also be set with `VOLUMELEADERS_AGENT_TRADE_CLUSTERS_DATE`.
+
 ## All-time ranked trades
 
 ```bash

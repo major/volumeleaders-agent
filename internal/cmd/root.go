@@ -19,6 +19,7 @@ type commandFactory struct {
 
 var rootCommandFactories = []commandFactory{
 	{name: "trades", new: trades.NewCommand},
+	{name: "trade-clusters", new: trades.NewTradeClustersCommand},
 	{name: "top10", new: trades.NewTop10Command},
 	{name: "top100", new: trades.NewTop100Command},
 	{name: "phantom", new: trades.NewPhantomCommand},

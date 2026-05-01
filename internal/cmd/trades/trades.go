@@ -28,16 +28,19 @@ const (
 	fullFieldPreset      = "full"
 	objectOutputShape    = "objects"
 	getTradesPath        = "https://www.volumeleaders.com/Trades/GetTrades"
+	getTradeClustersPath = "https://www.volumeleaders.com/TradeClusters/GetTradeClusters"
 	tradesPage           = "https://www.volumeleaders.com/Trades"
+	tradeClustersPage    = "https://www.volumeleaders.com/TradeClusters"
 )
 
 var (
-	extractCookies      = auth.ExtractCookies
-	fetchXSRFToken      = auth.FetchXSRFToken
-	getTradesHTTPClient = http.DefaultClient
-	getTradesEndpoint   = getTradesPath
-	tickerPattern       = regexp.MustCompile(`^[A-Z0-9.-]+$`)
-	nullJSON            = json.RawMessage("null")
+	extractCookies           = auth.ExtractCookies
+	fetchXSRFToken           = auth.FetchXSRFToken
+	getTradesHTTPClient      = http.DefaultClient
+	getTradesEndpoint        = getTradesPath
+	getTradeClustersEndpoint = getTradeClustersPath
+	tickerPattern            = regexp.MustCompile(`^[A-Z0-9.-]+$`)
+	nullJSON                 = json.RawMessage("null")
 )
 
 var tradeFieldPresets = map[string][]string{
@@ -81,6 +84,39 @@ var tradeFieldPresets = map[string][]string{
 	},
 }
 
+var clusterFieldPresets = map[string][]string{
+	"core": {
+		"Ticker",
+		"MinFullTimeString24",
+		"MaxFullTimeString24",
+		"Price",
+		"Dollars",
+		"DollarsMultiplier",
+		"Volume",
+		"TradeCount",
+		"TradeClusterRank",
+		"Sector",
+	},
+	"signals": {
+		"Ticker",
+		"MinFullTimeString24",
+		"MaxFullTimeString24",
+		"Price",
+		"Dollars",
+		"DollarsMultiplier",
+		"Volume",
+		"TradeCount",
+		"CumulativeDistribution",
+		"TradeClusterRank",
+		"AverageBlockSizeShares",
+		"AverageBlockSizeDollars",
+		"InsideBar",
+		"DoubleInsideBar",
+		"Sector",
+		"Industry",
+	},
+}
+
 // Options defines the LLM-readable contract for fetching unusual trades.
 type Options struct {
 	Date         string `flag:"date" flagshort:"d" flagdescr:"Single trading date to query, formatted as YYYY-MM-DD. The disproportionately large trades preset is intentionally limited to one day." flagenv:"true" flagrequired:"true" flaggroup:"Query" validate:"required" mod:"trim"`
@@ -100,6 +136,17 @@ type RankedOptions struct {
 	Fields       string `flag:"fields" flagdescr:"Comma-separated trade fields to include. Overrides --preset-fields. Use upstream field names such as Ticker,Dollars,TradeRank." flagenv:"true" flaggroup:"Output" mod:"trim"`
 	PresetFields string `flag:"preset-fields" flagdescr:"Field preset to include: core, signals, or full. Defaults to core for token-efficient output." flagenv:"true" flaggroup:"Output" mod:"trim"`
 	Shape        string `flag:"shape" flagdescr:"Trade row shape: array or objects. Array is the default and is most token-efficient." flagenv:"true" flaggroup:"Output" mod:"trim"`
+	Pretty       bool   `flag:"pretty" flagdescr:"Pretty-print JSON output. Compact JSON is the default for token-efficient LLM and MCP use." flagenv:"true" flaggroup:"Output"`
+}
+
+// ClusterOptions defines the LLM-readable contract for fetching trade cluster presets.
+type ClusterOptions struct {
+	Date         string `flag:"date" flagshort:"d" flagdescr:"Single trading date to query, formatted as YYYY-MM-DD. The disproportionately large trade clusters preset is intentionally limited to one day." flagenv:"true" flagrequired:"true" flaggroup:"Query" validate:"required" mod:"trim"`
+	Tickers      string `flag:"tickers" flagdescr:"Optional ticker filter. Use one symbol or a comma-delimited list without spaces, for example AAPL or AAPL,MSFT." flagenv:"true" flaggroup:"Query" mod:"trim"`
+	Limit        int    `flag:"limit" flagdescr:"Maximum cluster rows to return. Must be between 1 and 100. Defaults to 100 when omitted." flagenv:"true" flaggroup:"Output"`
+	Fields       string `flag:"fields" flagdescr:"Comma-separated cluster fields to include. Overrides --preset-fields. Use upstream field names such as Ticker,Dollars,TradeCount,TradeClusterRank." flagenv:"true" flaggroup:"Output" mod:"trim"`
+	PresetFields string `flag:"preset-fields" flagdescr:"Field preset to include: core, signals, or full. Defaults to core for token-efficient output." flagenv:"true" flaggroup:"Output" mod:"trim"`
+	Shape        string `flag:"shape" flagdescr:"Cluster row shape: array or objects. Array is the default and is most token-efficient." flagenv:"true" flaggroup:"Output" mod:"trim"`
 	Pretty       bool   `flag:"pretty" flagdescr:"Pretty-print JSON output. Compact JSON is the default for token-efficient LLM and MCP use." flagenv:"true" flaggroup:"Output"`
 }
 
@@ -123,6 +170,17 @@ type Result struct {
 	Fields          []string            `json:"fields,omitempty"`
 	Rows            [][]json.RawMessage `json:"rows,omitempty"`
 	Trades          []json.RawMessage   `json:"trades,omitempty"`
+}
+
+// ClusterResult is the stable response shape for trade cluster presets.
+type ClusterResult struct {
+	Status          string              `json:"status"`
+	Date            string              `json:"date"`
+	RecordsTotal    int                 `json:"recordsTotal"`
+	RecordsFiltered int                 `json:"recordsFiltered"`
+	Fields          []string            `json:"fields,omitempty"`
+	Rows            [][]json.RawMessage `json:"rows,omitempty"`
+	Clusters        []json.RawMessage   `json:"clusters,omitempty"`
 }
 
 // RankedResult is the stable response shape for all-time ranked trade presets.
@@ -149,6 +207,20 @@ type tradeColumn struct {
 	data      string
 	name      string
 	orderable string
+}
+
+type getTradeClustersRequestOptions struct {
+	tradeClusterRank       int
+	draw                   int
+	start                  int
+	length                 int
+	minVolume              string
+	maxDollars             string
+	vcd                    string
+	relativeSize           string
+	securityTypeKey        string
+	sectorIndustry         string
+	presetSearchTemplateID string
 }
 
 type getTradesRequestOptions struct {
@@ -238,6 +310,24 @@ type sectorPreset struct {
 	presetID       string
 }
 
+var getTradeClustersColumns = []tradeColumn{
+	{data: "MinFullTimeString24", name: "", orderable: "false"},
+	{data: "MinFullTimeString24", name: "MinFullTimeString24", orderable: "true"},
+	{data: "Ticker", name: "Ticker", orderable: "true"},
+	{data: "TradeCount", name: "TradeCount", orderable: "true"},
+	{data: "Current", name: "Current", orderable: "false"},
+	{data: "Cluster", name: "Cluster", orderable: "false"},
+	{data: "Sector", name: "Sector", orderable: "true"},
+	{data: "Industry", name: "Industry", orderable: "true"},
+	{data: "Volume", name: "Sh", orderable: "true"},
+	{data: "Dollars", name: "$$", orderable: "true"},
+	{data: "DollarsMultiplier", name: "RS", orderable: "true"},
+	{data: "CumulativeDistribution", name: "PCT", orderable: "true"},
+	{data: "TradeClusterRank", name: "Rank", orderable: "true"},
+	{data: "LastComparibleTradeClusterDate", name: "Last Date", orderable: "true"},
+	{data: "LastComparibleTradeClusterDate", name: "Charts", orderable: "false"},
+}
+
 var getTradesColumns = []tradeColumn{
 	{data: "FullTimeString24", name: "", orderable: "false"},
 	{data: "FullTimeString24", name: "FullTimeString24", orderable: "true"},
@@ -285,6 +375,20 @@ func newBoundTradeCommand(meta *commandMetadata, opts any, tickerFlag *string, r
 	cmd.Flags().StringVar(tickerFlag, "ticker", "", "Optional ticker filter. Alias for --tickers.")
 
 	return cmd, nil
+}
+
+// NewTradeClustersCommand builds the disproportionately large trade clusters command.
+func NewTradeClustersCommand() (*cobra.Command, error) {
+	opts := &ClusterOptions{}
+	return newBoundTradeCommand(&commandMetadata{
+		use:     "trade-clusters",
+		aliases: []string{"clusters", "large-clusters"},
+		short:   "Fetch disproportionately large trade clusters for one date",
+		long:    "Fetch VolumeLeaders disproportionately large trade clusters for a single trading day. Trade clusters aggregate many smaller trades close together in time into larger dollar-volume events.",
+		example: "volumeleaders-agent trade-clusters --date 2026-04-30\nvolumeleaders-agent trade-clusters --date 2026-04-30 --tickers AAPL,MSFT",
+	}, opts, &opts.Tickers, func(cmd *cobra.Command, _ []string) error {
+		return runTradeClusters(cmd.Context(), cmd, opts)
+	})
 }
 
 // NewTop10Command builds the top 10 all-time ranked trades command.
@@ -489,6 +593,38 @@ func run(ctx context.Context, cmd *cobra.Command, opts *Options) error {
 	})
 }
 
+func runTradeClusters(ctx context.Context, cmd *cobra.Command, opts *ClusterOptions) error {
+	formattedDate, tickers, err := parseDateAndTickers(ctx, "trade-clusters", opts.Date, opts.Tickers)
+	if err != nil {
+		return err
+	}
+	limit, err := normalizeLimit("trade-clusters", opts.Limit, defaultTradeLimit, cmd.Flags().Changed("limit"))
+	if err != nil {
+		return err
+	}
+	fields, shape, err := normalizeClusterOutputOptions(opts.Fields, opts.PresetFields, opts.Shape)
+	if err != nil {
+		return err
+	}
+
+	apiResponse, err := fetchTradeClusters(ctx, formattedDate, tickers, limit)
+	if err != nil {
+		return err
+	}
+
+	result := ClusterResult{
+		Status:          "ok",
+		Date:            formattedDate,
+		RecordsTotal:    apiResponse.RecordsTotal,
+		RecordsFiltered: apiResponse.RecordsFiltered,
+	}
+	if err := applyClusterOutput(&result, apiResponse.Data, fields, shape); err != nil {
+		return err
+	}
+
+	return encodeResult(cmd.OutOrStdout(), "trade-clusters", result, opts.Pretty)
+}
+
 func runRanked(ctx context.Context, cmd *cobra.Command, opts *RankedOptions, preset *rankedPreset) error {
 	formattedDate, tickers, err := parseDateAndTickers(ctx, preset.use, opts.Date, opts.Tickers)
 	if err != nil {
@@ -620,6 +756,14 @@ func normalizeLimit(cmdName string, rawLimit, defaultLimit int, limitChanged boo
 }
 
 func normalizeOutputOptions(rawFields, rawPreset, rawShape string) (fields []string, shape string, err error) {
+	return normalizeOutputOptionsWithPresets(rawFields, rawPreset, rawShape, tradeFieldPresets)
+}
+
+func normalizeClusterOutputOptions(rawFields, rawPreset, rawShape string) (fields []string, shape string, err error) {
+	return normalizeOutputOptionsWithPresets(rawFields, rawPreset, rawShape, clusterFieldPresets)
+}
+
+func normalizeOutputOptionsWithPresets(rawFields, rawPreset, rawShape string, presets map[string][]string) (fields []string, shape string, err error) {
 	shape = strings.ToLower(strings.TrimSpace(rawShape))
 	if shape == "" {
 		shape = defaultOutputShape
@@ -628,7 +772,7 @@ func normalizeOutputOptions(rawFields, rawPreset, rawShape string) (fields []str
 		return nil, "", fmt.Errorf("invalid shape %q: use array or objects", rawShape)
 	}
 
-	fields, err = normalizeFields(rawFields, rawPreset)
+	fields, err = normalizeFields(rawFields, rawPreset, presets)
 	if err != nil {
 		return nil, "", err
 	}
@@ -636,7 +780,7 @@ func normalizeOutputOptions(rawFields, rawPreset, rawShape string) (fields []str
 	return fields, shape, nil
 }
 
-func normalizeFields(rawFields, rawPreset string) ([]string, error) {
+func normalizeFields(rawFields, rawPreset string, presets map[string][]string) ([]string, error) {
 	if strings.TrimSpace(rawFields) != "" {
 		return parseFields(rawFields)
 	}
@@ -648,7 +792,7 @@ func normalizeFields(rawFields, rawPreset string) ([]string, error) {
 	if preset == fullFieldPreset {
 		return nil, nil
 	}
-	fields, ok := tradeFieldPresets[preset]
+	fields, ok := presets[preset]
 	if !ok {
 		return nil, fmt.Errorf("invalid preset-fields %q: use core, signals, or full", rawPreset)
 	}
@@ -689,6 +833,17 @@ func applyTradeOutput(result *Result, trades []json.RawMessage, fields []string,
 	result.Fields = output.fields
 	result.Rows = output.rows
 	result.Trades = output.trades
+	return nil
+}
+
+func applyClusterOutput(result *ClusterResult, clusters []json.RawMessage, fields []string, shape string) error {
+	output, err := projectTradeOutput(clusters, fields, shape)
+	if err != nil {
+		return err
+	}
+	result.Fields = output.fields
+	result.Rows = output.rows
+	result.Clusters = output.trades
 	return nil
 }
 
@@ -796,6 +951,11 @@ func fetchDisproportionatelyLargeTrades(ctx context.Context, tradeDate, tickers 
 	return fetchTradesPages(ctx, tradeDate, tickers, &options, limit)
 }
 
+func fetchTradeClusters(ctx context.Context, tradeDate, tickers string, limit int) (getTradesResponse, error) {
+	options := defaultGetTradeClustersRequestOptions()
+	return fetchTradeClustersPages(ctx, tradeDate, tickers, &options, limit)
+}
+
 func fetchRankedTrades(ctx context.Context, tradeDate, tickers string, preset *rankedPreset, limit int) (getTradesResponse, error) {
 	options := rankedGetTradesRequestOptions(preset)
 	return fetchTradesPages(ctx, tradeDate, tickers, &options, limit)
@@ -814,6 +974,111 @@ func fetchLeverageTrades(ctx context.Context, tradeDate, tickers string, preset 
 func fetchSectorTrades(ctx context.Context, tradeDate, tickers string, preset *sectorPreset, limit int) (getTradesResponse, error) {
 	options := sectorGetTradesRequestOptions(preset)
 	return fetchTradesPages(ctx, tradeDate, tickers, &options, limit)
+}
+
+func fetchTradeClustersPages(ctx context.Context, tradeDate, tickers string, options *getTradeClustersRequestOptions, limit int) (getTradesResponse, error) {
+	if limit < 1 {
+		return getTradesResponse{}, fmt.Errorf("fetch GetTradeClusters pages: limit must be 1 or greater")
+	}
+	if limit > maxTradeLimit {
+		return getTradesResponse{}, fmt.Errorf("fetch GetTradeClusters pages: limit must be %d or less", maxTradeLimit)
+	}
+
+	var merged getTradesResponse
+	merged.Data = []json.RawMessage{}
+	for page := 0; len(merged.Data) < limit; page++ {
+		select {
+		case <-ctx.Done():
+			return getTradesResponse{}, fmt.Errorf("fetch GetTradeClusters page %d: %w", page+1, ctx.Err())
+		default:
+		}
+
+		remaining := limit - len(merged.Data)
+		pageLength := min(defaultTradePageSize, remaining)
+
+		pageOptions := *options
+		pageOptions.draw = page + 1
+		pageOptions.start = page * defaultTradePageSize
+		pageOptions.length = pageLength
+
+		apiResponse, err := fetchTradeClustersPage(ctx, tradeDate, tickers, &pageOptions)
+		if err != nil {
+			return getTradesResponse{}, err
+		}
+		if page == 0 {
+			merged.Draw = apiResponse.Draw
+			merged.RecordsTotal = apiResponse.RecordsTotal
+			merged.RecordsFiltered = apiResponse.RecordsFiltered
+		}
+
+		merged.Data = append(merged.Data, apiResponse.Data...)
+		if len(apiResponse.Data) < pageLength {
+			break
+		}
+		if apiResponse.RecordsFiltered > 0 && pageOptions.start+len(apiResponse.Data) >= apiResponse.RecordsFiltered {
+			break
+		}
+	}
+	if len(merged.Data) > limit {
+		merged.Data = merged.Data[:limit]
+	}
+
+	return merged, nil
+}
+
+func fetchTradeClustersPage(ctx context.Context, tradeDate, tickers string, options *getTradeClustersRequestOptions) (getTradesResponse, error) {
+	cookies, err := extractCookies(ctx)
+	if err != nil {
+		return getTradesResponse{}, fmt.Errorf("extract VolumeLeaders browser cookies: %w", err)
+	}
+
+	token, err := fetchXSRFToken(ctx, getTradesHTTPClient, cookies)
+	if err != nil {
+		return getTradesResponse{}, fmt.Errorf("fetch VolumeLeaders XSRF token: %w", err)
+	}
+
+	form := getTradeClustersForm(tradeDate, tickers, options)
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, getTradeClustersEndpoint, strings.NewReader(form.Encode()))
+	if err != nil {
+		return getTradesResponse{}, fmt.Errorf("create GetTradeClusters request: %w", err)
+	}
+	setGetTradeClustersHeaders(req, token, tradeDate, tickers, options)
+	for name, value := range cookies {
+		req.AddCookie(&http.Cookie{Name: name, Value: value})
+	}
+
+	resp, err := getTradesHTTPClient.Do(req)
+	if err != nil {
+		return getTradesResponse{}, fmt.Errorf("post GetTradeClusters request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if sessionExpiredResponse(resp) {
+		return getTradesResponse{}, sessionExpiredCommandError()
+	}
+	if resp.StatusCode != http.StatusOK {
+		return getTradesResponse{}, fmt.Errorf("GetTradeClusters request returned status %d", resp.StatusCode)
+	}
+
+	bodyReader, closeReader, err := responseBodyReader(resp, "GetTradeClusters")
+	if err != nil {
+		return getTradesResponse{}, err
+	}
+	defer closeReader()
+
+	var apiResponse getTradesResponse
+	if err := json.NewDecoder(bodyReader).Decode(&apiResponse); err != nil {
+		return getTradesResponse{}, fmt.Errorf("decode GetTradeClusters response: %w", err)
+	}
+	if apiResponse.Error != "" {
+		return getTradesResponse{}, fmt.Errorf("GetTradeClusters response error: %s", apiResponse.Error)
+	}
+	if apiResponse.Data == nil {
+		apiResponse.Data = []json.RawMessage{}
+	}
+	inferTradeClusterTotals(&apiResponse)
+
+	return apiResponse, nil
 }
 
 func fetchTradesPages(ctx context.Context, tradeDate, tickers string, options *getTradesRequestOptions, limit int) (getTradesResponse, error) {
@@ -900,7 +1165,7 @@ func fetchTrades(ctx context.Context, tradeDate, tickers string, options *getTra
 		return getTradesResponse{}, fmt.Errorf("GetTrades request returned status %d", resp.StatusCode)
 	}
 
-	bodyReader, closeReader, err := responseBodyReader(resp)
+	bodyReader, closeReader, err := responseBodyReader(resp, "GetTrades")
 	if err != nil {
 		return getTradesResponse{}, err
 	}
@@ -918,6 +1183,22 @@ func fetchTrades(ctx context.Context, tradeDate, tickers string, options *getTra
 	}
 
 	return apiResponse, nil
+}
+
+func defaultGetTradeClustersRequestOptions() getTradeClustersRequestOptions {
+	return getTradeClustersRequestOptions{
+		tradeClusterRank:       -1,
+		draw:                   1,
+		start:                  0,
+		length:                 defaultTradeLimit,
+		minVolume:              "0",
+		maxDollars:             "30000000000",
+		vcd:                    "0",
+		relativeSize:           "0",
+		securityTypeKey:        "-1",
+		sectorIndustry:         "",
+		presetSearchTemplateID: "87",
+	}
 }
 
 func defaultGetTradesRequestOptions() getTradesRequestOptions {
@@ -1020,7 +1301,17 @@ func sectorGetTradesRequestOptions(preset *sectorPreset) getTradesRequestOptions
 	}
 }
 
+func setGetTradeClustersHeaders(req *http.Request, token, tradeDate, tickers string, options *getTradeClustersRequestOptions) {
+	setCommonXHRHeaders(req, token)
+	req.Header.Set("Referer", tradeClustersReferer(tradeDate, tickers, options))
+}
+
 func setGetTradesHeaders(req *http.Request, token, tradeDate, tickers string, options *getTradesRequestOptions) {
+	setCommonXHRHeaders(req, token)
+	req.Header.Set("Referer", tradesReferer(tradeDate, tickers, options))
+}
+
+func setCommonXHRHeaders(req *http.Request, token string) {
 	req.Header.Set("User-Agent", auth.UserAgent)
 	req.Header.Set("Accept", "application/json, text/javascript, */*; q=0.01")
 	req.Header.Set("Accept-Language", "en-US,en;q=0.9")
@@ -1029,10 +1320,17 @@ func setGetTradesHeaders(req *http.Request, token, tradeDate, tickers string, op
 	req.Header.Set("X-XSRF-Token", token)
 	req.Header.Set("X-Requested-With", "XMLHttpRequest")
 	req.Header.Set("Origin", "https://www.volumeleaders.com")
-	req.Header.Set("Referer", tradesReferer(tradeDate, tickers, options))
 	req.Header.Set("Sec-Fetch-Dest", "empty")
 	req.Header.Set("Sec-Fetch-Mode", "cors")
 	req.Header.Set("Sec-Fetch-Site", "same-origin")
+}
+
+func tradeClustersReferer(tradeDate, tickers string, options *getTradeClustersRequestOptions) string {
+	query := url.Values{}
+	setTradeClustersQueryParams(query, tradeDate, tickers, options)
+	query.Set("PresetSearchTemplateID", options.presetSearchTemplateID)
+	query.Set("ViewMode", "Automatic")
+	return tradeClustersPage + "?" + query.Encode()
 }
 
 func tradesReferer(tradeDate, tickers string, options *getTradesRequestOptions) string {
@@ -1041,6 +1339,23 @@ func tradesReferer(tradeDate, tickers string, options *getTradesRequestOptions) 
 	query.Set("PresetSearchTemplateID", options.presetSearchTemplateID)
 	query.Set("ViewMode", "Automatic")
 	return tradesPage + "?" + query.Encode()
+}
+
+func setTradeClustersQueryParams(values url.Values, tradeDate, tickers string, options *getTradeClustersRequestOptions) {
+	values.Set("Tickers", tickers)
+	values.Set("StartDate", tradeDate)
+	values.Set("EndDate", tradeDate)
+	values.Set("MinVolume", options.minVolume)
+	values.Set("MaxVolume", "2000000000")
+	values.Set("VCD", options.vcd)
+	values.Set("SecurityTypeKey", options.securityTypeKey)
+	values.Set("RelativeSize", options.relativeSize)
+	values.Set("MinPrice", "0")
+	values.Set("MaxPrice", "100000")
+	values.Set("MinDollars", "500000")
+	values.Set("MaxDollars", options.maxDollars)
+	values.Set("TradeClusterRank", fmt.Sprintf("%d", options.tradeClusterRank))
+	values.Set("SectorIndustry", options.sectorIndustry)
 }
 
 func setSharedQueryParams(values url.Values, tradeDate, tickers string, options *getTradesRequestOptions) {
@@ -1073,6 +1388,33 @@ func setSharedQueryParams(values url.Values, tradeDate, tickers string, options 
 	values.Set("IncludePhantom", options.includePhantom)
 	values.Set("IncludeOffsetting", options.includeOffsetting)
 	values.Set("SectorIndustry", options.sectorIndustry)
+}
+
+func getTradeClustersForm(tradeDate, tickers string, options *getTradeClustersRequestOptions) url.Values {
+	form := url.Values{}
+	draw := options.draw
+	if draw == 0 {
+		draw = 1
+	}
+	form.Set("draw", fmt.Sprintf("%d", draw))
+	for i, column := range getTradeClustersColumns {
+		prefix := fmt.Sprintf("columns[%d]", i)
+		form.Set(prefix+"[data]", column.data)
+		form.Set(prefix+"[name]", column.name)
+		form.Set(prefix+"[searchable]", "true")
+		form.Set(prefix+"[orderable]", column.orderable)
+		form.Set(prefix+"[search][value]", "")
+		form.Set(prefix+"[search][regex]", "false")
+	}
+	form.Set("order[0][column]", "1")
+	form.Set("order[0][dir]", "DESC")
+	form.Set("order[0][name]", "MinFullTimeString24")
+	form.Set("start", fmt.Sprintf("%d", options.start))
+	form.Set("length", fmt.Sprintf("%d", options.length))
+	form.Set("search[value]", "")
+	form.Set("search[regex]", "false")
+	setTradeClustersQueryParams(form, tradeDate, tickers, options)
+	return form
 }
 
 func getTradesForm(tradeDate, tickers string, options *getTradesRequestOptions) url.Values {
@@ -1140,13 +1482,31 @@ func sessionExpiredCommandError() error {
 	return fmt.Errorf("%s: %w", auth.SessionExpiredMessage, auth.ErrSessionExpired)
 }
 
-func responseBodyReader(resp *http.Response) (io.Reader, func(), error) {
+func inferTradeClusterTotals(apiResponse *getTradesResponse) {
+	if len(apiResponse.Data) == 0 || (apiResponse.RecordsTotal != 0 && apiResponse.RecordsFiltered != 0) {
+		return
+	}
+	var row struct {
+		TotalRows int `json:"TotalRows"`
+	}
+	if err := json.Unmarshal(apiResponse.Data[0], &row); err != nil || row.TotalRows == 0 {
+		return
+	}
+	if apiResponse.RecordsTotal == 0 {
+		apiResponse.RecordsTotal = row.TotalRows
+	}
+	if apiResponse.RecordsFiltered == 0 {
+		apiResponse.RecordsFiltered = row.TotalRows
+	}
+}
+
+func responseBodyReader(resp *http.Response, operation string) (io.Reader, func(), error) {
 	if resp.Header.Get("Content-Encoding") != "gzip" {
 		return resp.Body, func() {}, nil
 	}
 	gr, err := gzip.NewReader(resp.Body)
 	if err != nil {
-		return nil, func() {}, fmt.Errorf("decompress GetTrades response: %w", err)
+		return nil, func() {}, fmt.Errorf("decompress %s response: %w", operation, err)
 	}
 	return gr, func() { _ = gr.Close() }, nil
 }

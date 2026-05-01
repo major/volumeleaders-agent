@@ -72,6 +72,98 @@ func TestTradesCommand(t *testing.T) {
 	}
 }
 
+func TestTradeClustersCommand(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		options := defaultGetTradeClustersRequestOptions()
+		options.length = 2
+		assertGetTradeClustersRequestWithOptions(t, r, "2026-04-30", "AAPL,MSFT", &options)
+		fmt.Fprint(w, `{"draw":1,"data":[{"Ticker":"AAPL","MinFullTimeString24":"10:01:04","MaxFullTimeString24":"10:01:08","Dollars":1250000,"TradeCount":7,"TradeClusterRank":14,"Sector":"Technology","TotalRows":3213},{"Ticker":"MSFT","MinFullTimeString24":"10:02:00","Dollars":1800000,"TradeCount":5,"TradeClusterRank":18,"Sector":"Technology","TotalRows":3213}]}`)
+	}))
+	t.Cleanup(server.Close)
+
+	withCommandDependencies(t, server.Client(), server.URL, nil, nil)
+
+	cmd, err := NewTradeClustersCommand()
+	if err != nil {
+		t.Fatalf("NewTradeClustersCommand() error = %v", err)
+	}
+
+	var stdout bytes.Buffer
+	cmd.SetOut(&stdout)
+	cmd.SetErr(io.Discard)
+	cmd.SetArgs([]string{"--date", "2026-04-30", "--tickers", "aapl,msft", "--limit", "2"})
+
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("Execute() error = %v", err)
+	}
+
+	var got ClusterResult
+	if err := json.Unmarshal(stdout.Bytes(), &got); err != nil {
+		t.Fatalf("unmarshal output: %v\noutput: %s", err, stdout.String())
+	}
+	if got.Status != "ok" {
+		t.Fatalf("Status = %q, want ok", got.Status)
+	}
+	if got.Date != "2026-04-30" {
+		t.Fatalf("Date = %q, want 2026-04-30", got.Date)
+	}
+	if got.RecordsTotal != 3213 || got.RecordsFiltered != 3213 {
+		t.Fatalf("record counts = %d/%d, want 3213/3213", got.RecordsTotal, got.RecordsFiltered)
+	}
+	if strings.Join(got.Fields, ",") != strings.Join(clusterFieldPresets["core"], ",") {
+		t.Fatalf("Fields = %v, want core cluster fields", got.Fields)
+	}
+	if len(got.Rows) != 2 {
+		t.Fatalf("len(Rows) = %d, want 2", len(got.Rows))
+	}
+	if len(got.Clusters) != 0 {
+		t.Fatalf("len(Clusters) = %d, want 0 for default array shape", len(got.Clusters))
+	}
+	if string(got.Rows[0][0]) != `"AAPL"` {
+		t.Fatalf("first row ticker = %s, want AAPL", string(got.Rows[0][0]))
+	}
+}
+
+func TestTradeClustersCommandObjectShapeAndCustomFields(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		options := defaultGetTradeClustersRequestOptions()
+		options.length = 1
+		assertGetTradeClustersRequestWithOptions(t, r, "2026-04-30", "", &options)
+		fmt.Fprint(w, `{"draw":1,"recordsTotal":1,"recordsFiltered":1,"data":[{"Ticker":"IONQ","Dollars":2500000,"TradeCount":12,"Ignored":true}]}`)
+	}))
+	t.Cleanup(server.Close)
+
+	withCommandDependencies(t, server.Client(), server.URL, nil, nil)
+
+	cmd, err := NewTradeClustersCommand()
+	if err != nil {
+		t.Fatalf("NewTradeClustersCommand() error = %v", err)
+	}
+
+	var stdout bytes.Buffer
+	cmd.SetOut(&stdout)
+	cmd.SetErr(io.Discard)
+	cmd.SetArgs([]string{"--date", "2026-04-30", "--limit", "1", "--fields", "Ticker,Dollars,TradeCount", "--shape", "objects"})
+
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("Execute() error = %v", err)
+	}
+
+	var got ClusterResult
+	if err := json.Unmarshal(stdout.Bytes(), &got); err != nil {
+		t.Fatalf("unmarshal output: %v\noutput: %s", err, stdout.String())
+	}
+	if strings.Join(got.Fields, ",") != "Ticker,Dollars,TradeCount" {
+		t.Fatalf("Fields = %v, want custom cluster fields", got.Fields)
+	}
+	if len(got.Clusters) != 1 {
+		t.Fatalf("len(Clusters) = %d, want 1", len(got.Clusters))
+	}
+	if !bytes.Contains(got.Clusters[0], []byte(`"TradeCount":12`)) || bytes.Contains(got.Clusters[0], []byte("Ignored")) {
+		t.Fatalf("projected cluster payload = %s", string(got.Clusters[0]))
+	}
+}
+
 func TestTradesCommandOutputOptions(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		options := defaultGetTradesRequestOptions()
@@ -1374,6 +1466,59 @@ func assertGetTradesRequestWithOptions(t *testing.T, r *http.Request, tradeDate,
 	}
 }
 
+func assertGetTradeClustersRequestWithOptions(t *testing.T, r *http.Request, tradeDate, tickers string, options *getTradeClustersRequestOptions) {
+	t.Helper()
+
+	if r.Method != http.MethodPost {
+		t.Fatalf("method = %s, want POST", r.Method)
+	}
+	if got := r.Header.Get("Content-Type"); got != "application/x-www-form-urlencoded; charset=UTF-8" {
+		t.Fatalf("Content-Type = %q", got)
+	}
+	if got := r.Header.Get("Accept"); got != "application/json, text/javascript, */*; q=0.01" {
+		t.Fatalf("Accept = %q", got)
+	}
+	if got := r.Header.Get("Accept-Encoding"); got != "gzip" {
+		t.Fatalf("Accept-Encoding = %q", got)
+	}
+	if got := r.Header.Get("User-Agent"); got != auth.UserAgent {
+		t.Fatalf("User-Agent = %q", got)
+	}
+	if got := r.Header.Get("X-XSRF-Token"); got != "xsrf-token" {
+		t.Fatalf("X-XSRF-Token = %q", got)
+	}
+	if got := r.Header.Get("X-Requested-With"); got != "XMLHttpRequest" {
+		t.Fatalf("X-Requested-With = %q", got)
+	}
+	if got := r.Header.Get("Origin"); got != "https://www.volumeleaders.com" {
+		t.Fatalf("Origin = %q", got)
+	}
+	if got := r.Header.Get("Referer"); !strings.Contains(got, "TradeClusters") || !strings.Contains(got, "PresetSearchTemplateID="+options.presetSearchTemplateID) || !strings.Contains(got, "StartDate="+url.QueryEscape(tradeDate)) || !strings.Contains(got, "Tickers="+url.QueryEscape(tickers)) {
+		t.Fatalf("Referer = %q, want trade clusters preset and single date", got)
+	}
+	assertCookie(t, r, "ASP.NET_SessionId", "session-cookie")
+	assertCookie(t, r, ".ASPXAUTH", "auth-cookie")
+	assertCookie(t, r, "__RequestVerificationToken", "cookie-token")
+
+	if err := r.ParseForm(); err != nil {
+		t.Fatalf("ParseForm() error = %v", err)
+	}
+	assertFormValue(t, r.Form, "Tickers", tickers)
+	assertFormValue(t, r.Form, "StartDate", tradeDate)
+	assertFormValue(t, r.Form, "EndDate", tradeDate)
+	assertFormValue(t, r.Form, "MinDollars", "500000")
+	assertFormValue(t, r.Form, "MaxDollars", options.maxDollars)
+	assertFormValue(t, r.Form, "TradeClusterRank", fmt.Sprintf("%d", options.tradeClusterRank))
+	assertFormValue(t, r.Form, "order[0][name]", "MinFullTimeString24")
+	if got := r.Form.Get("PresetSearchTemplateID"); got != "" {
+		t.Fatalf("form[PresetSearchTemplateID] = %q, want empty because preset is carried in Referer", got)
+	}
+	wantForm := getTradeClustersForm(tradeDate, tickers, options)
+	if r.Form.Encode() != wantForm.Encode() {
+		t.Fatalf("form mismatch\ngot:  %s\nwant: %s", r.Form.Encode(), wantForm.Encode())
+	}
+}
+
 func assertCookie(t *testing.T, r *http.Request, name, want string) {
 	t.Helper()
 
@@ -1420,10 +1565,12 @@ func withCommandDependencies(
 
 	oldClient := getTradesHTTPClient
 	oldEndpoint := getTradesEndpoint
+	oldClusterEndpoint := getTradeClustersEndpoint
 	oldExtract := extractCookies
 	oldFetch := fetchXSRFToken
 	getTradesHTTPClient = client
 	getTradesEndpoint = endpoint
+	getTradeClustersEndpoint = endpoint
 	if extract == nil {
 		extract = func(context.Context) (map[string]string, error) {
 			return map[string]string{
@@ -1443,6 +1590,7 @@ func withCommandDependencies(
 	t.Cleanup(func() {
 		getTradesHTTPClient = oldClient
 		getTradesEndpoint = oldEndpoint
+		getTradeClustersEndpoint = oldClusterEndpoint
 		extractCookies = oldExtract
 		fetchXSRFToken = oldFetch
 	})

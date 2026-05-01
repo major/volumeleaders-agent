@@ -240,31 +240,19 @@ func (c *Client) PostMultipart(ctx context.Context, path string, fields map[stri
 		return fmt.Errorf("close multipart writer: %w", err)
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.baseURL+path, &buf)
-	if err != nil {
-		return fmt.Errorf("create multipart request: %w", err)
-	}
-	c.setHeaders(req)
-	req.Header.Set("Content-Type", writer.FormDataContentType())
-	c.setCookies(req)
-
-	noRedirect := &http.Client{
-		Transport: c.http.Transport,
-		Timeout:   c.http.Timeout,
-		CheckRedirect: func(_ *http.Request, _ []*http.Request) error {
-			return http.ErrUseLastResponse
-		},
-	}
-
-	resp, err := noRedirect.Do(req)
+	resp, err := c.noRedirectClient.R().
+		SetContext(ctx).
+		SetBody(buf.Bytes()).
+		SetHeader("Content-Type", writer.FormDataContentType()).
+		Post(c.baseURL + path)
 	if err != nil {
 		return fmt.Errorf("post multipart request: %w", err)
 	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode >= 400 {
-		responseBody, _ := readResponseBody(resp)
-		return fmt.Errorf("post multipart request: status %d: %s", resp.StatusCode, string(responseBody))
+	if resp.Err != nil {
+		return fmt.Errorf("post multipart request: %w", resp.Err)
+	}
+	if resp.StatusCode() >= 400 {
+		return fmt.Errorf("post multipart request: status %d: %s", resp.StatusCode(), resp.String())
 	}
 	return nil
 }

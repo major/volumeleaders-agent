@@ -58,6 +58,29 @@ volumeleaders-agent --mcp              # Run stdio MCP server
 
 The date flag can also be set with the environment variable shown by `volumeleaders-agent env-vars`, for example `VOLUMELEADERS_AGENT_TRADES_DATE`.
 
+## Watchlists
+
+```bash
+volumeleaders-agent watchlists
+volumeleaders-agent watchlists --preset-fields expanded --pretty
+volumeleaders-agent watchlists --fields Name,Tickers,MaxTradeRank,IncludedTradeTypes
+```
+
+The `watchlists` command lists saved watchlist filters configured in the authenticated VolumeLeaders account. These watchlists are saved criteria for trades or clusters, so they may filter by ticker, dollar size, price, relative size, rank, RSI conditions, venue, print type, session, auction status, phantom prints, and offsetting trades.
+
+The default `--preset-fields core --shape array` output is compact JSON for LLM workflows:
+
+```json
+{
+  "status": "ok",
+  "count": 1,
+  "fields": ["SearchTemplateKey", "Name", "Tickers", "MinVolume", "MaxVolume", "MinDollars", "MaxDollars", "MinPrice", "MaxPrice", "MinRelativeSize", "MaxTradeRank", "Conditions", "IncludedTradeTypes"],
+  "rows": [[4952, "BigOnes", "", 0, 2000000000, 10000000, 300000000000, 5, 100000, 5, 10, "IgnoreOBD,IgnoreOBH,IgnoreOSD,IgnoreOSH", ["NormalPrints", "DarkPools", "Sweeps", "OffsettingTrades"]]]
+}
+```
+
+Use `--preset-fields expanded` to include annotated non-internal watchlist filter fields, `--preset-fields full` to return raw upstream objects, `--shape objects` for repeated key names, or `--pretty` for readable JSON. The output flags can also be set with environment variables shown by `volumeleaders-agent env-vars`, for example `VOLUMELEADERS_AGENT_WATCHLISTS_PRESET_FIELDS`. See [`docs/fields.md`](docs/fields.md#watchlist-fields) for the longer field reference derived from `Getwatchlists.jsonc`, including selected-field semantics, security type codes, and internal-only fields to ignore.
+
 ## LLM field guide for trade filters and signal fields
 
 These names come from VolumeLeaders' browser forms and JSON responses, so some are terse UI labels rather than plain English API names. For trades, users and LLM callers should focus on the fields that appear in the VolumeLeaders table: time, ticker/count, CP, TP, sector, industry, Sh, $$, RS, PCT, R, and Last. `Ticker` is the stock ticker symbol, such as `TSLA` or `AMZN`. `TradeCount` is the `#T` count shown beside the ticker: the number of large trades for that ticker today, so `KRE (2)` means two large KRE trades today. Raw response fields outside that visible table are secondary debugging or correlation context unless this guide says otherwise. The same field guide is also embedded in the CLI command metadata so structcli JSON schema discovery and MCP callers can see it without reading this README:

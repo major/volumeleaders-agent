@@ -1,6 +1,6 @@
-# Trade and cluster fields
+# Trade, cluster, and watchlist fields
 
-This page explains the upstream VolumeLeaders trade and cluster JSON fields used by the CLI presets. Keep the CLI help and structcli metadata token-efficient; use this page for longer field notes from `annotated-trade.jsonc` and `annotated-cluster.jsonc`.
+This page explains the upstream VolumeLeaders trade, cluster, and watchlist JSON fields used by the CLI presets. Keep the CLI help and structcli metadata token-efficient; use this page for longer field notes from `annotated-trade.jsonc`, `annotated-cluster.jsonc`, and `Getwatchlists.jsonc`.
 
 ## Presets
 
@@ -61,3 +61,34 @@ The `expanded` preset intentionally excludes fields annotated as internal, alway
 Trade exclusions include query echoes and internal dates (`StartDate`, `EndDate`, `TD30`, `TD90`, `TD1CY`), internal identifiers (`SecurityKey`, `SequenceNumber`), always-zero quote or aggregate fields (`Bid`, `Ask`, `AverageDailyVolume`, `PercentDailyVolume`, `AverageBlockSizeDollars`, `AverageBlockSizeShares`, institutional totals, closing totals, `ClosePrice`, `TotalDollars`, `TotalDollarsRank`, `TotalVolume`, `TotalTrades`), internal relative-size plumbing (`DollarsMultiplier`), always-null phantom fulfillment fields, `TradeConditions`, and `ExternalFeed`.
 
 Cluster exclusions include `SecurityKey`, `ClosePrice`, `AverageBlockSizeShares`, `AverageBlockSizeDollars`, `AverageDailyVolume`, `DollarsMultiplier`, `TotalRows`, and `ExternalFeed`.
+
+## Watchlist fields
+
+The `watchlists` command lists saved account-level watchlist filters from `WatchListConfigs/GetWatchLists`. These are not necessarily traditional ticker watchlists. They are saved criteria for which trades or clusters should appear in the VolumeLeaders watchlist UI.
+
+- `SearchTemplateKey`: unique identifier for the saved watchlist template.
+- `UserKey`: unique identifier for the user who created the watchlist.
+- `SearchTemplateTypeKey`: internal upstream template type. Captured trade-filter watchlists use `0`; omit it from normal analysis.
+- `Name`: watchlist display name.
+- `Tickers`: comma-delimited ticker filter. Empty means the watchlist applies to all tickers.
+- `SortOrder`: internal upstream UI ordering field. Omit it from normal analysis.
+- `MinVolume`, `MaxVolume`: minimum and maximum share-volume bounds for a trade to be included.
+- `MinDollars`, `MaxDollars`: minimum and maximum dollar-value bounds for a trade to be included.
+- `MinPrice`, `MaxPrice`: minimum and maximum trade-price bounds for a trade to be included.
+- `RSIOverboughtHourly`, `RSIOverboughtDaily`, `RSIOversoldHourly`, `RSIOversoldDaily`: RSI thresholds when configured. `null` means the condition is ignored.
+- `Conditions`: comma-delimited RSI condition flags. `IgnoreOBD`, `IgnoreOBH`, `IgnoreOSD`, and `IgnoreOSH` mean the corresponding daily or hourly RSI condition is ignored. Required-condition examples include `OBD` for daily overbought and `OBH` for hourly overbought.
+- `RSIOverboughtHourlySelected`, `RSIOverboughtDailySelected`, `RSIOversoldHourlySelected`, `RSIOversoldDailySelected`: non-null when the user set the matching RSI threshold in the UI.
+- `MinRelativeSize`: minimum relative size for a trade to be included. Relative size is the ratio of the trade's volume to average volume for that ticker, so `5` means at least 5 times average volume.
+- `MinRelativeSizeSelected`: non-null when the user set a minimum relative-size threshold in the UI.
+- `MaxTradeRank`: maximum all-time rank to include. `10` means the trade must rank 1 through 10. `-1` means no rank limit.
+- `MaxTradeRankSelected`: non-null when the user set a maximum trade-rank threshold in the UI.
+- `SecurityTypeKey`: security type filter. `-1` means all security types, `1` means stocks only, `26` means ETFs only, and `4` means REITs only.
+- `SecurityType`: non-null when the user selected a specific security type.
+- `SectorIndustry`: comma-delimited sector or industry filter, or `null` when not configured.
+- `MinVCD`: internal upstream field. Omit it from normal analysis.
+- `NormalPrints`, `SignaturePrints`, `LatePrints`, `TimelyPrints`, `DarkPools`, `LitExchanges`, `Sweeps`, `Blocks`, `PremarketTrades`, `RTHTrades`, `AHTrades`, `OpeningTrades`, `ClosingTrades`, `PhantomTrades`, and `OffsettingTrades`: booleans for which print, venue, session, auction, or special trade categories are included.
+- `IncludedTradeTypes`: CLI-derived array of enabled trade-type booleans from the fields above. Array output uses `null` when none are enabled. Object output omits it when none are enabled.
+- `NormalPrintsSelected`, `SignaturePrintsSelected`, `LatePrintsSelected`, `TimelyPrintsSelected`, `DarkPoolsSelected`, `LitExchangesSelected`, `SweepsSelected`, `BlocksSelected`, `PremarketTradesSelected`, `RTHTradesSelected`, `AHTradesSelected`, `OpeningTradesSelected`, `ClosingTradesSelected`, `PhantomTradesSelected`, and `OffsettingTradesSelected`: upstream UI state indicating whether the user explicitly selected the matching inclusion flag.
+- `APIKey`: internal upstream field. Omit it from normal analysis.
+
+The `watchlists` command's `expanded` preset includes annotated non-internal filter fields and the derived `IncludedTradeTypes` helper. It intentionally excludes `SearchTemplateTypeKey`, `SortOrder`, `MinVCD`, and `APIKey`; use `--preset-fields full` only when raw upstream payloads are needed for debugging.

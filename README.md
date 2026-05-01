@@ -119,6 +119,35 @@ Both commands use the same `Trades/GetTrades` auth and response handling as `tra
 }
 ```
 
+## Bullish and bearish leveraged ETF trades
+
+```bash
+volumeleaders-agent bull-leverage --date 2026-04-30
+volumeleaders-agent bear-leverage --date 2026-04-30
+volumeleaders-agent bull-leverage --date 2026-04-30 --tickers TQQQ
+```
+
+The `bull-leverage` and `bear-leverage` commands fetch one day of leveraged ETF trades from VolumeLeaders. They use the same `Trades/GetTrades` auth and response handling as `trades`, but apply the upstream bullish (`X Bull`) or bearish (`X Bear`) leveraged ETF preset captured from VolumeLeaders.
+
+Both commands return stable JSON with the requested date, DataTables record counts, and raw trade objects:
+
+```json
+{
+  "status": "ok",
+  "date": "2026-04-30",
+  "recordsTotal": 8,
+  "recordsFiltered": 8,
+  "trades": [
+    {
+      "Ticker": "TQQQ",
+      "Sector": "3x Bull Nasdaq",
+      "Dollars": 14846502.24,
+      "DollarsMultiplier": 11.96
+    }
+  ]
+}
+```
+
 ## Auth package
 
 ```go

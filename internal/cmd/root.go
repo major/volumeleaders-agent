@@ -41,7 +41,15 @@ func NewRootCmd() (*cobra.Command, error) {
 	if err != nil {
 		return nil, fmt.Errorf("create offsetting command: %w", err)
 	}
-	rootCmd.AddCommand(tradesCmd, top10Cmd, top100Cmd, phantomCmd, offsettingCmd)
+	bullLeverageCmd, err := trades.NewBullLeverageCommand()
+	if err != nil {
+		return nil, fmt.Errorf("create bull-leverage command: %w", err)
+	}
+	bearLeverageCmd, err := trades.NewBearLeverageCommand()
+	if err != nil {
+		return nil, fmt.Errorf("create bear-leverage command: %w", err)
+	}
+	rootCmd.AddCommand(tradesCmd, top10Cmd, top100Cmd, phantomCmd, offsettingCmd, bullLeverageCmd, bearLeverageCmd)
 
 	if err := structcli.Setup(rootCmd,
 		structcli.WithAppName(appName),

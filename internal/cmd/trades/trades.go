@@ -89,10 +89,12 @@ type getTradesRequestOptions struct {
 	minVolume              string
 	maxDollars             string
 	conditions             string
+	vcd                    string
 	relativeSize           string
 	darkPools              string
 	includePhantom         string
 	includeOffsetting      string
+	sectorIndustry         string
 	presetSearchTemplateID string
 }
 
@@ -117,6 +119,16 @@ type signalPreset struct {
 	offsetting string
 	darkPools  string
 	presetID   string
+}
+
+type leveragePreset struct {
+	use            string
+	aliases        []string
+	short          string
+	long           string
+	example        string
+	sectorIndustry string
+	presetID       string
 }
 
 var getTradesColumns = []tradeColumn{
@@ -216,6 +228,32 @@ func NewOffsettingCommand() (*cobra.Command, error) {
 	})
 }
 
+// NewBullLeverageCommand builds the bullish leveraged ETF trades command.
+func NewBullLeverageCommand() (*cobra.Command, error) {
+	return newLeverageCommand(&leveragePreset{
+		use:            "bull-leverage",
+		aliases:        []string{"bullish-leverage", "bull-leverage-etfs", "bullish-leverage-etfs"},
+		short:          "Fetch bullish leveraged ETF trades",
+		long:           "Fetch VolumeLeaders bullish leveraged ETF trades for one day. This uses the bullish leverage ETF preset and filters the upstream GetTrades request to the X Bull sector group.",
+		example:        "volumeleaders-agent bull-leverage --date 2026-04-30\nvolumeleaders-agent bull-leverage --date 2026-04-30 --tickers TQQQ",
+		sectorIndustry: "X Bull",
+		presetID:       "5",
+	})
+}
+
+// NewBearLeverageCommand builds the bearish leveraged ETF trades command.
+func NewBearLeverageCommand() (*cobra.Command, error) {
+	return newLeverageCommand(&leveragePreset{
+		use:            "bear-leverage",
+		aliases:        []string{"bearish-leverage", "bear-leverage-etfs", "bearish-leverage-etfs"},
+		short:          "Fetch bearish leveraged ETF trades",
+		long:           "Fetch VolumeLeaders bearish leveraged ETF trades for one day. This uses the bearish leverage ETF preset and filters the upstream GetTrades request to the X Bear sector group.",
+		example:        "volumeleaders-agent bear-leverage --date 2026-04-30\nvolumeleaders-agent bear-leverage --date 2026-04-30 --tickers SPXU",
+		sectorIndustry: "X Bear",
+		presetID:       "6",
+	})
+}
+
 func newRankedCommand(preset *rankedPreset) (*cobra.Command, error) {
 	opts := &RankedOptions{}
 	cmd := &cobra.Command{
@@ -247,6 +285,27 @@ func newSignalCommand(preset *signalPreset) (*cobra.Command, error) {
 		Example: preset.example,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			return runSignal(cmd.Context(), cmd, opts, preset)
+		},
+	}
+
+	if err := structcli.Bind(cmd, opts); err != nil {
+		return nil, fmt.Errorf("bind %s options: %w", preset.use, err)
+	}
+	cmd.Flags().StringVar(&opts.Tickers, "ticker", "", "Optional ticker filter. Alias for --tickers.")
+
+	return cmd, nil
+}
+
+func newLeverageCommand(preset *leveragePreset) (*cobra.Command, error) {
+	opts := &SignalOptions{}
+	cmd := &cobra.Command{
+		Use:     preset.use,
+		Aliases: preset.aliases,
+		Short:   preset.short,
+		Long:    preset.long,
+		Example: preset.example,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			return runLeverage(cmd.Context(), cmd, opts, preset)
 		},
 	}
 
@@ -385,6 +444,48 @@ func runSignal(ctx context.Context, cmd *cobra.Command, opts *SignalOptions, pre
 	return nil
 }
 
+func runLeverage(ctx context.Context, cmd *cobra.Command, opts *SignalOptions, preset *leveragePreset) error {
+	select {
+	case <-ctx.Done():
+		return fmt.Errorf("run %s command: %w", preset.use, ctx.Err())
+	default:
+	}
+
+	tradeDate, err := time.Parse(dateLayout, opts.Date)
+	if err != nil {
+		return fmt.Errorf("invalid date %q: use YYYY-MM-DD: %w", opts.Date, err)
+	}
+	formattedDate := tradeDate.Format(dateLayout)
+	tickers, err := normalizeTickers(opts.Tickers)
+	if err != nil {
+		return err
+	}
+
+	apiResponse, err := fetchLeverageTrades(ctx, formattedDate, tickers, preset)
+	if err != nil {
+		return err
+	}
+
+	result := Result{
+		Status:          "ok",
+		Date:            formattedDate,
+		RecordsTotal:    apiResponse.RecordsTotal,
+		RecordsFiltered: apiResponse.RecordsFiltered,
+		Trades:          apiResponse.Data,
+	}
+	if result.Trades == nil {
+		result.Trades = []json.RawMessage{}
+	}
+
+	encoder := json.NewEncoder(cmd.OutOrStdout())
+	encoder.SetIndent("", "  ")
+	if err := encoder.Encode(result); err != nil {
+		return fmt.Errorf("encode %s response: %w", preset.use, err)
+	}
+
+	return nil
+}
+
 func fetchDisproportionatelyLargeTrades(ctx context.Context, tradeDate, tickers string) (getTradesResponse, error) {
 	options := defaultGetTradesRequestOptions()
 	return fetchTrades(ctx, tradeDate, tickers, &options)
@@ -397,6 +498,11 @@ func fetchRankedTrades(ctx context.Context, tradeDate, tickers string, preset *r
 
 func fetchSignalTrades(ctx context.Context, tradeDate, tickers string, preset *signalPreset) (getTradesResponse, error) {
 	options := signalGetTradesRequestOptions(preset)
+	return fetchTrades(ctx, tradeDate, tickers, &options)
+}
+
+func fetchLeverageTrades(ctx context.Context, tradeDate, tickers string, preset *leveragePreset) (getTradesResponse, error) {
+	options := leverageGetTradesRequestOptions(preset)
 	return fetchTrades(ctx, tradeDate, tickers, &options)
 }
 
@@ -461,10 +567,12 @@ func defaultGetTradesRequestOptions() getTradesRequestOptions {
 		minVolume:              "0",
 		maxDollars:             "30000000000",
 		conditions:             "-1",
+		vcd:                    "0",
 		relativeSize:           "5",
 		darkPools:              "-1",
 		includePhantom:         "1",
 		includeOffsetting:      "1",
+		sectorIndustry:         "",
 		presetSearchTemplateID: "87",
 	}
 }
@@ -476,10 +584,12 @@ func rankedGetTradesRequestOptions(preset *rankedPreset) getTradesRequestOptions
 		minVolume:              "10000",
 		maxDollars:             "100000000000",
 		conditions:             "IgnoreOBD,IgnoreOBH,IgnoreOSD,IgnoreOSH",
+		vcd:                    "0",
 		relativeSize:           "0",
 		darkPools:              "-1",
 		includePhantom:         "-1",
 		includeOffsetting:      "-1",
+		sectorIndustry:         "",
 		presetSearchTemplateID: preset.presetID,
 	}
 }
@@ -491,10 +601,29 @@ func signalGetTradesRequestOptions(preset *signalPreset) getTradesRequestOptions
 		minVolume:              "0",
 		maxDollars:             "100000000000",
 		conditions:             "IgnoreOBD,IgnoreOBH,IgnoreOSD,IgnoreOSH",
+		vcd:                    "0",
 		relativeSize:           "0",
 		darkPools:              preset.darkPools,
 		includePhantom:         preset.phantom,
 		includeOffsetting:      preset.offsetting,
+		sectorIndustry:         "",
+		presetSearchTemplateID: preset.presetID,
+	}
+}
+
+func leverageGetTradesRequestOptions(preset *leveragePreset) getTradesRequestOptions {
+	return getTradesRequestOptions{
+		tradeRank:              -1,
+		length:                 100,
+		minVolume:              "10000",
+		maxDollars:             "10000000000",
+		conditions:             "IgnoreOBD,IgnoreOBH,IgnoreOSD,IgnoreOSH",
+		vcd:                    "97",
+		relativeSize:           "5",
+		darkPools:              "-1",
+		includePhantom:         "-1",
+		includeOffsetting:      "-1",
+		sectorIndustry:         preset.sectorIndustry,
 		presetSearchTemplateID: preset.presetID,
 	}
 }
@@ -522,7 +651,7 @@ func tradesReferer(tradeDate, tickers string, options *getTradesRequestOptions) 
 	query.Set("MinVolume", options.minVolume)
 	query.Set("MaxVolume", "2000000000")
 	query.Set("Conditions", options.conditions)
-	query.Set("VCD", "0")
+	query.Set("VCD", options.vcd)
 	query.Set("RelativeSize", options.relativeSize)
 	query.Set("DarkPools", options.darkPools)
 	query.Set("Sweeps", "-1")
@@ -544,7 +673,7 @@ func tradesReferer(tradeDate, tickers string, options *getTradesRequestOptions) 
 	query.Set("IncludeClosing", "1")
 	query.Set("IncludePhantom", options.includePhantom)
 	query.Set("IncludeOffsetting", options.includeOffsetting)
-	query.Set("SectorIndustry", "")
+	query.Set("SectorIndustry", options.sectorIndustry)
 	query.Set("PresetSearchTemplateID", options.presetSearchTemplateID)
 	query.Set("ViewMode", "Automatic")
 	return tradesPage + "?" + query.Encode()
@@ -579,7 +708,7 @@ func getTradesForm(tradeDate, tickers string, options *getTradesRequestOptions) 
 	form.Set("MinDollars", "500000")
 	form.Set("MaxDollars", options.maxDollars)
 	form.Set("Conditions", options.conditions)
-	form.Set("VCD", "0")
+	form.Set("VCD", options.vcd)
 	form.Set("SecurityTypeKey", "-1")
 	form.Set("RelativeSize", options.relativeSize)
 	form.Set("DarkPools", options.darkPools)
@@ -597,7 +726,7 @@ func getTradesForm(tradeDate, tickers string, options *getTradesRequestOptions) 
 	form.Set("IncludeClosing", "1")
 	form.Set("IncludePhantom", options.includePhantom)
 	form.Set("IncludeOffsetting", options.includeOffsetting)
-	form.Set("SectorIndustry", "")
+	form.Set("SectorIndustry", options.sectorIndustry)
 	return form
 }
 

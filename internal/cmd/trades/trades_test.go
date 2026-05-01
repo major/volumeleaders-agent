@@ -218,6 +218,89 @@ func TestSignalTradesCommands(t *testing.T) {
 	}
 }
 
+func TestLeverageTradesCommands(t *testing.T) {
+	tests := []struct {
+		name           string
+		newCommand     func() (*cobra.Command, error)
+		args           []string
+		wantPreset     *leveragePreset
+		wantTickers    string
+		responseSector string
+		wantTradeField string
+	}{
+		{
+			name:       "bull leverage trades",
+			newCommand: NewBullLeverageCommand,
+			args:       []string{"--date", "2026-04-30"},
+			wantPreset: &leveragePreset{
+				sectorIndustry: "X Bull",
+				presetID:       "5",
+			},
+			responseSector: "3x Bull Nasdaq",
+			wantTradeField: "3x Bull Nasdaq",
+		},
+		{
+			name:       "bear leverage trades with tickers",
+			newCommand: NewBearLeverageCommand,
+			args:       []string{"--date", "2026-04-30", "--ticker", "spxu"},
+			wantPreset: &leveragePreset{
+				sectorIndustry: "X Bear",
+				presetID:       "6",
+			},
+			wantTickers:    "SPXU",
+			responseSector: "3x Bear S&P 500",
+			wantTradeField: `3x Bear S\u0026P 500`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				options := leverageGetTradesRequestOptions(tt.wantPreset)
+				assertGetTradesRequestWithOptions(t, r, "2026-04-30", tt.wantTickers, &options)
+				fmt.Fprintf(w, `{"draw":1,"recordsTotal":8,"recordsFiltered":8,"data":[{"Ticker":"TQQQ","Sector":"%s"}]}`, tt.responseSector)
+			}))
+			t.Cleanup(server.Close)
+
+			withCommandDependencies(t, server.Client(), server.URL, nil, nil)
+
+			cmd, err := tt.newCommand()
+			if err != nil {
+				t.Fatalf("new command error = %v", err)
+			}
+
+			var stdout bytes.Buffer
+			cmd.SetOut(&stdout)
+			cmd.SetErr(io.Discard)
+			cmd.SetArgs(tt.args)
+
+			if err := cmd.Execute(); err != nil {
+				t.Fatalf("Execute() error = %v", err)
+			}
+
+			var got Result
+			if err := json.Unmarshal(stdout.Bytes(), &got); err != nil {
+				t.Fatalf("unmarshal output: %v\noutput: %s", err, stdout.String())
+			}
+			if got.Status != "ok" {
+				t.Fatalf("Status = %q, want ok", got.Status)
+			}
+			if got.Date != "2026-04-30" {
+				t.Fatalf("Date = %q, want 2026-04-30", got.Date)
+			}
+			if got.RecordsTotal != 8 || got.RecordsFiltered != 8 {
+				t.Fatalf("record counts = %d/%d, want 8/8", got.RecordsTotal, got.RecordsFiltered)
+			}
+			if len(got.Trades) != 1 {
+				t.Fatalf("len(Trades) = %d, want 1", len(got.Trades))
+			}
+			if !bytes.Contains(got.Trades[0], []byte(tt.wantTradeField)) {
+				t.Fatalf("trade payload = %s, want %s field", string(got.Trades[0]), tt.wantTradeField)
+			}
+		})
+	}
+}
+
 func TestTradesCommandTickerFilters(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -490,6 +573,8 @@ func assertGetTradesRequestWithOptions(t *testing.T, r *http.Request, tradeDate,
 	assertFormValue(t, r.Form, "DarkPools", options.darkPools)
 	assertFormValue(t, r.Form, "IncludePhantom", options.includePhantom)
 	assertFormValue(t, r.Form, "IncludeOffsetting", options.includeOffsetting)
+	assertFormValue(t, r.Form, "VCD", options.vcd)
+	assertFormValue(t, r.Form, "SectorIndustry", options.sectorIndustry)
 	if got := r.Form.Get("PresetSearchTemplateID"); got != "" {
 		t.Fatalf("form[PresetSearchTemplateID] = %q, want empty because preset is carried in Referer", got)
 	}

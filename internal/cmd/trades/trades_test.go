@@ -285,6 +285,78 @@ func TestTradesCommandOutputOptions(t *testing.T) {
 	}
 }
 
+func TestTradesCommandDarkPoolSweepFilters(t *testing.T) {
+	tests := []struct {
+		name          string
+		args          []string
+		wantDarkPools string
+		wantSweeps    string
+	}{
+		{
+			name:          "all trades",
+			wantDarkPools: "-1",
+			wantSweeps:    "-1",
+		},
+		{
+			name:          "dark pools of all kinds",
+			args:          []string{"--dark-pools"},
+			wantDarkPools: "1",
+			wantSweeps:    "-1",
+		},
+		{
+			name:          "sweeps on dark or lit venues",
+			args:          []string{"--sweeps"},
+			wantDarkPools: "-1",
+			wantSweeps:    "1",
+		},
+		{
+			name:          "dark pool sweeps only",
+			args:          []string{"--dark-pools", "--sweeps"},
+			wantDarkPools: "1",
+			wantSweeps:    "1",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				options := defaultGetTradesRequestOptions()
+				options.darkPools = tt.wantDarkPools
+				options.sweeps = tt.wantSweeps
+				assertGetTradesRequestWithOptions(t, r, "2026-04-30", "SPY", &options)
+				fmt.Fprint(w, `{"draw":1,"recordsTotal":1,"recordsFiltered":1,"data":[{"Ticker":"SPY","DarkPool":1,"Sweep":1}]}`)
+			}))
+			t.Cleanup(server.Close)
+
+			withCommandDependencies(t, server.Client(), server.URL, nil, nil)
+
+			cmd, err := NewCommand()
+			if err != nil {
+				t.Fatalf("NewCommand() error = %v", err)
+			}
+
+			var stdout bytes.Buffer
+			cmd.SetOut(&stdout)
+			cmd.SetErr(io.Discard)
+			args := []string{"--date", "2026-04-30", "--tickers", "SPY"}
+			args = append(args, tt.args...)
+			cmd.SetArgs(args)
+
+			if err := cmd.Execute(); err != nil {
+				t.Fatalf("Execute() error = %v", err)
+			}
+
+			var got Result
+			if err := json.Unmarshal(stdout.Bytes(), &got); err != nil {
+				t.Fatalf("unmarshal output: %v\noutput: %s", err, stdout.String())
+			}
+			if got.RecordsFiltered != 1 {
+				t.Fatalf("RecordsFiltered = %d, want 1", got.RecordsFiltered)
+			}
+		})
+	}
+}
+
 func TestTradesCommandObjectShapeAndCustomFields(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assertGetTradesRequest(t, r, "2026-04-30", "")
@@ -1355,7 +1427,7 @@ func TestFetchTradesHandlesGzipAndMalformedResponses(t *testing.T) {
 
 			withCommandDependencies(t, server.Client(), server.URL, nil, nil)
 
-			got, err := fetchDisproportionatelyLargeTrades(t.Context(), "2026-04-30", "", 1)
+			got, err := fetchDisproportionatelyLargeTradesWithFilters(t.Context(), "2026-04-30", "", "-1", "-1", 1)
 			if tt.wantErr != "" {
 				if err == nil || !strings.Contains(err.Error(), tt.wantErr) {
 					t.Fatalf("error = %v, want %q", err, tt.wantErr)
@@ -1380,7 +1452,7 @@ func TestFetchDisproportionatelyLargeTradesHandlesAPIError(t *testing.T) {
 
 	withCommandDependencies(t, server.Client(), server.URL, nil, nil)
 
-	_, err := fetchDisproportionatelyLargeTrades(t.Context(), "2026-04-30", "", defaultTradeLimit)
+	_, err := fetchDisproportionatelyLargeTradesWithFilters(t.Context(), "2026-04-30", "", "-1", "-1", defaultTradeLimit)
 	if err == nil {
 		t.Fatalf("expected API error")
 	}
@@ -1421,7 +1493,7 @@ func TestFetchDisproportionatelyLargeTradesHandlesDependencyErrors(t *testing.T)
 
 			withCommandDependencies(t, server.Client(), server.URL, tt.extract, tt.fetch)
 
-			_, err := fetchDisproportionatelyLargeTrades(t.Context(), "2026-04-30", "", 1)
+			_, err := fetchDisproportionatelyLargeTradesWithFilters(t.Context(), "2026-04-30", "", "-1", "-1", 1)
 			if err == nil {
 				t.Fatal("expected dependency error")
 			}
@@ -1440,7 +1512,7 @@ func TestFetchDisproportionatelyLargeTradesHandlesAuthStatus(t *testing.T) {
 
 	withCommandDependencies(t, server.Client(), server.URL, nil, nil)
 
-	_, err := fetchDisproportionatelyLargeTrades(t.Context(), "2026-04-30", "", defaultTradeLimit)
+	_, err := fetchDisproportionatelyLargeTradesWithFilters(t.Context(), "2026-04-30", "", "-1", "-1", defaultTradeLimit)
 	if err == nil {
 		t.Fatalf("expected auth error")
 	}
@@ -1515,7 +1587,7 @@ func TestFetchDisproportionatelyLargeTradesHandlesLoginRedirect(t *testing.T) {
 
 	withCommandDependencies(t, server.Client(), server.URL, nil, nil)
 
-	_, err := fetchDisproportionatelyLargeTrades(t.Context(), "2026-04-30", "", defaultTradeLimit)
+	_, err := fetchDisproportionatelyLargeTradesWithFilters(t.Context(), "2026-04-30", "", "-1", "-1", defaultTradeLimit)
 	if err == nil {
 		t.Fatalf("expected auth error")
 	}
@@ -1532,7 +1604,7 @@ func TestFetchDisproportionatelyLargeTradesPropagatesCancellation(t *testing.T) 
 		return nil, ctx.Err()
 	}, nil)
 
-	_, err := fetchDisproportionatelyLargeTrades(canceledCtx, "2026-04-30", "", defaultTradeLimit)
+	_, err := fetchDisproportionatelyLargeTradesWithFilters(canceledCtx, "2026-04-30", "", "-1", "-1", defaultTradeLimit)
 	if !errors.Is(err, context.Canceled) {
 		t.Fatalf("expected context cancellation, got %v", err)
 	}
@@ -1556,7 +1628,7 @@ func TestFetchDisproportionatelyLargeTradesDoesNotLeakSecrets(t *testing.T) {
 		return secretToken, nil
 	})
 
-	_, err := fetchDisproportionatelyLargeTrades(t.Context(), "2026-04-30", "", defaultTradeLimit)
+	_, err := fetchDisproportionatelyLargeTradesWithFilters(t.Context(), "2026-04-30", "", "-1", "-1", defaultTradeLimit)
 	if err == nil {
 		t.Fatalf("expected auth error")
 	}

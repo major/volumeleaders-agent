@@ -40,9 +40,9 @@ Trade commands return compact, stable JSON with the requested date, DataTables r
   "date": "2026-04-30",
   "recordsTotal": 1492,
   "recordsFiltered": 1492,
-  "fields": ["Ticker", "FullTimeString24", "Price", "Dollars", "DollarsMultiplier", "Volume", "TradeRank", "DarkPool", "Sweep", "LatePrint", "SignaturePrint", "Sector"],
+  "fields": ["Ticker", "TradeCount", "FullTimeString24", "ClosePrice", "Price", "Sector", "Industry", "Volume", "Dollars", "DollarsMultiplier", "CumulativeDistribution", "TradeRank", "LastComparibleTradeDate"],
   "rows": [
-    ["KRE", "17:47:49", 59.12, 17501965.25, 5.019755999966191, 296050, 16, false, false, false, true, "Financials"]
+    ["KRE", 2, "17:47:49", 0.0, 69.85, "Financial Services", "Banks", 250565, 17501965.25, 5.01912515023852678249, 0.9673, 9999, "/Date(1777334400000)/"]
   ]
 }
 ```
@@ -60,13 +60,20 @@ The date flag can also be set with the environment variable shown by `volumelead
 
 ## LLM field guide for trade filters and signal fields
 
-These names come from VolumeLeaders' browser forms and JSON responses, so some are terse UI labels rather than plain English API names. The same field guide is also embedded in the CLI command metadata so structcli JSON schema discovery and MCP callers can see it without reading this README:
+These names come from VolumeLeaders' browser forms and JSON responses, so some are terse UI labels rather than plain English API names. For trades, users and LLM callers should focus on the fields that appear in the VolumeLeaders table: time, ticker/count, CP, TP, sector, industry, Sh, $$, RS, PCT, R, and Last. `Ticker` is the stock ticker symbol, such as `TSLA` or `AMZN`. `TradeCount` is the `#T` count shown beside the ticker: the number of large trades for that ticker today, so `KRE (2)` means two large KRE trades today. Raw response fields outside that visible table are secondary debugging or correlation context unless this guide says otherwise. The same field guide is also embedded in the CLI command metadata so structcli JSON schema discovery and MCP callers can see it without reading this README:
 
 - `RelativeSize` is a request filter for minimum relative size. Captured browser values are `0`, `5`, `10`, `25`, `50`, and `100`, where `0` means any size and the others mean at least that many times the ticker's average dollar trade size.
+- `DarkPools` and `Sweeps` are request filters. Dark pool trades are done off exchange and reported later; lit exchange trades are done on exchange and reported immediately. Sweeps are orders spread across multiple exchanges to get done quickly; blocks are orders sent to one exchange. For the `trades` command, `--dark-pools=false --sweeps=false` shows everything, `--dark-pools` shows dark pools of all kinds, `--sweeps` shows sweeps from dark pools or lit exchanges, and both flags together show dark pool sweeps only. In raw output, `DarkPool` and `Sweep` describe the classification of each returned row.
 - `DollarsMultiplier`, shown as `RS` in the UI, is the returned relative size value: trade dollars divided by average dollars for that ticker. VolumeLeaders highlights trades at or above `25x` average size.
 - `CumulativeDistribution`, shown as `PCT` in the UI, is the trade's percentile rank relative to other trades for the same ticker.
 - `Conditions` carries RSI condition filters. `OBD` means overbought daily, `OBH` means overbought hourly, `OSD` means oversold daily, and `OSH` means oversold hourly. Captured defaults use `-1` for no RSI condition filter. Code presets may also contain `IgnoreOBD`, `IgnoreOBH`, `IgnoreOSD`, and `IgnoreOSH`; treat those as “do not consider this RSI condition” values rather than “exclude matching rows.”
 - `VCD` appears to carry the minimum `CumulativeDistribution` percentile. Captures use `0` for no percentile filter and `99` for the 99th percentile or above.
+- `TradeID`, `SequenceNumber`, and `SecurityKey` are VolumeLeaders internal identifiers. `DateKey` and `TimeKey` are compact internal date/time keys. Treat these five fields as upstream metadata for correlation or debugging, not as trading-decision signals.
+- `Date` is the trade date. `FullDateTime` is the full trade timestamp. `StartDate` and `EndDate` appear to be upstream query-range echoes or internal metadata rather than separate trade signals. `LastComparibleTradeDate` uses the upstream spelling and means the last date VolumeLeaders saw a trade close to this trade's size.
+- `Ask` and `Bid` are the ask and bid prices in the bid/ask spread when the trade happened. `ClosePrice` is `CP` in the UI: the close price at the end of the day, or the current price if the market is still open. `Price` is `TP` in the UI: the trade price when the large trade hit. `AverageDailyVolume` is a moving-average measure of the stock's normal volume, and `PercentDailyVolume` compares today's volume with that moving average.
+- `Volume`, shown as `Sh` in the UI, is how many shares were in the trade. `Dollars`, shown as `$$` in the UI, is how big the trade was in dollars: number of shares times the trade price.
+- `TradeRank` is the trade's current rank among all current trades and can change when larger trades arrive. In the UI `R` column, a dash means the trade is not ranked in the top 100 trades, while a number such as `27` means the trade is currently ranked 27th. `TradeRankSnapshot` is immutable: it preserves how the trade ranked at the time it appeared.
+- `TotalVolume` and `TotalDollars` are internal upstream values. Do not treat them as standalone trading-decision signals.
 
 ## RSI overbought and oversold trades
 
@@ -143,9 +150,9 @@ The ranked commands return the same token-efficient trade output shape as `trade
   "rankLimit": 10,
   "recordsTotal": 76,
   "recordsFiltered": 76,
-  "fields": ["Ticker", "FullTimeString24", "Price", "Dollars", "DollarsMultiplier", "Volume", "TradeRank", "DarkPool", "Sweep", "LatePrint", "SignaturePrint", "Sector"],
+  "fields": ["Ticker", "TradeCount", "FullTimeString24", "ClosePrice", "Price", "Sector", "Industry", "Volume", "Dollars", "DollarsMultiplier", "CumulativeDistribution", "TradeRank", "LastComparibleTradeDate"],
   "rows": [
-    ["SNDQ", "09:54:09", 28.07, 15623499.12, 29.4, 556520, 1, true, false, false, true, "ETF"]
+    ["SNDQ", 1, "09:54:09", 28.55, 28.07, "ETF", "ETF", 556520, 15623499.12, 29.4, 0.99, 1, "/Date(1777334400000)/"]
   ]
 }
 ```
@@ -162,9 +169,9 @@ volumeleaders-agent top100-dark-pool-sweeps --date 2026-04-30
 These commands replay additional `Trades/GetTrades` filters captured from browser HAR files:
 
 - `top30-10x-99pct`: `TradeRank=30`, `RelativeSize=10`, and `VCD=99` for trades in the 99th percentile or above.
-- `top100-dark-pool-20x`: `TradeRank=100`, `DarkPools=1`, and `RelativeSize=20`.
+- `top100-dark-pool-20x`: `TradeRank=100`, `DarkPools=1`, and `RelativeSize=20`. It does not filter on `Sweeps`, so it includes dark-pool blocks and dark-pool sweeps.
 - `top100-leveraged-etfs`: `TradeRank=100` and `SectorIndustry="X B"` for leveraged ETFs.
-- `top100-dark-pool-sweeps`: `TradeRank=100`, `DarkPools=1`, `Sweeps=1`, and captured session filters that include premarket and regular-hours prints while excluding after-hours, opening, closing, and phantom prints.
+- `top100-dark-pool-sweeps`: `TradeRank=100`, `DarkPools=1`, `Sweeps=1`, and captured session filters that include premarket and regular-hours prints while excluding after-hours, opening, closing, and phantom prints. Because both dark-pool and sweep filters are set, this returns only dark-pool sweeps.
 
 Each filter also has a trade-cluster equivalent: `top30-10x-99pct-clusters`, `top100-dark-pool-20x-clusters`, `top100-leveraged-etfs-clusters`, and `top100-dark-pool-sweeps-clusters`. The cluster commands send the same filters to `TradeClusters/GetTradeClusters` with `TradeClusterRank` matching the trade command's `TradeRank`.
 
@@ -187,9 +194,9 @@ Both commands use the same `Trades/GetTrades` auth and response handling as `tra
   "date": "2026-04-30",
   "recordsTotal": 12,
   "recordsFiltered": 12,
-  "fields": ["Ticker", "FullTimeString24", "Price", "Dollars", "DollarsMultiplier", "Volume", "TradeRank", "DarkPool", "Sweep", "LatePrint", "SignaturePrint", "Sector"],
+  "fields": ["Ticker", "TradeCount", "FullTimeString24", "ClosePrice", "Price", "Sector", "Industry", "Volume", "Dollars", "DollarsMultiplier", "CumulativeDistribution", "TradeRank", "LastComparibleTradeDate"],
   "rows": [
-    ["PLTR", "15:59:58", 112.47, 1739337.39, 6.7, 15465, 54, true, false, false, false, "Technology"]
+    ["PLTR", 1, "15:59:58", 113.20, 112.47, "Technology", "Software", 15465, 1739337.39, 6.7, 0.98, 54, "/Date(1777334400000)/"]
   ]
 }
 ```

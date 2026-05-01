@@ -31,7 +31,7 @@ const (
 	getTradeClustersPath = "https://www.volumeleaders.com/TradeClusters/GetTradeClusters"
 	tradesPage           = "https://www.volumeleaders.com/Trades"
 	tradeClustersPage    = "https://www.volumeleaders.com/TradeClusters"
-	tradeLLMFieldGuide   = "LLM field guide: RelativeSize is a request filter for minimum relative size. Captured browser values are 0, 5, 10, 25, 50, and 100, where 0 means any size and the others mean at least that many times the ticker's average dollar trade size. DollarsMultiplier, shown as RS in the UI, is the returned relative size value: trade dollars divided by average dollars for that ticker. VolumeLeaders highlights trades at or above 25x average size. CumulativeDistribution, shown as PCT in the UI, is the trade's percentile rank relative to other trades for the same ticker. Conditions carries RSI condition filters: OBD means overbought daily, OBH means overbought hourly, OSD means oversold daily, and OSH means oversold hourly. Captured defaults use -1 for no RSI condition filter. IgnoreOBD, IgnoreOBH, IgnoreOSD, and IgnoreOSH mean do not consider that RSI condition; they do not mean exclude matching rows. VCD appears to carry the minimum CumulativeDistribution percentile. Captures use 0 for no percentile filter and 99 for the 99th percentile or above."
+	tradeLLMFieldGuide   = "LLM field guide: users and LLM callers should focus on VolumeLeaders table fields: time, ticker/count, CP, TP, sector, industry, Sh, $$, RS, PCT, R, and Last. Ticker is the stock ticker symbol, such as TSLA or AMZN. TradeCount is the #T count shown beside the ticker: the number of large trades for that ticker today, so KRE (2) means two large KRE trades today. Raw fields outside that visible table are secondary debugging or correlation context unless this guide says otherwise. DarkPools and Sweeps are request filters. Dark pool trades are done off exchange and reported later; lit exchange trades are done on exchange and reported immediately. Sweeps are orders spread across multiple exchanges to get done quickly; blocks are orders sent to one exchange. For the trades command, false/false means show everything, --dark-pools alone means dark pools of all kinds, --sweeps alone means sweeps from dark pools or lit exchanges, and both flags together mean dark pool sweeps only. In raw output, DarkPool and Sweep describe the classification of each returned row. RelativeSize is a request filter for minimum relative size. Captured browser values are 0, 5, 10, 25, 50, and 100, where 0 means any size and the others mean at least that many times the ticker's average dollar trade size. DollarsMultiplier, shown as RS in the UI, is the returned relative size value: trade dollars divided by average dollars for that ticker. VolumeLeaders highlights trades at or above 25x average size. CumulativeDistribution, shown as PCT in the UI, is the trade's percentile rank relative to other trades for the same ticker. Conditions carries RSI condition filters: OBD means overbought daily, OBH means overbought hourly, OSD means oversold daily, and OSH means oversold hourly. Captured defaults use -1 for no RSI condition filter. IgnoreOBD, IgnoreOBH, IgnoreOSD, and IgnoreOSH mean do not consider that RSI condition; they do not mean exclude matching rows. VCD appears to carry the minimum CumulativeDistribution percentile. Captures use 0 for no percentile filter and 99 for the 99th percentile or above. TradeID, SequenceNumber, and SecurityKey are VolumeLeaders internal identifiers. DateKey and TimeKey are compact internal date/time keys. Treat these five fields as upstream metadata for correlation or debugging, not as trading-decision signals. Date is the trade date. FullDateTime is the full trade timestamp. StartDate and EndDate appear to be upstream query-range echoes or internal metadata rather than separate trade signals. LastComparibleTradeDate is the upstream spelling for the last date VolumeLeaders saw a trade close to this trade's size. Ask and Bid are the ask and bid prices in the bid/ask spread when the trade happened. ClosePrice is CP in the UI: the close price at the end of the day, or the current price if the market is still open. Price is TP in the UI: the trade price when the large trade hit. AverageDailyVolume is a moving-average measure of the stock's normal volume, and PercentDailyVolume compares today's volume with that moving average. Volume is Sh in the UI: how many shares were in the trade. Dollars is $$ in the UI: how big the trade was in dollars, calculated as shares times the trade price. TradeRank is the trade's current rank among all current trades and can change when larger trades arrive. In the UI R column, a dash means the trade is not ranked in the top 100 trades, while a number such as 27 means the trade is currently ranked 27th. TradeRankSnapshot is immutable: it preserves how the trade ranked at the time it appeared. TotalVolume and TotalDollars are internal upstream values; do not treat them as standalone trading-decision signals."
 	ignoredRSIConditions = "IgnoreOBD,IgnoreOBH,IgnoreOSD,IgnoreOSH"
 )
 
@@ -48,17 +48,18 @@ var (
 var tradeFieldPresets = map[string][]string{
 	"core": {
 		"Ticker",
+		"TradeCount",
 		"FullTimeString24",
+		"ClosePrice",
 		"Price",
+		"Sector",
+		"Industry",
+		"Volume",
 		"Dollars",
 		"DollarsMultiplier",
-		"Volume",
+		"CumulativeDistribution",
 		"TradeRank",
-		"DarkPool",
-		"Sweep",
-		"LatePrint",
-		"SignaturePrint",
-		"Sector",
+		"LastComparibleTradeDate",
 	},
 	"signals": {
 		"Ticker",
@@ -123,6 +124,8 @@ var clusterFieldPresets = map[string][]string{
 type Options struct {
 	Date         string `flag:"date" flagshort:"d" flagdescr:"Single trading date to query, formatted as YYYY-MM-DD. The disproportionately large trades preset is intentionally limited to one day." flagenv:"true" flagrequired:"true" flaggroup:"Query" validate:"required" mod:"trim"`
 	Tickers      string `flag:"tickers" flagdescr:"Optional ticker filter. Use one symbol or a comma-delimited list without spaces, for example AAPL or AAPL,MSFT." flagenv:"true" flaggroup:"Query" mod:"trim"`
+	DarkPools    bool   `flag:"dark-pools" flagdescr:"Filter to dark-pool/off-exchange prints only. Dark pool trades are done off exchange and reported later; leave false to include both dark-pool and lit-exchange trades." flagenv:"true" flaggroup:"Filters"`
+	Sweeps       bool   `flag:"sweeps" flagdescr:"Filter to sweep orders only. Sweeps are orders spread across multiple exchanges to get done quickly; leave false to include both sweep and block executions." flagenv:"true" flaggroup:"Filters"`
 	Limit        int    `flag:"limit" flagdescr:"Maximum trade rows to return. Must be between 1 and 100. Defaults to 100 when omitted." flagenv:"true" flaggroup:"Output"`
 	Fields       string `flag:"fields" flagdescr:"Comma-separated trade fields to include. Overrides --preset-fields. Use upstream field names such as Ticker,Dollars,TradeRank." flagenv:"true" flaggroup:"Output" mod:"trim"`
 	PresetFields string `flag:"preset-fields" flagdescr:"Field preset to include: core, signals, or full. Defaults to core for token-efficient output." flagenv:"true" flaggroup:"Output" mod:"trim"`
@@ -663,7 +666,7 @@ func top100DarkPool20xTradePreset() *rankedPreset {
 		use:               "top100-dark-pool-20x",
 		aliases:           []string{"top100-over-20x-relative-size-dark-pool-trades-only"},
 		short:             "Fetch top 100 dark-pool trades at least 20x relative size",
-		long:              "Fetch VolumeLeaders dark-pool trades for one day where each trade ranks in the stock's all-time top 100 and is at least 20x relative size.",
+		long:              "Fetch VolumeLeaders dark-pool trades for one day where each trade ranks in the stock's all-time top 100 and is at least 20x relative size. This preset sends DarkPools=1 and does not filter on Sweeps, so it includes dark-pool blocks and dark-pool sweeps.",
 		example:           "volumeleaders-agent top100-dark-pool-20x --date 2026-04-30\nvolumeleaders-agent top100-dark-pool-20x --date 2026-04-30 --tickers AAPL,MSFT",
 		rank:              100,
 		length:            100,
@@ -681,7 +684,7 @@ func top100DarkPool20xTradePreset() *rankedPreset {
 }
 
 func top100DarkPool20xClusterPreset() *clusterPreset {
-	return tradePresetToClusterPreset(top100DarkPool20xTradePreset(), "top100-dark-pool-20x-clusters", []string{"top100-over-20x-relative-size-dark-pool-trades-only-clusters"}, "Fetch top 100 dark-pool trade clusters at least 20x relative size", "Fetch VolumeLeaders dark-pool trade clusters for one day where each cluster ranks in the stock's all-time top 100 and is at least 20x relative size.", "volumeleaders-agent top100-dark-pool-20x-clusters --date 2026-04-30\nvolumeleaders-agent top100-dark-pool-20x-clusters --date 2026-04-30 --tickers AAPL,MSFT")
+	return tradePresetToClusterPreset(top100DarkPool20xTradePreset(), "top100-dark-pool-20x-clusters", []string{"top100-over-20x-relative-size-dark-pool-trades-only-clusters"}, "Fetch top 100 dark-pool trade clusters at least 20x relative size", "Fetch VolumeLeaders dark-pool trade clusters for one day where each cluster ranks in the stock's all-time top 100 and is at least 20x relative size. This preset sends DarkPools=1 and does not filter on Sweeps, so it includes dark-pool block clusters and dark-pool sweep clusters.", "volumeleaders-agent top100-dark-pool-20x-clusters --date 2026-04-30\nvolumeleaders-agent top100-dark-pool-20x-clusters --date 2026-04-30 --tickers AAPL,MSFT")
 }
 
 func top100LeveragedETFsTradePreset() *rankedPreset {
@@ -715,7 +718,7 @@ func top100DarkPoolSweepsTradePreset() *rankedPreset {
 	return &rankedPreset{
 		use:               "top100-dark-pool-sweeps",
 		short:             "Fetch top 100 dark-pool sweep trades",
-		long:              "Fetch VolumeLeaders dark-pool sweep trades for one day where each trade ranks in the stock's all-time top 100. This preset includes premarket and regular-hours trades, while excluding after-hours, opening, closing, and phantom prints as captured from the browser.",
+		long:              "Fetch VolumeLeaders dark-pool sweep trades for one day where each trade ranks in the stock's all-time top 100. This preset sends DarkPools=1 and Sweeps=1, so it returns only trades that are both dark-pool prints and sweeps. It includes premarket and regular-hours trades, while excluding after-hours, opening, closing, and phantom prints as captured from the browser.",
 		example:           "volumeleaders-agent top100-dark-pool-sweeps --date 2026-04-30\nvolumeleaders-agent top100-dark-pool-sweeps --date 2026-04-30 --tickers AAPL,MSFT",
 		rank:              100,
 		length:            100,
@@ -739,7 +742,7 @@ func top100DarkPoolSweepsTradePreset() *rankedPreset {
 }
 
 func top100DarkPoolSweepsClusterPreset() *clusterPreset {
-	return tradePresetToClusterPreset(top100DarkPoolSweepsTradePreset(), "top100-dark-pool-sweeps-clusters", nil, "Fetch top 100 dark-pool sweep trade clusters", "Fetch VolumeLeaders dark-pool sweep trade clusters for one day where each cluster ranks in the stock's all-time top 100. This preset includes premarket and regular-hours clusters, while excluding after-hours, opening, closing, and phantom prints as captured from the browser.", "volumeleaders-agent top100-dark-pool-sweeps-clusters --date 2026-04-30\nvolumeleaders-agent top100-dark-pool-sweeps-clusters --date 2026-04-30 --tickers AAPL,MSFT")
+	return tradePresetToClusterPreset(top100DarkPoolSweepsTradePreset(), "top100-dark-pool-sweeps-clusters", nil, "Fetch top 100 dark-pool sweep trade clusters", "Fetch VolumeLeaders dark-pool sweep trade clusters for one day where each cluster ranks in the stock's all-time top 100. This preset sends DarkPools=1 and Sweeps=1, so it returns only clusters that are both dark-pool prints and sweeps. It includes premarket and regular-hours clusters, while excluding after-hours, opening, closing, and phantom prints as captured from the browser.", "volumeleaders-agent top100-dark-pool-sweeps-clusters --date 2026-04-30\nvolumeleaders-agent top100-dark-pool-sweeps-clusters --date 2026-04-30 --tickers AAPL,MSFT")
 }
 
 func overboughtClusterPreset() *clusterPreset {
@@ -859,16 +862,25 @@ func newClusterCommand(preset *clusterPreset) (*cobra.Command, error) {
 
 func run(ctx context.Context, cmd *cobra.Command, opts *Options) error {
 	return runStandardTrades(ctx, cmd, &standardRunConfig{
-		cmdName:       "trades",
-		date:          opts.Date,
-		tickers:       opts.Tickers,
-		limit:         opts.Limit,
-		fields:        opts.Fields,
-		presetFields:  opts.PresetFields,
-		shape:         opts.Shape,
-		pretty:        opts.Pretty,
-		fetchResponse: fetchDisproportionatelyLargeTrades,
+		cmdName:      "trades",
+		date:         opts.Date,
+		tickers:      opts.Tickers,
+		limit:        opts.Limit,
+		fields:       opts.Fields,
+		presetFields: opts.PresetFields,
+		shape:        opts.Shape,
+		pretty:       opts.Pretty,
+		fetchResponse: func(ctx context.Context, formattedDate, tickers string, limit int) (getTradesResponse, error) {
+			return fetchDisproportionatelyLargeTradesWithFilters(ctx, formattedDate, tickers, boolToTradeFilter(opts.DarkPools), boolToTradeFilter(opts.Sweeps), limit)
+		},
 	})
+}
+
+func boolToTradeFilter(enabled bool) string {
+	if enabled {
+		return "1"
+	}
+	return "-1"
 }
 
 func runClusterPreset(ctx context.Context, cmd *cobra.Command, opts *ClusterOptions, preset *clusterPreset) error {
@@ -1221,8 +1233,10 @@ func encodeResult(w io.Writer, cmdName string, result any, pretty bool) error {
 	return nil
 }
 
-func fetchDisproportionatelyLargeTrades(ctx context.Context, tradeDate, tickers string, limit int) (getTradesResponse, error) {
+func fetchDisproportionatelyLargeTradesWithFilters(ctx context.Context, tradeDate, tickers, darkPools, sweeps string, limit int) (getTradesResponse, error) {
 	options := defaultGetTradesRequestOptions()
+	options.darkPools = darkPools
+	options.sweeps = sweeps
 	return fetchTradesPages(ctx, tradeDate, tickers, &options, limit)
 }
 

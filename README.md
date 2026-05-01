@@ -25,13 +25,14 @@ make lint       # Run golangci-lint
 
 ```bash
 volumeleaders-agent trades --date 2026-04-30
+volumeleaders-agent trades --date 2026-04-30 --limit 10
 volumeleaders-agent trades --date 2026-04-30 --tickers AAPL,IONQ
 volumeleaders-agent trades --date 2026-04-30 --tickers AAPL,IONQ,AMZN
 ```
 
 The `trades` command fetches VolumeLeaders' default Disproportionately large trades preset for one trading day. The upstream filter is intended for a single day of data, so the CLI exposes only `--date` and sends the same value as both `StartDate` and `EndDate` in the `Trades/GetTrades` request. Add `--tickers` to filter the preset to one ticker or a comma-delimited ticker list without spaces.
 
-The command returns stable JSON with the requested date, DataTables record counts, and the first 100 raw trade objects from VolumeLeaders:
+The command returns compact, stable JSON with the requested date, DataTables record counts, and raw trade objects from VolumeLeaders. Use `--limit 1-100` to reduce the number of returned rows for token-efficient LLM workflows, or `--pretty` when reading the JSON directly. JSON examples in this README are formatted for readability:
 
 ```json
 {
@@ -50,7 +51,7 @@ The command returns stable JSON with the requested date, DataTables record count
 }
 ```
 
-Structcli features are available from the scaffold:
+All trade commands support `--limit 1-100` and `--pretty`. Structcli features are available from the scaffold:
 
 ```bash
 volumeleaders-agent --jsonschema=tree  # Full command schema for agents
@@ -66,12 +67,13 @@ The date flag can also be set with the environment variable shown by `volumelead
 ```bash
 volumeleaders-agent top10 --date 2026-04-30
 volumeleaders-agent top100 --date 2026-04-30
+volumeleaders-agent top100 --date 2026-04-30 --limit 25
 volumeleaders-agent top10 --date 2026-04-30 --tickers AAPL,MSFT
 ```
 
 The `top10` and `top100` commands fetch trades from one trading day where each trade ranks in the stock's all-time largest single trades. A `TradeRank` of `1` is the biggest single trade VolumeLeaders has recorded for that stock, while `10` means the tenth biggest. Both commands use the same `Trades/GetTrades` auth and response handling as `trades`, but they apply the ranked-trade presets captured from VolumeLeaders.
 
-The ranked commands return stable JSON with the requested date, rank limit, DataTables record counts, and raw trade objects:
+The ranked commands return compact, stable JSON with the requested date, rank limit, DataTables record counts, and raw trade objects. Use `--limit 1-100` to override the command preset row count, or `--pretty` when reading the JSON directly:
 
 ```json
 {
@@ -95,12 +97,13 @@ The ranked commands return stable JSON with the requested date, rank limit, Data
 ```bash
 volumeleaders-agent phantom --date 2026-04-30
 volumeleaders-agent offsetting --date 2026-04-30
+volumeleaders-agent offsetting --date 2026-04-30 --limit 10
 volumeleaders-agent phantom --date 2026-04-30 --tickers PLTR,NVDA
 ```
 
 The `phantom` command fetches trades where VolumeLeaders marks the trade price as far from the current price. These prints can hint at where price may move later, but they are not guaranteed signals. The `offsetting` command fetches trades where nearly matching share sizes appear on different dates, which can hint that a trader entered and later exited a position.
 
-Both commands use the same `Trades/GetTrades` auth and response handling as `trades`, and both return stable JSON with the requested date, DataTables record counts, and raw trade objects:
+Both commands use the same `Trades/GetTrades` auth and response handling as `trades`, and both return compact, stable JSON with the requested date, DataTables record counts, and raw trade objects:
 
 ```json
 {
@@ -124,12 +127,13 @@ Both commands use the same `Trades/GetTrades` auth and response handling as `tra
 ```bash
 volumeleaders-agent bull-leverage --date 2026-04-30
 volumeleaders-agent bear-leverage --date 2026-04-30
+volumeleaders-agent bull-leverage --date 2026-04-30 --limit 5
 volumeleaders-agent bull-leverage --date 2026-04-30 --tickers TQQQ
 ```
 
 The `bull-leverage` and `bear-leverage` commands fetch one day of leveraged ETF trades from VolumeLeaders. They use the same `Trades/GetTrades` auth and response handling as `trades`, but apply the upstream bullish (`X Bull`) or bearish (`X Bear`) leveraged ETF preset captured from VolumeLeaders.
 
-Both commands return stable JSON with the requested date, DataTables record counts, and raw trade objects:
+Both commands return compact, stable JSON with the requested date, DataTables record counts, and raw trade objects:
 
 ```json
 {

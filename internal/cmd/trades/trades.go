@@ -19,9 +19,10 @@ import (
 )
 
 const (
-	dateLayout    = "2006-01-02"
-	getTradesPath = "https://www.volumeleaders.com/Trades/GetTrades"
-	tradesPage    = "https://www.volumeleaders.com/Trades"
+	dateLayout        = "2006-01-02"
+	defaultTradeLimit = 100
+	getTradesPath     = "https://www.volumeleaders.com/Trades/GetTrades"
+	tradesPage        = "https://www.volumeleaders.com/Trades"
 )
 
 var (
@@ -36,18 +37,24 @@ var (
 type Options struct {
 	Date    string `flag:"date" flagshort:"d" flagdescr:"Single trading date to query, formatted as YYYY-MM-DD. The disproportionately large trades preset is intentionally limited to one day." flagenv:"true" flagrequired:"true" flaggroup:"Query" validate:"required" mod:"trim"`
 	Tickers string `flag:"tickers" flagdescr:"Optional ticker filter. Use one symbol or a comma-delimited list without spaces, for example AAPL or AAPL,MSFT." flagenv:"true" flaggroup:"Query" mod:"trim"`
+	Limit   int    `flag:"limit" flagdescr:"Maximum trade rows to return, from 1 to 100. Defaults to 100 when omitted." flagenv:"true" flaggroup:"Output"`
+	Pretty  bool   `flag:"pretty" flagdescr:"Pretty-print JSON output. Compact JSON is the default for token-efficient LLM and MCP use." flagenv:"true" flaggroup:"Output"`
 }
 
 // RankedOptions defines the LLM-readable contract for fetching all-time ranked trades.
 type RankedOptions struct {
 	Date    string `flag:"date" flagshort:"d" flagdescr:"Single trading date to query, formatted as YYYY-MM-DD. Ranked trade presets are intentionally limited to one day." flagenv:"true" flagrequired:"true" flaggroup:"Query" validate:"required" mod:"trim"`
 	Tickers string `flag:"tickers" flagdescr:"Optional ticker filter. Use one symbol or a comma-delimited list without spaces, for example AAPL or AAPL,MSFT." flagenv:"true" flaggroup:"Query" mod:"trim"`
+	Limit   int    `flag:"limit" flagdescr:"Maximum trade rows to return, from 1 to 100. Defaults to the command preset when omitted." flagenv:"true" flaggroup:"Output"`
+	Pretty  bool   `flag:"pretty" flagdescr:"Pretty-print JSON output. Compact JSON is the default for token-efficient LLM and MCP use." flagenv:"true" flaggroup:"Output"`
 }
 
 // SignalOptions defines the LLM-readable contract for fetching trade signal presets.
 type SignalOptions struct {
 	Date    string `flag:"date" flagshort:"d" flagdescr:"Single trading date to query, formatted as YYYY-MM-DD. Trade signal presets are intentionally limited to one day." flagenv:"true" flagrequired:"true" flaggroup:"Query" validate:"required" mod:"trim"`
 	Tickers string `flag:"tickers" flagdescr:"Optional ticker filter. Use one symbol or a comma-delimited list without spaces, for example AAPL or AAPL,MSFT." flagenv:"true" flaggroup:"Query" mod:"trim"`
+	Limit   int    `flag:"limit" flagdescr:"Maximum trade rows to return, from 1 to 100. Defaults to 100 when omitted." flagenv:"true" flaggroup:"Output"`
+	Pretty  bool   `flag:"pretty" flagdescr:"Pretty-print JSON output. Compact JSON is the default for token-efficient LLM and MCP use." flagenv:"true" flaggroup:"Output"`
 }
 
 // Result is the stable response shape for the unusual trades command.
@@ -322,8 +329,12 @@ func run(ctx context.Context, cmd *cobra.Command, opts *Options) error {
 	if err != nil {
 		return err
 	}
+	limit, err := normalizeLimit("trades", opts.Limit, defaultTradeLimit)
+	if err != nil {
+		return err
+	}
 
-	apiResponse, err := fetchDisproportionatelyLargeTrades(ctx, formattedDate, tickers)
+	apiResponse, err := fetchDisproportionatelyLargeTrades(ctx, formattedDate, tickers, limit)
 	if err != nil {
 		return err
 	}
@@ -339,7 +350,7 @@ func run(ctx context.Context, cmd *cobra.Command, opts *Options) error {
 		result.Trades = []json.RawMessage{}
 	}
 
-	return encodeResult(cmd.OutOrStdout(), "trades", result)
+	return encodeResult(cmd.OutOrStdout(), "trades", result, opts.Pretty)
 }
 
 func runRanked(ctx context.Context, cmd *cobra.Command, opts *RankedOptions, preset *rankedPreset) error {
@@ -347,8 +358,12 @@ func runRanked(ctx context.Context, cmd *cobra.Command, opts *RankedOptions, pre
 	if err != nil {
 		return err
 	}
+	limit, err := normalizeLimit(preset.use, opts.Limit, preset.length)
+	if err != nil {
+		return err
+	}
 
-	apiResponse, err := fetchRankedTrades(ctx, formattedDate, tickers, preset)
+	apiResponse, err := fetchRankedTrades(ctx, formattedDate, tickers, preset, limit)
 	if err != nil {
 		return err
 	}
@@ -365,7 +380,7 @@ func runRanked(ctx context.Context, cmd *cobra.Command, opts *RankedOptions, pre
 		result.Trades = []json.RawMessage{}
 	}
 
-	return encodeResult(cmd.OutOrStdout(), preset.use, result)
+	return encodeResult(cmd.OutOrStdout(), preset.use, result, opts.Pretty)
 }
 
 func runSignal(ctx context.Context, cmd *cobra.Command, opts *SignalOptions, preset *signalPreset) error {
@@ -373,8 +388,12 @@ func runSignal(ctx context.Context, cmd *cobra.Command, opts *SignalOptions, pre
 	if err != nil {
 		return err
 	}
+	limit, err := normalizeLimit(preset.use, opts.Limit, defaultTradeLimit)
+	if err != nil {
+		return err
+	}
 
-	apiResponse, err := fetchSignalTrades(ctx, formattedDate, tickers, preset)
+	apiResponse, err := fetchSignalTrades(ctx, formattedDate, tickers, preset, limit)
 	if err != nil {
 		return err
 	}
@@ -390,7 +409,7 @@ func runSignal(ctx context.Context, cmd *cobra.Command, opts *SignalOptions, pre
 		result.Trades = []json.RawMessage{}
 	}
 
-	return encodeResult(cmd.OutOrStdout(), preset.use, result)
+	return encodeResult(cmd.OutOrStdout(), preset.use, result, opts.Pretty)
 }
 
 func runLeverage(ctx context.Context, cmd *cobra.Command, opts *SignalOptions, preset *leveragePreset) error {
@@ -398,8 +417,12 @@ func runLeverage(ctx context.Context, cmd *cobra.Command, opts *SignalOptions, p
 	if err != nil {
 		return err
 	}
+	limit, err := normalizeLimit(preset.use, opts.Limit, defaultTradeLimit)
+	if err != nil {
+		return err
+	}
 
-	apiResponse, err := fetchLeverageTrades(ctx, formattedDate, tickers, preset)
+	apiResponse, err := fetchLeverageTrades(ctx, formattedDate, tickers, preset, limit)
 	if err != nil {
 		return err
 	}
@@ -415,7 +438,7 @@ func runLeverage(ctx context.Context, cmd *cobra.Command, opts *SignalOptions, p
 		result.Trades = []json.RawMessage{}
 	}
 
-	return encodeResult(cmd.OutOrStdout(), preset.use, result)
+	return encodeResult(cmd.OutOrStdout(), preset.use, result, opts.Pretty)
 }
 
 func parseDateAndTickers(ctx context.Context, cmdName, rawDate, rawTickers string) (formattedDate, normalizedTickers string, err error) {
@@ -437,9 +460,22 @@ func parseDateAndTickers(ctx context.Context, cmdName, rawDate, rawTickers strin
 	return tradeDate.Format(dateLayout), tickers, nil
 }
 
-func encodeResult(w io.Writer, cmdName string, result any) error {
+func normalizeLimit(cmdName string, rawLimit, defaultLimit int) (int, error) {
+	if rawLimit == 0 {
+		return defaultLimit, nil
+	}
+	if rawLimit < 1 || rawLimit > defaultTradeLimit {
+		return 0, fmt.Errorf("invalid %s limit %d: use a value from 1 to %d", cmdName, rawLimit, defaultTradeLimit)
+	}
+
+	return rawLimit, nil
+}
+
+func encodeResult(w io.Writer, cmdName string, result any, pretty bool) error {
 	encoder := json.NewEncoder(w)
-	encoder.SetIndent("", "  ")
+	if pretty {
+		encoder.SetIndent("", "  ")
+	}
 	if err := encoder.Encode(result); err != nil {
 		return fmt.Errorf("encode %s response: %w", cmdName, err)
 	}
@@ -447,23 +483,27 @@ func encodeResult(w io.Writer, cmdName string, result any) error {
 	return nil
 }
 
-func fetchDisproportionatelyLargeTrades(ctx context.Context, tradeDate, tickers string) (getTradesResponse, error) {
+func fetchDisproportionatelyLargeTrades(ctx context.Context, tradeDate, tickers string, limit int) (getTradesResponse, error) {
 	options := defaultGetTradesRequestOptions()
+	options.length = limit
 	return fetchTrades(ctx, tradeDate, tickers, &options)
 }
 
-func fetchRankedTrades(ctx context.Context, tradeDate, tickers string, preset *rankedPreset) (getTradesResponse, error) {
+func fetchRankedTrades(ctx context.Context, tradeDate, tickers string, preset *rankedPreset, limit int) (getTradesResponse, error) {
 	options := rankedGetTradesRequestOptions(preset)
+	options.length = limit
 	return fetchTrades(ctx, tradeDate, tickers, &options)
 }
 
-func fetchSignalTrades(ctx context.Context, tradeDate, tickers string, preset *signalPreset) (getTradesResponse, error) {
+func fetchSignalTrades(ctx context.Context, tradeDate, tickers string, preset *signalPreset, limit int) (getTradesResponse, error) {
 	options := signalGetTradesRequestOptions(preset)
+	options.length = limit
 	return fetchTrades(ctx, tradeDate, tickers, &options)
 }
 
-func fetchLeverageTrades(ctx context.Context, tradeDate, tickers string, preset *leveragePreset) (getTradesResponse, error) {
+func fetchLeverageTrades(ctx context.Context, tradeDate, tickers string, preset *leveragePreset, limit int) (getTradesResponse, error) {
 	options := leverageGetTradesRequestOptions(preset)
+	options.length = limit
 	return fetchTrades(ctx, tradeDate, tickers, &options)
 }
 
@@ -524,7 +564,7 @@ func fetchTrades(ctx context.Context, tradeDate, tickers string, options *getTra
 func defaultGetTradesRequestOptions() getTradesRequestOptions {
 	return getTradesRequestOptions{
 		tradeRank:              -1,
-		length:                 100,
+		length:                 defaultTradeLimit,
 		minVolume:              "0",
 		maxDollars:             "30000000000",
 		conditions:             "-1",
@@ -558,7 +598,7 @@ func rankedGetTradesRequestOptions(preset *rankedPreset) getTradesRequestOptions
 func signalGetTradesRequestOptions(preset *signalPreset) getTradesRequestOptions {
 	return getTradesRequestOptions{
 		tradeRank:              -1,
-		length:                 100,
+		length:                 defaultTradeLimit,
 		minVolume:              "0",
 		maxDollars:             "100000000000",
 		conditions:             "IgnoreOBD,IgnoreOBH,IgnoreOSD,IgnoreOSH",
@@ -575,7 +615,7 @@ func signalGetTradesRequestOptions(preset *signalPreset) getTradesRequestOptions
 func leverageGetTradesRequestOptions(preset *leveragePreset) getTradesRequestOptions {
 	return getTradesRequestOptions{
 		tradeRank:              -1,
-		length:                 100,
+		length:                 defaultTradeLimit,
 		minVolume:              "10000",
 		maxDollars:             "10000000000",
 		conditions:             "IgnoreOBD,IgnoreOBH,IgnoreOSD,IgnoreOSH",

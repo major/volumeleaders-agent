@@ -57,8 +57,48 @@ func TestTradesCommand(t *testing.T) {
 	if len(got.Trades) != 1 {
 		t.Fatalf("len(Trades) = %d, want 1", len(got.Trades))
 	}
-	if !bytes.Contains(got.Trades[0], []byte(`"Ticker": "KRE"`)) {
+	if !bytes.Contains(got.Trades[0], []byte(`"Ticker":"KRE"`)) {
 		t.Fatalf("trade payload = %s, want KRE ticker", string(got.Trades[0]))
+	}
+	if strings.Contains(stdout.String(), "\n  ") {
+		t.Fatalf("default output should be compact JSON, got %q", stdout.String())
+	}
+}
+
+func TestTradesCommandOutputOptions(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		options := defaultGetTradesRequestOptions()
+		options.length = 2
+		assertGetTradesRequestWithOptions(t, r, "2026-04-30", "AAPL", &options)
+		fmt.Fprint(w, `{"draw":1,"recordsTotal":7,"recordsFiltered":7,"data":[{"Ticker":"AAPL"},{"Ticker":"AAPL"}]}`)
+	}))
+	t.Cleanup(server.Close)
+
+	withCommandDependencies(t, server.Client(), server.URL, nil, nil)
+
+	cmd, err := NewCommand()
+	if err != nil {
+		t.Fatalf("NewCommand() error = %v", err)
+	}
+
+	var stdout bytes.Buffer
+	cmd.SetOut(&stdout)
+	cmd.SetErr(io.Discard)
+	cmd.SetArgs([]string{"--date", "2026-04-30", "--tickers", "AAPL", "--limit", "2", "--pretty"})
+
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("Execute() error = %v", err)
+	}
+	if !strings.Contains(stdout.String(), "\n  ") {
+		t.Fatalf("pretty output should be indented JSON, got %q", stdout.String())
+	}
+
+	var got Result
+	if err := json.Unmarshal(stdout.Bytes(), &got); err != nil {
+		t.Fatalf("unmarshal output: %v\noutput: %s", err, stdout.String())
+	}
+	if len(got.Trades) != 2 {
+		t.Fatalf("len(Trades) = %d, want 2", len(got.Trades))
 	}
 }
 
@@ -68,6 +108,7 @@ func TestRankedTradesCommands(t *testing.T) {
 		newCommand  func() (*cobra.Command, error)
 		args        []string
 		wantRank    int
+		presetLen   int
 		wantLength  int
 		wantPreset  string
 		wantTickers string
@@ -77,15 +118,17 @@ func TestRankedTradesCommands(t *testing.T) {
 			newCommand: NewTop10Command,
 			args:       []string{"--date", "2026-04-30"},
 			wantRank:   10,
+			presetLen:  10,
 			wantLength: 10,
 			wantPreset: "623",
 		},
 		{
 			name:        "top 100 ranked trades with tickers",
 			newCommand:  NewTop100Command,
-			args:        []string{"--date", "2026-04-30", "--ticker", "aapl,msft"},
+			args:        []string{"--date", "2026-04-30", "--ticker", "aapl,msft", "--limit", "25"},
 			wantRank:    100,
-			wantLength:  100,
+			presetLen:   100,
+			wantLength:  25,
 			wantPreset:  "568",
 			wantTickers: "AAPL,MSFT",
 		},
@@ -93,9 +136,10 @@ func TestRankedTradesCommands(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			preset := &rankedPreset{rank: tt.wantRank, length: tt.wantLength, presetID: tt.wantPreset}
+			preset := &rankedPreset{rank: tt.wantRank, length: tt.presetLen, presetID: tt.wantPreset}
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				options := rankedGetTradesRequestOptions(preset)
+				options.length = tt.wantLength
 				assertGetTradesRequestWithOptions(t, r, "2026-04-30", tt.wantTickers, &options)
 				fmt.Fprint(w, `{"draw":1,"recordsTotal":76,"recordsFiltered":76,"data":[{"Ticker":"SNDQ","TradeRank":1}]}`)
 			}))
@@ -141,6 +185,7 @@ func TestSignalTradesCommands(t *testing.T) {
 		args           []string
 		wantPreset     *signalPreset
 		wantTickers    string
+		wantLength     int
 		wantTradeField string
 	}{
 		{
@@ -153,12 +198,13 @@ func TestSignalTradesCommands(t *testing.T) {
 				darkPools:  "1",
 				presetID:   "857",
 			},
+			wantLength:     defaultTradeLimit,
 			wantTradeField: "PhantomPrint",
 		},
 		{
 			name:       "offsetting trades with tickers",
 			newCommand: NewOffsettingCommand,
-			args:       []string{"--date", "2026-04-30", "--ticker", "pltr"},
+			args:       []string{"--date", "2026-04-30", "--ticker", "pltr", "--limit", "7"},
 			wantPreset: &signalPreset{
 				phantom:    "0",
 				offsetting: "1",
@@ -166,6 +212,7 @@ func TestSignalTradesCommands(t *testing.T) {
 				presetID:   "858",
 			},
 			wantTickers:    "PLTR",
+			wantLength:     7,
 			wantTradeField: "OffsettingTradeDate",
 		},
 	}
@@ -174,6 +221,7 @@ func TestSignalTradesCommands(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				options := signalGetTradesRequestOptions(tt.wantPreset)
+				options.length = tt.wantLength
 				assertGetTradesRequestWithOptions(t, r, "2026-04-30", tt.wantTickers, &options)
 				fmt.Fprintf(w, `{"draw":1,"recordsTotal":2,"recordsFiltered":2,"data":[{"Ticker":"PLTR","%s":1}]}`, tt.wantTradeField)
 			}))
@@ -225,6 +273,7 @@ func TestLeverageTradesCommands(t *testing.T) {
 		args           []string
 		wantPreset     *leveragePreset
 		wantTickers    string
+		wantLength     int
 		responseSector string
 		wantTradeField string
 	}{
@@ -236,18 +285,20 @@ func TestLeverageTradesCommands(t *testing.T) {
 				sectorIndustry: "X Bull",
 				presetID:       "5",
 			},
+			wantLength:     defaultTradeLimit,
 			responseSector: "3x Bull Nasdaq",
 			wantTradeField: "3x Bull Nasdaq",
 		},
 		{
 			name:       "bear leverage trades with tickers",
 			newCommand: NewBearLeverageCommand,
-			args:       []string{"--date", "2026-04-30", "--ticker", "spxu"},
+			args:       []string{"--date", "2026-04-30", "--ticker", "spxu", "--limit", "3"},
 			wantPreset: &leveragePreset{
 				sectorIndustry: "X Bear",
 				presetID:       "6",
 			},
 			wantTickers:    "SPXU",
+			wantLength:     3,
 			responseSector: "3x Bear S&P 500",
 			wantTradeField: `3x Bear S\u0026P 500`,
 		},
@@ -257,6 +308,7 @@ func TestLeverageTradesCommands(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				options := leverageGetTradesRequestOptions(tt.wantPreset)
+				options.length = tt.wantLength
 				assertGetTradesRequestWithOptions(t, r, "2026-04-30", tt.wantTickers, &options)
 				fmt.Fprintf(w, `{"draw":1,"recordsTotal":8,"recordsFiltered":8,"data":[{"Ticker":"TQQQ","Sector":"%s"}]}`, tt.responseSector)
 			}))
@@ -387,6 +439,16 @@ func TestTradesCommandValidation(t *testing.T) {
 			args:    []string{"--date", "2026-04-30", "--tickers", "AAPL, IONQ, AMZN"},
 			wantErr: "without spaces",
 		},
+		{
+			name:    "negative limit fails",
+			args:    []string{"--date", "2026-04-30", "--limit", "-1"},
+			wantErr: "use a value from 1 to 100",
+		},
+		{
+			name:    "too large limit fails",
+			args:    []string{"--date", "2026-04-30", "--limit", "101"},
+			wantErr: "use a value from 1 to 100",
+		},
 	}
 
 	for _, tt := range tests {
@@ -423,7 +485,7 @@ func TestFetchDisproportionatelyLargeTradesHandlesAPIError(t *testing.T) {
 
 	withCommandDependencies(t, server.Client(), server.URL, nil, nil)
 
-	_, err := fetchDisproportionatelyLargeTrades(t.Context(), "2026-04-30", "")
+	_, err := fetchDisproportionatelyLargeTrades(t.Context(), "2026-04-30", "", defaultTradeLimit)
 	if err == nil {
 		t.Fatalf("expected API error")
 	}
@@ -440,7 +502,7 @@ func TestFetchDisproportionatelyLargeTradesHandlesAuthStatus(t *testing.T) {
 
 	withCommandDependencies(t, server.Client(), server.URL, nil, nil)
 
-	_, err := fetchDisproportionatelyLargeTrades(t.Context(), "2026-04-30", "")
+	_, err := fetchDisproportionatelyLargeTrades(t.Context(), "2026-04-30", "", defaultTradeLimit)
 	if err == nil {
 		t.Fatalf("expected auth error")
 	}
@@ -464,7 +526,7 @@ func TestFetchDisproportionatelyLargeTradesHandlesLoginRedirect(t *testing.T) {
 
 	withCommandDependencies(t, server.Client(), server.URL, nil, nil)
 
-	_, err := fetchDisproportionatelyLargeTrades(t.Context(), "2026-04-30", "")
+	_, err := fetchDisproportionatelyLargeTrades(t.Context(), "2026-04-30", "", defaultTradeLimit)
 	if err == nil {
 		t.Fatalf("expected auth error")
 	}
@@ -481,7 +543,7 @@ func TestFetchDisproportionatelyLargeTradesPropagatesCancellation(t *testing.T) 
 		return nil, ctx.Err()
 	}, nil)
 
-	_, err := fetchDisproportionatelyLargeTrades(canceledCtx, "2026-04-30", "")
+	_, err := fetchDisproportionatelyLargeTrades(canceledCtx, "2026-04-30", "", defaultTradeLimit)
 	if !errors.Is(err, context.Canceled) {
 		t.Fatalf("expected context cancellation, got %v", err)
 	}
@@ -505,7 +567,7 @@ func TestFetchDisproportionatelyLargeTradesDoesNotLeakSecrets(t *testing.T) {
 		return secretToken, nil
 	})
 
-	_, err := fetchDisproportionatelyLargeTrades(t.Context(), "2026-04-30", "")
+	_, err := fetchDisproportionatelyLargeTrades(t.Context(), "2026-04-30", "", defaultTradeLimit)
 	if err == nil {
 		t.Fatalf("expected auth error")
 	}

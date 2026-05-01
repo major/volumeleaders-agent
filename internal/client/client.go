@@ -135,18 +135,23 @@ func buildCookies(cookies map[string]string) []*http.Cookie {
 // PostDataTablesPage posts a form-encoded DataTables request and returns the
 // full response envelope, including RecordsFiltered for pagination decisions.
 func (c *Client) PostDataTablesPage(ctx context.Context, path, body string) (*models.DataTablesResponse, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.baseURL+path, strings.NewReader(body))
+	resp, err := c.client.R().
+		SetContext(ctx).
+		SetBody(body).
+		SetHeader("Content-Type", "application/x-www-form-urlencoded; charset=UTF-8").
+		Post(c.baseURL + path)
 	if err != nil {
-		return nil, fmt.Errorf("create DataTables request: %w", err)
+		return nil, fmt.Errorf("post DataTables request: %w", err)
 	}
-
-	responseBody, err := c.doRequest(req, "DataTables")
-	if err != nil {
-		return nil, err
+	if resp.Err != nil {
+		return nil, fmt.Errorf("post DataTables request: %w", resp.Err)
+	}
+	if resp.StatusCode() != http.StatusOK {
+		return nil, fmt.Errorf("post DataTables request: status %d: %s", resp.StatusCode(), resp.String())
 	}
 
 	var wrapper models.DataTablesResponse
-	if err := json.Unmarshal(responseBody, &wrapper); err != nil {
+	if err := json.Unmarshal(resp.Bytes(), &wrapper); err != nil {
 		return nil, fmt.Errorf("decode DataTables response: %w", err)
 	}
 	if len(wrapper.Data) == 0 || bytes.Equal(wrapper.Data, []byte("null")) {

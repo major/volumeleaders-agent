@@ -503,6 +503,29 @@ func TestSectorTradesCommands(t *testing.T) {
 			wantLength:     4,
 			responseSector: "Bonds",
 		},
+		{
+			name:       "commodities trades",
+			newCommand: NewCommoditiesCommand,
+			args:       []string{"--date", "2026-04-30", "--ticker", "gld,slv", "--limit", "2"},
+			wantPreset: &sectorPreset{
+				vcd:      "97",
+				presetID: "9",
+			},
+			wantTickers:    "GLD,SLV",
+			wantLength:     2,
+			responseSector: "Commodities",
+		},
+		{
+			name:       "communications services trades",
+			newCommand: NewCommunicationsServicesCommand,
+			args:       []string{"--date", "2026-04-30"},
+			wantPreset: &sectorPreset{
+				sectorIndustry: "Comm Services",
+				presetID:       "91",
+			},
+			wantLength:     defaultTradeLimit,
+			responseSector: "Comm Services",
+		},
 	}
 
 	for _, tt := range tests {

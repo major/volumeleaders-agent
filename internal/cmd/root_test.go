@@ -15,12 +15,12 @@ func TestRootCommandWiresStructCLIFeatures(t *testing.T) {
 		{
 			name:     "json schema tree is available",
 			args:     []string{"--jsonschema=tree"},
-			wantOuts: []string{"trades", "phantom", "offsetting", "bull-leverage", "bear-leverage", "biotech", "bonds"},
+			wantOuts: []string{"trades", "phantom", "offsetting", "bull-leverage", "bear-leverage", "biotech", "bonds", "commodities", "communications-services"},
 		},
 		{
 			name:     "env vars reference topic is available",
 			args:     []string{"env-vars"},
-			wantOuts: []string{"VOLUMELEADERS_AGENT_TRADES_DATE", "VOLUMELEADERS_AGENT_PHANTOM_DATE", "VOLUMELEADERS_AGENT_OFFSETTING_DATE", "VOLUMELEADERS_AGENT_BULL_LEVERAGE_DATE", "VOLUMELEADERS_AGENT_BEAR_LEVERAGE_DATE", "VOLUMELEADERS_AGENT_BIOTECH_DATE", "VOLUMELEADERS_AGENT_BONDS_DATE"},
+			wantOuts: []string{"VOLUMELEADERS_AGENT_TRADES_DATE", "VOLUMELEADERS_AGENT_PHANTOM_DATE", "VOLUMELEADERS_AGENT_OFFSETTING_DATE", "VOLUMELEADERS_AGENT_BULL_LEVERAGE_DATE", "VOLUMELEADERS_AGENT_BEAR_LEVERAGE_DATE", "VOLUMELEADERS_AGENT_BIOTECH_DATE", "VOLUMELEADERS_AGENT_BONDS_DATE", "VOLUMELEADERS_AGENT_COMMODITIES_DATE", "VOLUMELEADERS_AGENT_COMMUNICATIONS_SERVICES_DATE"},
 		},
 	}
 

@@ -137,16 +137,20 @@ Both commands return the same token-efficient trade output shape by default:
 }
 ```
 
-## Bonds and biotechnology stock trades
+## Sector and category trades
 
 ```bash
 volumeleaders-agent bonds --date 2026-04-30
 volumeleaders-agent bonds --date 2026-04-30 --tickers HYG,TLT
 volumeleaders-agent biotech --date 2026-04-30
 volumeleaders-agent biotech --date 2026-04-30 --tickers IBB,XBI
+volumeleaders-agent commodities --date 2026-04-30
+volumeleaders-agent commodities --date 2026-04-30 --tickers GLD,SLV
+volumeleaders-agent communications-services --date 2026-04-30
+volumeleaders-agent communications-services --date 2026-04-30 --tickers XLC,META
 ```
 
-The `bonds` and `biotech` commands fetch one day of sector-filtered trades from VolumeLeaders. They use the same `Trades/GetTrades` auth, pagination, and output handling as `trades`, but apply the upstream bonds (`SectorIndustry=Bonds`, preset `90`) or biotechnology (`SectorIndustry=Biotech`, preset `89`) presets captured from VolumeLeaders.
+The `bonds`, `biotech`, `commodities`, and `communications-services` commands fetch one day of sector or category filtered trades from VolumeLeaders. They use the same `Trades/GetTrades` auth, pagination, and output handling as `trades`, but apply the upstream bonds (`SectorIndustry=Bonds`, preset `90`), biotechnology (`SectorIndustry=Biotech`, preset `89`), commodities (preset `9` with `VCD=97`), or communications services (`SectorIndustry=Comm Services`, preset `91`) presets captured from VolumeLeaders.
 
 Both commands return the same token-efficient trade output shape by default:
 

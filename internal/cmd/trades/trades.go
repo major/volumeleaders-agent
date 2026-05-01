@@ -207,6 +207,7 @@ type sectorPreset struct {
 	short          string
 	long           string
 	example        string
+	vcd            string
 	sectorIndustry string
 	presetID       string
 }
@@ -357,6 +358,32 @@ func NewBondsCommand() (*cobra.Command, error) {
 		example:        "volumeleaders-agent bonds --date 2026-04-30\nvolumeleaders-agent bonds --date 2026-04-30 --tickers HYG,TLT",
 		sectorIndustry: "Bonds",
 		presetID:       "90",
+	})
+}
+
+// NewCommoditiesCommand builds the commodities trades command.
+func NewCommoditiesCommand() (*cobra.Command, error) {
+	return newSectorCommand(&sectorPreset{
+		use:      "commodities",
+		aliases:  []string{"commodity", "commodity-trades"},
+		short:    "Fetch commodities trades",
+		long:     "Fetch VolumeLeaders commodities trades for one day. This uses the commodities preset captured from VolumeLeaders and applies the upstream commodity search template.",
+		example:  "volumeleaders-agent commodities --date 2026-04-30\nvolumeleaders-agent commodities --date 2026-04-30 --tickers GLD,SLV",
+		vcd:      "97",
+		presetID: "9",
+	})
+}
+
+// NewCommunicationsServicesCommand builds the communications services trades command.
+func NewCommunicationsServicesCommand() (*cobra.Command, error) {
+	return newSectorCommand(&sectorPreset{
+		use:            "communications-services",
+		aliases:        []string{"communication-services", "comm-services", "communications", "comms"},
+		short:          "Fetch communications services trades",
+		long:           "Fetch VolumeLeaders communications services trades for one day. This uses the communications services preset captured from VolumeLeaders and filters the upstream GetTrades request to the Comm Services sector group.",
+		example:        "volumeleaders-agent communications-services --date 2026-04-30\nvolumeleaders-agent communications-services --date 2026-04-30 --tickers XLC,META",
+		sectorIndustry: "Comm Services",
+		presetID:       "91",
 	})
 }
 
@@ -1025,6 +1052,11 @@ func leverageGetTradesRequestOptions(preset *leveragePreset) getTradesRequestOpt
 }
 
 func sectorGetTradesRequestOptions(preset *sectorPreset) getTradesRequestOptions {
+	vcd := preset.vcd
+	if vcd == "" {
+		vcd = "0"
+	}
+
 	return getTradesRequestOptions{
 		tradeRank:              -1,
 		draw:                   1,
@@ -1033,7 +1065,7 @@ func sectorGetTradesRequestOptions(preset *sectorPreset) getTradesRequestOptions
 		minVolume:              "10000",
 		maxDollars:             "10000000000",
 		conditions:             "IgnoreOBD,IgnoreOBH,IgnoreOSD,IgnoreOSH",
-		vcd:                    "0",
+		vcd:                    vcd,
 		relativeSize:           "5",
 		darkPools:              "-1",
 		includePhantom:         "-1",

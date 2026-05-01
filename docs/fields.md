@@ -4,7 +4,7 @@ This page explains the upstream VolumeLeaders trade, cluster, level, and watchli
 
 ## Presets
 
-- Trade, cluster, and trade-level `core`: compact default for LLM workflows. Trades and clusters emit the most useful table fields plus derived `CalendarEvent` and `AuctionTrade` where available. Trade levels emit the visible level table fields.
+- Trade, cluster, trade-cluster-bomb, and trade-level `core`: compact default for LLM workflows. Trades and clusters emit the most useful table fields plus derived `CalendarEvent` and `AuctionTrade` where available. Trade cluster bombs emit the visible cluster-bomb table fields plus derived `CalendarEvent`. Trade levels emit the visible level table fields.
 - Watchlist `summary`: compact watchlist default with only `SearchTemplateKey` and `Name`, so callers can choose a saved filter before requesting details.
 - `expanded`: all annotated non-internal signal fields for trades and clusters, or the saved filter configuration fields for watchlists. Still excludes raw upstream internals, always-zero fields, and always-null fields.
 - `full`: raw upstream payload. Use only for debugging or when a field has not been classified yet.
@@ -55,6 +55,18 @@ Array output is the most token-efficient shape because field names appear once i
 - `TradeClusterRank`: mutable current cluster rank. `9999` means unranked.
 - `LastComparibleTradeClusterDate`: upstream spelling for the most recent comparable cluster date.
 
+## Trade cluster bomb fields
+
+The `trade-cluster-bombs` command fetches `TradeClusterBombs/GetTradeClusterBombs` across a date range. VolumeLeaders defines cluster bombs as rare stock-only rows with at least three dark-pool sweeps in one day and at least $38M combined value. VolumeLeaders accepts at most 7 days when querying all tickers or multiple comma-delimited tickers, so those scans default to 7 days and reject wider requested ranges. Single-ticker scans default to a one-year lookback when `--start-date` is omitted.
+
+- `MinFullDateTime`, `MaxFullDateTime`: earliest and latest trade timestamps in the cluster bomb.
+- `MinFullTimeString24`, `MaxFullTimeString24`: earliest and latest cluster bomb times in `HH:MM:SS` form.
+- `TradeCount`: number of trades inside the cluster bomb.
+- `DollarsMultiplier`: returned relative size value shown as `RS` in the browser table.
+- `TradeClusterBombRank`: mutable current cluster bomb rank. Captured browser defaults use `-1` as the no-rank request filter.
+- `LastComparableTradeClusterBombDate`: upstream spelling for the most recent comparable cluster bomb date. Unlike older trade and cluster fields, this endpoint spells `Comparable` correctly.
+- `TotalRows`: upstream total row count used as a fallback when DataTables record totals are omitted.
+
 ## Excluded from expanded
 
 The `expanded` preset intentionally excludes fields annotated as internal, always zero, always null, or otherwise not useful as direct signal columns.
@@ -62,6 +74,8 @@ The `expanded` preset intentionally excludes fields annotated as internal, alway
 Trade exclusions include query echoes and internal dates (`StartDate`, `EndDate`, `TD30`, `TD90`, `TD1CY`), internal identifiers (`SecurityKey`, `SequenceNumber`), always-zero quote or aggregate fields (`Bid`, `Ask`, `AverageDailyVolume`, `PercentDailyVolume`, `AverageBlockSizeDollars`, `AverageBlockSizeShares`, institutional totals, closing totals, `ClosePrice`, `TotalDollars`, `TotalDollarsRank`, `TotalVolume`, `TotalTrades`), internal relative-size plumbing (`DollarsMultiplier`), always-null phantom fulfillment fields, `TradeConditions`, and `ExternalFeed`.
 
 Cluster exclusions include `SecurityKey`, `ClosePrice`, `AverageBlockSizeShares`, `AverageBlockSizeDollars`, `AverageDailyVolume`, `DollarsMultiplier`, `TotalRows`, and `ExternalFeed`.
+
+Trade cluster bomb exclusions include `SecurityKey`, `ClosePrice`, `AverageBlockSizeShares`, `AverageBlockSizeDollars`, `AverageDailyVolume`, `TotalRows`, and `ExternalFeed`.
 
 ## Trade level fields
 

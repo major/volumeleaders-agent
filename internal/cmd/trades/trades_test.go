@@ -147,6 +147,185 @@ func TestTradeClustersCommand(t *testing.T) {
 	}
 }
 
+func TestTradeClusterBombsCommand(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		options := defaultGetTradeClusterBombsRequestOptions()
+		options.length = 2
+		assertGetTradeClusterBombsRequestWithOptions(t, r, "2026-04-24", "2026-05-01", "AAPL,AMZN", &options)
+		fmt.Fprint(w, `{"draw":1,"data":[{"Ticker":"AAPL","MinFullTimeString24":"10:01:04","MaxFullTimeString24":"10:01:08","Dollars":125000000,"DollarsMultiplier":42.5,"Volume":700000,"TradeCount":7,"TradeClusterBombRank":14,"Sector":"Technology","Industry":"Consumer Electronics","LastComparableTradeClusterBombDate":"/Date(1777420800000)/","EOM":true,"VOLEX":true,"TotalRows":20},{"Ticker":"AMZN","MinFullTimeString24":"11:02:00","Dollars":88000000,"DollarsMultiplier":18.2,"Volume":450000,"TradeCount":4,"TradeClusterBombRank":35,"Sector":"Consumer Cyclical","Industry":"Internet Retail","TotalRows":20}]}`)
+	}))
+	t.Cleanup(server.Close)
+
+	withCommandDependencies(t, server.Client(), server.URL, nil, nil)
+
+	cmd, err := NewTradeClusterBombsCommand()
+	if err != nil {
+		t.Fatalf("NewTradeClusterBombsCommand() error = %v", err)
+	}
+
+	var stdout bytes.Buffer
+	cmd.SetOut(&stdout)
+	cmd.SetErr(io.Discard)
+	cmd.SetArgs([]string{"--start-date", "2026-04-24", "--end-date", "2026-05-01", "--tickers", "aapl,amzn", "--limit", "2"})
+
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("Execute() error = %v", err)
+	}
+
+	var got ClusterBombResult
+	if err := json.Unmarshal(stdout.Bytes(), &got); err != nil {
+		t.Fatalf("unmarshal output: %v\noutput: %s", err, stdout.String())
+	}
+	if got.Status != "ok" {
+		t.Fatalf("Status = %q, want ok", got.Status)
+	}
+	if got.StartDate != "2026-04-24" || got.EndDate != "2026-05-01" {
+		t.Fatalf("date range = %s/%s, want 2026-04-24/2026-05-01", got.StartDate, got.EndDate)
+	}
+	if got.RecordsTotal != 20 || got.RecordsFiltered != 20 {
+		t.Fatalf("record counts = %d/%d, want inferred 20/20", got.RecordsTotal, got.RecordsFiltered)
+	}
+	if strings.Join(got.Fields, ",") != strings.Join(clusterBombFieldPresets["core"], ",") {
+		t.Fatalf("Fields = %v, want core cluster bomb fields", got.Fields)
+	}
+	if len(got.Rows) != 2 {
+		t.Fatalf("len(Rows) = %d, want 2", len(got.Rows))
+	}
+	if len(got.ClusterBombs) != 0 {
+		t.Fatalf("len(ClusterBombs) = %d, want 0 for default array shape", len(got.ClusterBombs))
+	}
+	if string(got.Rows[0][0]) != `"AAPL"` {
+		t.Fatalf("first row ticker = %s, want AAPL", string(got.Rows[0][0]))
+	}
+	calendarIndex := fieldIndex(t, got.Fields, calendarEventField)
+	if string(got.Rows[0][calendarIndex]) != `"EOM,VOLEX"` {
+		t.Fatalf("first calendar event cell = %s, want EOM,VOLEX", string(got.Rows[0][calendarIndex]))
+	}
+	if string(got.Rows[1][calendarIndex]) != "null" {
+		t.Fatalf("second calendar event cell = %s, want null", string(got.Rows[1][calendarIndex]))
+	}
+}
+
+func TestTradeClusterBombsCommandObjectShapeAndCustomFields(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		options := defaultGetTradeClusterBombsRequestOptions()
+		options.minDollars = "38000000"
+		options.relativeSize = "5"
+		options.tradeClusterBombRank = 100
+		options.sectorIndustry = "Technology"
+		options.length = 1
+		assertGetTradeClusterBombsRequestWithOptions(t, r, "2026-04-24", "2026-05-01", "NVDA", &options)
+		fmt.Fprint(w, `{"draw":1,"recordsTotal":1,"recordsFiltered":1,"data":[{"Ticker":"NVDA","Dollars":99000000,"TradeClusterBombRank":3,"Ignored":true,"TotalRows":1}]}`)
+	}))
+	t.Cleanup(server.Close)
+
+	withCommandDependencies(t, server.Client(), server.URL, nil, nil)
+
+	cmd, err := NewTradeClusterBombsCommand()
+	if err != nil {
+		t.Fatalf("NewTradeClusterBombsCommand() error = %v", err)
+	}
+
+	var stdout bytes.Buffer
+	cmd.SetOut(&stdout)
+	cmd.SetErr(io.Discard)
+	cmd.SetArgs([]string{"--start-date", "2026-04-24", "--end-date", "2026-05-01", "--ticker", "nvda", "--min-dollars", "38000000", "--relative-size", "5", "--trade-cluster-bomb-rank", "100", "--sector-industry", "Technology", "--limit", "1", "--fields", "Ticker,Dollars,TradeClusterBombRank", "--shape", "objects"})
+
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("Execute() error = %v", err)
+	}
+
+	var got ClusterBombResult
+	if err := json.Unmarshal(stdout.Bytes(), &got); err != nil {
+		t.Fatalf("unmarshal output: %v\noutput: %s", err, stdout.String())
+	}
+	if strings.Join(got.Fields, ",") != "Ticker,Dollars,TradeClusterBombRank" {
+		t.Fatalf("Fields = %v, want custom cluster bomb fields", got.Fields)
+	}
+	if len(got.ClusterBombs) != 1 {
+		t.Fatalf("len(ClusterBombs) = %d, want 1", len(got.ClusterBombs))
+	}
+	if !bytes.Contains(got.ClusterBombs[0], []byte(`"TradeClusterBombRank":3`)) || bytes.Contains(got.ClusterBombs[0], []byte("Ignored")) {
+		t.Fatalf("projected cluster bomb payload = %s", string(got.ClusterBombs[0]))
+	}
+}
+
+func TestNormalizeTradeClusterBombDateRangeDefaults(t *testing.T) {
+	tests := []struct {
+		name      string
+		endDate   string
+		tickers   string
+		wantStart string
+	}{
+		{
+			name:      "broad scan defaults to seven days",
+			endDate:   "2026-05-01",
+			wantStart: "2026-04-24",
+		},
+		{
+			name:      "multi-ticker scan defaults to seven days",
+			endDate:   "2026-05-01",
+			tickers:   "AAPL,AMZN",
+			wantStart: "2026-04-24",
+		},
+		{
+			name:      "single-ticker scan defaults to one year",
+			endDate:   "2026-05-01",
+			tickers:   "AAPL",
+			wantStart: "2025-05-01",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotStart, gotEnd, err := normalizeTradeClusterBombDateRange("", tt.endDate, tt.tickers)
+			if err != nil {
+				t.Fatalf("normalizeTradeClusterBombDateRange() error = %v", err)
+			}
+			if gotStart != tt.wantStart || gotEnd != tt.endDate {
+				t.Fatalf("date range = %s/%s, want %s/%s", gotStart, gotEnd, tt.wantStart, tt.endDate)
+			}
+		})
+	}
+}
+
+func TestNormalizeTradeClusterBombDateRangeSevenDayLimit(t *testing.T) {
+	tests := []struct {
+		name    string
+		tickers string
+	}{
+		{
+			name: "all-ticker scan over seven days fails",
+		},
+		{
+			name:    "multi-ticker scan over seven days fails",
+			tickers: "AAPL,AMZN",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, _, err := normalizeTradeClusterBombDateRange("2026-04-23", "2026-05-01", tt.tickers)
+			if err == nil {
+				t.Fatal("expected date range error")
+			}
+			if !strings.Contains(err.Error(), "at most 7 days") {
+				t.Fatalf("error = %v, want seven-day limit context", err)
+			}
+		})
+	}
+}
+
+func TestNormalizeTradeClusterBombDateRangeSingleTickerAllowsLongerRange(t *testing.T) {
+	gotStart, gotEnd, err := normalizeTradeClusterBombDateRange("2025-05-01", "2026-05-01", "AAPL")
+	if err != nil {
+		t.Fatalf("normalizeTradeClusterBombDateRange() error = %v", err)
+	}
+	if gotStart != "2025-05-01" || gotEnd != "2026-05-01" {
+		t.Fatalf("date range = %s/%s, want 2025-05-01/2026-05-01", gotStart, gotEnd)
+	}
+}
+
 func TestTradeLevelsCommand(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		options := defaultGetTradeLevelsRequestOptions()
@@ -2036,6 +2215,62 @@ func assertGetTradeClustersRequestWithOptions(t *testing.T, r *http.Request, tra
 	}
 }
 
+func assertGetTradeClusterBombsRequestWithOptions(t *testing.T, r *http.Request, startDate, endDate, tickers string, options *getTradeClusterBombsRequestOptions) {
+	t.Helper()
+
+	if r.Method != http.MethodPost {
+		t.Fatalf("method = %s, want POST", r.Method)
+	}
+	if got := r.Header.Get("Content-Type"); got != "application/x-www-form-urlencoded; charset=UTF-8" {
+		t.Fatalf("Content-Type = %q", got)
+	}
+	if got := r.Header.Get("Accept"); got != "application/json, text/javascript, */*; q=0.01" {
+		t.Fatalf("Accept = %q", got)
+	}
+	if got := r.Header.Get("Accept-Encoding"); got != "gzip" {
+		t.Fatalf("Accept-Encoding = %q", got)
+	}
+	if got := r.Header.Get("User-Agent"); got != auth.UserAgent {
+		t.Fatalf("User-Agent = %q", got)
+	}
+	if got := r.Header.Get("X-XSRF-Token"); got != "xsrf-token" {
+		t.Fatalf("X-XSRF-Token = %q", got)
+	}
+	if got := r.Header.Get("X-Requested-With"); got != "XMLHttpRequest" {
+		t.Fatalf("X-Requested-With = %q", got)
+	}
+	if got := r.Header.Get("Origin"); got != "https://www.volumeleaders.com" {
+		t.Fatalf("Origin = %q", got)
+	}
+	if got := r.Header.Get("Referer"); !strings.Contains(got, "TradeClusterBombs") || !strings.Contains(got, "StartDate="+url.QueryEscape(startDate)) || !strings.Contains(got, "EndDate="+url.QueryEscape(endDate)) || !strings.Contains(got, "Tickers="+url.QueryEscape(tickers)) {
+		t.Fatalf("Referer = %q, want trade cluster bombs date range and tickers", got)
+	}
+	assertCookie(t, r, "ASP.NET_SessionId", "session-cookie")
+	assertCookie(t, r, ".ASPXAUTH", "auth-cookie")
+	assertCookie(t, r, "__RequestVerificationToken", "cookie-token")
+
+	if err := r.ParseForm(); err != nil {
+		t.Fatalf("ParseForm() error = %v", err)
+	}
+	assertFormValue(t, r.Form, "Tickers", tickers)
+	assertFormValue(t, r.Form, "StartDate", startDate)
+	assertFormValue(t, r.Form, "EndDate", endDate)
+	assertFormValue(t, r.Form, "MinDollars", options.minDollars)
+	assertFormValue(t, r.Form, "MaxDollars", options.maxDollars)
+	assertFormValue(t, r.Form, "MinVolume", options.minVolume)
+	assertFormValue(t, r.Form, "MaxVolume", options.maxVolume)
+	assertFormValue(t, r.Form, "VCD", options.vcd)
+	assertFormValue(t, r.Form, "SecurityTypeKey", options.securityTypeKey)
+	assertFormValue(t, r.Form, "RelativeSize", options.relativeSize)
+	assertFormValue(t, r.Form, "TradeClusterBombRank", fmt.Sprintf("%d", options.tradeClusterBombRank))
+	assertFormValue(t, r.Form, "SectorIndustry", options.sectorIndustry)
+	assertFormValue(t, r.Form, "order[0][name]", "MinFullTimeString24")
+	wantForm := getTradeClusterBombsForm(startDate, endDate, tickers, options)
+	if r.Form.Encode() != wantForm.Encode() {
+		t.Fatalf("form mismatch\ngot:  %s\nwant: %s", r.Form.Encode(), wantForm.Encode())
+	}
+}
+
 func assertGetTradeLevelsRequestWithOptions(t *testing.T, r *http.Request, startDate, endDate, ticker string, options *getTradeLevelsRequestOptions) {
 	t.Helper()
 
@@ -2128,12 +2363,14 @@ func withCommandDependencies(
 	oldClient := getTradesHTTPClient
 	oldEndpoint := getTradesEndpoint
 	oldClusterEndpoint := getTradeClustersEndpoint
+	oldClusterBombsEndpoint := getTradeClusterBombsEndpoint
 	oldLevelsEndpoint := getTradeLevelsEndpoint
 	oldExtract := extractCookies
 	oldFetch := fetchXSRFToken
 	getTradesHTTPClient = client
 	getTradesEndpoint = endpoint
 	getTradeClustersEndpoint = endpoint
+	getTradeClusterBombsEndpoint = endpoint
 	getTradeLevelsEndpoint = endpoint
 	if extract == nil {
 		extract = func(context.Context) (map[string]string, error) {
@@ -2155,6 +2392,7 @@ func withCommandDependencies(
 		getTradesHTTPClient = oldClient
 		getTradesEndpoint = oldEndpoint
 		getTradeClustersEndpoint = oldClusterEndpoint
+		getTradeClusterBombsEndpoint = oldClusterBombsEndpoint
 		getTradeLevelsEndpoint = oldLevelsEndpoint
 		extractCookies = oldExtract
 		fetchXSRFToken = oldFetch

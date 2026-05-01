@@ -182,6 +182,34 @@ Cluster commands return the same compact JSON envelope as trade commands, but cl
 
 The date flag can also be set with `VOLUMELEADERS_AGENT_TRADE_CLUSTERS_DATE`.
 
+## Trade cluster bombs
+
+```bash
+volumeleaders-agent trade-cluster-bombs
+volumeleaders-agent trade-cluster-bombs --start-date 2026-04-24 --end-date 2026-05-01
+volumeleaders-agent trade-cluster-bombs --tickers AAPL,AMZN --limit 25
+```
+
+The `trade-cluster-bombs` command fetches the `TradeClusterBombs/GetTradeClusterBombs` table. VolumeLeaders defines these rare stock-only events as at least three dark-pool sweeps in one day with at least $38M combined value. VolumeLeaders enforces a 7-day maximum when querying all tickers or a comma-delimited list of multiple tickers, so the command defaults those scans to the last 7 days and rejects wider ranges before posting the browser form. Exactly one ticker can use a wider range; when `--tickers` contains one symbol and `--start-date` is omitted, the command defaults to a one-year lookback because longer windows are more likely to time out.
+
+Cluster bomb output uses a date-range envelope with rows emitted under `clusterBombs` for `--shape objects` or `--preset-fields full`. The default core fields focus on the browser table and cluster-bomb-specific rank/comparable-date fields:
+
+```json
+{
+  "status": "ok",
+  "startDate": "2026-04-24",
+  "endDate": "2026-05-01",
+  "recordsTotal": 20,
+  "recordsFiltered": 20,
+  "fields": ["Ticker", "MinFullTimeString24", "MaxFullTimeString24", "Dollars", "DollarsMultiplier", "Volume", "TradeCount", "TradeClusterBombRank", "Sector", "Industry", "LastComparableTradeClusterBombDate", "CalendarEvent"],
+  "rows": [
+    ["AAPL", "10:01:04", "10:01:08", 125000000, 42.5, 700000, 7, 14, "Technology", "Consumer Electronics", "/Date(1777420800000)/", "EOM,VOLEX"]
+  ]
+}
+```
+
+The date and filter flags can also be set with environment variables such as `VOLUMELEADERS_AGENT_TRADE_CLUSTER_BOMBS_START_DATE`, `VOLUMELEADERS_AGENT_TRADE_CLUSTER_BOMBS_END_DATE`, and `VOLUMELEADERS_AGENT_TRADE_CLUSTER_BOMBS_TICKERS`.
+
 ## All-time ranked trade clusters
 
 ```bash

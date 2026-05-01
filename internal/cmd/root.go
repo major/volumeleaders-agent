@@ -43,6 +43,7 @@ var rootCommandFactories = []commandFactory{
 	// Keep cluster equivalents in their own block. Most mirror the trade filters
 	// above, but they call the TradeClusters endpoint and return cluster rows.
 	{name: "trade-clusters", new: trades.NewTradeClustersCommand},
+	{name: "trade-cluster-bombs", new: trades.NewTradeClusterBombsCommand},
 	{name: "top10-clusters", new: trades.NewTop10ClustersCommand},
 	{name: "top100-clusters", new: trades.NewTop100ClustersCommand},
 	{name: "top30-10x-99pct-clusters", new: trades.NewTop3010x99PctClustersCommand},

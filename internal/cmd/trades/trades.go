@@ -20,43 +20,46 @@ import (
 )
 
 const (
-	dateLayout           = "2006-01-02"
-	defaultTradeLimit    = 100
-	defaultTradePageSize = 100
-	maxTradeLimit        = 100
-	defaultFieldPreset   = "core"
-	defaultOutputShape   = "array"
-	fullFieldPreset      = "full"
-	objectOutputShape    = "objects"
-	calendarEventField   = "CalendarEvent"
-	auctionTradeField    = "AuctionTrade"
-	cancelledTradeField  = "Cancel" + "led"
-	openingTradeField    = "OpeningTrade"
-	closingTradeField    = "ClosingTrade"
-	getTradesPath        = "https://www.volumeleaders.com/Trades/GetTrades"
-	getTradeClustersPath = "https://www.volumeleaders.com/TradeClusters/GetTradeClusters"
-	getTradeLevelsPath   = "https://www.volumeleaders.com/TradeLevels/GetTradeLevels"
-	tradesPage           = "https://www.volumeleaders.com/Trades"
-	tradeClustersPage    = "https://www.volumeleaders.com/TradeClusters"
-	tradeLevelsPage      = "https://www.volumeleaders.com/TradeLevels"
-	tradeLLMFieldGuide   = "LLM field guide: users and LLM callers should focus on VolumeLeaders table fields: time, ticker/count, CP, TP, sector, industry, Sh, $$, RS, PCT, R, and Last. Ticker is the stock ticker symbol, such as TSLA or AMZN. TradeCount is the #T count shown beside the ticker: the number of large trades for that ticker today, so KRE (2) means two large KRE trades today. Raw fields outside that visible table are secondary debugging or correlation context unless this guide says otherwise. DarkPools and Sweeps are request filters. Dark pool trades are done off exchange and reported later; lit exchange trades are done on exchange and reported immediately. Sweeps are orders spread across multiple exchanges to get done quickly; blocks are orders sent to one exchange. For the trades command, false/false means show everything, --dark-pools alone means dark pools of all kinds, --sweeps alone means sweeps from dark pools or lit exchanges, and both flags together mean dark pool sweeps only. In raw output, DarkPool and Sweep describe the classification of each returned row. RelativeSize is a request filter for minimum relative size. Captured browser values are 0, 5, 10, 25, 50, and 100, where 0 means any size and the others mean at least that many times the ticker's average dollar trade size. DollarsMultiplier, shown as RS in the UI, is the returned relative size value: trade dollars divided by average dollars for that ticker. VolumeLeaders highlights trades at or above 25x average size. CumulativeDistribution, shown as PCT in the UI, is the trade's percentile rank relative to other trades for the same ticker. Conditions carries RSI condition filters: OBD means overbought daily, OBH means overbought hourly, OSD means oversold daily, and OSH means oversold hourly. Captured defaults use -1 for no RSI condition filter. IgnoreOBD, IgnoreOBH, IgnoreOSD, and IgnoreOSH mean do not consider that RSI condition; they do not mean exclude matching rows. VCD appears to carry the minimum CumulativeDistribution percentile. Captures use 0 for no percentile filter and 99 for the 99th percentile or above. TradeID, SequenceNumber, and SecurityKey are VolumeLeaders internal identifiers. DateKey and TimeKey are compact internal date/time keys. Treat these five fields as upstream metadata for correlation or debugging, not as trading-decision signals. Date is the trade date. FullDateTime is the full trade timestamp. StartDate and EndDate appear to be upstream query-range echoes or internal metadata rather than separate trade signals. LastComparibleTradeDate is the upstream spelling for the last date VolumeLeaders saw a trade close to this trade's size. Ask and Bid are the ask and bid prices in the bid/ask spread when the trade happened. ClosePrice is CP in the UI: the close price at the end of the day, or the current price if the market is still open. Price is TP in the UI: the trade price when the large trade hit. AverageDailyVolume is a moving-average measure of the stock's normal volume, and PercentDailyVolume compares today's volume with that moving average. Volume is Sh in the UI: how many shares were in the trade. Dollars is $$ in the UI: how big the trade was in dollars, calculated as shares times the trade price. TradeRank is the trade's current rank among all current trades and can change when larger trades arrive. In the UI R column, a dash means the trade is not ranked in the top 100 trades, while a number such as 27 means the trade is currently ranked 27th. TradeRankSnapshot is immutable: it preserves how the trade ranked at the time it appeared. TotalVolume and TotalDollars are internal upstream values; do not treat them as standalone trading-decision signals."
-	calendarEventGuide   = "CalendarEvent is a compact derived core field. It contains true upstream calendar markers joined with commas, or null in array output when no marker is true. Source markers are EOM for end of month, EOQ for end of quarter, EOY for end of year, OPEX for a market options expiration date, and VOLEX for a market volatility expiration date such as VIX options expiration. In object output, CalendarEvent is omitted when no marker is true. AuctionTrade is a compact derived core field from upstream OpeningTrade and ClosingTrade 0/1 flags. It is open for opening auction trades, close for market-on-close auction trades, or null in array output when neither flag is true. In object output, AuctionTrade is omitted when neither flag is true."
-	expandedPresetGuide  = "Use --preset-fields expanded when an LLM needs every annotated non-internal signal without raw upstream noise. Trade expanded fields add IDs/timestamps, ticker identity, price/size, comparable dates, ranks, print classifications, RSI values, frequency counts, cancellation state, calendar flags, and auction flags. Cluster expanded fields add the date/time range, ticker identity, price/size, cluster count/rank, comparable cluster date, IPO date, distribution, calendar flags, and inside-bar flags. Use --preset-fields full only for debugging raw upstream payloads, because full includes internal, always-zero, and always-null fields."
-	tradeLevelGuide      = "Trade levels group one ticker's large-trade history by price level across a date range. Price is the level price. Dollars and Volume aggregate large prints at that level. Trades is the count of prints contributing to that level. RelativeSize is the level's relative size versus the ticker's average dollar trade size. CumulativeDistribution is the level percentile shown as PCT. TradeLevelRank is the all-time level rank when VolumeLeaders marks the level as ranked; captured browser output uses 0 for unranked rows. Dates is the upstream level date range."
-	ignoredRSIConditions = "IgnoreOBD,IgnoreOBH,IgnoreOSD,IgnoreOSH"
+	dateLayout               = "2006-01-02"
+	defaultTradeLimit        = 100
+	defaultTradePageSize     = 100
+	maxTradeLimit            = 100
+	defaultFieldPreset       = "core"
+	defaultOutputShape       = "array"
+	fullFieldPreset          = "full"
+	objectOutputShape        = "objects"
+	calendarEventField       = "CalendarEvent"
+	auctionTradeField        = "AuctionTrade"
+	cancelledTradeField      = "Cancel" + "led"
+	openingTradeField        = "OpeningTrade"
+	closingTradeField        = "ClosingTrade"
+	getTradesPath            = "https://www.volumeleaders.com/Trades/GetTrades"
+	getTradeClustersPath     = "https://www.volumeleaders.com/TradeClusters/GetTradeClusters"
+	getTradeClusterBombsPath = "https://www.volumeleaders.com/TradeClusterBombs/GetTradeClusterBombs"
+	getTradeLevelsPath       = "https://www.volumeleaders.com/TradeLevels/GetTradeLevels"
+	tradesPage               = "https://www.volumeleaders.com/Trades"
+	tradeClustersPage        = "https://www.volumeleaders.com/TradeClusters"
+	tradeClusterBombsPage    = "https://www.volumeleaders.com/TradeClusterBombs"
+	tradeLevelsPage          = "https://www.volumeleaders.com/TradeLevels"
+	tradeLLMFieldGuide       = "LLM field guide: users and LLM callers should focus on VolumeLeaders table fields: time, ticker/count, CP, TP, sector, industry, Sh, $$, RS, PCT, R, and Last. Ticker is the stock ticker symbol, such as TSLA or AMZN. TradeCount is the #T count shown beside the ticker: the number of large trades for that ticker today, so KRE (2) means two large KRE trades today. Raw fields outside that visible table are secondary debugging or correlation context unless this guide says otherwise. DarkPools and Sweeps are request filters. Dark pool trades are done off exchange and reported later; lit exchange trades are done on exchange and reported immediately. Sweeps are orders spread across multiple exchanges to get done quickly; blocks are orders sent to one exchange. For the trades command, false/false means show everything, --dark-pools alone means dark pools of all kinds, --sweeps alone means sweeps from dark pools or lit exchanges, and both flags together mean dark pool sweeps only. In raw output, DarkPool and Sweep describe the classification of each returned row. RelativeSize is a request filter for minimum relative size. Captured browser values are 0, 5, 10, 25, 50, and 100, where 0 means any size and the others mean at least that many times the ticker's average dollar trade size. DollarsMultiplier, shown as RS in the UI, is the returned relative size value: trade dollars divided by average dollars for that ticker. VolumeLeaders highlights trades at or above 25x average size. CumulativeDistribution, shown as PCT in the UI, is the trade's percentile rank relative to other trades for the same ticker. Conditions carries RSI condition filters: OBD means overbought daily, OBH means overbought hourly, OSD means oversold daily, and OSH means oversold hourly. Captured defaults use -1 for no RSI condition filter. IgnoreOBD, IgnoreOBH, IgnoreOSD, and IgnoreOSH mean do not consider that RSI condition; they do not mean exclude matching rows. VCD appears to carry the minimum CumulativeDistribution percentile. Captures use 0 for no percentile filter and 99 for the 99th percentile or above. TradeID, SequenceNumber, and SecurityKey are VolumeLeaders internal identifiers. DateKey and TimeKey are compact internal date/time keys. Treat these five fields as upstream metadata for correlation or debugging, not as trading-decision signals. Date is the trade date. FullDateTime is the full trade timestamp. StartDate and EndDate appear to be upstream query-range echoes or internal metadata rather than separate trade signals. LastComparibleTradeDate is the upstream spelling for the last date VolumeLeaders saw a trade close to this trade's size. Ask and Bid are the ask and bid prices in the bid/ask spread when the trade happened. ClosePrice is CP in the UI: the close price at the end of the day, or the current price if the market is still open. Price is TP in the UI: the trade price when the large trade hit. AverageDailyVolume is a moving-average measure of the stock's normal volume, and PercentDailyVolume compares today's volume with that moving average. Volume is Sh in the UI: how many shares were in the trade. Dollars is $$ in the UI: how big the trade was in dollars, calculated as shares times the trade price. TradeRank is the trade's current rank among all current trades and can change when larger trades arrive. In the UI R column, a dash means the trade is not ranked in the top 100 trades, while a number such as 27 means the trade is currently ranked 27th. TradeRankSnapshot is immutable: it preserves how the trade ranked at the time it appeared. TotalVolume and TotalDollars are internal upstream values; do not treat them as standalone trading-decision signals."
+	calendarEventGuide       = "CalendarEvent is a compact derived core field. It contains true upstream calendar markers joined with commas, or null in array output when no marker is true. Source markers are EOM for end of month, EOQ for end of quarter, EOY for end of year, OPEX for a market options expiration date, and VOLEX for a market volatility expiration date such as VIX options expiration. In object output, CalendarEvent is omitted when no marker is true. AuctionTrade is a compact derived core field from upstream OpeningTrade and ClosingTrade 0/1 flags. It is open for opening auction trades, close for market-on-close auction trades, or null in array output when neither flag is true. In object output, AuctionTrade is omitted when neither flag is true."
+	expandedPresetGuide      = "Use --preset-fields expanded when an LLM needs every annotated non-internal signal without raw upstream noise. Trade expanded fields add IDs/timestamps, ticker identity, price/size, comparable dates, ranks, print classifications, RSI values, frequency counts, cancellation state, calendar flags, and auction flags. Cluster expanded fields add the date/time range, ticker identity, price/size, cluster count/rank, comparable cluster date, IPO date, distribution, calendar flags, and inside-bar flags. Use --preset-fields full only for debugging raw upstream payloads, because full includes internal, always-zero, and always-null fields."
+	tradeLevelGuide          = "Trade levels group one ticker's large-trade history by price level across a date range. Price is the level price. Dollars and Volume aggregate large prints at that level. Trades is the count of prints contributing to that level. RelativeSize is the level's relative size versus the ticker's average dollar trade size. CumulativeDistribution is the level percentile shown as PCT. TradeLevelRank is the all-time level rank when VolumeLeaders marks the level as ranked; captured browser output uses 0 for unranked rows. Dates is the upstream level date range."
+	ignoredRSIConditions     = "IgnoreOBD,IgnoreOBH,IgnoreOSD,IgnoreOSH"
 )
 
 var calendarEventFields = []string{"EOM", "EOQ", "EOY", "OPEX", "VOLEX"}
 
 var (
-	extractCookies           = auth.ExtractCookies
-	fetchXSRFToken           = auth.FetchXSRFToken
-	getTradesHTTPClient      = http.DefaultClient
-	getTradesEndpoint        = getTradesPath
-	getTradeClustersEndpoint = getTradeClustersPath
-	getTradeLevelsEndpoint   = getTradeLevelsPath
-	tickerPattern            = regexp.MustCompile(`^[A-Z0-9.-]+$`)
-	nullJSON                 = json.RawMessage("null")
+	extractCookies               = auth.ExtractCookies
+	fetchXSRFToken               = auth.FetchXSRFToken
+	getTradesHTTPClient          = http.DefaultClient
+	getTradesEndpoint            = getTradesPath
+	getTradeClustersEndpoint     = getTradeClustersPath
+	getTradeClusterBombsEndpoint = getTradeClusterBombsPath
+	getTradeLevelsEndpoint       = getTradeLevelsPath
+	tickerPattern                = regexp.MustCompile(`^[A-Z0-9.-]+$`)
+	nullJSON                     = json.RawMessage("null")
 )
 
 var tradeFieldPresets = map[string][]string{
@@ -170,6 +173,51 @@ var clusterFieldPresets = map[string][]string{
 	},
 }
 
+var clusterBombFieldPresets = map[string][]string{
+	"core": {
+		"Ticker",
+		"MinFullTimeString24",
+		"MaxFullTimeString24",
+		"Dollars",
+		"DollarsMultiplier",
+		"Volume",
+		"TradeCount",
+		"TradeClusterBombRank",
+		"Sector",
+		"Industry",
+		"LastComparableTradeClusterBombDate",
+		"CalendarEvent",
+	},
+	"expanded": {
+		"Date",
+		"DateKey",
+		"Ticker",
+		"Sector",
+		"Industry",
+		"Name",
+		"MinFullDateTime",
+		"MaxFullDateTime",
+		"MinFullTimeString24",
+		"MaxFullTimeString24",
+		"Dollars",
+		"Volume",
+		"TradeCount",
+		"LastComparableTradeClusterBombDate",
+		"IPODate",
+		"DollarsMultiplier",
+		"CumulativeDistribution",
+		"TradeClusterBombRank",
+		"EOM",
+		"EOQ",
+		"EOY",
+		"OPEX",
+		"VOLEX",
+		"CalendarEvent",
+		"InsideBar",
+		"DoubleInsideBar",
+	},
+}
+
 var tradeLevelFieldPresets = map[string][]string{
 	"core": {
 		"Ticker",
@@ -240,6 +288,26 @@ type ClusterOptions struct {
 	Pretty       bool   `flag:"pretty" flagdescr:"Pretty-print JSON output. Compact JSON is the default for token-efficient LLM and MCP use." flagenv:"true" flaggroup:"Output"`
 }
 
+// ClusterBombOptions defines the LLM-readable contract for fetching trade cluster bombs.
+type ClusterBombOptions struct {
+	StartDate            string `flag:"start-date" flagdescr:"Start date for trade cluster bomb history, formatted as YYYY-MM-DD. Defaults to 7 days before the end date for broad or multi-ticker scans, or one year before the end date for single-ticker scans." flagenv:"true" flaggroup:"Query" mod:"trim"`
+	EndDate              string `flag:"end-date" flagdescr:"End date for trade cluster bomb history, formatted as YYYY-MM-DD. Defaults to today when omitted." flagenv:"true" flaggroup:"Query" mod:"trim"`
+	Tickers              string `flag:"tickers" flagdescr:"Optional ticker filter. Use one symbol or a comma-delimited list without spaces, for example AAPL or AAPL,MSFT." flagenv:"true" flaggroup:"Query" mod:"trim"`
+	MinDollars           string `flag:"min-dollars" flagdescr:"Minimum combined dollars filter sent to VolumeLeaders. Captured browser default is 0; trade cluster bombs are defined upstream as at least $38M combined dark-pool sweep value." flagenv:"true" flaggroup:"Filters" mod:"trim"`
+	MaxDollars           string `flag:"max-dollars" flagdescr:"Maximum combined dollars filter sent to VolumeLeaders. Captured browser default is 30000000000." flagenv:"true" flaggroup:"Filters" mod:"trim"`
+	MinVolume            string `flag:"min-volume" flagdescr:"Minimum aggregate share volume filter. Captured browser default is 0." flagenv:"true" flaggroup:"Filters" mod:"trim"`
+	MaxVolume            string `flag:"max-volume" flagdescr:"Maximum aggregate share volume filter. Captured browser default is 2000000000." flagenv:"true" flaggroup:"Filters" mod:"trim"`
+	VCD                  string `flag:"vcd" flagdescr:"Minimum CumulativeDistribution percentile filter. Captured browser default is 0." flagenv:"true" flaggroup:"Filters" mod:"trim"`
+	RelativeSize         string `flag:"relative-size" flagdescr:"Minimum relative size filter. Captured browser default is 0, which means any relative size." flagenv:"true" flaggroup:"Filters" mod:"trim"`
+	TradeClusterBombRank int    `flag:"trade-cluster-bomb-rank" flagdescr:"Rank bucket filter. Captured browser default is -1 for any rank." flagenv:"true" flaggroup:"Filters"`
+	SectorIndustry       string `flag:"sector-industry" flagdescr:"Optional VolumeLeaders sector/industry filter value. Leave empty for all sectors and industries." flagenv:"true" flaggroup:"Filters" mod:"trim"`
+	Limit                int    `flag:"limit" flagdescr:"Maximum trade cluster bomb rows to return. Must be between 1 and 100. Defaults to 100 when omitted." flagenv:"true" flaggroup:"Output"`
+	Fields               string `flag:"fields" flagdescr:"Comma-separated trade cluster bomb fields to include. Overrides --preset-fields. Use upstream field names such as Ticker,Dollars,TradeClusterBombRank." flagenv:"true" flaggroup:"Output" mod:"trim"`
+	PresetFields         string `flag:"preset-fields" flagdescr:"Field preset to include: core, expanded, or full. Defaults to core for token-efficient output. Expanded includes annotated non-internal signal fields; full returns raw upstream payloads." flagenv:"true" flaggroup:"Output" mod:"trim"`
+	Shape                string `flag:"shape" flagdescr:"Trade cluster bomb row shape: array or objects. Array is the default and is most token-efficient." flagenv:"true" flaggroup:"Output" mod:"trim"`
+	Pretty               bool   `flag:"pretty" flagdescr:"Pretty-print JSON output. Compact JSON is the default for token-efficient LLM and MCP use." flagenv:"true" flaggroup:"Output"`
+}
+
 // LevelOptions defines the LLM-readable contract for fetching trade price levels.
 type LevelOptions struct {
 	Ticker          string `flag:"ticker" flagdescr:"Ticker symbol to query. Trade levels are ticker-specific, for example SPY or BAND." flagenv:"true" flagrequired:"true" flaggroup:"Query" validate:"required" mod:"trim"`
@@ -293,6 +361,18 @@ type ClusterResult struct {
 	Fields          []string            `json:"fields,omitempty"`
 	Rows            [][]json.RawMessage `json:"rows,omitempty"`
 	Clusters        []json.RawMessage   `json:"clusters,omitempty"`
+}
+
+// ClusterBombResult is the stable response shape for the trade cluster bombs command.
+type ClusterBombResult struct {
+	Status          string              `json:"status"`
+	StartDate       string              `json:"startDate"`
+	EndDate         string              `json:"endDate"`
+	RecordsTotal    int                 `json:"recordsTotal"`
+	RecordsFiltered int                 `json:"recordsFiltered"`
+	Fields          []string            `json:"fields,omitempty"`
+	Rows            [][]json.RawMessage `json:"rows,omitempty"`
+	ClusterBombs    []json.RawMessage   `json:"clusterBombs,omitempty"`
 }
 
 // LevelResult is the stable response shape for the trade levels command.
@@ -360,6 +440,21 @@ type getTradeClustersRequestOptions struct {
 	includeOffsetting      string
 	sectorIndustry         string
 	presetSearchTemplateID string
+}
+
+type getTradeClusterBombsRequestOptions struct {
+	draw                 int
+	start                int
+	length               int
+	minVolume            string
+	maxVolume            string
+	minDollars           string
+	maxDollars           string
+	vcd                  string
+	relativeSize         string
+	securityTypeKey      string
+	tradeClusterBombRank int
+	sectorIndustry       string
 }
 
 type getTradesRequestOptions struct {
@@ -544,6 +639,22 @@ var getTradeClustersColumns = []tradeColumn{
 	{data: "LastComparibleTradeClusterDate", name: "Charts", orderable: "false"},
 }
 
+var getTradeClusterBombsColumns = []tradeColumn{
+	{data: "MinFullTimeString24", name: "", orderable: "false"},
+	{data: "MinFullTimeString24", name: "MinFullTimeString24", orderable: "true"},
+	{data: "Ticker", name: "Ticker", orderable: "true"},
+	{data: "TradeCount", name: "TradeCount", orderable: "true"},
+	{data: "Sector", name: "Sector", orderable: "true"},
+	{data: "Industry", name: "Industry", orderable: "true"},
+	{data: "Volume", name: "Sh", orderable: "true"},
+	{data: "Dollars", name: "$$", orderable: "true"},
+	{data: "DollarsMultiplier", name: "RS", orderable: "true"},
+	{data: "CumulativeDistribution", name: "PCT", orderable: "true"},
+	{data: "TradeClusterBombRank", name: "Rank", orderable: "true"},
+	{data: "LastComparableTradeClusterBombDate", name: "Last Date", orderable: "true"},
+	{data: "LastComparableTradeClusterBombDate", name: "Charts", orderable: "false"},
+}
+
 var getTradesColumns = []tradeColumn{
 	{data: "FullTimeString24", name: "", orderable: "false"},
 	{data: "FullTimeString24", name: "FullTimeString24", orderable: "true"},
@@ -618,6 +729,20 @@ func NewTradeClustersCommand() (*cobra.Command, error) {
 		short:   "Fetch disproportionately large trade clusters for one date",
 		long:    "Fetch VolumeLeaders disproportionately large trade clusters for a single trading day. Trade clusters aggregate many smaller trades close together in time into larger dollar-volume events.",
 		example: "volumeleaders-agent trade-clusters --date 2026-04-30\nvolumeleaders-agent trade-clusters --date 2026-04-30 --tickers AAPL,MSFT",
+	})
+}
+
+// NewTradeClusterBombsCommand builds the trade cluster bombs command.
+func NewTradeClusterBombsCommand() (*cobra.Command, error) {
+	opts := &ClusterBombOptions{}
+	return newBoundTradeCommand(&commandMetadata{
+		use:     "trade-cluster-bombs",
+		aliases: []string{"cluster-bombs", "bombs"},
+		short:   "Fetch rare dark-pool sweep cluster bombs across a date range",
+		long:    "Fetch VolumeLeaders trade cluster bombs across a date range. Trade cluster bombs are rare stock-only events made from at least three dark-pool sweeps in one day with at least $38M combined value, plus contextual trade, cluster, and level metrics from VolumeLeaders.",
+		example: "volumeleaders-agent trade-cluster-bombs --start-date 2026-04-24 --end-date 2026-05-01\nvolumeleaders-agent trade-cluster-bombs --tickers AAPL,AMZN --limit 25",
+	}, opts, &opts.Tickers, func(cmd *cobra.Command, _ []string) error {
+		return runTradeClusterBombs(cmd.Context(), cmd, opts)
 	})
 }
 
@@ -1078,6 +1203,45 @@ func runTradeLevels(ctx context.Context, cmd *cobra.Command, opts *LevelOptions)
 	return encodeResult(cmd.OutOrStdout(), "trade-levels", result, opts.Pretty)
 }
 
+func runTradeClusterBombs(ctx context.Context, cmd *cobra.Command, opts *ClusterBombOptions) error {
+	startDate, endDate, err := normalizeTradeClusterBombDateRange(opts.StartDate, opts.EndDate, opts.Tickers)
+	if err != nil {
+		return err
+	}
+	tickers, err := normalizeTickers(opts.Tickers)
+	if err != nil {
+		return err
+	}
+	limit, err := normalizeLimit("trade-cluster-bombs", opts.Limit, defaultTradeLimit, cmd.Flags().Changed("limit"))
+	if err != nil {
+		return err
+	}
+	options := defaultGetTradeClusterBombsRequestOptions()
+	applyTradeClusterBombOptions(&options, opts)
+	fields, shape, err := normalizeTradeClusterBombOutputOptions(opts.Fields, opts.PresetFields, opts.Shape)
+	if err != nil {
+		return err
+	}
+
+	apiResponse, err := fetchTradeClusterBombsPages(ctx, startDate, endDate, tickers, &options, limit)
+	if err != nil {
+		return err
+	}
+
+	result := ClusterBombResult{
+		Status:          "ok",
+		StartDate:       startDate,
+		EndDate:         endDate,
+		RecordsTotal:    apiResponse.RecordsTotal,
+		RecordsFiltered: apiResponse.RecordsFiltered,
+	}
+	if err := applyTradeClusterBombOutput(&result, apiResponse.Data, fields, shape); err != nil {
+		return err
+	}
+
+	return encodeResult(cmd.OutOrStdout(), "trade-cluster-bombs", result, opts.Pretty)
+}
+
 func boolToTradeFilter(enabled bool) string {
 	if enabled {
 		return "1"
@@ -1255,6 +1419,53 @@ func normalizeDateRange(rawStartDate, rawEndDate string) (startDate, endDate str
 	return parsedStartDate.Format(dateLayout), parsedEndDate.Format(dateLayout), nil
 }
 
+func normalizeTradeClusterBombDateRange(rawStartDate, rawEndDate, rawTickers string) (startDate, endDate string, err error) {
+	normalizedTickers, err := normalizeTickers(rawTickers)
+	if err != nil {
+		return "", "", err
+	}
+	tickerCount := countNormalizedTickers(normalizedTickers)
+
+	endDate = strings.TrimSpace(rawEndDate)
+	if endDate == "" {
+		endDate = time.Now().Format(dateLayout)
+	}
+	parsedEndDate, err := time.Parse(dateLayout, endDate)
+	if err != nil {
+		return "", "", fmt.Errorf("invalid end-date %q: use YYYY-MM-DD: %w", rawEndDate, err)
+	}
+
+	startDate = strings.TrimSpace(rawStartDate)
+	if startDate == "" {
+		lookbackYears := 0
+		lookbackDays := -7
+		if tickerCount == 1 {
+			lookbackYears = -1
+			lookbackDays = 0
+		}
+		startDate = parsedEndDate.AddDate(lookbackYears, 0, lookbackDays).Format(dateLayout)
+	}
+	parsedStartDate, err := time.Parse(dateLayout, startDate)
+	if err != nil {
+		return "", "", fmt.Errorf("invalid start-date %q: use YYYY-MM-DD: %w", rawStartDate, err)
+	}
+	if parsedStartDate.After(parsedEndDate) {
+		return "", "", fmt.Errorf("invalid date range: start-date %s is after end-date %s", startDate, endDate)
+	}
+	if tickerCount != 1 && parsedEndDate.Sub(parsedStartDate) > 7*24*time.Hour {
+		return "", "", fmt.Errorf("invalid date range: trade-cluster-bombs accepts at most 7 days when querying all tickers or multiple tickers")
+	}
+
+	return parsedStartDate.Format(dateLayout), parsedEndDate.Format(dateLayout), nil
+}
+
+func countNormalizedTickers(normalizedTickers string) int {
+	if normalizedTickers == "" {
+		return 0
+	}
+	return len(strings.Split(normalizedTickers, ","))
+}
+
 func normalizeRequiredTicker(rawTicker string) (string, error) {
 	ticker := strings.TrimSpace(rawTicker)
 	if ticker == "" {
@@ -1281,6 +1492,19 @@ func applyTradeLevelOptions(options *getTradeLevelsRequestOptions, opts *LevelOp
 	if opts.TradeLevelCount != 0 {
 		options.tradeLevelCount = opts.TradeLevelCount
 		options.length = opts.TradeLevelCount
+	}
+}
+
+func applyTradeClusterBombOptions(options *getTradeClusterBombsRequestOptions, opts *ClusterBombOptions) {
+	setStringIfPresent(&options.minVolume, opts.MinVolume)
+	setStringIfPresent(&options.maxVolume, opts.MaxVolume)
+	setStringIfPresent(&options.minDollars, opts.MinDollars)
+	setStringIfPresent(&options.maxDollars, opts.MaxDollars)
+	setStringIfPresent(&options.vcd, opts.VCD)
+	setStringIfPresent(&options.relativeSize, opts.RelativeSize)
+	setStringIfPresent(&options.sectorIndustry, opts.SectorIndustry)
+	if opts.TradeClusterBombRank != 0 {
+		options.tradeClusterBombRank = opts.TradeClusterBombRank
 	}
 }
 
@@ -1314,6 +1538,10 @@ func normalizeClusterOutputOptions(rawFields, rawPreset, rawShape string) (field
 
 func normalizeTradeLevelOutputOptions(rawFields, rawPreset, rawShape string) (fields []string, shape string, err error) {
 	return normalizeOutputOptionsWithPresets(rawFields, rawPreset, rawShape, tradeLevelFieldPresets)
+}
+
+func normalizeTradeClusterBombOutputOptions(rawFields, rawPreset, rawShape string) (fields []string, shape string, err error) {
+	return normalizeOutputOptionsWithPresets(rawFields, rawPreset, rawShape, clusterBombFieldPresets)
 }
 
 func normalizeOutputOptionsWithPresets(rawFields, rawPreset, rawShape string, presets map[string][]string) (fields []string, shape string, err error) {
@@ -1408,6 +1636,17 @@ func applyTradeLevelOutput(result *LevelResult, levels []json.RawMessage, fields
 	result.Fields = output.fields
 	result.Rows = output.rows
 	result.Levels = output.trades
+	return nil
+}
+
+func applyTradeClusterBombOutput(result *ClusterBombResult, clusterBombs []json.RawMessage, fields []string, shape string) error {
+	output, err := projectTradeOutput(clusterBombs, fields, shape)
+	if err != nil {
+		return err
+	}
+	result.Fields = output.fields
+	result.Rows = output.rows
+	result.ClusterBombs = output.trades
 	return nil
 }
 
@@ -1610,6 +1849,17 @@ func fetchTradeClustersPages(ctx context.Context, tradeDate, tickers string, opt
 	})
 }
 
+func fetchTradeClusterBombsPages(ctx context.Context, startDate, endDate, tickers string, options *getTradeClusterBombsRequestOptions, limit int) (getTradesResponse, error) {
+	return fetchTradesResponsePages(ctx, "GetTradeClusterBombs", limit, func(page, pageLength int) (getTradesResponse, error) {
+		pageOptions := *options
+		pageOptions.draw = page + 1
+		pageOptions.start = page * defaultTradePageSize
+		pageOptions.length = pageLength
+
+		return fetchTradeClusterBombsPage(ctx, startDate, endDate, tickers, &pageOptions)
+	})
+}
+
 func fetchTradeLevels(ctx context.Context, startDate, endDate, ticker string, options *getTradeLevelsRequestOptions) (getTradesResponse, error) {
 	return fetchTradeResponse(ctx, tradeRequestConfig{
 		operation: "GetTradeLevels",
@@ -1619,6 +1869,18 @@ func fetchTradeLevels(ctx context.Context, startDate, endDate, ticker string, op
 			setGetTradeLevelsHeaders(req, token, startDate, endDate, ticker, options)
 		},
 		afterDecode: inferTradeLevelTotals,
+	})
+}
+
+func fetchTradeClusterBombsPage(ctx context.Context, startDate, endDate, tickers string, options *getTradeClusterBombsRequestOptions) (getTradesResponse, error) {
+	return fetchTradeResponse(ctx, tradeRequestConfig{
+		operation: "GetTradeClusterBombs",
+		endpoint:  getTradeClusterBombsEndpoint,
+		form:      getTradeClusterBombsForm(startDate, endDate, tickers, options),
+		setHeaders: func(req *http.Request, token string) {
+			setGetTradeClusterBombsHeaders(req, token, startDate, endDate, tickers, options)
+		},
+		afterDecode: inferTradeClusterTotals,
 	})
 }
 
@@ -1759,6 +2021,23 @@ func fetchTradeResponse(ctx context.Context, config tradeRequestConfig) (getTrad
 
 func defaultGetTradeClustersRequestOptions() getTradeClustersRequestOptions {
 	return clusterPresetRequestOptions(defaultClusterPreset())
+}
+
+func defaultGetTradeClusterBombsRequestOptions() getTradeClusterBombsRequestOptions {
+	return getTradeClusterBombsRequestOptions{
+		draw:                 1,
+		start:                0,
+		length:               defaultTradeLimit,
+		minVolume:            "0",
+		maxVolume:            "2000000000",
+		minDollars:           "0",
+		maxDollars:           "30000000000",
+		vcd:                  "0",
+		relativeSize:         "0",
+		securityTypeKey:      "0",
+		tradeClusterBombRank: -1,
+		sectorIndustry:       "",
+	}
 }
 
 func defaultGetTradeLevelsRequestOptions() getTradeLevelsRequestOptions {
@@ -1986,6 +2265,11 @@ func setGetTradeClustersHeaders(req *http.Request, token, tradeDate, tickers str
 	req.Header.Set("Referer", tradeClustersReferer(tradeDate, tickers, options))
 }
 
+func setGetTradeClusterBombsHeaders(req *http.Request, token, startDate, endDate, tickers string, options *getTradeClusterBombsRequestOptions) {
+	setCommonXHRHeaders(req, token)
+	req.Header.Set("Referer", tradeClusterBombsReferer(startDate, endDate, tickers, options))
+}
+
 func setGetTradesHeaders(req *http.Request, token, tradeDate, tickers string, options *getTradesRequestOptions) {
 	setCommonXHRHeaders(req, token)
 	req.Header.Set("Referer", tradesReferer(tradeDate, tickers, options))
@@ -2016,6 +2300,13 @@ func tradeClustersReferer(tradeDate, tickers string, options *getTradeClustersRe
 	query.Set("PresetSearchTemplateID", options.presetSearchTemplateID)
 	query.Set("ViewMode", "Automatic")
 	return tradeClustersPage + "?" + query.Encode()
+}
+
+func tradeClusterBombsReferer(startDate, endDate, tickers string, options *getTradeClusterBombsRequestOptions) string {
+	query := url.Values{}
+	setTradeClusterBombsQueryParams(query, startDate, endDate, tickers, options)
+	query.Set("PageSize", "-1")
+	return tradeClusterBombsPage + "?" + query.Encode()
 }
 
 func tradesReferer(tradeDate, tickers string, options *getTradesRequestOptions) string {
@@ -2060,6 +2351,21 @@ func setTradeClustersQueryParams(values url.Values, tradeDate, tickers string, o
 	values.Set("IncludeClosing", options.includeClosing)
 	values.Set("IncludePhantom", options.includePhantom)
 	values.Set("IncludeOffsetting", options.includeOffsetting)
+	values.Set("SectorIndustry", options.sectorIndustry)
+}
+
+func setTradeClusterBombsQueryParams(values url.Values, startDate, endDate, tickers string, options *getTradeClusterBombsRequestOptions) {
+	values.Set("Tickers", tickers)
+	values.Set("StartDate", startDate)
+	values.Set("EndDate", endDate)
+	values.Set("MinVolume", options.minVolume)
+	values.Set("MaxVolume", options.maxVolume)
+	values.Set("MinDollars", options.minDollars)
+	values.Set("MaxDollars", options.maxDollars)
+	values.Set("VCD", options.vcd)
+	values.Set("SecurityTypeKey", options.securityTypeKey)
+	values.Set("RelativeSize", options.relativeSize)
+	values.Set("TradeClusterBombRank", strconv.Itoa(options.tradeClusterBombRank))
 	values.Set("SectorIndustry", options.sectorIndustry)
 }
 
@@ -2117,6 +2423,13 @@ func getTradeClustersForm(tradeDate, tickers string, options *getTradeClustersRe
 	form := url.Values{}
 	setDataTableFormFields(form, getTradeClustersColumns, "MinFullTimeString24", options.draw, options.start, options.length)
 	setTradeClustersQueryParams(form, tradeDate, tickers, options)
+	return form
+}
+
+func getTradeClusterBombsForm(startDate, endDate, tickers string, options *getTradeClusterBombsRequestOptions) url.Values {
+	form := url.Values{}
+	setDataTableFormFields(form, getTradeClusterBombsColumns, "MinFullTimeString24", options.draw, options.start, options.length)
+	setTradeClusterBombsQueryParams(form, startDate, endDate, tickers, options)
 	return form
 }
 

@@ -19,10 +19,11 @@ import (
 )
 
 const (
-	dateLayout        = "2006-01-02"
-	defaultTradeLimit = 100
-	getTradesPath     = "https://www.volumeleaders.com/Trades/GetTrades"
-	tradesPage        = "https://www.volumeleaders.com/Trades"
+	dateLayout           = "2006-01-02"
+	defaultTradeLimit    = 100
+	defaultTradePageSize = 100
+	getTradesPath        = "https://www.volumeleaders.com/Trades/GetTrades"
+	tradesPage           = "https://www.volumeleaders.com/Trades"
 )
 
 var (
@@ -37,7 +38,7 @@ var (
 type Options struct {
 	Date    string `flag:"date" flagshort:"d" flagdescr:"Single trading date to query, formatted as YYYY-MM-DD. The disproportionately large trades preset is intentionally limited to one day." flagenv:"true" flagrequired:"true" flaggroup:"Query" validate:"required" mod:"trim"`
 	Tickers string `flag:"tickers" flagdescr:"Optional ticker filter. Use one symbol or a comma-delimited list without spaces, for example AAPL or AAPL,MSFT." flagenv:"true" flaggroup:"Query" mod:"trim"`
-	Limit   int    `flag:"limit" flagdescr:"Maximum trade rows to return, from 1 to 100. Defaults to 100 when omitted." flagenv:"true" flaggroup:"Output"`
+	Limit   int    `flag:"limit" flagdescr:"Maximum trade rows to return. Values above 100 fetch additional VolumeLeaders pages. Defaults to 100 when omitted." flagenv:"true" flaggroup:"Output"`
 	Pretty  bool   `flag:"pretty" flagdescr:"Pretty-print JSON output. Compact JSON is the default for token-efficient LLM and MCP use." flagenv:"true" flaggroup:"Output"`
 }
 
@@ -45,7 +46,7 @@ type Options struct {
 type RankedOptions struct {
 	Date    string `flag:"date" flagshort:"d" flagdescr:"Single trading date to query, formatted as YYYY-MM-DD. Ranked trade presets are intentionally limited to one day." flagenv:"true" flagrequired:"true" flaggroup:"Query" validate:"required" mod:"trim"`
 	Tickers string `flag:"tickers" flagdescr:"Optional ticker filter. Use one symbol or a comma-delimited list without spaces, for example AAPL or AAPL,MSFT." flagenv:"true" flaggroup:"Query" mod:"trim"`
-	Limit   int    `flag:"limit" flagdescr:"Maximum trade rows to return, from 1 to 100. Defaults to the command preset when omitted." flagenv:"true" flaggroup:"Output"`
+	Limit   int    `flag:"limit" flagdescr:"Maximum trade rows to return. Values above 100 fetch additional VolumeLeaders pages. Defaults to the command preset when omitted." flagenv:"true" flaggroup:"Output"`
 	Pretty  bool   `flag:"pretty" flagdescr:"Pretty-print JSON output. Compact JSON is the default for token-efficient LLM and MCP use." flagenv:"true" flaggroup:"Output"`
 }
 
@@ -53,7 +54,7 @@ type RankedOptions struct {
 type SignalOptions struct {
 	Date    string `flag:"date" flagshort:"d" flagdescr:"Single trading date to query, formatted as YYYY-MM-DD. Trade signal presets are intentionally limited to one day." flagenv:"true" flagrequired:"true" flaggroup:"Query" validate:"required" mod:"trim"`
 	Tickers string `flag:"tickers" flagdescr:"Optional ticker filter. Use one symbol or a comma-delimited list without spaces, for example AAPL or AAPL,MSFT." flagenv:"true" flaggroup:"Query" mod:"trim"`
-	Limit   int    `flag:"limit" flagdescr:"Maximum trade rows to return, from 1 to 100. Defaults to 100 when omitted." flagenv:"true" flaggroup:"Output"`
+	Limit   int    `flag:"limit" flagdescr:"Maximum trade rows to return. Values above 100 fetch additional VolumeLeaders pages. Defaults to 100 when omitted." flagenv:"true" flaggroup:"Output"`
 	Pretty  bool   `flag:"pretty" flagdescr:"Pretty-print JSON output. Compact JSON is the default for token-efficient LLM and MCP use." flagenv:"true" flaggroup:"Output"`
 }
 
@@ -92,6 +93,8 @@ type tradeColumn struct {
 
 type getTradesRequestOptions struct {
 	tradeRank              int
+	draw                   int
+	start                  int
 	length                 int
 	minVolume              string
 	maxDollars             string
@@ -464,8 +467,8 @@ func normalizeLimit(cmdName string, rawLimit, defaultLimit int) (int, error) {
 	if rawLimit == 0 {
 		return defaultLimit, nil
 	}
-	if rawLimit < 1 || rawLimit > defaultTradeLimit {
-		return 0, fmt.Errorf("invalid %s limit %d: use a value from 1 to %d", cmdName, rawLimit, defaultTradeLimit)
+	if rawLimit < 1 {
+		return 0, fmt.Errorf("invalid %s limit %d: use a value of 1 or greater", cmdName, rawLimit)
 	}
 
 	return rawLimit, nil
@@ -485,26 +488,69 @@ func encodeResult(w io.Writer, cmdName string, result any, pretty bool) error {
 
 func fetchDisproportionatelyLargeTrades(ctx context.Context, tradeDate, tickers string, limit int) (getTradesResponse, error) {
 	options := defaultGetTradesRequestOptions()
-	options.length = limit
-	return fetchTrades(ctx, tradeDate, tickers, &options)
+	return fetchTradesPages(ctx, tradeDate, tickers, &options, limit)
 }
 
 func fetchRankedTrades(ctx context.Context, tradeDate, tickers string, preset *rankedPreset, limit int) (getTradesResponse, error) {
 	options := rankedGetTradesRequestOptions(preset)
-	options.length = limit
-	return fetchTrades(ctx, tradeDate, tickers, &options)
+	return fetchTradesPages(ctx, tradeDate, tickers, &options, limit)
 }
 
 func fetchSignalTrades(ctx context.Context, tradeDate, tickers string, preset *signalPreset, limit int) (getTradesResponse, error) {
 	options := signalGetTradesRequestOptions(preset)
-	options.length = limit
-	return fetchTrades(ctx, tradeDate, tickers, &options)
+	return fetchTradesPages(ctx, tradeDate, tickers, &options, limit)
 }
 
 func fetchLeverageTrades(ctx context.Context, tradeDate, tickers string, preset *leveragePreset, limit int) (getTradesResponse, error) {
 	options := leverageGetTradesRequestOptions(preset)
-	options.length = limit
-	return fetchTrades(ctx, tradeDate, tickers, &options)
+	return fetchTradesPages(ctx, tradeDate, tickers, &options, limit)
+}
+
+func fetchTradesPages(ctx context.Context, tradeDate, tickers string, options *getTradesRequestOptions, limit int) (getTradesResponse, error) {
+	if limit < 1 {
+		return getTradesResponse{}, fmt.Errorf("fetch GetTrades pages: limit must be 1 or greater")
+	}
+
+	var merged getTradesResponse
+	merged.Data = []json.RawMessage{}
+	for page := 0; len(merged.Data) < limit; page++ {
+		select {
+		case <-ctx.Done():
+			return getTradesResponse{}, fmt.Errorf("fetch GetTrades page %d: %w", page+1, ctx.Err())
+		default:
+		}
+
+		remaining := limit - len(merged.Data)
+		pageLength := min(defaultTradePageSize, remaining)
+
+		pageOptions := *options
+		pageOptions.draw = page + 1
+		pageOptions.start = page * defaultTradePageSize
+		pageOptions.length = pageLength
+
+		apiResponse, err := fetchTrades(ctx, tradeDate, tickers, &pageOptions)
+		if err != nil {
+			return getTradesResponse{}, err
+		}
+		if page == 0 {
+			merged.Draw = apiResponse.Draw
+			merged.RecordsTotal = apiResponse.RecordsTotal
+			merged.RecordsFiltered = apiResponse.RecordsFiltered
+		}
+
+		merged.Data = append(merged.Data, apiResponse.Data...)
+		if len(apiResponse.Data) < pageLength {
+			break
+		}
+		if apiResponse.RecordsFiltered > 0 && pageOptions.start+len(apiResponse.Data) >= apiResponse.RecordsFiltered {
+			break
+		}
+	}
+	if len(merged.Data) > limit {
+		merged.Data = merged.Data[:limit]
+	}
+
+	return merged, nil
 }
 
 func fetchTrades(ctx context.Context, tradeDate, tickers string, options *getTradesRequestOptions) (getTradesResponse, error) {
@@ -564,6 +610,8 @@ func fetchTrades(ctx context.Context, tradeDate, tickers string, options *getTra
 func defaultGetTradesRequestOptions() getTradesRequestOptions {
 	return getTradesRequestOptions{
 		tradeRank:              -1,
+		draw:                   1,
+		start:                  0,
 		length:                 defaultTradeLimit,
 		minVolume:              "0",
 		maxDollars:             "30000000000",
@@ -581,6 +629,8 @@ func defaultGetTradesRequestOptions() getTradesRequestOptions {
 func rankedGetTradesRequestOptions(preset *rankedPreset) getTradesRequestOptions {
 	return getTradesRequestOptions{
 		tradeRank:              preset.rank,
+		draw:                   1,
+		start:                  0,
 		length:                 preset.length,
 		minVolume:              "10000",
 		maxDollars:             "100000000000",
@@ -598,6 +648,8 @@ func rankedGetTradesRequestOptions(preset *rankedPreset) getTradesRequestOptions
 func signalGetTradesRequestOptions(preset *signalPreset) getTradesRequestOptions {
 	return getTradesRequestOptions{
 		tradeRank:              -1,
+		draw:                   1,
+		start:                  0,
 		length:                 defaultTradeLimit,
 		minVolume:              "0",
 		maxDollars:             "100000000000",
@@ -615,6 +667,8 @@ func signalGetTradesRequestOptions(preset *signalPreset) getTradesRequestOptions
 func leverageGetTradesRequestOptions(preset *leveragePreset) getTradesRequestOptions {
 	return getTradesRequestOptions{
 		tradeRank:              -1,
+		draw:                   1,
+		start:                  0,
 		length:                 defaultTradeLimit,
 		minVolume:              "10000",
 		maxDollars:             "10000000000",
@@ -686,7 +740,11 @@ func setSharedQueryParams(values url.Values, tradeDate, tickers string, options 
 
 func getTradesForm(tradeDate, tickers string, options *getTradesRequestOptions) url.Values {
 	form := url.Values{}
-	form.Set("draw", "1")
+	draw := options.draw
+	if draw == 0 {
+		draw = 1
+	}
+	form.Set("draw", fmt.Sprintf("%d", draw))
 	for i, column := range getTradesColumns {
 		prefix := fmt.Sprintf("columns[%d]", i)
 		form.Set(prefix+"[data]", column.data)
@@ -699,7 +757,7 @@ func getTradesForm(tradeDate, tickers string, options *getTradesRequestOptions) 
 	form.Set("order[0][column]", "1")
 	form.Set("order[0][dir]", "DESC")
 	form.Set("order[0][name]", "FullTimeString24")
-	form.Set("start", "0")
+	form.Set("start", fmt.Sprintf("%d", options.start))
 	form.Set("length", fmt.Sprintf("%d", options.length))
 	form.Set("search[value]", "")
 	form.Set("search[regex]", "false")

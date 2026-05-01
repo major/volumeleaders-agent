@@ -26,13 +26,14 @@ make lint       # Run golangci-lint
 ```bash
 volumeleaders-agent trades --date 2026-04-30
 volumeleaders-agent trades --date 2026-04-30 --limit 10
+volumeleaders-agent trades --date 2026-04-30 --limit 250
 volumeleaders-agent trades --date 2026-04-30 --tickers AAPL,IONQ
 volumeleaders-agent trades --date 2026-04-30 --tickers AAPL,IONQ,AMZN
 ```
 
 The `trades` command fetches VolumeLeaders' default Disproportionately large trades preset for one trading day. The upstream filter is intended for a single day of data, so the CLI exposes only `--date` and sends the same value as both `StartDate` and `EndDate` in the `Trades/GetTrades` request. Add `--tickers` to filter the preset to one ticker or a comma-delimited ticker list without spaces.
 
-The command returns compact, stable JSON with the requested date, DataTables record counts, and raw trade objects from VolumeLeaders. Use `--limit 1-100` to reduce the number of returned rows for token-efficient LLM workflows, or `--pretty` when reading the JSON directly. JSON examples in this README are formatted for readability:
+The command returns compact, stable JSON with the requested date, DataTables record counts, and raw trade objects from VolumeLeaders. Use `--limit` to control the total number of returned rows for token-efficient LLM workflows. Values above 100 automatically fetch additional VolumeLeaders result pages using the upstream DataTables pagination parameters. Use `--pretty` when reading the JSON directly. JSON examples in this README are formatted for readability:
 
 ```json
 {
@@ -51,7 +52,7 @@ The command returns compact, stable JSON with the requested date, DataTables rec
 }
 ```
 
-All trade commands support `--limit 1-100` and `--pretty`. Structcli features are available from the scaffold:
+All trade commands support `--limit` and `--pretty`. Structcli features are available from the scaffold:
 
 ```bash
 volumeleaders-agent --jsonschema=tree  # Full command schema for agents
@@ -68,12 +69,13 @@ The date flag can also be set with the environment variable shown by `volumelead
 volumeleaders-agent top10 --date 2026-04-30
 volumeleaders-agent top100 --date 2026-04-30
 volumeleaders-agent top100 --date 2026-04-30 --limit 25
+volumeleaders-agent top100 --date 2026-04-30 --limit 250
 volumeleaders-agent top10 --date 2026-04-30 --tickers AAPL,MSFT
 ```
 
 The `top10` and `top100` commands fetch trades from one trading day where each trade ranks in the stock's all-time largest single trades. A `TradeRank` of `1` is the biggest single trade VolumeLeaders has recorded for that stock, while `10` means the tenth biggest. Both commands use the same `Trades/GetTrades` auth and response handling as `trades`, but they apply the ranked-trade presets captured from VolumeLeaders.
 
-The ranked commands return compact, stable JSON with the requested date, rank limit, DataTables record counts, and raw trade objects. Use `--limit 1-100` to override the command preset row count, or `--pretty` when reading the JSON directly:
+The ranked commands return compact, stable JSON with the requested date, rank limit, DataTables record counts, and raw trade objects. Use `--limit` to override the command preset row count and fetch additional pages when needed, or `--pretty` when reading the JSON directly:
 
 ```json
 {

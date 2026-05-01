@@ -102,6 +102,53 @@ func TestTradesCommandOutputOptions(t *testing.T) {
 	}
 }
 
+func TestTradesCommandPaginatesLimit(t *testing.T) {
+	requestCount := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requestCount++
+		options := defaultGetTradesRequestOptions()
+		options.draw = requestCount
+		options.start = (requestCount - 1) * defaultTradePageSize
+		options.length = defaultTradePageSize
+		if requestCount == 3 {
+			options.length = 50
+		}
+		assertGetTradesRequestWithOptions(t, r, "2026-04-30", "", &options)
+		fmt.Fprint(w, tradesResponseJSON(requestCount, 250, options.length))
+	}))
+	t.Cleanup(server.Close)
+
+	withCommandDependencies(t, server.Client(), server.URL, nil, nil)
+
+	cmd, err := NewCommand()
+	if err != nil {
+		t.Fatalf("NewCommand() error = %v", err)
+	}
+
+	var stdout bytes.Buffer
+	cmd.SetOut(&stdout)
+	cmd.SetErr(io.Discard)
+	cmd.SetArgs([]string{"--date", "2026-04-30", "--limit", "250"})
+
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("Execute() error = %v", err)
+	}
+	if requestCount != 3 {
+		t.Fatalf("requestCount = %d, want 3", requestCount)
+	}
+
+	var got Result
+	if err := json.Unmarshal(stdout.Bytes(), &got); err != nil {
+		t.Fatalf("unmarshal output: %v\noutput: %s", err, stdout.String())
+	}
+	if got.RecordsTotal != 250 || got.RecordsFiltered != 250 {
+		t.Fatalf("record counts = %d/%d, want 250/250", got.RecordsTotal, got.RecordsFiltered)
+	}
+	if len(got.Trades) != 250 {
+		t.Fatalf("len(Trades) = %d, want 250", len(got.Trades))
+	}
+}
+
 func TestRankedTradesCommands(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -442,12 +489,7 @@ func TestTradesCommandValidation(t *testing.T) {
 		{
 			name:    "negative limit fails",
 			args:    []string{"--date", "2026-04-30", "--limit", "-1"},
-			wantErr: "use a value from 1 to 100",
-		},
-		{
-			name:    "too large limit fails",
-			args:    []string{"--date", "2026-04-30", "--limit", "101"},
-			wantErr: "use a value from 1 to 100",
+			wantErr: "use a value of 1 or greater",
 		},
 	}
 
@@ -664,6 +706,19 @@ func assertFormValue(t *testing.T, form url.Values, name, want string) {
 	if got := form.Get(name); got != want {
 		t.Fatalf("form[%s] = %q, want %q", name, got, want)
 	}
+}
+
+func tradesResponseJSON(draw, total, count int) string {
+	var builder strings.Builder
+	fmt.Fprintf(&builder, `{"draw":%d,"recordsTotal":%d,"recordsFiltered":%d,"data":[`, draw, total, total)
+	for i := range count {
+		if i > 0 {
+			builder.WriteByte(',')
+		}
+		fmt.Fprintf(&builder, `{"Ticker":"T%03d"}`, i)
+	}
+	builder.WriteString(`]}`)
+	return builder.String()
 }
 
 func withCommandDependencies(

@@ -328,6 +328,14 @@ type clusterPreset struct {
 	presetID         string
 }
 
+type tradeRequestConfig struct {
+	operation   string
+	endpoint    string
+	form        url.Values
+	setHeaders  func(*http.Request, string)
+	afterDecode func(*getTradesResponse)
+}
+
 var getTradeClustersColumns = []tradeColumn{
 	{data: "MinFullTimeString24", name: "", orderable: "false"},
 	{data: "MinFullTimeString24", name: "MinFullTimeString24", orderable: "true"},
@@ -1138,116 +1146,45 @@ func fetchSectorTrades(ctx context.Context, tradeDate, tickers string, preset *s
 }
 
 func fetchTradeClustersPages(ctx context.Context, tradeDate, tickers string, options *getTradeClustersRequestOptions, limit int) (getTradesResponse, error) {
-	if limit < 1 {
-		return getTradesResponse{}, fmt.Errorf("fetch GetTradeClusters pages: limit must be 1 or greater")
-	}
-	if limit > maxTradeLimit {
-		return getTradesResponse{}, fmt.Errorf("fetch GetTradeClusters pages: limit must be %d or less", maxTradeLimit)
-	}
-
-	var merged getTradesResponse
-	merged.Data = []json.RawMessage{}
-	for page := 0; len(merged.Data) < limit; page++ {
-		select {
-		case <-ctx.Done():
-			return getTradesResponse{}, fmt.Errorf("fetch GetTradeClusters page %d: %w", page+1, ctx.Err())
-		default:
-		}
-
-		remaining := limit - len(merged.Data)
-		pageLength := min(defaultTradePageSize, remaining)
-
+	return fetchTradesResponsePages(ctx, "GetTradeClusters", limit, func(page, pageLength int) (getTradesResponse, error) {
 		pageOptions := *options
 		pageOptions.draw = page + 1
 		pageOptions.start = page * defaultTradePageSize
 		pageOptions.length = pageLength
 
-		apiResponse, err := fetchTradeClustersPage(ctx, tradeDate, tickers, &pageOptions)
-		if err != nil {
-			return getTradesResponse{}, err
-		}
-		if page == 0 {
-			merged.Draw = apiResponse.Draw
-			merged.RecordsTotal = apiResponse.RecordsTotal
-			merged.RecordsFiltered = apiResponse.RecordsFiltered
-		}
-
-		merged.Data = append(merged.Data, apiResponse.Data...)
-		if len(apiResponse.Data) < pageLength {
-			break
-		}
-		if apiResponse.RecordsFiltered > 0 && pageOptions.start+len(apiResponse.Data) >= apiResponse.RecordsFiltered {
-			break
-		}
-	}
-	if len(merged.Data) > limit {
-		merged.Data = merged.Data[:limit]
-	}
-
-	return merged, nil
+		return fetchTradeClustersPage(ctx, tradeDate, tickers, &pageOptions)
+	})
 }
 
 func fetchTradeClustersPage(ctx context.Context, tradeDate, tickers string, options *getTradeClustersRequestOptions) (getTradesResponse, error) {
-	cookies, err := extractCookies(ctx)
-	if err != nil {
-		return getTradesResponse{}, fmt.Errorf("extract VolumeLeaders browser cookies: %w", err)
-	}
-
-	token, err := fetchXSRFToken(ctx, getTradesHTTPClient, cookies)
-	if err != nil {
-		return getTradesResponse{}, fmt.Errorf("fetch VolumeLeaders XSRF token: %w", err)
-	}
-
-	form := getTradeClustersForm(tradeDate, tickers, options)
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, getTradeClustersEndpoint, strings.NewReader(form.Encode()))
-	if err != nil {
-		return getTradesResponse{}, fmt.Errorf("create GetTradeClusters request: %w", err)
-	}
-	setGetTradeClustersHeaders(req, token, tradeDate, tickers, options)
-	for name, value := range cookies {
-		req.AddCookie(&http.Cookie{Name: name, Value: value})
-	}
-
-	resp, err := getTradesHTTPClient.Do(req)
-	if err != nil {
-		return getTradesResponse{}, fmt.Errorf("post GetTradeClusters request: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if sessionExpiredResponse(resp) {
-		return getTradesResponse{}, sessionExpiredCommandError()
-	}
-	if resp.StatusCode != http.StatusOK {
-		return getTradesResponse{}, fmt.Errorf("GetTradeClusters request returned status %d", resp.StatusCode)
-	}
-
-	bodyReader, closeReader, err := responseBodyReader(resp, "GetTradeClusters")
-	if err != nil {
-		return getTradesResponse{}, err
-	}
-	defer closeReader()
-
-	var apiResponse getTradesResponse
-	if err := json.NewDecoder(bodyReader).Decode(&apiResponse); err != nil {
-		return getTradesResponse{}, fmt.Errorf("decode GetTradeClusters response: %w", err)
-	}
-	if apiResponse.Error != "" {
-		return getTradesResponse{}, fmt.Errorf("GetTradeClusters response error: %s", apiResponse.Error)
-	}
-	if apiResponse.Data == nil {
-		apiResponse.Data = []json.RawMessage{}
-	}
-	inferTradeClusterTotals(&apiResponse)
-
-	return apiResponse, nil
+	return fetchTradeResponse(ctx, tradeRequestConfig{
+		operation: "GetTradeClusters",
+		endpoint:  getTradeClustersEndpoint,
+		form:      getTradeClustersForm(tradeDate, tickers, options),
+		setHeaders: func(req *http.Request, token string) {
+			setGetTradeClustersHeaders(req, token, tradeDate, tickers, options)
+		},
+		afterDecode: inferTradeClusterTotals,
+	})
 }
 
 func fetchTradesPages(ctx context.Context, tradeDate, tickers string, options *getTradesRequestOptions, limit int) (getTradesResponse, error) {
+	return fetchTradesResponsePages(ctx, "GetTrades", limit, func(page, pageLength int) (getTradesResponse, error) {
+		pageOptions := *options
+		pageOptions.draw = page + 1
+		pageOptions.start = page * defaultTradePageSize
+		pageOptions.length = pageLength
+
+		return fetchTrades(ctx, tradeDate, tickers, &pageOptions)
+	})
+}
+
+func fetchTradesResponsePages(ctx context.Context, operation string, limit int, fetchPage func(page, pageLength int) (getTradesResponse, error)) (getTradesResponse, error) {
 	if limit < 1 {
-		return getTradesResponse{}, fmt.Errorf("fetch GetTrades pages: limit must be 1 or greater")
+		return getTradesResponse{}, fmt.Errorf("fetch %s pages: limit must be 1 or greater", operation)
 	}
 	if limit > maxTradeLimit {
-		return getTradesResponse{}, fmt.Errorf("fetch GetTrades pages: limit must be %d or less", maxTradeLimit)
+		return getTradesResponse{}, fmt.Errorf("fetch %s pages: limit must be %d or less", operation, maxTradeLimit)
 	}
 
 	var merged getTradesResponse
@@ -1255,19 +1192,14 @@ func fetchTradesPages(ctx context.Context, tradeDate, tickers string, options *g
 	for page := 0; len(merged.Data) < limit; page++ {
 		select {
 		case <-ctx.Done():
-			return getTradesResponse{}, fmt.Errorf("fetch GetTrades page %d: %w", page+1, ctx.Err())
+			return getTradesResponse{}, fmt.Errorf("fetch %s page %d: %w", operation, page+1, ctx.Err())
 		default:
 		}
 
 		remaining := limit - len(merged.Data)
 		pageLength := min(defaultTradePageSize, remaining)
 
-		pageOptions := *options
-		pageOptions.draw = page + 1
-		pageOptions.start = page * defaultTradePageSize
-		pageOptions.length = pageLength
-
-		apiResponse, err := fetchTrades(ctx, tradeDate, tickers, &pageOptions)
+		apiResponse, err := fetchPage(page, pageLength)
 		if err != nil {
 			return getTradesResponse{}, err
 		}
@@ -1281,7 +1213,7 @@ func fetchTradesPages(ctx context.Context, tradeDate, tickers string, options *g
 		if len(apiResponse.Data) < pageLength {
 			break
 		}
-		if apiResponse.RecordsFiltered > 0 && pageOptions.start+len(apiResponse.Data) >= apiResponse.RecordsFiltered {
+		if apiResponse.RecordsFiltered > 0 && page*defaultTradePageSize+len(apiResponse.Data) >= apiResponse.RecordsFiltered {
 			break
 		}
 	}
@@ -1293,6 +1225,17 @@ func fetchTradesPages(ctx context.Context, tradeDate, tickers string, options *g
 }
 
 func fetchTrades(ctx context.Context, tradeDate, tickers string, options *getTradesRequestOptions) (getTradesResponse, error) {
+	return fetchTradeResponse(ctx, tradeRequestConfig{
+		operation: "GetTrades",
+		endpoint:  getTradesEndpoint,
+		form:      getTradesForm(tradeDate, tickers, options),
+		setHeaders: func(req *http.Request, token string) {
+			setGetTradesHeaders(req, token, tradeDate, tickers, options)
+		},
+	})
+}
+
+func fetchTradeResponse(ctx context.Context, config tradeRequestConfig) (getTradesResponse, error) {
 	cookies, err := extractCookies(ctx)
 	if err != nil {
 		return getTradesResponse{}, fmt.Errorf("extract VolumeLeaders browser cookies: %w", err)
@@ -1303,19 +1246,18 @@ func fetchTrades(ctx context.Context, tradeDate, tickers string, options *getTra
 		return getTradesResponse{}, fmt.Errorf("fetch VolumeLeaders XSRF token: %w", err)
 	}
 
-	form := getTradesForm(tradeDate, tickers, options)
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, getTradesEndpoint, strings.NewReader(form.Encode()))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, config.endpoint, strings.NewReader(config.form.Encode()))
 	if err != nil {
-		return getTradesResponse{}, fmt.Errorf("create GetTrades request: %w", err)
+		return getTradesResponse{}, fmt.Errorf("create %s request: %w", config.operation, err)
 	}
-	setGetTradesHeaders(req, token, tradeDate, tickers, options)
+	config.setHeaders(req, token)
 	for name, value := range cookies {
 		req.AddCookie(&http.Cookie{Name: name, Value: value})
 	}
 
 	resp, err := getTradesHTTPClient.Do(req)
 	if err != nil {
-		return getTradesResponse{}, fmt.Errorf("post GetTrades request: %w", err)
+		return getTradesResponse{}, fmt.Errorf("post %s request: %w", config.operation, err)
 	}
 	defer resp.Body.Close()
 
@@ -1323,10 +1265,10 @@ func fetchTrades(ctx context.Context, tradeDate, tickers string, options *getTra
 		return getTradesResponse{}, sessionExpiredCommandError()
 	}
 	if resp.StatusCode != http.StatusOK {
-		return getTradesResponse{}, fmt.Errorf("GetTrades request returned status %d", resp.StatusCode)
+		return getTradesResponse{}, fmt.Errorf("%s request returned status %d", config.operation, resp.StatusCode)
 	}
 
-	bodyReader, closeReader, err := responseBodyReader(resp, "GetTrades")
+	bodyReader, closeReader, err := responseBodyReader(resp, config.operation)
 	if err != nil {
 		return getTradesResponse{}, err
 	}
@@ -1334,13 +1276,16 @@ func fetchTrades(ctx context.Context, tradeDate, tickers string, options *getTra
 
 	var apiResponse getTradesResponse
 	if err := json.NewDecoder(bodyReader).Decode(&apiResponse); err != nil {
-		return getTradesResponse{}, fmt.Errorf("decode GetTrades response: %w", err)
+		return getTradesResponse{}, fmt.Errorf("decode %s response: %w", config.operation, err)
 	}
 	if apiResponse.Error != "" {
-		return getTradesResponse{}, fmt.Errorf("GetTrades response error: %s", apiResponse.Error)
+		return getTradesResponse{}, fmt.Errorf("%s response error: %s", config.operation, apiResponse.Error)
 	}
 	if apiResponse.Data == nil {
 		apiResponse.Data = []json.RawMessage{}
+	}
+	if config.afterDecode != nil {
+		config.afterDecode(&apiResponse)
 	}
 
 	return apiResponse, nil
@@ -1591,39 +1536,24 @@ func setSharedQueryParams(values url.Values, tradeDate, tickers string, options 
 
 func getTradeClustersForm(tradeDate, tickers string, options *getTradeClustersRequestOptions) url.Values {
 	form := url.Values{}
-	draw := options.draw
-	if draw == 0 {
-		draw = 1
-	}
-	form.Set("draw", fmt.Sprintf("%d", draw))
-	for i, column := range getTradeClustersColumns {
-		prefix := fmt.Sprintf("columns[%d]", i)
-		form.Set(prefix+"[data]", column.data)
-		form.Set(prefix+"[name]", column.name)
-		form.Set(prefix+"[searchable]", "true")
-		form.Set(prefix+"[orderable]", column.orderable)
-		form.Set(prefix+"[search][value]", "")
-		form.Set(prefix+"[search][regex]", "false")
-	}
-	form.Set("order[0][column]", "1")
-	form.Set("order[0][dir]", "DESC")
-	form.Set("order[0][name]", "MinFullTimeString24")
-	form.Set("start", fmt.Sprintf("%d", options.start))
-	form.Set("length", fmt.Sprintf("%d", options.length))
-	form.Set("search[value]", "")
-	form.Set("search[regex]", "false")
+	setDataTableFormFields(form, getTradeClustersColumns, "MinFullTimeString24", options.draw, options.start, options.length)
 	setTradeClustersQueryParams(form, tradeDate, tickers, options)
 	return form
 }
 
 func getTradesForm(tradeDate, tickers string, options *getTradesRequestOptions) url.Values {
 	form := url.Values{}
-	draw := options.draw
+	setDataTableFormFields(form, getTradesColumns, "FullTimeString24", options.draw, options.start, options.length)
+	setSharedQueryParams(form, tradeDate, tickers, options)
+	return form
+}
+
+func setDataTableFormFields(form url.Values, columns []tradeColumn, orderName string, draw, start, length int) {
 	if draw == 0 {
 		draw = 1
 	}
 	form.Set("draw", fmt.Sprintf("%d", draw))
-	for i, column := range getTradesColumns {
+	for i, column := range columns {
 		prefix := fmt.Sprintf("columns[%d]", i)
 		form.Set(prefix+"[data]", column.data)
 		form.Set(prefix+"[name]", column.name)
@@ -1634,13 +1564,11 @@ func getTradesForm(tradeDate, tickers string, options *getTradesRequestOptions) 
 	}
 	form.Set("order[0][column]", "1")
 	form.Set("order[0][dir]", "DESC")
-	form.Set("order[0][name]", "FullTimeString24")
-	form.Set("start", fmt.Sprintf("%d", options.start))
-	form.Set("length", fmt.Sprintf("%d", options.length))
+	form.Set("order[0][name]", orderName)
+	form.Set("start", fmt.Sprintf("%d", start))
+	form.Set("length", fmt.Sprintf("%d", length))
 	form.Set("search[value]", "")
 	form.Set("search[regex]", "false")
-	setSharedQueryParams(form, tradeDate, tickers, options)
-	return form
 }
 
 func normalizeTickers(rawTickers string) (string, error) {

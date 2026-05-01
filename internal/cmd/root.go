@@ -24,7 +24,9 @@ var rootCommandFactories = []commandFactory{
 	{name: "top10-clusters", new: trades.NewTop10ClustersCommand},
 	{name: "top100", new: trades.NewTop100Command},
 	{name: "top100-clusters", new: trades.NewTop100ClustersCommand},
+	// Phantoms are on trades only, not clusters
 	{name: "phantom", new: trades.NewPhantomCommand},
+	// Offsetting is only for trades, not clusters
 	{name: "offsetting", new: trades.NewOffsettingCommand},
 	{name: "bull-leverage", new: trades.NewBullLeverageCommand},
 	{name: "bull-leverage-clusters", new: trades.NewBullLeverageClustersCommand},

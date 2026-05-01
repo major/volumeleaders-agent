@@ -29,6 +29,7 @@ const (
 	objectOutputShape    = "objects"
 	calendarEventField   = "CalendarEvent"
 	auctionTradeField    = "AuctionTrade"
+	cancelledTradeField  = "Cancel" + "led"
 	openingTradeField    = "OpeningTrade"
 	closingTradeField    = "ClosingTrade"
 	getTradesPath        = "https://www.volumeleaders.com/Trades/GetTrades"
@@ -37,6 +38,7 @@ const (
 	tradeClustersPage    = "https://www.volumeleaders.com/TradeClusters"
 	tradeLLMFieldGuide   = "LLM field guide: users and LLM callers should focus on VolumeLeaders table fields: time, ticker/count, CP, TP, sector, industry, Sh, $$, RS, PCT, R, and Last. Ticker is the stock ticker symbol, such as TSLA or AMZN. TradeCount is the #T count shown beside the ticker: the number of large trades for that ticker today, so KRE (2) means two large KRE trades today. Raw fields outside that visible table are secondary debugging or correlation context unless this guide says otherwise. DarkPools and Sweeps are request filters. Dark pool trades are done off exchange and reported later; lit exchange trades are done on exchange and reported immediately. Sweeps are orders spread across multiple exchanges to get done quickly; blocks are orders sent to one exchange. For the trades command, false/false means show everything, --dark-pools alone means dark pools of all kinds, --sweeps alone means sweeps from dark pools or lit exchanges, and both flags together mean dark pool sweeps only. In raw output, DarkPool and Sweep describe the classification of each returned row. RelativeSize is a request filter for minimum relative size. Captured browser values are 0, 5, 10, 25, 50, and 100, where 0 means any size and the others mean at least that many times the ticker's average dollar trade size. DollarsMultiplier, shown as RS in the UI, is the returned relative size value: trade dollars divided by average dollars for that ticker. VolumeLeaders highlights trades at or above 25x average size. CumulativeDistribution, shown as PCT in the UI, is the trade's percentile rank relative to other trades for the same ticker. Conditions carries RSI condition filters: OBD means overbought daily, OBH means overbought hourly, OSD means oversold daily, and OSH means oversold hourly. Captured defaults use -1 for no RSI condition filter. IgnoreOBD, IgnoreOBH, IgnoreOSD, and IgnoreOSH mean do not consider that RSI condition; they do not mean exclude matching rows. VCD appears to carry the minimum CumulativeDistribution percentile. Captures use 0 for no percentile filter and 99 for the 99th percentile or above. TradeID, SequenceNumber, and SecurityKey are VolumeLeaders internal identifiers. DateKey and TimeKey are compact internal date/time keys. Treat these five fields as upstream metadata for correlation or debugging, not as trading-decision signals. Date is the trade date. FullDateTime is the full trade timestamp. StartDate and EndDate appear to be upstream query-range echoes or internal metadata rather than separate trade signals. LastComparibleTradeDate is the upstream spelling for the last date VolumeLeaders saw a trade close to this trade's size. Ask and Bid are the ask and bid prices in the bid/ask spread when the trade happened. ClosePrice is CP in the UI: the close price at the end of the day, or the current price if the market is still open. Price is TP in the UI: the trade price when the large trade hit. AverageDailyVolume is a moving-average measure of the stock's normal volume, and PercentDailyVolume compares today's volume with that moving average. Volume is Sh in the UI: how many shares were in the trade. Dollars is $$ in the UI: how big the trade was in dollars, calculated as shares times the trade price. TradeRank is the trade's current rank among all current trades and can change when larger trades arrive. In the UI R column, a dash means the trade is not ranked in the top 100 trades, while a number such as 27 means the trade is currently ranked 27th. TradeRankSnapshot is immutable: it preserves how the trade ranked at the time it appeared. TotalVolume and TotalDollars are internal upstream values; do not treat them as standalone trading-decision signals."
 	calendarEventGuide   = "CalendarEvent is a compact derived core field. It contains true upstream calendar markers joined with commas, or null in array output when no marker is true. Source markers are EOM for end of month, EOQ for end of quarter, EOY for end of year, OPEX for a market options expiration date, and VOLEX for a market volatility expiration date such as VIX options expiration. In object output, CalendarEvent is omitted when no marker is true. AuctionTrade is a compact derived core field from upstream OpeningTrade and ClosingTrade 0/1 flags. It is open for opening auction trades, close for market-on-close auction trades, or null in array output when neither flag is true. In object output, AuctionTrade is omitted when neither flag is true."
+	expandedPresetGuide  = "Use --preset-fields expanded when an LLM needs every annotated non-internal signal without raw upstream noise. Trade expanded fields add IDs/timestamps, ticker identity, price/size, comparable dates, ranks, print classifications, RSI values, frequency counts, cancellation state, calendar flags, and auction flags. Cluster expanded fields add the date/time range, ticker identity, price/size, cluster count/rank, comparable cluster date, IPO date, distribution, calendar flags, and inside-bar flags. Use --preset-fields full only for debugging raw upstream payloads, because full includes internal, always-zero, and always-null fields."
 	ignoredRSIConditions = "IgnoreOBD,IgnoreOBH,IgnoreOSD,IgnoreOSH"
 )
 
@@ -70,6 +72,52 @@ var tradeFieldPresets = map[string][]string{
 		"CalendarEvent",
 		"AuctionTrade",
 	},
+	"expanded": {
+		"Date",
+		"DateKey",
+		"TimeKey",
+		"TradeID",
+		"Ticker",
+		"Sector",
+		"Industry",
+		"Name",
+		"FullDateTime",
+		"FullTimeString24",
+		"Price",
+		"Dollars",
+		"Volume",
+		"LastComparibleTradeDate",
+		"IPODate",
+		"OffsettingTradeDate",
+		"TradeCount",
+		"CumulativeDistribution",
+		"TradeRank",
+		"TradeRankSnapshot",
+		"LatePrint",
+		"Sweep",
+		"DarkPool",
+		"OpeningTrade",
+		"ClosingTrade",
+		"AuctionTrade",
+		"PhantomPrint",
+		"InsideBar",
+		"DoubleInsideBar",
+		"SignaturePrint",
+		"NewPosition",
+		"RSIHour",
+		"RSIDay",
+		"TotalRows",
+		"FrequencyLast30TD",
+		"FrequencyLast90TD",
+		"FrequencyLast1CY",
+		cancelledTradeField,
+		"EOM",
+		"EOQ",
+		"EOY",
+		"OPEX",
+		"VOLEX",
+		"CalendarEvent",
+	},
 }
 
 var clusterFieldPresets = map[string][]string{
@@ -87,6 +135,34 @@ var clusterFieldPresets = map[string][]string{
 		"CalendarEvent",
 		"AuctionTrade",
 	},
+	"expanded": {
+		"Date",
+		"DateKey",
+		"Ticker",
+		"Sector",
+		"Industry",
+		"Name",
+		"MinFullDateTime",
+		"MaxFullDateTime",
+		"MinFullTimeString24",
+		"MaxFullTimeString24",
+		"Price",
+		"Dollars",
+		"Volume",
+		"TradeCount",
+		"LastComparibleTradeClusterDate",
+		"IPODate",
+		"CumulativeDistribution",
+		"TradeClusterRank",
+		"EOM",
+		"EOQ",
+		"EOY",
+		"OPEX",
+		"VOLEX",
+		"CalendarEvent",
+		"InsideBar",
+		"DoubleInsideBar",
+	},
 }
 
 // Options defines the LLM-readable contract for fetching unusual trades.
@@ -97,7 +173,7 @@ type Options struct {
 	Sweeps       bool   `flag:"sweeps" flagdescr:"Filter to sweep orders only. Sweeps are orders spread across multiple exchanges to get done quickly; leave false to include both sweep and block executions." flagenv:"true" flaggroup:"Filters"`
 	Limit        int    `flag:"limit" flagdescr:"Maximum trade rows to return. Must be between 1 and 100. Defaults to 100 when omitted." flagenv:"true" flaggroup:"Output"`
 	Fields       string `flag:"fields" flagdescr:"Comma-separated trade fields to include. Overrides --preset-fields. Use upstream field names such as Ticker,Dollars,TradeRank." flagenv:"true" flaggroup:"Output" mod:"trim"`
-	PresetFields string `flag:"preset-fields" flagdescr:"Field preset to include: core or full. Defaults to core for token-efficient output." flagenv:"true" flaggroup:"Output" mod:"trim"`
+	PresetFields string `flag:"preset-fields" flagdescr:"Field preset to include: core, expanded, or full. Defaults to core for token-efficient output. Expanded includes annotated non-internal signal fields; full returns raw upstream payloads." flagenv:"true" flaggroup:"Output" mod:"trim"`
 	Shape        string `flag:"shape" flagdescr:"Trade row shape: array or objects. Array is the default and is most token-efficient." flagenv:"true" flaggroup:"Output" mod:"trim"`
 	Pretty       bool   `flag:"pretty" flagdescr:"Pretty-print JSON output. Compact JSON is the default for token-efficient LLM and MCP use." flagenv:"true" flaggroup:"Output"`
 }
@@ -108,7 +184,7 @@ type RankedOptions struct {
 	Tickers      string `flag:"tickers" flagdescr:"Optional ticker filter. Use one symbol or a comma-delimited list without spaces, for example AAPL or AAPL,MSFT." flagenv:"true" flaggroup:"Query" mod:"trim"`
 	Limit        int    `flag:"limit" flagdescr:"Maximum trade rows to return. Must be between 1 and 100. Defaults to the command preset when omitted." flagenv:"true" flaggroup:"Output"`
 	Fields       string `flag:"fields" flagdescr:"Comma-separated trade fields to include. Overrides --preset-fields. Use upstream field names such as Ticker,Dollars,TradeRank." flagenv:"true" flaggroup:"Output" mod:"trim"`
-	PresetFields string `flag:"preset-fields" flagdescr:"Field preset to include: core or full. Defaults to core for token-efficient output." flagenv:"true" flaggroup:"Output" mod:"trim"`
+	PresetFields string `flag:"preset-fields" flagdescr:"Field preset to include: core, expanded, or full. Defaults to core for token-efficient output. Expanded includes annotated non-internal signal fields; full returns raw upstream payloads." flagenv:"true" flaggroup:"Output" mod:"trim"`
 	Shape        string `flag:"shape" flagdescr:"Trade row shape: array or objects. Array is the default and is most token-efficient." flagenv:"true" flaggroup:"Output" mod:"trim"`
 	Pretty       bool   `flag:"pretty" flagdescr:"Pretty-print JSON output. Compact JSON is the default for token-efficient LLM and MCP use." flagenv:"true" flaggroup:"Output"`
 }
@@ -119,7 +195,7 @@ type ClusterOptions struct {
 	Tickers      string `flag:"tickers" flagdescr:"Optional ticker filter. Use one symbol or a comma-delimited list without spaces, for example AAPL or AAPL,MSFT." flagenv:"true" flaggroup:"Query" mod:"trim"`
 	Limit        int    `flag:"limit" flagdescr:"Maximum cluster rows to return. Must be between 1 and 100. Defaults to 100 when omitted." flagenv:"true" flaggroup:"Output"`
 	Fields       string `flag:"fields" flagdescr:"Comma-separated cluster fields to include. Overrides --preset-fields. Use upstream field names such as Ticker,Dollars,TradeCount,TradeClusterRank." flagenv:"true" flaggroup:"Output" mod:"trim"`
-	PresetFields string `flag:"preset-fields" flagdescr:"Field preset to include: core or full. Defaults to core for token-efficient output." flagenv:"true" flaggroup:"Output" mod:"trim"`
+	PresetFields string `flag:"preset-fields" flagdescr:"Field preset to include: core, expanded, or full. Defaults to core for token-efficient output. Expanded includes annotated non-internal signal fields; full returns raw upstream payloads." flagenv:"true" flaggroup:"Output" mod:"trim"`
 	Shape        string `flag:"shape" flagdescr:"Cluster row shape: array or objects. Array is the default and is most token-efficient." flagenv:"true" flaggroup:"Output" mod:"trim"`
 	Pretty       bool   `flag:"pretty" flagdescr:"Pretty-print JSON output. Compact JSON is the default for token-efficient LLM and MCP use." flagenv:"true" flaggroup:"Output"`
 }
@@ -130,7 +206,7 @@ type SignalOptions struct {
 	Tickers      string `flag:"tickers" flagdescr:"Optional ticker filter. Use one symbol or a comma-delimited list without spaces, for example AAPL or AAPL,MSFT." flagenv:"true" flaggroup:"Query" mod:"trim"`
 	Limit        int    `flag:"limit" flagdescr:"Maximum trade rows to return. Must be between 1 and 100. Defaults to 100 when omitted." flagenv:"true" flaggroup:"Output"`
 	Fields       string `flag:"fields" flagdescr:"Comma-separated trade fields to include. Overrides --preset-fields. Use upstream field names such as Ticker,Dollars,TradeRank." flagenv:"true" flaggroup:"Output" mod:"trim"`
-	PresetFields string `flag:"preset-fields" flagdescr:"Field preset to include: core or full. Defaults to core for token-efficient output." flagenv:"true" flaggroup:"Output" mod:"trim"`
+	PresetFields string `flag:"preset-fields" flagdescr:"Field preset to include: core, expanded, or full. Defaults to core for token-efficient output. Expanded includes annotated non-internal signal fields; full returns raw upstream payloads." flagenv:"true" flaggroup:"Output" mod:"trim"`
 	Shape        string `flag:"shape" flagdescr:"Trade row shape: array or objects. Array is the default and is most token-efficient." flagenv:"true" flaggroup:"Output" mod:"trim"`
 	Pretty       bool   `flag:"pretty" flagdescr:"Pretty-print JSON output. Compact JSON is the default for token-efficient LLM and MCP use." flagenv:"true" flaggroup:"Output"`
 }
@@ -414,7 +490,7 @@ func newBoundTradeCommand(meta *commandMetadata, opts any, tickerFlag *string, r
 		Use:     meta.use,
 		Aliases: meta.aliases,
 		Short:   meta.short,
-		Long:    meta.long + "\n\n" + tradeLLMFieldGuide + " " + calendarEventGuide,
+		Long:    meta.long + "\n\n" + tradeLLMFieldGuide + " " + calendarEventGuide + " " + expandedPresetGuide,
 		Example: meta.example,
 		RunE:    runE,
 	}
@@ -1050,7 +1126,7 @@ func normalizeFields(rawFields, rawPreset string, presets map[string][]string) (
 	}
 	fields, ok := presets[preset]
 	if !ok {
-		return nil, fmt.Errorf("invalid preset-fields %q: use core or full", rawPreset)
+		return nil, fmt.Errorf("invalid preset-fields %q: use core, expanded, or full", rawPreset)
 	}
 
 	return append([]string(nil), fields...), nil

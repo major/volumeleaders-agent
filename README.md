@@ -47,7 +47,7 @@ Trade commands return compact, stable JSON with the requested date, DataTables r
 }
 ```
 
-All top-level trade commands support `--limit`, `--fields`, `--preset-fields core|full`, `--shape array|objects`, and `--pretty`. Use `--fields Ticker,Dollars,TradeRank` for a custom projection, `--shape objects` when repeated key names are acceptable, or `--preset-fields full` to return raw upstream `trades` objects. Structcli features are available from the scaffold:
+All top-level trade commands support `--limit`, `--fields`, `--preset-fields core|expanded|full`, `--shape array|objects`, and `--pretty`. Use `--fields Ticker,Dollars,TradeRank` for a custom projection, `--preset-fields expanded` when an LLM needs all annotated non-internal signal fields, `--shape objects` when repeated key names are acceptable, or `--preset-fields full` to return raw upstream `trades` objects. Structcli features are available from the scaffold:
 
 ```bash
 volumeleaders-agent --jsonschema=tree  # Full command schema for agents
@@ -72,6 +72,8 @@ These names come from VolumeLeaders' browser forms and JSON responses, so some a
 - `Date` is the trade date. `FullDateTime` is the full trade timestamp. `StartDate` and `EndDate` appear to be upstream query-range echoes or internal metadata rather than separate trade signals. `LastComparibleTradeDate` uses the upstream spelling and means the last date VolumeLeaders saw a trade close to this trade's size.
 - `CalendarEvent` is a compact derived core field. It contains the true upstream calendar markers joined with commas, or `null` in array output when no marker is true. Source markers are `EOM` for end of month, `EOQ` for end of quarter, `EOY` for end of year, `OPEX` for a market options expiration date, and `VOLEX` for a market volatility expiration date such as VIX options expiration. In object output, `CalendarEvent` is omitted when no marker is true.
 - `AuctionTrade` is a compact derived core field from upstream `OpeningTrade` and `ClosingTrade` `0` or `1` flags. It is `"open"` when the trade hit in the market opening auction, `"close"` when it hit in the market-on-close auction, and `null` in array output when neither flag is true. In object output, `AuctionTrade` is omitted when neither flag is true. In full output, the raw upstream `OpeningTrade` and `ClosingTrade` values are preserved.
+- `--preset-fields expanded` keeps token-efficient projection while adding annotated non-internal fields. Trade expanded fields cover IDs/timestamps, ticker identity, price/size, comparable dates, rank snapshots, print classifications, RSI values, frequency counts, cancellation state, calendar flags, and auction flags. Cluster expanded fields cover the cluster time range, ticker identity, price/size, cluster count/rank, comparable cluster date, IPO date, distribution, calendar flags, and inside-bar flags. Use `full` only when raw upstream internals or always-empty fields are needed for debugging.
+- See [`docs/fields.md`](docs/fields.md) for the longer trade and cluster field reference derived from the annotated JSON examples.
 - `Ask` and `Bid` are the ask and bid prices in the bid/ask spread when the trade happened. `ClosePrice` is `CP` in the UI: the close price at the end of the day, or the current price if the market is still open. `Price` is `TP` in the UI: the trade price when the large trade hit. `AverageDailyVolume` is a moving-average measure of the stock's normal volume, and `PercentDailyVolume` compares today's volume with that moving average.
 - `Volume`, shown as `Sh` in the UI, is how many shares were in the trade. `Dollars`, shown as `$$` in the UI, is how big the trade was in dollars: number of shares times the trade price.
 - `TradeRank` is the trade's current rank among all current trades and can change when larger trades arrive. In the UI `R` column, a dash means the trade is not ranked in the top 100 trades, while a number such as `27` means the trade is currently ranked 27th. `TradeRankSnapshot` is immutable: it preserves how the trade ranked at the time it appeared.
@@ -86,11 +88,11 @@ volumeleaders-agent overbought --date 2026-04-30 --limit 10
 volumeleaders-agent oversold --date 2026-04-30 --tickers AAPL,MSFT
 ```
 
-The `overbought` and `oversold` commands replay VolumeLeaders RSI-condition searches captured from the browser. `overbought` sends `Conditions=OBD,OBH,` with preset `84`, which requires daily or hourly overbought RSI matches. `oversold` sends `Conditions=OSD,OSH` with preset `85`, which requires daily or hourly oversold RSI matches. Both commands use the same compact trade output shape and flags as `trades`, including `--limit`, `--fields`, `--preset-fields core|full`, `--shape array|objects`, and `--pretty`.
+The `overbought` and `oversold` commands replay VolumeLeaders RSI-condition searches captured from the browser. `overbought` sends `Conditions=OBD,OBH,` with preset `84`, which requires daily or hourly overbought RSI matches. `oversold` sends `Conditions=OSD,OSH` with preset `85`, which requires daily or hourly oversold RSI matches. Both commands use the same compact trade output shape and flags as `trades`, including `--limit`, `--fields`, `--preset-fields core|expanded|full`, `--shape array|objects`, and `--pretty`.
 
 Cluster equivalents are available as `overbought-clusters` and `oversold-clusters`. They send the same RSI filters to `TradeClusters/GetTradeClusters`, use `TradeClusterRank=100`, and support the cluster output flags described below.
 
-Use `--fields` when an LLM needs specific raw signal columns behind these filters, such as `RSIHour`, `RSIDay`, `CumulativeDistribution`, and `DollarsMultiplier`, or `--preset-fields full` when the full upstream object is acceptable. The date flags can also be set with `VOLUMELEADERS_AGENT_OVERBOUGHT_DATE`, `VOLUMELEADERS_AGENT_OVERBOUGHT_CLUSTERS_DATE`, `VOLUMELEADERS_AGENT_OVERSOLD_DATE`, and `VOLUMELEADERS_AGENT_OVERSOLD_CLUSTERS_DATE`.
+Use `--fields` when an LLM needs specific raw signal columns behind these filters, such as `RSIHour`, `RSIDay`, `CumulativeDistribution`, and `DollarsMultiplier`, `--preset-fields expanded` when it needs all annotated signal fields, or `--preset-fields full` when the full upstream object is acceptable. The date flags can also be set with `VOLUMELEADERS_AGENT_OVERBOUGHT_DATE`, `VOLUMELEADERS_AGENT_OVERBOUGHT_CLUSTERS_DATE`, `VOLUMELEADERS_AGENT_OVERSOLD_DATE`, and `VOLUMELEADERS_AGENT_OVERSOLD_CLUSTERS_DATE`.
 
 
 ## Disproportionately large trade clusters
@@ -130,7 +132,7 @@ volumeleaders-agent top10-clusters --date 2026-04-30 --tickers AAPL,MSFT
 
 The `top10-clusters` and `top100-clusters` commands query `TradeClusters/GetTradeClusters` and return cluster rows for VolumeLeaders' all-time cluster rank filters (`TradeClusterRank=10` or `100`). Phantom and offsetting are trade-only presets and do not have cluster commands.
 
-These commands support the same cluster output flags as `trade-clusters`, including `--limit`, `--fields`, `--preset-fields core|full`, `--shape array|objects`, and `--pretty`. Each command also exposes a matching date environment variable, for example `VOLUMELEADERS_AGENT_TOP10_CLUSTERS_DATE`.
+These commands support the same cluster output flags as `trade-clusters`, including `--limit`, `--fields`, `--preset-fields core|expanded|full`, `--shape array|objects`, and `--pretty`. Each command also exposes a matching date environment variable, for example `VOLUMELEADERS_AGENT_TOP10_CLUSTERS_DATE`.
 
 ## All-time ranked trades
 

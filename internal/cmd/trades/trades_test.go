@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"slices"
 	"strings"
 	"testing"
 
@@ -452,6 +453,94 @@ func TestTradesCommandFullPresetKeepsRawTrades(t *testing.T) {
 	}
 }
 
+func TestTradesCommandExpandedPresetIncludesAnnotatedSignalFields(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assertGetTradesRequest(t, r, "2026-04-30", "")
+		fmt.Fprint(w, `{"draw":1,"recordsTotal":1,"recordsFiltered":1,"data":[{"Date":"/Date(1777507200000)/","DateKey":20260430,"TimeKey":172057,"TradeID":423288,"Ticker":"INTC","Sector":"Technology","Industry":"Semis","Name":"Intel Corporation","FullDateTime":"2026-04-30T17:20:57","FullTimeString24":"17:20:57","Price":94.48,"Dollars":230228864,"Volume":2436800,"LastComparibleTradeDate":"/Date(1777420800000)/","IPODate":"/Date(521251200000)/","OffsettingTradeDate":"/Date(1777334400000)/","TradeCount":12,"CumulativeDistribution":0.9986,"TradeRank":9999,"TradeRankSnapshot":9999,"LatePrint":0,"Sweep":0,"DarkPool":1,"OpeningTrade":0,"ClosingTrade":1,"PhantomPrint":0,"InsideBar":1,"DoubleInsideBar":0,"SignaturePrint":0,"NewPosition":false,"RSIHour":54.59,"RSIDay":86.01,"TotalRows":1492,"FrequencyLast30TD":30,"FrequencyLast90TD":68,"FrequencyLast1CY":117,"`+cancelledTradeField+`":0,"TotalTrades":0,"OPEX":true,"SecurityKey":16408,"SequenceNumber":13250897,"StartDate":"ignored","ClosePrice":0}]}`)
+	}))
+	t.Cleanup(server.Close)
+
+	withCommandDependencies(t, server.Client(), server.URL, nil, nil)
+
+	cmd, err := NewCommand()
+	if err != nil {
+		t.Fatalf("NewCommand() error = %v", err)
+	}
+
+	var stdout bytes.Buffer
+	cmd.SetOut(&stdout)
+	cmd.SetErr(io.Discard)
+	cmd.SetArgs([]string{"--date", "2026-04-30", "--preset-fields", "expanded"})
+
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("Execute() error = %v", err)
+	}
+
+	var got Result
+	if err := json.Unmarshal(stdout.Bytes(), &got); err != nil {
+		t.Fatalf("unmarshal output: %v\noutput: %s", err, stdout.String())
+	}
+	if strings.Join(got.Fields, ",") != strings.Join(tradeFieldPresets["expanded"], ",") {
+		t.Fatalf("Fields = %v, want expanded trade fields", got.Fields)
+	}
+	for _, internalField := range []string{"SecurityKey", "SequenceNumber", "StartDate", "ClosePrice", "TotalTrades"} {
+		if containsField(got.Fields, internalField) {
+			t.Fatalf("expanded trade fields include internal/ignored field %q", internalField)
+		}
+	}
+	calendarIndex := fieldIndex(t, got.Fields, calendarEventField)
+	if string(got.Rows[0][calendarIndex]) != `"OPEX"` {
+		t.Fatalf("calendar event cell = %s, want OPEX", string(got.Rows[0][calendarIndex]))
+	}
+	auctionIndex := fieldIndex(t, got.Fields, auctionTradeField)
+	if string(got.Rows[0][auctionIndex]) != `"close"` {
+		t.Fatalf("auction trade cell = %s, want close", string(got.Rows[0][auctionIndex]))
+	}
+}
+
+func TestTradeClustersCommandExpandedPresetIncludesAnnotatedSignalFields(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		options := defaultGetTradeClustersRequestOptions()
+		options.length = 1
+		assertGetTradeClustersRequestWithOptions(t, r, "2026-05-01", "", &options)
+		fmt.Fprint(w, `{"draw":1,"recordsTotal":1,"recordsFiltered":1,"data":[{"Date":"/Date(1777593600000)/","DateKey":20260501,"Ticker":"SAP","Sector":"Technology","Industry":"Software","Name":"SAP SE","MinFullDateTime":"2026-05-01T08:45:14","MaxFullDateTime":"2026-05-01T08:45:37","MinFullTimeString24":"08:45:14","MaxFullTimeString24":"08:45:37","Price":170.6,"Dollars":138103827.1,"Volume":809674,"TradeCount":2,"LastComparibleTradeClusterDate":"/Date(1777420800000)/","IPODate":"/Date(812505600000)/","CumulativeDistribution":0.9977,"TradeClusterRank":16,"EOM":true,"InsideBar":0,"DoubleInsideBar":0,"SecurityKey":27281,"ClosePrice":0,"DollarsMultiplier":12.4,"TotalRows":1}]}`)
+	}))
+	t.Cleanup(server.Close)
+
+	withCommandDependencies(t, server.Client(), server.URL, nil, nil)
+
+	cmd, err := NewTradeClustersCommand()
+	if err != nil {
+		t.Fatalf("NewTradeClustersCommand() error = %v", err)
+	}
+
+	var stdout bytes.Buffer
+	cmd.SetOut(&stdout)
+	cmd.SetErr(io.Discard)
+	cmd.SetArgs([]string{"--date", "2026-05-01", "--limit", "1", "--preset-fields", "expanded"})
+
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("Execute() error = %v", err)
+	}
+
+	var got ClusterResult
+	if err := json.Unmarshal(stdout.Bytes(), &got); err != nil {
+		t.Fatalf("unmarshal output: %v\noutput: %s", err, stdout.String())
+	}
+	if strings.Join(got.Fields, ",") != strings.Join(clusterFieldPresets["expanded"], ",") {
+		t.Fatalf("Fields = %v, want expanded cluster fields", got.Fields)
+	}
+	for _, internalField := range []string{"SecurityKey", "ClosePrice", "DollarsMultiplier", "TotalRows"} {
+		if containsField(got.Fields, internalField) {
+			t.Fatalf("expanded cluster fields include internal/ignored field %q", internalField)
+		}
+	}
+	calendarIndex := fieldIndex(t, got.Fields, calendarEventField)
+	if string(got.Rows[0][calendarIndex]) != `"EOM"` {
+		t.Fatalf("calendar event cell = %s, want EOM", string(got.Rows[0][calendarIndex]))
+	}
+}
+
 func TestTradesCommandRejectsSignalsPreset(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		t.Fatalf("request should not be sent for removed signals preset: %s", r.URL.String())
@@ -470,8 +559,8 @@ func TestTradesCommandRejectsSignalsPreset(t *testing.T) {
 	cmd.SetErr(io.Discard)
 	cmd.SetArgs([]string{"--date", "2026-04-30", "--ticker", "PLTR", "--preset-fields", "signals"})
 
-	if err := cmd.Execute(); err == nil || !strings.Contains(err.Error(), "use core or full") {
-		t.Fatalf("Execute() error = %v, want core/full preset guidance", err)
+	if err := cmd.Execute(); err == nil || !strings.Contains(err.Error(), "use core, expanded, or full") {
+		t.Fatalf("Execute() error = %v, want core/expanded/full preset guidance", err)
 	}
 }
 
@@ -1315,6 +1404,10 @@ func fieldIndex(t *testing.T, fields []string, want string) int {
 	}
 	t.Fatalf("field %q not found in %v", want, fields)
 	return -1
+}
+
+func containsField(fields []string, want string) bool {
+	return slices.Contains(fields, want)
 }
 
 func TestEncodeResultReportsWriterErrors(t *testing.T) {

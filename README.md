@@ -93,11 +93,15 @@ volumeleaders-agent top10-clusters --date 2026-04-30
 volumeleaders-agent top100-clusters --date 2026-04-30 --limit 25
 volumeleaders-agent bull-leverage-clusters --date 2026-04-30
 volumeleaders-agent bear-leverage-clusters --date 2026-04-30 --tickers SPXU
+volumeleaders-agent biotech-clusters --date 2026-04-30
+volumeleaders-agent bonds-clusters --date 2026-04-30 --tickers HYG,TLT
+volumeleaders-agent commodities-clusters --date 2026-04-30 --tickers GLD,SLV
+volumeleaders-agent communications-services-clusters --date 2026-04-30
 ```
 
-The `top10-clusters`, `top100-clusters`, `bull-leverage-clusters`, and `bear-leverage-clusters` commands mirror the similarly named trade presets, but they query `TradeClusters/GetTradeClusters` and return cluster rows. The ranked cluster commands use VolumeLeaders' all-time cluster rank filters (`TradeClusterRank=10` or `100`), while the leveraged cluster commands filter the upstream cluster request to the bullish (`X Bull`) or bearish (`X Bear`) leveraged ETF sector group.
+The `top10-clusters`, `top100-clusters`, `bull-leverage-clusters`, `bear-leverage-clusters`, `biotech-clusters`, `bonds-clusters`, `commodities-clusters`, and `communications-services-clusters` commands mirror the similarly named trade presets, but they query `TradeClusters/GetTradeClusters` and return cluster rows. The ranked cluster commands use VolumeLeaders' all-time cluster rank filters (`TradeClusterRank=10` or `100`), while the leveraged and sector cluster commands apply the same upstream preset IDs and filters as their trade counterparts. Phantom and offsetting are trade-only presets and do not have cluster commands.
 
-These commands support the same cluster output flags as `trade-clusters`, including `--limit`, `--fields`, `--preset-fields core|signals|full`, `--shape array|objects`, and `--pretty`. The date flags can also be set with `VOLUMELEADERS_AGENT_TOP10_CLUSTERS_DATE`, `VOLUMELEADERS_AGENT_TOP100_CLUSTERS_DATE`, `VOLUMELEADERS_AGENT_BULL_LEVERAGE_CLUSTERS_DATE`, or `VOLUMELEADERS_AGENT_BEAR_LEVERAGE_CLUSTERS_DATE`.
+These commands support the same cluster output flags as `trade-clusters`, including `--limit`, `--fields`, `--preset-fields core|signals|full`, `--shape array|objects`, and `--pretty`. Each command also exposes a matching date environment variable, for example `VOLUMELEADERS_AGENT_TOP10_CLUSTERS_DATE`, `VOLUMELEADERS_AGENT_BULL_LEVERAGE_CLUSTERS_DATE`, `VOLUMELEADERS_AGENT_BIOTECH_CLUSTERS_DATE`, or `VOLUMELEADERS_AGENT_COMMUNICATIONS_SERVICES_CLUSTERS_DATE`.
 
 ## All-time ranked trades
 

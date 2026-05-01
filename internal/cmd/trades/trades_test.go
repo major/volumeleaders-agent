@@ -337,6 +337,128 @@ func TestLeverageTradeClustersCommands(t *testing.T) {
 	}
 }
 
+func TestSectorTradeClustersCommands(t *testing.T) {
+	tests := []struct {
+		name           string
+		newCommand     func() (*cobra.Command, error)
+		args           []string
+		wantPreset     *clusterPreset
+		wantTickers    string
+		wantLength     int
+		responseSector string
+	}{
+		{
+			name:       "biotech clusters",
+			newCommand: NewBiotechClustersCommand,
+			args:       []string{"--date", "2026-04-30"},
+			wantPreset: &clusterPreset{
+				minVolume:      "10000",
+				maxDollars:     "10000000000",
+				relativeSize:   "5",
+				sectorIndustry: "Biotech",
+				presetID:       "89",
+			},
+			wantLength:     defaultTradeLimit,
+			responseSector: "Biotech",
+		},
+		{
+			name:       "bonds clusters with tickers",
+			newCommand: NewBondsClustersCommand,
+			args:       []string{"--date", "2026-04-30", "--ticker", "hyg,tlt", "--limit", "4"},
+			wantPreset: &clusterPreset{
+				minVolume:      "10000",
+				maxDollars:     "10000000000",
+				relativeSize:   "5",
+				sectorIndustry: "Bonds",
+				presetID:       "90",
+			},
+			wantTickers:    "HYG,TLT",
+			wantLength:     4,
+			responseSector: "Bonds",
+		},
+		{
+			name:       "commodities clusters",
+			newCommand: NewCommoditiesClustersCommand,
+			args:       []string{"--date", "2026-04-30", "--ticker", "gld,slv", "--limit", "2"},
+			wantPreset: &clusterPreset{
+				minVolume:    "10000",
+				maxDollars:   "10000000000",
+				vcd:          "97",
+				relativeSize: "5",
+				presetID:     "9",
+			},
+			wantTickers:    "GLD,SLV",
+			wantLength:     2,
+			responseSector: "Commodities",
+		},
+		{
+			name:       "communications services clusters",
+			newCommand: NewCommunicationsServicesClustersCommand,
+			args:       []string{"--date", "2026-04-30"},
+			wantPreset: &clusterPreset{
+				minVolume:      "10000",
+				maxDollars:     "10000000000",
+				relativeSize:   "5",
+				sectorIndustry: "Comm Services",
+				presetID:       "91",
+			},
+			wantLength:     defaultTradeLimit,
+			responseSector: "Comm Services",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				options := clusterPresetRequestOptions(tt.wantPreset)
+				options.length = tt.wantLength
+				assertGetTradeClustersRequestWithOptions(t, r, "2026-04-30", tt.wantTickers, &options)
+				fmt.Fprintf(w, `{"draw":1,"recordsTotal":6,"recordsFiltered":6,"data":[{"Ticker":"XBI","Sector":%q,"TradeCount":4,"TotalRows":6}]}`, tt.responseSector)
+			}))
+			t.Cleanup(server.Close)
+
+			withCommandDependencies(t, server.Client(), server.URL, nil, nil)
+
+			cmd, err := tt.newCommand()
+			if err != nil {
+				t.Fatalf("new command error = %v", err)
+			}
+
+			var stdout bytes.Buffer
+			cmd.SetOut(&stdout)
+			cmd.SetErr(io.Discard)
+			cmd.SetArgs(tt.args)
+
+			if err := cmd.Execute(); err != nil {
+				t.Fatalf("Execute() error = %v", err)
+			}
+
+			var got ClusterResult
+			if err := json.Unmarshal(stdout.Bytes(), &got); err != nil {
+				t.Fatalf("unmarshal output: %v\noutput: %s", err, stdout.String())
+			}
+			if got.Status != "ok" {
+				t.Fatalf("Status = %q, want ok", got.Status)
+			}
+			if got.Date != "2026-04-30" {
+				t.Fatalf("Date = %q, want 2026-04-30", got.Date)
+			}
+			if got.RecordsTotal != 6 || got.RecordsFiltered != 6 {
+				t.Fatalf("record counts = %d/%d, want 6/6", got.RecordsTotal, got.RecordsFiltered)
+			}
+			if len(got.Fields) != len(clusterFieldPresets["core"]) {
+				t.Fatalf("len(Fields) = %d, want core cluster fields", len(got.Fields))
+			}
+			if len(got.Rows) != 1 {
+				t.Fatalf("len(Rows) = %d, want 1", len(got.Rows))
+			}
+			if !bytes.Contains(got.Rows[0][len(got.Rows[0])-1], []byte(tt.responseSector)) {
+				t.Fatalf("sector cell = %s, want %s", string(got.Rows[0][len(got.Rows[0])-1]), tt.responseSector)
+			}
+		})
+	}
+}
+
 func TestTradesCommandOutputOptions(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		options := defaultGetTradesRequestOptions()

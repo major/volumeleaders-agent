@@ -31,9 +31,13 @@ var rootCommandFactories = []commandFactory{
 	{name: "bear-leverage", new: trades.NewBearLeverageCommand},
 	{name: "bear-leverage-clusters", new: trades.NewBearLeverageClustersCommand},
 	{name: "biotech", new: trades.NewBiotechCommand},
+	{name: "biotech-clusters", new: trades.NewBiotechClustersCommand},
 	{name: "bonds", new: trades.NewBondsCommand},
+	{name: "bonds-clusters", new: trades.NewBondsClustersCommand},
 	{name: "commodities", new: trades.NewCommoditiesCommand},
+	{name: "commodities-clusters", new: trades.NewCommoditiesClustersCommand},
 	{name: "communications-services", new: trades.NewCommunicationsServicesCommand},
+	{name: "communications-services-clusters", new: trades.NewCommunicationsServicesClustersCommand},
 }
 
 // NewRootCmd builds a fresh command tree for the VolumeLeaders CLI.

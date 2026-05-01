@@ -472,6 +472,70 @@ func NewBearLeverageClustersCommand() (*cobra.Command, error) {
 	})
 }
 
+// NewBiotechClustersCommand builds the biotechnology stock trade clusters command.
+func NewBiotechClustersCommand() (*cobra.Command, error) {
+	return newClusterCommand(&clusterPreset{
+		use:            "biotech-clusters",
+		aliases:        []string{"biotechnology-clusters", "biotechnology-stock-clusters", "biotech-stock-clusters"},
+		short:          "Fetch biotechnology stock trade clusters",
+		long:           "Fetch VolumeLeaders biotechnology stock trade clusters for one day. This mirrors the biotechnology trades preset, but requests clustered trade events from GetTradeClusters.",
+		example:        "volumeleaders-agent biotech-clusters --date 2026-04-30\nvolumeleaders-agent biotech-clusters --date 2026-04-30 --tickers IBB,XBI",
+		minVolume:      "10000",
+		maxDollars:     "10000000000",
+		relativeSize:   "5",
+		sectorIndustry: "Biotech",
+		presetID:       "89",
+	})
+}
+
+// NewBondsClustersCommand builds the bonds trade clusters command.
+func NewBondsClustersCommand() (*cobra.Command, error) {
+	return newClusterCommand(&clusterPreset{
+		use:            "bonds-clusters",
+		aliases:        []string{"bond-clusters", "bond-etf-clusters"},
+		short:          "Fetch bonds trade clusters",
+		long:           "Fetch VolumeLeaders bonds trade clusters for one day. This mirrors the bonds trades preset, but requests clustered trade events from GetTradeClusters.",
+		example:        "volumeleaders-agent bonds-clusters --date 2026-04-30\nvolumeleaders-agent bonds-clusters --date 2026-04-30 --tickers HYG,TLT",
+		minVolume:      "10000",
+		maxDollars:     "10000000000",
+		relativeSize:   "5",
+		sectorIndustry: "Bonds",
+		presetID:       "90",
+	})
+}
+
+// NewCommoditiesClustersCommand builds the commodities trade clusters command.
+func NewCommoditiesClustersCommand() (*cobra.Command, error) {
+	return newClusterCommand(&clusterPreset{
+		use:          "commodities-clusters",
+		aliases:      []string{"commodity-clusters", "commodity-trade-clusters"},
+		short:        "Fetch commodities trade clusters",
+		long:         "Fetch VolumeLeaders commodities trade clusters for one day. This mirrors the commodities trades preset, but requests clustered trade events from GetTradeClusters.",
+		example:      "volumeleaders-agent commodities-clusters --date 2026-04-30\nvolumeleaders-agent commodities-clusters --date 2026-04-30 --tickers GLD,SLV",
+		minVolume:    "10000",
+		maxDollars:   "10000000000",
+		vcd:          "97",
+		relativeSize: "5",
+		presetID:     "9",
+	})
+}
+
+// NewCommunicationsServicesClustersCommand builds the communications services trade clusters command.
+func NewCommunicationsServicesClustersCommand() (*cobra.Command, error) {
+	return newClusterCommand(&clusterPreset{
+		use:            "communications-services-clusters",
+		aliases:        []string{"communication-services-clusters", "comm-services-clusters", "communications-clusters", "comms-clusters"},
+		short:          "Fetch communications services trade clusters",
+		long:           "Fetch VolumeLeaders communications services trade clusters for one day. This mirrors the communications services trades preset, but requests clustered trade events from GetTradeClusters.",
+		example:        "volumeleaders-agent communications-services-clusters --date 2026-04-30\nvolumeleaders-agent communications-services-clusters --date 2026-04-30 --tickers XLC,META",
+		minVolume:      "10000",
+		maxDollars:     "10000000000",
+		relativeSize:   "5",
+		sectorIndustry: "Comm Services",
+		presetID:       "91",
+	})
+}
+
 // NewTop10Command builds the top 10 all-time ranked trades command.
 func NewTop10Command() (*cobra.Command, error) {
 	return newRankedCommand(&rankedPreset{

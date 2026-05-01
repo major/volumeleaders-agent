@@ -137,6 +137,32 @@ Both commands return the same token-efficient trade output shape by default:
 }
 ```
 
+## Bonds and biotechnology stock trades
+
+```bash
+volumeleaders-agent bonds --date 2026-04-30
+volumeleaders-agent bonds --date 2026-04-30 --tickers HYG,TLT
+volumeleaders-agent biotech --date 2026-04-30
+volumeleaders-agent biotech --date 2026-04-30 --tickers IBB,XBI
+```
+
+The `bonds` and `biotech` commands fetch one day of sector-filtered trades from VolumeLeaders. They use the same `Trades/GetTrades` auth, pagination, and output handling as `trades`, but apply the upstream bonds (`SectorIndustry=Bonds`, preset `90`) or biotechnology (`SectorIndustry=Biotech`, preset `89`) presets captured from VolumeLeaders.
+
+Both commands return the same token-efficient trade output shape by default:
+
+```json
+{
+  "status": "ok",
+  "date": "2026-04-30",
+  "recordsTotal": 70,
+  "recordsFiltered": 70,
+  "fields": ["Ticker", "FullTimeString24", "Price", "Dollars", "DollarsMultiplier", "Volume", "TradeRank", "DarkPool", "Sweep", "LatePrint", "SignaturePrint", "Sector"],
+  "rows": [
+    ["USHY", "16:38:31", 37.23, 44115018.36, 8.004659259542926, 1184932, 9999, true, false, false, false, "Bonds"]
+  ]
+}
+```
+
 ## Auth package
 
 ```go

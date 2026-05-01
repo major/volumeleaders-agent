@@ -49,7 +49,15 @@ func NewRootCmd() (*cobra.Command, error) {
 	if err != nil {
 		return nil, fmt.Errorf("create bear-leverage command: %w", err)
 	}
-	rootCmd.AddCommand(tradesCmd, top10Cmd, top100Cmd, phantomCmd, offsettingCmd, bullLeverageCmd, bearLeverageCmd)
+	biotechCmd, err := trades.NewBiotechCommand()
+	if err != nil {
+		return nil, fmt.Errorf("create biotech command: %w", err)
+	}
+	bondsCmd, err := trades.NewBondsCommand()
+	if err != nil {
+		return nil, fmt.Errorf("create bonds command: %w", err)
+	}
+	rootCmd.AddCommand(tradesCmd, top10Cmd, top100Cmd, phantomCmd, offsettingCmd, bullLeverageCmd, bearLeverageCmd, biotechCmd, bondsCmd)
 
 	if err := structcli.Setup(rootCmd,
 		structcli.WithAppName(appName),

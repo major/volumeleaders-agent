@@ -201,6 +201,16 @@ type leveragePreset struct {
 	presetID       string
 }
 
+type sectorPreset struct {
+	use            string
+	aliases        []string
+	short          string
+	long           string
+	example        string
+	sectorIndustry string
+	presetID       string
+}
+
 var getTradesColumns = []tradeColumn{
 	{data: "FullTimeString24", name: "", orderable: "false"},
 	{data: "FullTimeString24", name: "FullTimeString24", orderable: "true"},
@@ -324,6 +334,32 @@ func NewBearLeverageCommand() (*cobra.Command, error) {
 	})
 }
 
+// NewBiotechCommand builds the biotechnology stock trades command.
+func NewBiotechCommand() (*cobra.Command, error) {
+	return newSectorCommand(&sectorPreset{
+		use:            "biotech",
+		aliases:        []string{"biotechnology", "biotechnology-stocks", "biotech-stocks"},
+		short:          "Fetch biotechnology stock trades",
+		long:           "Fetch VolumeLeaders biotechnology stock trades for one day. This uses the biotechnology preset captured from VolumeLeaders and filters the upstream GetTrades request to the Biotech sector group.",
+		example:        "volumeleaders-agent biotech --date 2026-04-30\nvolumeleaders-agent biotech --date 2026-04-30 --tickers IBB,XBI",
+		sectorIndustry: "Biotech",
+		presetID:       "89",
+	})
+}
+
+// NewBondsCommand builds the bonds trades command.
+func NewBondsCommand() (*cobra.Command, error) {
+	return newSectorCommand(&sectorPreset{
+		use:            "bonds",
+		aliases:        []string{"bond-trades", "bond-etfs"},
+		short:          "Fetch bonds trades",
+		long:           "Fetch VolumeLeaders bonds trades for one day. This uses the bonds preset captured from VolumeLeaders and filters the upstream GetTrades request to the Bonds sector group.",
+		example:        "volumeleaders-agent bonds --date 2026-04-30\nvolumeleaders-agent bonds --date 2026-04-30 --tickers HYG,TLT",
+		sectorIndustry: "Bonds",
+		presetID:       "90",
+	})
+}
+
 func newRankedCommand(preset *rankedPreset) (*cobra.Command, error) {
 	opts := &RankedOptions{}
 	cmd := &cobra.Command{
@@ -376,6 +412,27 @@ func newLeverageCommand(preset *leveragePreset) (*cobra.Command, error) {
 		Example: preset.example,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			return runLeverage(cmd.Context(), cmd, opts, preset)
+		},
+	}
+
+	if err := structcli.Bind(cmd, opts); err != nil {
+		return nil, fmt.Errorf("bind %s options: %w", preset.use, err)
+	}
+	cmd.Flags().StringVar(&opts.Tickers, "ticker", "", "Optional ticker filter. Alias for --tickers.")
+
+	return cmd, nil
+}
+
+func newSectorCommand(preset *sectorPreset) (*cobra.Command, error) {
+	opts := &SignalOptions{}
+	cmd := &cobra.Command{
+		Use:     preset.use,
+		Aliases: preset.aliases,
+		Short:   preset.short,
+		Long:    preset.long,
+		Example: preset.example,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			return runSector(cmd.Context(), cmd, opts, preset)
 		},
 	}
 
@@ -499,6 +556,38 @@ func runLeverage(ctx context.Context, cmd *cobra.Command, opts *SignalOptions, p
 	}
 
 	apiResponse, err := fetchLeverageTrades(ctx, formattedDate, tickers, preset, limit)
+	if err != nil {
+		return err
+	}
+
+	result := Result{
+		Status:          "ok",
+		Date:            formattedDate,
+		RecordsTotal:    apiResponse.RecordsTotal,
+		RecordsFiltered: apiResponse.RecordsFiltered,
+	}
+	if err := applyTradeOutput(&result, apiResponse.Data, fields, shape); err != nil {
+		return err
+	}
+
+	return encodeResult(cmd.OutOrStdout(), preset.use, result, opts.Pretty)
+}
+
+func runSector(ctx context.Context, cmd *cobra.Command, opts *SignalOptions, preset *sectorPreset) error {
+	formattedDate, tickers, err := parseDateAndTickers(ctx, preset.use, opts.Date, opts.Tickers)
+	if err != nil {
+		return err
+	}
+	limit, err := normalizeLimit(preset.use, opts.Limit, defaultTradeLimit, cmd.Flags().Changed("limit"))
+	if err != nil {
+		return err
+	}
+	fields, shape, err := normalizeOutputOptions(opts.Fields, opts.PresetFields, opts.Shape)
+	if err != nil {
+		return err
+	}
+
+	apiResponse, err := fetchSectorTrades(ctx, formattedDate, tickers, preset, limit)
 	if err != nil {
 		return err
 	}
@@ -750,6 +839,11 @@ func fetchLeverageTrades(ctx context.Context, tradeDate, tickers string, preset 
 	return fetchTradesPages(ctx, tradeDate, tickers, &options, limit)
 }
 
+func fetchSectorTrades(ctx context.Context, tradeDate, tickers string, preset *sectorPreset, limit int) (getTradesResponse, error) {
+	options := sectorGetTradesRequestOptions(preset)
+	return fetchTradesPages(ctx, tradeDate, tickers, &options, limit)
+}
+
 func fetchTradesPages(ctx context.Context, tradeDate, tickers string, options *getTradesRequestOptions, limit int) (getTradesResponse, error) {
 	if limit < 1 {
 		return getTradesResponse{}, fmt.Errorf("fetch GetTrades pages: limit must be 1 or greater")
@@ -921,6 +1015,25 @@ func leverageGetTradesRequestOptions(preset *leveragePreset) getTradesRequestOpt
 		maxDollars:             "10000000000",
 		conditions:             "IgnoreOBD,IgnoreOBH,IgnoreOSD,IgnoreOSH",
 		vcd:                    "97",
+		relativeSize:           "5",
+		darkPools:              "-1",
+		includePhantom:         "-1",
+		includeOffsetting:      "-1",
+		sectorIndustry:         preset.sectorIndustry,
+		presetSearchTemplateID: preset.presetID,
+	}
+}
+
+func sectorGetTradesRequestOptions(preset *sectorPreset) getTradesRequestOptions {
+	return getTradesRequestOptions{
+		tradeRank:              -1,
+		draw:                   1,
+		start:                  0,
+		length:                 defaultTradeLimit,
+		minVolume:              "10000",
+		maxDollars:             "10000000000",
+		conditions:             "IgnoreOBD,IgnoreOBH,IgnoreOSD,IgnoreOSH",
+		vcd:                    "0",
 		relativeSize:           "5",
 		darkPools:              "-1",
 		includePhantom:         "-1",

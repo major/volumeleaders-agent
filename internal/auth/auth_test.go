@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/browserutils/kooky"
+	"resty.dev/v3"
 )
 
 func TestXSRFTokenPattern(t *testing.T) {
@@ -141,11 +142,13 @@ func TestFetchXSRFToken(t *testing.T) {
 
 			client := server.Client()
 			client.Transport = rewriteHostTransport{base: client.Transport, target: server.URL}
-
-			token, err := FetchXSRFToken(t.Context(), client, map[string]string{
-				"ASP.NET_SessionId": "session-cookie",
-				".ASPXAUTH":         "auth-cookie",
+			restyClient := resty.NewWithClient(client)
+			restyClient.SetCookies([]*http.Cookie{
+				{Name: "ASP.NET_SessionId", Value: "session-cookie"},
+				{Name: ".ASPXAUTH", Value: "auth-cookie"},
 			})
+
+			token, err := FetchXSRFToken(t.Context(), restyClient)
 			if tt.wantErr != "" {
 				if err == nil {
 					t.Fatalf("expected error containing %q", tt.wantErr)
@@ -307,14 +310,16 @@ func TestFetchXSRFToken_CanceledContext(t *testing.T) {
 
 	client := server.Client()
 	client.Transport = rewriteHostTransport{base: client.Transport, target: server.URL}
+	restyClient := resty.NewWithClient(client)
+	restyClient.SetCookies([]*http.Cookie{
+		{Name: "ASP.NET_SessionId", Value: "session-cookie"},
+		{Name: ".ASPXAUTH", Value: "auth-cookie"},
+	})
 
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel() // cancel immediately
 
-	_, err := FetchXSRFToken(ctx, client, map[string]string{
-		"ASP.NET_SessionId": "session-cookie",
-		".ASPXAUTH":         "auth-cookie",
-	})
+	_, err := FetchXSRFToken(ctx, restyClient)
 	if err == nil {
 		t.Fatal("expected error from canceled context")
 	}

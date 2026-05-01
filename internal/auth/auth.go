@@ -3,11 +3,9 @@
 package auth
 
 import (
-	"compress/gzip"
 	"context"
 	"errors"
 	"fmt"
-	"io"
 	"net/http"
 	"path"
 	"regexp"
@@ -16,6 +14,7 @@ import (
 
 	"github.com/browserutils/kooky"
 	_ "github.com/browserutils/kooky/browser/all"
+	"resty.dev/v3"
 )
 
 // UserAgent mimics Chrome 147 on Windows for authenticated requests.
@@ -87,47 +86,21 @@ func ExtractCookies(ctx context.Context) (map[string]string, error) {
 }
 
 // FetchXSRFToken retrieves the hidden request verification token from ExecutiveSummary.
-func FetchXSRFToken(ctx context.Context, httpClient *http.Client, cookies map[string]string) (string, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "https://www.volumeleaders.com/ExecutiveSummary", http.NoBody)
-	if err != nil {
-		return "", fmt.Errorf("create XSRF token request: %w", err)
-	}
-	setBrowserHeaders(req)
-	for name, value := range cookies {
-		req.AddCookie(&http.Cookie{Name: name, Value: value})
-	}
-
-	resp, err := httpClient.Do(req)
+func FetchXSRFToken(ctx context.Context, client *resty.Client) (string, error) {
+	resp, err := client.R().SetContext(ctx).SetHeaders(BrowserHeaders).Get("https://www.volumeleaders.com/ExecutiveSummary")
 	if err != nil {
 		return "", fmt.Errorf("fetch XSRF token page: %w", err)
 	}
-	defer resp.Body.Close()
 
-	redirectPath := safeRedirectPath(resp)
+	redirectPath := safeRedirectPath(resp.RawResponse)
 	if normalizeRedirectPath(redirectPath) == "/login" {
 		return "", sessionExpiredError{redirectPath: redirectPath}
 	}
-	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("fetch XSRF token page: status %d", resp.StatusCode)
+	if resp.StatusCode() != http.StatusOK {
+		return "", fmt.Errorf("fetch XSRF token page: status %d", resp.StatusCode())
 	}
 
-	// When Accept-Encoding is set explicitly, Go's net/http does not
-	// auto-decompress. Handle gzip manually.
-	var bodyReader io.Reader = resp.Body
-	if resp.Header.Get("Content-Encoding") == "gzip" {
-		gr, gzErr := gzip.NewReader(resp.Body)
-		if gzErr != nil {
-			return "", fmt.Errorf("decompress XSRF token page: %w", gzErr)
-		}
-		defer gr.Close()
-		bodyReader = gr
-	}
-
-	body, err := io.ReadAll(bodyReader)
-	if err != nil {
-		return "", fmt.Errorf("read XSRF token page: %w", err)
-	}
-	matches := xsrfTokenPattern.FindSubmatch(body)
+	matches := xsrfTokenPattern.FindSubmatch(resp.Bytes())
 	if matches == nil {
 		return "", fmt.Errorf("XSRF token not found in HTML")
 	}
@@ -220,10 +193,4 @@ func normalizeRedirectPath(redirectPath string) string {
 		redirectPath = "/" + redirectPath
 	}
 	return strings.ToLower(path.Clean(redirectPath))
-}
-
-func setBrowserHeaders(req *http.Request) {
-	for k, v := range BrowserHeaders {
-		req.Header.Set(k, v)
-	}
 }

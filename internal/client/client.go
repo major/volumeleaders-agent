@@ -69,17 +69,15 @@ func New(ctx context.Context) (*Client, error) {
 
 	restyClient := resty.New()
 	restyClient.SetTimeout(60 * time.Second)
+	restyClient.SetCookies(buildCookies(cookies))
 
-	// auth.FetchXSRFToken still expects the stdlib client during the migration.
-	httpClient := restyClient.Client()
-	xsrfToken, err := auth.FetchXSRFToken(ctx, httpClient, cookies)
+	xsrfToken, err := auth.FetchXSRFToken(ctx, restyClient)
 	if err != nil {
 		return nil, fmt.Errorf("fetch XSRF token: %w", err)
 	}
 
 	restyClient.SetBaseURL(BaseURL)
 	restyClient.AddRequestMiddleware(buildRequestMiddleware(xsrfToken))
-	restyClient.SetCookies(buildCookies(cookies))
 
 	noRedirectClient := resty.New()
 	noRedirectClient.SetTimeout(60 * time.Second)
@@ -258,5 +256,3 @@ func (c *Client) PostMultipart(ctx context.Context, path string, fields map[stri
 	}
 	return nil
 }
-
-

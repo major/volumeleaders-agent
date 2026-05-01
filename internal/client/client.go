@@ -4,11 +4,9 @@ package client
 
 import (
 	"bytes"
-	"compress/gzip"
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"mime/multipart"
 	"net/http"
 	"net/url"
@@ -24,7 +22,6 @@ const BaseURL = "https://www.volumeleaders.com"
 
 // Client wraps authenticated VolumeLeaders HTTP access.
 type Client struct {
-	http             *http.Client
 	client           *resty.Client
 	noRedirectClient *resty.Client
 	baseURL          string
@@ -52,7 +49,6 @@ func NewForTesting(httpClient *http.Client, baseURL string) *Client {
 	noRedirectClient.SetCookies(buildCookies(testCookies))
 
 	return &Client{
-		http:             httpClient,
 		client:           restyClient,
 		noRedirectClient: noRedirectClient,
 		baseURL:          baseURL,
@@ -90,7 +86,6 @@ func New(ctx context.Context) (*Client, error) {
 	noRedirectClient.SetCookies(buildCookies(cookies))
 
 	return &Client{
-		http:             httpClient,
 		client:           restyClient,
 		noRedirectClient: noRedirectClient,
 		baseURL:          BaseURL,
@@ -257,68 +252,4 @@ func (c *Client) PostMultipart(ctx context.Context, path string, fields map[stri
 	return nil
 }
 
-// doRequest executes req with standard auth headers/cookies, reads the response
-// body, and checks for non-200 status codes. Callers that need a non-default
-// Content-Type (e.g. application/json) should set it on req before calling.
-func (c *Client) doRequest(req *http.Request, label string) ([]byte, error) {
-	c.setHeaders(req)
-	c.setCookies(req)
 
-	resp, err := c.http.Do(req) //nolint:gosec // baseURL is the hardcoded BaseURL constant, not user input
-	if err != nil {
-		return nil, fmt.Errorf("post %s request: %w", label, err)
-	}
-	defer resp.Body.Close()
-
-	body, err := readResponseBody(resp)
-	if err != nil {
-		return nil, fmt.Errorf("read %s response: %w", label, err)
-	}
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("post %s request: status %d: %s", label, resp.StatusCode, string(body))
-	}
-	return body, nil
-}
-
-func (c *Client) setHeaders(req *http.Request) {
-	req.Header.Set("User-Agent", auth.UserAgent)
-	req.Header.Set("x-xsrf-token", c.xsrfToken)
-	req.Header.Set("x-requested-with", "XMLHttpRequest")
-	req.Header.Set("Accept", "application/json, text/javascript, */*; q=0.01")
-	// Only set default Content-Type if the caller hasn't already specified one.
-	if req.Header.Get("Content-Type") == "" {
-		req.Header.Set("Content-Type", "application/x-www-form-urlencoded; charset=UTF-8")
-	}
-	req.Header.Set("Sec-Ch-Ua", `"Chromium";v="147", "Not A(Brand";v="24", "Google Chrome";v="147"`)
-	req.Header.Set("Sec-Ch-Ua-Mobile", "?0")
-	req.Header.Set("Sec-Ch-Ua-Platform", `"Windows"`)
-	req.Header.Set("Sec-Fetch-Dest", "empty")
-	req.Header.Set("Sec-Fetch-Mode", "cors")
-	req.Header.Set("Sec-Fetch-Site", "same-origin")
-	req.Header.Set("Accept-Language", "en-US,en;q=0.9")
-	req.Header.Set("Accept-Encoding", "gzip, deflate, br")
-}
-
-func (c *Client) setCookies(req *http.Request) {
-	for name, value := range c.cookies {
-		req.AddCookie(&http.Cookie{Name: name, Value: value})
-	}
-}
-
-func readResponseBody(resp *http.Response) ([]byte, error) {
-	var reader io.Reader = resp.Body
-	if resp.Header.Get("Content-Encoding") == "gzip" {
-		gzipReader, err := gzip.NewReader(resp.Body)
-		if err != nil {
-			return nil, fmt.Errorf("open gzip response body: %w", err)
-		}
-		defer gzipReader.Close()
-		reader = gzipReader
-	}
-
-	body, err := io.ReadAll(reader)
-	if err != nil {
-		return nil, fmt.Errorf("read response body: %w", err)
-	}
-	return body, nil
-}

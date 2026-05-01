@@ -267,71 +267,6 @@ func TestPostMultipart(t *testing.T) {
 	}
 }
 
-func TestSetHeaders(t *testing.T) {
-	t.Parallel()
-
-	client := newTestClient("http://example.test")
-	req := httptest.NewRequest(http.MethodPost, "/", http.NoBody)
-	req.Header.Set("Content-Type", "application/json")
-	client.setHeaders(req)
-
-	checks := map[string]string{
-		"User-Agent":         auth.UserAgent,
-		"x-xsrf-token":       "test-token",
-		"x-requested-with":   "XMLHttpRequest",
-		"Accept":             "application/json, text/javascript, */*; q=0.01",
-		"Content-Type":       "application/json",
-		"Sec-Ch-Ua":          `"Chromium";v="147", "Not A(Brand";v="24", "Google Chrome";v="147"`,
-		"Sec-Ch-Ua-Mobile":   "?0",
-		"Sec-Ch-Ua-Platform": `"Windows"`,
-		"Sec-Fetch-Dest":     "empty",
-		"Sec-Fetch-Mode":     "cors",
-		"Sec-Fetch-Site":     "same-origin",
-		"Accept-Language":    "en-US,en;q=0.9",
-		"Accept-Encoding":    "gzip, deflate, br",
-	}
-	for key, expected := range checks {
-		if got := req.Header.Get(key); got != expected {
-			t.Errorf("%s: expected %q, got %q", key, expected, got)
-		}
-	}
-}
-
-func TestSetHeadersDefaultContentType(t *testing.T) {
-	t.Parallel()
-
-	client := newTestClient("http://example.test")
-	req := httptest.NewRequest(http.MethodPost, "/", http.NoBody)
-	client.setHeaders(req)
-
-	if got := req.Header.Get("Content-Type"); got != "application/x-www-form-urlencoded; charset=UTF-8" {
-		t.Errorf("expected default Content-Type, got %q", got)
-	}
-}
-
-func TestSetCookies(t *testing.T) {
-	t.Parallel()
-
-	client := newTestClient("http://example.test")
-	req := httptest.NewRequest(http.MethodPost, "/", http.NoBody)
-	client.setCookies(req)
-
-	checks := map[string]string{
-		"ASP.NET_SessionId": "test-session",
-		".ASPXAUTH":         "test-auth",
-	}
-	for name, expected := range checks {
-		cookie, err := req.Cookie(name)
-		if err != nil {
-			t.Errorf("missing cookie %s: %v", name, err)
-			continue
-		}
-		if cookie.Value != expected {
-			t.Errorf("cookie %s: expected %q, got %q", name, expected, cookie.Value)
-		}
-	}
-}
-
 func TestMiddlewareHeaders(t *testing.T) {
 	t.Parallel()
 
@@ -424,9 +359,6 @@ func TestNewForTesting(t *testing.T) {
 	}
 	if c.xsrfToken != "test-token" {
 		t.Errorf("expected xsrfToken test-token, got %s", c.xsrfToken)
-	}
-	if c.http != httpClient {
-		t.Errorf("expected stdlib http client to be preserved")
 	}
 	if c.client == nil {
 		t.Errorf("expected Resty client to be populated")

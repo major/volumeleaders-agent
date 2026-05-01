@@ -28,6 +28,8 @@ var rootCommandFactories = []commandFactory{
 	{name: "phantom", new: trades.NewPhantomCommand},
 	// Offsetting is only for trades, not clusters
 	{name: "offsetting", new: trades.NewOffsettingCommand},
+	{name: "overbought", new: trades.NewOverboughtCommand},
+	{name: "oversold", new: trades.NewOversoldCommand},
 }
 
 // NewRootCmd builds a fresh command tree for the VolumeLeaders CLI.

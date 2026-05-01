@@ -29,6 +29,7 @@ make lint       # Run linters
 ## Conventions
 
 - Commands should use structcli options structs for flags so `--jsonschema=tree`, `env-vars`, `config-keys`, and `--mcp` stay accurate for humans and agents.
+- Treat structcli-visible code metadata as the source of truth for command behavior. When adding or changing commands, flags, filters, defaults, examples, output shapes, field meanings, or caveats, update option struct tags (`flagdescr`, `flagenv`, `flaggroup`, `flagrequired`), command `Short`/`Long` text, examples, and any embedded field guides so `--jsonschema=tree`, help output, `env-vars`, `config-keys`, and MCP discovery remain understandable without loading README files or skill files.
 - Command output should be stable JSON by default. Errors should rely on structcli/cobra error handling and include actionable context without leaking credentials.
 - Authentication errors must include useful troubleshooting context without exposing browser cookies, XSRF tokens, session values, profile paths, or other secrets.
 - Context cancellation must propagate through browser cookie extraction and token lookup paths.

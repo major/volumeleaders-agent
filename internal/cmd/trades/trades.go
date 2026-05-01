@@ -31,6 +31,7 @@ const (
 	getTradeClustersPath = "https://www.volumeleaders.com/TradeClusters/GetTradeClusters"
 	tradesPage           = "https://www.volumeleaders.com/Trades"
 	tradeClustersPage    = "https://www.volumeleaders.com/TradeClusters"
+	tradeLLMFieldGuide   = "LLM field guide: RelativeSize is a request filter for minimum relative size. Captured browser values are 0, 5, 10, 25, 50, and 100, where 0 means any size and the others mean at least that many times the ticker's average dollar trade size. DollarsMultiplier, shown as RS in the UI, is the returned relative size value: trade dollars divided by average dollars for that ticker. VolumeLeaders highlights trades at or above 25x average size. CumulativeDistribution, shown as PCT in the UI, is the trade's percentile rank relative to other trades for the same ticker. Conditions carries RSI condition filters: OBD means overbought daily, OBH means overbought hourly, OSD means oversold daily, and OSH means oversold hourly. Captured defaults use -1 for no RSI condition filter. IgnoreOBD, IgnoreOBH, IgnoreOSD, and IgnoreOSH mean do not consider that RSI condition; they do not mean exclude matching rows. VCD is unknown; captures and code only show 0 or 0.00, so the CLI preserves the captured value and does not expose it as a user-facing filter."
 )
 
 var (
@@ -235,6 +236,7 @@ type getTradesRequestOptions struct {
 	vcd                    string
 	relativeSize           string
 	darkPools              string
+	signaturePrints        string
 	includePhantom         string
 	includeOffsetting      string
 	sectorIndustry         string
@@ -287,6 +289,16 @@ type signalPreset struct {
 	phantom    string
 	offsetting string
 	darkPools  string
+	presetID   string
+}
+
+type conditionPreset struct {
+	use        string
+	aliases    []string
+	short      string
+	long       string
+	example    string
+	conditions string
 	presetID   string
 }
 
@@ -369,7 +381,7 @@ func newBoundTradeCommand(meta *commandMetadata, opts any, tickerFlag *string, r
 		Use:     meta.use,
 		Aliases: meta.aliases,
 		Short:   meta.short,
-		Long:    meta.long,
+		Long:    meta.long + "\n\n" + tradeLLMFieldGuide,
 		Example: meta.example,
 		RunE:    runE,
 	}
@@ -483,6 +495,32 @@ func NewOffsettingCommand() (*cobra.Command, error) {
 	})
 }
 
+// NewOverboughtCommand builds the RSI overbought trades command.
+func NewOverboughtCommand() (*cobra.Command, error) {
+	return newConditionCommand(&conditionPreset{
+		use:        "overbought",
+		aliases:    []string{"overbought-trades", "rsi-overbought"},
+		short:      "Fetch trades with overbought daily or hourly RSI conditions",
+		long:       "Fetch VolumeLeaders trades for one day where the captured RSI condition filter requires daily or hourly overbought matches.",
+		example:    "volumeleaders-agent overbought --date 2026-04-30\nvolumeleaders-agent overbought --date 2026-04-30 --tickers AAPL,MSFT",
+		conditions: "OBD,OBH,",
+		presetID:   "84",
+	})
+}
+
+// NewOversoldCommand builds the RSI oversold trades command.
+func NewOversoldCommand() (*cobra.Command, error) {
+	return newConditionCommand(&conditionPreset{
+		use:        "oversold",
+		aliases:    []string{"oversold-trades", "rsi-oversold"},
+		short:      "Fetch trades with oversold daily or hourly RSI conditions",
+		long:       "Fetch VolumeLeaders trades for one day where the captured RSI condition filter requires daily or hourly oversold matches.",
+		example:    "volumeleaders-agent oversold --date 2026-04-30\nvolumeleaders-agent oversold --date 2026-04-30 --tickers AAPL,MSFT",
+		conditions: "OSD,OSH",
+		presetID:   "85",
+	})
+}
+
 func newRankedCommand(preset *rankedPreset) (*cobra.Command, error) {
 	opts := &RankedOptions{}
 	return newBoundTradeCommand(&commandMetadata{
@@ -506,6 +544,19 @@ func newSignalCommand(preset *signalPreset) (*cobra.Command, error) {
 		example: preset.example,
 	}, opts, &opts.Tickers, func(cmd *cobra.Command, _ []string) error {
 		return runSignal(cmd.Context(), cmd, opts, preset)
+	})
+}
+
+func newConditionCommand(preset *conditionPreset) (*cobra.Command, error) {
+	opts := &SignalOptions{}
+	return newBoundTradeCommand(&commandMetadata{
+		use:     preset.use,
+		aliases: preset.aliases,
+		short:   preset.short,
+		long:    preset.long,
+		example: preset.example,
+	}, opts, &opts.Tickers, func(cmd *cobra.Command, _ []string) error {
+		return runCondition(cmd.Context(), cmd, opts, preset)
 	})
 }
 
@@ -607,6 +658,12 @@ func runRanked(ctx context.Context, cmd *cobra.Command, opts *RankedOptions, pre
 func runSignal(ctx context.Context, cmd *cobra.Command, opts *SignalOptions, preset *signalPreset) error {
 	return runSignalPreset(ctx, cmd, opts, preset.use, func(ctx context.Context, formattedDate, tickers string, limit int) (getTradesResponse, error) {
 		return fetchSignalTrades(ctx, formattedDate, tickers, preset, limit)
+	})
+}
+
+func runCondition(ctx context.Context, cmd *cobra.Command, opts *SignalOptions, preset *conditionPreset) error {
+	return runSignalPreset(ctx, cmd, opts, preset.use, func(ctx context.Context, formattedDate, tickers string, limit int) (getTradesResponse, error) {
+		return fetchConditionTrades(ctx, formattedDate, tickers, preset, limit)
 	})
 }
 
@@ -900,6 +957,11 @@ func fetchSignalTrades(ctx context.Context, tradeDate, tickers string, preset *s
 	return fetchTradesPages(ctx, tradeDate, tickers, &options, limit)
 }
 
+func fetchConditionTrades(ctx context.Context, tradeDate, tickers string, preset *conditionPreset, limit int) (getTradesResponse, error) {
+	options := conditionGetTradesRequestOptions(preset)
+	return fetchTradesPages(ctx, tradeDate, tickers, &options, limit)
+}
+
 func fetchTradeClustersPages(ctx context.Context, tradeDate, tickers string, options *getTradeClustersRequestOptions, limit int) (getTradesResponse, error) {
 	return fetchTradesResponsePages(ctx, "GetTradeClusters", limit, func(page, pageLength int) (getTradesResponse, error) {
 		pageOptions := *options
@@ -1112,6 +1174,7 @@ func defaultGetTradesRequestOptions() getTradesRequestOptions {
 		vcd:                    "0",
 		relativeSize:           "5",
 		darkPools:              "-1",
+		signaturePrints:        "-1",
 		includePhantom:         "1",
 		includeOffsetting:      "1",
 		sectorIndustry:         "",
@@ -1131,6 +1194,7 @@ func rankedGetTradesRequestOptions(preset *rankedPreset) getTradesRequestOptions
 		vcd:                    "0",
 		relativeSize:           "0",
 		darkPools:              "-1",
+		signaturePrints:        "-1",
 		includePhantom:         "-1",
 		includeOffsetting:      "-1",
 		sectorIndustry:         "",
@@ -1150,8 +1214,29 @@ func signalGetTradesRequestOptions(preset *signalPreset) getTradesRequestOptions
 		vcd:                    "0",
 		relativeSize:           "0",
 		darkPools:              preset.darkPools,
+		signaturePrints:        "-1",
 		includePhantom:         preset.phantom,
 		includeOffsetting:      preset.offsetting,
+		sectorIndustry:         "",
+		presetSearchTemplateID: preset.presetID,
+	}
+}
+
+func conditionGetTradesRequestOptions(preset *conditionPreset) getTradesRequestOptions {
+	return getTradesRequestOptions{
+		tradeRank:              100,
+		draw:                   1,
+		start:                  0,
+		length:                 defaultTradeLimit,
+		minVolume:              "10000",
+		maxDollars:             "10000000000",
+		conditions:             preset.conditions,
+		vcd:                    "0",
+		relativeSize:           "5",
+		darkPools:              "-1",
+		signaturePrints:        "0",
+		includePhantom:         "-1",
+		includeOffsetting:      "-1",
 		sectorIndustry:         "",
 		presetSearchTemplateID: preset.presetID,
 	}
@@ -1226,7 +1311,7 @@ func setSharedQueryParams(values url.Values, tradeDate, tickers string, options 
 	values.Set("DarkPools", options.darkPools)
 	values.Set("Sweeps", "-1")
 	values.Set("LatePrints", "-1")
-	values.Set("SignaturePrints", "-1")
+	values.Set("SignaturePrints", options.signaturePrints)
 	values.Set("EvenShared", "-1")
 	values.Set("SecurityTypeKey", "-1")
 	values.Set("MinPrice", "0")

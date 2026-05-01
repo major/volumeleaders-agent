@@ -58,6 +58,29 @@ volumeleaders-agent --mcp              # Run stdio MCP server
 
 The date flag can also be set with the environment variable shown by `volumeleaders-agent env-vars`, for example `VOLUMELEADERS_AGENT_TRADES_DATE`.
 
+## LLM field guide for trade filters and signal fields
+
+These names come from VolumeLeaders' browser forms and JSON responses, so some are terse UI labels rather than plain English API names. The same field guide is also embedded in the CLI command metadata so structcli JSON schema discovery and MCP callers can see it without reading this README:
+
+- `RelativeSize` is a request filter for minimum relative size. Captured browser values are `0`, `5`, `10`, `25`, `50`, and `100`, where `0` means any size and the others mean at least that many times the ticker's average dollar trade size.
+- `DollarsMultiplier`, shown as `RS` in the UI, is the returned relative size value: trade dollars divided by average dollars for that ticker. VolumeLeaders highlights trades at or above `25x` average size.
+- `CumulativeDistribution`, shown as `PCT` in the UI, is the trade's percentile rank relative to other trades for the same ticker.
+- `Conditions` carries RSI condition filters. `OBD` means overbought daily, `OBH` means overbought hourly, `OSD` means oversold daily, and `OSH` means oversold hourly. Captured defaults use `-1` for no RSI condition filter. Code presets may also contain `IgnoreOBD`, `IgnoreOBH`, `IgnoreOSD`, and `IgnoreOSH`; treat those as “do not consider this RSI condition” values rather than “exclude matching rows.”
+- `VCD` is currently unknown. Captures and code only show `0` or `0.00`, so the CLI preserves the captured value and does not expose it as a user-facing filter.
+
+## RSI overbought and oversold trades
+
+```bash
+volumeleaders-agent overbought --date 2026-04-30
+volumeleaders-agent oversold --date 2026-04-30
+volumeleaders-agent overbought --date 2026-04-30 --limit 10
+volumeleaders-agent oversold --date 2026-04-30 --tickers AAPL,MSFT
+```
+
+The `overbought` and `oversold` commands replay VolumeLeaders RSI-condition searches captured from the browser. `overbought` sends `Conditions=OBD,OBH,` with preset `84`, which requires daily or hourly overbought RSI matches. `oversold` sends `Conditions=OSD,OSH` with preset `85`, which requires daily or hourly oversold RSI matches. Both commands use the same compact trade output shape and flags as `trades`, including `--limit`, `--fields`, `--preset-fields core|signals|full`, `--shape array|objects`, and `--pretty`.
+
+Use `--preset-fields signals` when an LLM needs the raw signal columns behind these filters, especially `RSIHour`, `RSIDay`, `CumulativeDistribution`, and `DollarsMultiplier`. The date flags can also be set with `VOLUMELEADERS_AGENT_OVERBOUGHT_DATE` and `VOLUMELEADERS_AGENT_OVERSOLD_DATE`.
+
 
 ## Disproportionately large trade clusters
 

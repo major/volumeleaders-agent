@@ -54,11 +54,17 @@ func TestTradesCommand(t *testing.T) {
 	if got.RecordsTotal != 1492 || got.RecordsFiltered != 1492 {
 		t.Fatalf("record counts = %d/%d, want 1492/1492", got.RecordsTotal, got.RecordsFiltered)
 	}
-	if len(got.Trades) != 1 {
-		t.Fatalf("len(Trades) = %d, want 1", len(got.Trades))
+	if len(got.Fields) != len(tradeFieldPresets["core"]) {
+		t.Fatalf("len(Fields) = %d, want core fields", len(got.Fields))
 	}
-	if !bytes.Contains(got.Trades[0], []byte(`"Ticker":"KRE"`)) {
-		t.Fatalf("trade payload = %s, want KRE ticker", string(got.Trades[0]))
+	if len(got.Rows) != 1 {
+		t.Fatalf("len(Rows) = %d, want 1", len(got.Rows))
+	}
+	if len(got.Trades) != 0 {
+		t.Fatalf("len(Trades) = %d, want 0 for default array shape", len(got.Trades))
+	}
+	if string(got.Rows[0][0]) != `"KRE"` {
+		t.Fatalf("first row ticker = %s, want KRE", string(got.Rows[0][0]))
 	}
 	if strings.Contains(stdout.String(), "\n  ") {
 		t.Fatalf("default output should be compact JSON, got %q", stdout.String())
@@ -97,24 +103,87 @@ func TestTradesCommandOutputOptions(t *testing.T) {
 	if err := json.Unmarshal(stdout.Bytes(), &got); err != nil {
 		t.Fatalf("unmarshal output: %v\noutput: %s", err, stdout.String())
 	}
-	if len(got.Trades) != 2 {
-		t.Fatalf("len(Trades) = %d, want 2", len(got.Trades))
+	if len(got.Rows) != 2 {
+		t.Fatalf("len(Rows) = %d, want 2", len(got.Rows))
 	}
 }
 
-func TestTradesCommandPaginatesLimit(t *testing.T) {
-	requestCount := 0
+func TestTradesCommandObjectShapeAndCustomFields(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		requestCount++
-		options := defaultGetTradesRequestOptions()
-		options.draw = requestCount
-		options.start = (requestCount - 1) * defaultTradePageSize
-		options.length = defaultTradePageSize
-		if requestCount == 3 {
-			options.length = 50
-		}
-		assertGetTradesRequestWithOptions(t, r, "2026-04-30", "", &options)
-		fmt.Fprint(w, tradesResponseJSON(requestCount, 250, options.length))
+		assertGetTradesRequest(t, r, "2026-04-30", "")
+		fmt.Fprint(w, `{"draw":1,"recordsTotal":1,"recordsFiltered":1,"data":[{"Ticker":"KRE","Dollars":17501965.25,"Ignored":true}]}`)
+	}))
+	t.Cleanup(server.Close)
+
+	withCommandDependencies(t, server.Client(), server.URL, nil, nil)
+
+	cmd, err := NewCommand()
+	if err != nil {
+		t.Fatalf("NewCommand() error = %v", err)
+	}
+
+	var stdout bytes.Buffer
+	cmd.SetOut(&stdout)
+	cmd.SetErr(io.Discard)
+	cmd.SetArgs([]string{"--date", "2026-04-30", "--fields", "Ticker,Dollars", "--shape", "objects"})
+
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("Execute() error = %v", err)
+	}
+
+	var got Result
+	if err := json.Unmarshal(stdout.Bytes(), &got); err != nil {
+		t.Fatalf("unmarshal output: %v\noutput: %s", err, stdout.String())
+	}
+	if strings.Join(got.Fields, ",") != "Ticker,Dollars" {
+		t.Fatalf("Fields = %v, want Ticker,Dollars", got.Fields)
+	}
+	if len(got.Trades) != 1 {
+		t.Fatalf("len(Trades) = %d, want 1", len(got.Trades))
+	}
+	if !bytes.Contains(got.Trades[0], []byte(`"Ticker":"KRE"`)) || bytes.Contains(got.Trades[0], []byte("Ignored")) {
+		t.Fatalf("projected trade payload = %s", string(got.Trades[0]))
+	}
+}
+
+func TestTradesCommandFullPresetKeepsRawTrades(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assertGetTradesRequest(t, r, "2026-04-30", "")
+		fmt.Fprint(w, `{"draw":1,"recordsTotal":1,"recordsFiltered":1,"data":[{"Ticker":"KRE","Ignored":true}]}`)
+	}))
+	t.Cleanup(server.Close)
+
+	withCommandDependencies(t, server.Client(), server.URL, nil, nil)
+
+	cmd, err := NewCommand()
+	if err != nil {
+		t.Fatalf("NewCommand() error = %v", err)
+	}
+
+	var stdout bytes.Buffer
+	cmd.SetOut(&stdout)
+	cmd.SetErr(io.Discard)
+	cmd.SetArgs([]string{"--date", "2026-04-30", "--preset-fields", "full"})
+
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("Execute() error = %v", err)
+	}
+
+	var got Result
+	if err := json.Unmarshal(stdout.Bytes(), &got); err != nil {
+		t.Fatalf("unmarshal output: %v\noutput: %s", err, stdout.String())
+	}
+	if len(got.Fields) != 0 || len(got.Rows) != 0 {
+		t.Fatalf("full preset should omit Fields/Rows, got fields=%v rows=%v", got.Fields, got.Rows)
+	}
+	if len(got.Trades) != 1 || !bytes.Contains(got.Trades[0], []byte("Ignored")) {
+		t.Fatalf("full preset trade payload = %v", got.Trades)
+	}
+}
+
+func TestTradesCommandRejectsLimitAboveMaximum(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		t.Fatalf("request should not be sent for oversized limit: %s", r.URL.String())
 	}))
 	t.Cleanup(server.Close)
 
@@ -130,22 +199,8 @@ func TestTradesCommandPaginatesLimit(t *testing.T) {
 	cmd.SetErr(io.Discard)
 	cmd.SetArgs([]string{"--date", "2026-04-30", "--limit", "250"})
 
-	if err := cmd.Execute(); err != nil {
-		t.Fatalf("Execute() error = %v", err)
-	}
-	if requestCount != 3 {
-		t.Fatalf("requestCount = %d, want 3", requestCount)
-	}
-
-	var got Result
-	if err := json.Unmarshal(stdout.Bytes(), &got); err != nil {
-		t.Fatalf("unmarshal output: %v\noutput: %s", err, stdout.String())
-	}
-	if got.RecordsTotal != 250 || got.RecordsFiltered != 250 {
-		t.Fatalf("record counts = %d/%d, want 250/250", got.RecordsTotal, got.RecordsFiltered)
-	}
-	if len(got.Trades) != 250 {
-		t.Fatalf("len(Trades) = %d, want 250", len(got.Trades))
+	if err := cmd.Execute(); err == nil || !strings.Contains(err.Error(), "100 or less") {
+		t.Fatalf("Execute() error = %v, want limit cap error", err)
 	}
 }
 
@@ -218,8 +273,14 @@ func TestRankedTradesCommands(t *testing.T) {
 			if got.RankLimit != tt.wantRank {
 				t.Fatalf("RankLimit = %d, want %d", got.RankLimit, tt.wantRank)
 			}
-			if len(got.Trades) != 1 {
-				t.Fatalf("len(Trades) = %d, want 1", len(got.Trades))
+			if len(got.Fields) != len(tradeFieldPresets["core"]) {
+				t.Fatalf("len(Fields) = %d, want core fields", len(got.Fields))
+			}
+			if len(got.Rows) != 1 {
+				t.Fatalf("len(Rows) = %d, want 1", len(got.Rows))
+			}
+			if len(got.Trades) != 0 {
+				t.Fatalf("len(Trades) = %d, want 0 for default array shape", len(got.Trades))
 			}
 		})
 	}
@@ -227,13 +288,12 @@ func TestRankedTradesCommands(t *testing.T) {
 
 func TestSignalTradesCommands(t *testing.T) {
 	tests := []struct {
-		name           string
-		newCommand     func() (*cobra.Command, error)
-		args           []string
-		wantPreset     *signalPreset
-		wantTickers    string
-		wantLength     int
-		wantTradeField string
+		name        string
+		newCommand  func() (*cobra.Command, error)
+		args        []string
+		wantPreset  *signalPreset
+		wantTickers string
+		wantLength  int
 	}{
 		{
 			name:       "phantom trades",
@@ -245,8 +305,7 @@ func TestSignalTradesCommands(t *testing.T) {
 				darkPools:  "1",
 				presetID:   "857",
 			},
-			wantLength:     defaultTradeLimit,
-			wantTradeField: "PhantomPrint",
+			wantLength: defaultTradeLimit,
 		},
 		{
 			name:       "offsetting trades with tickers",
@@ -258,9 +317,8 @@ func TestSignalTradesCommands(t *testing.T) {
 				darkPools:  "-1",
 				presetID:   "858",
 			},
-			wantTickers:    "PLTR",
-			wantLength:     7,
-			wantTradeField: "OffsettingTradeDate",
+			wantTickers: "PLTR",
+			wantLength:  7,
 		},
 	}
 
@@ -270,7 +328,7 @@ func TestSignalTradesCommands(t *testing.T) {
 				options := signalGetTradesRequestOptions(tt.wantPreset)
 				options.length = tt.wantLength
 				assertGetTradesRequestWithOptions(t, r, "2026-04-30", tt.wantTickers, &options)
-				fmt.Fprintf(w, `{"draw":1,"recordsTotal":2,"recordsFiltered":2,"data":[{"Ticker":"PLTR","%s":1}]}`, tt.wantTradeField)
+				fmt.Fprint(w, `{"draw":1,"recordsTotal":2,"recordsFiltered":2,"data":[{"Ticker":"PLTR","PhantomPrint":1,"OffsettingTradeDate":"/Date(-2208988800000)/"}]}`)
 			}))
 			t.Cleanup(server.Close)
 
@@ -303,11 +361,17 @@ func TestSignalTradesCommands(t *testing.T) {
 			if got.RecordsTotal != 2 || got.RecordsFiltered != 2 {
 				t.Fatalf("record counts = %d/%d, want 2/2", got.RecordsTotal, got.RecordsFiltered)
 			}
-			if len(got.Trades) != 1 {
-				t.Fatalf("len(Trades) = %d, want 1", len(got.Trades))
+			if len(got.Fields) != len(tradeFieldPresets["core"]) {
+				t.Fatalf("len(Fields) = %d, want core fields", len(got.Fields))
 			}
-			if !bytes.Contains(got.Trades[0], []byte(tt.wantTradeField)) {
-				t.Fatalf("trade payload = %s, want %s field", string(got.Trades[0]), tt.wantTradeField)
+			if len(got.Rows) != 1 {
+				t.Fatalf("len(Rows) = %d, want 1", len(got.Rows))
+			}
+			if len(got.Trades) != 0 {
+				t.Fatalf("len(Trades) = %d, want 0 for default array shape", len(got.Trades))
+			}
+			if string(got.Rows[0][0]) != `"PLTR"` {
+				t.Fatalf("first row ticker = %s, want PLTR", string(got.Rows[0][0]))
 			}
 		})
 	}
@@ -390,11 +454,17 @@ func TestLeverageTradesCommands(t *testing.T) {
 			if got.RecordsTotal != 8 || got.RecordsFiltered != 8 {
 				t.Fatalf("record counts = %d/%d, want 8/8", got.RecordsTotal, got.RecordsFiltered)
 			}
-			if len(got.Trades) != 1 {
-				t.Fatalf("len(Trades) = %d, want 1", len(got.Trades))
+			if len(got.Fields) != len(tradeFieldPresets["core"]) {
+				t.Fatalf("len(Fields) = %d, want core fields", len(got.Fields))
 			}
-			if !bytes.Contains(got.Trades[0], []byte(tt.wantTradeField)) {
-				t.Fatalf("trade payload = %s, want %s field", string(got.Trades[0]), tt.wantTradeField)
+			if len(got.Rows) != 1 {
+				t.Fatalf("len(Rows) = %d, want 1", len(got.Rows))
+			}
+			if len(got.Trades) != 0 {
+				t.Fatalf("len(Trades) = %d, want 0 for default array shape", len(got.Trades))
+			}
+			if !bytes.Contains(got.Rows[0][len(got.Rows[0])-1], []byte(tt.wantTradeField)) {
+				t.Fatalf("sector cell = %s, want %s", string(got.Rows[0][len(got.Rows[0])-1]), tt.wantTradeField)
 			}
 		})
 	}
@@ -490,6 +560,31 @@ func TestTradesCommandValidation(t *testing.T) {
 			name:    "negative limit fails",
 			args:    []string{"--date", "2026-04-30", "--limit", "-1"},
 			wantErr: "use a value of 1 or greater",
+		},
+		{
+			name:    "zero limit fails",
+			args:    []string{"--date", "2026-04-30", "--limit", "0"},
+			wantErr: "use a value of 1 or greater",
+		},
+		{
+			name:    "limit above maximum fails",
+			args:    []string{"--date", "2026-04-30", "--limit", "101"},
+			wantErr: "100 or less",
+		},
+		{
+			name:    "invalid field preset fails",
+			args:    []string{"--date", "2026-04-30", "--preset-fields", "everything"},
+			wantErr: "invalid preset-fields",
+		},
+		{
+			name:    "invalid shape fails",
+			args:    []string{"--date", "2026-04-30", "--shape", "table"},
+			wantErr: "invalid shape",
+		},
+		{
+			name:    "empty custom field fails",
+			args:    []string{"--date", "2026-04-30", "--fields", "Ticker,,Dollars"},
+			wantErr: "empty field",
 		},
 	}
 
@@ -706,19 +801,6 @@ func assertFormValue(t *testing.T, form url.Values, name, want string) {
 	if got := form.Get(name); got != want {
 		t.Fatalf("form[%s] = %q, want %q", name, got, want)
 	}
-}
-
-func tradesResponseJSON(draw, total, count int) string {
-	var builder strings.Builder
-	fmt.Fprintf(&builder, `{"draw":%d,"recordsTotal":%d,"recordsFiltered":%d,"data":[`, draw, total, total)
-	for i := range count {
-		if i > 0 {
-			builder.WriteByte(',')
-		}
-		fmt.Fprintf(&builder, `{"Ticker":"T%03d"}`, i)
-	}
-	builder.WriteString(`]}`)
-	return builder.String()
 }
 
 func withCommandDependencies(

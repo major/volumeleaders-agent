@@ -22,6 +22,11 @@ const (
 	dateLayout           = "2006-01-02"
 	defaultTradeLimit    = 100
 	defaultTradePageSize = 100
+	maxTradeLimit        = 100
+	defaultFieldPreset   = "core"
+	defaultOutputShape   = "array"
+	fullFieldPreset      = "full"
+	objectOutputShape    = "objects"
 	getTradesPath        = "https://www.volumeleaders.com/Trades/GetTrades"
 	tradesPage           = "https://www.volumeleaders.com/Trades"
 )
@@ -32,49 +37,104 @@ var (
 	getTradesHTTPClient = http.DefaultClient
 	getTradesEndpoint   = getTradesPath
 	tickerPattern       = regexp.MustCompile(`^[A-Z0-9.-]+$`)
+	nullJSON            = json.RawMessage("null")
 )
+
+var tradeFieldPresets = map[string][]string{
+	"core": {
+		"Ticker",
+		"FullTimeString24",
+		"Price",
+		"Dollars",
+		"DollarsMultiplier",
+		"Volume",
+		"TradeRank",
+		"DarkPool",
+		"Sweep",
+		"LatePrint",
+		"SignaturePrint",
+		"Sector",
+	},
+	"signals": {
+		"Ticker",
+		"FullTimeString24",
+		"Price",
+		"Dollars",
+		"DollarsMultiplier",
+		"Volume",
+		"CumulativeDistribution",
+		"TradeRank",
+		"TradeRankSnapshot",
+		"DarkPool",
+		"Sweep",
+		"LatePrint",
+		"SignaturePrint",
+		"PhantomPrint",
+		"InsideBar",
+		"RSIHour",
+		"RSIDay",
+		"FrequencyLast30TD",
+		"FrequencyLast90TD",
+		"FrequencyLast1CY",
+		"Sector",
+		"Industry",
+	},
+}
 
 // Options defines the LLM-readable contract for fetching unusual trades.
 type Options struct {
-	Date    string `flag:"date" flagshort:"d" flagdescr:"Single trading date to query, formatted as YYYY-MM-DD. The disproportionately large trades preset is intentionally limited to one day." flagenv:"true" flagrequired:"true" flaggroup:"Query" validate:"required" mod:"trim"`
-	Tickers string `flag:"tickers" flagdescr:"Optional ticker filter. Use one symbol or a comma-delimited list without spaces, for example AAPL or AAPL,MSFT." flagenv:"true" flaggroup:"Query" mod:"trim"`
-	Limit   int    `flag:"limit" flagdescr:"Maximum trade rows to return. Values above 100 fetch additional VolumeLeaders pages. Defaults to 100 when omitted." flagenv:"true" flaggroup:"Output"`
-	Pretty  bool   `flag:"pretty" flagdescr:"Pretty-print JSON output. Compact JSON is the default for token-efficient LLM and MCP use." flagenv:"true" flaggroup:"Output"`
+	Date         string `flag:"date" flagshort:"d" flagdescr:"Single trading date to query, formatted as YYYY-MM-DD. The disproportionately large trades preset is intentionally limited to one day." flagenv:"true" flagrequired:"true" flaggroup:"Query" validate:"required" mod:"trim"`
+	Tickers      string `flag:"tickers" flagdescr:"Optional ticker filter. Use one symbol or a comma-delimited list without spaces, for example AAPL or AAPL,MSFT." flagenv:"true" flaggroup:"Query" mod:"trim"`
+	Limit        int    `flag:"limit" flagdescr:"Maximum trade rows to return. Must be between 1 and 100. Defaults to 100 when omitted." flagenv:"true" flaggroup:"Output"`
+	Fields       string `flag:"fields" flagdescr:"Comma-separated trade fields to include. Overrides --preset-fields. Use upstream field names such as Ticker,Dollars,TradeRank." flagenv:"true" flaggroup:"Output" mod:"trim"`
+	PresetFields string `flag:"preset-fields" flagdescr:"Field preset to include: core, signals, or full. Defaults to core for token-efficient output." flagenv:"true" flaggroup:"Output" mod:"trim"`
+	Shape        string `flag:"shape" flagdescr:"Trade row shape: array or objects. Array is the default and is most token-efficient." flagenv:"true" flaggroup:"Output" mod:"trim"`
+	Pretty       bool   `flag:"pretty" flagdescr:"Pretty-print JSON output. Compact JSON is the default for token-efficient LLM and MCP use." flagenv:"true" flaggroup:"Output"`
 }
 
 // RankedOptions defines the LLM-readable contract for fetching all-time ranked trades.
 type RankedOptions struct {
-	Date    string `flag:"date" flagshort:"d" flagdescr:"Single trading date to query, formatted as YYYY-MM-DD. Ranked trade presets are intentionally limited to one day." flagenv:"true" flagrequired:"true" flaggroup:"Query" validate:"required" mod:"trim"`
-	Tickers string `flag:"tickers" flagdescr:"Optional ticker filter. Use one symbol or a comma-delimited list without spaces, for example AAPL or AAPL,MSFT." flagenv:"true" flaggroup:"Query" mod:"trim"`
-	Limit   int    `flag:"limit" flagdescr:"Maximum trade rows to return. Values above 100 fetch additional VolumeLeaders pages. Defaults to the command preset when omitted." flagenv:"true" flaggroup:"Output"`
-	Pretty  bool   `flag:"pretty" flagdescr:"Pretty-print JSON output. Compact JSON is the default for token-efficient LLM and MCP use." flagenv:"true" flaggroup:"Output"`
+	Date         string `flag:"date" flagshort:"d" flagdescr:"Single trading date to query, formatted as YYYY-MM-DD. Ranked trade presets are intentionally limited to one day." flagenv:"true" flagrequired:"true" flaggroup:"Query" validate:"required" mod:"trim"`
+	Tickers      string `flag:"tickers" flagdescr:"Optional ticker filter. Use one symbol or a comma-delimited list without spaces, for example AAPL or AAPL,MSFT." flagenv:"true" flaggroup:"Query" mod:"trim"`
+	Limit        int    `flag:"limit" flagdescr:"Maximum trade rows to return. Must be between 1 and 100. Defaults to the command preset when omitted." flagenv:"true" flaggroup:"Output"`
+	Fields       string `flag:"fields" flagdescr:"Comma-separated trade fields to include. Overrides --preset-fields. Use upstream field names such as Ticker,Dollars,TradeRank." flagenv:"true" flaggroup:"Output" mod:"trim"`
+	PresetFields string `flag:"preset-fields" flagdescr:"Field preset to include: core, signals, or full. Defaults to core for token-efficient output." flagenv:"true" flaggroup:"Output" mod:"trim"`
+	Shape        string `flag:"shape" flagdescr:"Trade row shape: array or objects. Array is the default and is most token-efficient." flagenv:"true" flaggroup:"Output" mod:"trim"`
+	Pretty       bool   `flag:"pretty" flagdescr:"Pretty-print JSON output. Compact JSON is the default for token-efficient LLM and MCP use." flagenv:"true" flaggroup:"Output"`
 }
 
 // SignalOptions defines the LLM-readable contract for fetching trade signal presets.
 type SignalOptions struct {
-	Date    string `flag:"date" flagshort:"d" flagdescr:"Single trading date to query, formatted as YYYY-MM-DD. Trade signal presets are intentionally limited to one day." flagenv:"true" flagrequired:"true" flaggroup:"Query" validate:"required" mod:"trim"`
-	Tickers string `flag:"tickers" flagdescr:"Optional ticker filter. Use one symbol or a comma-delimited list without spaces, for example AAPL or AAPL,MSFT." flagenv:"true" flaggroup:"Query" mod:"trim"`
-	Limit   int    `flag:"limit" flagdescr:"Maximum trade rows to return. Values above 100 fetch additional VolumeLeaders pages. Defaults to 100 when omitted." flagenv:"true" flaggroup:"Output"`
-	Pretty  bool   `flag:"pretty" flagdescr:"Pretty-print JSON output. Compact JSON is the default for token-efficient LLM and MCP use." flagenv:"true" flaggroup:"Output"`
+	Date         string `flag:"date" flagshort:"d" flagdescr:"Single trading date to query, formatted as YYYY-MM-DD. Trade signal presets are intentionally limited to one day." flagenv:"true" flagrequired:"true" flaggroup:"Query" validate:"required" mod:"trim"`
+	Tickers      string `flag:"tickers" flagdescr:"Optional ticker filter. Use one symbol or a comma-delimited list without spaces, for example AAPL or AAPL,MSFT." flagenv:"true" flaggroup:"Query" mod:"trim"`
+	Limit        int    `flag:"limit" flagdescr:"Maximum trade rows to return. Must be between 1 and 100. Defaults to 100 when omitted." flagenv:"true" flaggroup:"Output"`
+	Fields       string `flag:"fields" flagdescr:"Comma-separated trade fields to include. Overrides --preset-fields. Use upstream field names such as Ticker,Dollars,TradeRank." flagenv:"true" flaggroup:"Output" mod:"trim"`
+	PresetFields string `flag:"preset-fields" flagdescr:"Field preset to include: core, signals, or full. Defaults to core for token-efficient output." flagenv:"true" flaggroup:"Output" mod:"trim"`
+	Shape        string `flag:"shape" flagdescr:"Trade row shape: array or objects. Array is the default and is most token-efficient." flagenv:"true" flaggroup:"Output" mod:"trim"`
+	Pretty       bool   `flag:"pretty" flagdescr:"Pretty-print JSON output. Compact JSON is the default for token-efficient LLM and MCP use." flagenv:"true" flaggroup:"Output"`
 }
 
 // Result is the stable response shape for the unusual trades command.
 type Result struct {
-	Status          string            `json:"status"`
-	Date            string            `json:"date"`
-	RecordsTotal    int               `json:"recordsTotal"`
-	RecordsFiltered int               `json:"recordsFiltered"`
-	Trades          []json.RawMessage `json:"trades"`
+	Status          string              `json:"status"`
+	Date            string              `json:"date"`
+	RecordsTotal    int                 `json:"recordsTotal"`
+	RecordsFiltered int                 `json:"recordsFiltered"`
+	Fields          []string            `json:"fields,omitempty"`
+	Rows            [][]json.RawMessage `json:"rows,omitempty"`
+	Trades          []json.RawMessage   `json:"trades,omitempty"`
 }
 
 // RankedResult is the stable response shape for all-time ranked trade presets.
 type RankedResult struct {
-	Status          string            `json:"status"`
-	Date            string            `json:"date"`
-	RankLimit       int               `json:"rankLimit"`
-	RecordsTotal    int               `json:"recordsTotal"`
-	RecordsFiltered int               `json:"recordsFiltered"`
-	Trades          []json.RawMessage `json:"trades"`
+	Status          string              `json:"status"`
+	Date            string              `json:"date"`
+	RankLimit       int                 `json:"rankLimit"`
+	RecordsTotal    int                 `json:"recordsTotal"`
+	RecordsFiltered int                 `json:"recordsFiltered"`
+	Fields          []string            `json:"fields,omitempty"`
+	Rows            [][]json.RawMessage `json:"rows,omitempty"`
+	Trades          []json.RawMessage   `json:"trades,omitempty"`
 }
 
 type getTradesResponse struct {
@@ -332,7 +392,11 @@ func run(ctx context.Context, cmd *cobra.Command, opts *Options) error {
 	if err != nil {
 		return err
 	}
-	limit, err := normalizeLimit("trades", opts.Limit, defaultTradeLimit)
+	limit, err := normalizeLimit("trades", opts.Limit, defaultTradeLimit, cmd.Flags().Changed("limit"))
+	if err != nil {
+		return err
+	}
+	fields, shape, err := normalizeOutputOptions(opts.Fields, opts.PresetFields, opts.Shape)
 	if err != nil {
 		return err
 	}
@@ -347,10 +411,9 @@ func run(ctx context.Context, cmd *cobra.Command, opts *Options) error {
 		Date:            formattedDate,
 		RecordsTotal:    apiResponse.RecordsTotal,
 		RecordsFiltered: apiResponse.RecordsFiltered,
-		Trades:          apiResponse.Data,
 	}
-	if result.Trades == nil {
-		result.Trades = []json.RawMessage{}
+	if err := applyTradeOutput(&result, apiResponse.Data, fields, shape); err != nil {
+		return err
 	}
 
 	return encodeResult(cmd.OutOrStdout(), "trades", result, opts.Pretty)
@@ -361,7 +424,11 @@ func runRanked(ctx context.Context, cmd *cobra.Command, opts *RankedOptions, pre
 	if err != nil {
 		return err
 	}
-	limit, err := normalizeLimit(preset.use, opts.Limit, preset.length)
+	limit, err := normalizeLimit(preset.use, opts.Limit, preset.length, cmd.Flags().Changed("limit"))
+	if err != nil {
+		return err
+	}
+	fields, shape, err := normalizeOutputOptions(opts.Fields, opts.PresetFields, opts.Shape)
 	if err != nil {
 		return err
 	}
@@ -377,10 +444,9 @@ func runRanked(ctx context.Context, cmd *cobra.Command, opts *RankedOptions, pre
 		RankLimit:       preset.rank,
 		RecordsTotal:    apiResponse.RecordsTotal,
 		RecordsFiltered: apiResponse.RecordsFiltered,
-		Trades:          apiResponse.Data,
 	}
-	if result.Trades == nil {
-		result.Trades = []json.RawMessage{}
+	if err := applyRankedTradeOutput(&result, apiResponse.Data, fields, shape); err != nil {
+		return err
 	}
 
 	return encodeResult(cmd.OutOrStdout(), preset.use, result, opts.Pretty)
@@ -391,7 +457,11 @@ func runSignal(ctx context.Context, cmd *cobra.Command, opts *SignalOptions, pre
 	if err != nil {
 		return err
 	}
-	limit, err := normalizeLimit(preset.use, opts.Limit, defaultTradeLimit)
+	limit, err := normalizeLimit(preset.use, opts.Limit, defaultTradeLimit, cmd.Flags().Changed("limit"))
+	if err != nil {
+		return err
+	}
+	fields, shape, err := normalizeOutputOptions(opts.Fields, opts.PresetFields, opts.Shape)
 	if err != nil {
 		return err
 	}
@@ -406,10 +476,9 @@ func runSignal(ctx context.Context, cmd *cobra.Command, opts *SignalOptions, pre
 		Date:            formattedDate,
 		RecordsTotal:    apiResponse.RecordsTotal,
 		RecordsFiltered: apiResponse.RecordsFiltered,
-		Trades:          apiResponse.Data,
 	}
-	if result.Trades == nil {
-		result.Trades = []json.RawMessage{}
+	if err := applyTradeOutput(&result, apiResponse.Data, fields, shape); err != nil {
+		return err
 	}
 
 	return encodeResult(cmd.OutOrStdout(), preset.use, result, opts.Pretty)
@@ -420,7 +489,11 @@ func runLeverage(ctx context.Context, cmd *cobra.Command, opts *SignalOptions, p
 	if err != nil {
 		return err
 	}
-	limit, err := normalizeLimit(preset.use, opts.Limit, defaultTradeLimit)
+	limit, err := normalizeLimit(preset.use, opts.Limit, defaultTradeLimit, cmd.Flags().Changed("limit"))
+	if err != nil {
+		return err
+	}
+	fields, shape, err := normalizeOutputOptions(opts.Fields, opts.PresetFields, opts.Shape)
 	if err != nil {
 		return err
 	}
@@ -435,10 +508,9 @@ func runLeverage(ctx context.Context, cmd *cobra.Command, opts *SignalOptions, p
 		Date:            formattedDate,
 		RecordsTotal:    apiResponse.RecordsTotal,
 		RecordsFiltered: apiResponse.RecordsFiltered,
-		Trades:          apiResponse.Data,
 	}
-	if result.Trades == nil {
-		result.Trades = []json.RawMessage{}
+	if err := applyTradeOutput(&result, apiResponse.Data, fields, shape); err != nil {
+		return err
 	}
 
 	return encodeResult(cmd.OutOrStdout(), preset.use, result, opts.Pretty)
@@ -463,15 +535,187 @@ func parseDateAndTickers(ctx context.Context, cmdName, rawDate, rawTickers strin
 	return tradeDate.Format(dateLayout), tickers, nil
 }
 
-func normalizeLimit(cmdName string, rawLimit, defaultLimit int) (int, error) {
-	if rawLimit == 0 {
+func normalizeLimit(cmdName string, rawLimit, defaultLimit int, limitChanged bool) (int, error) {
+	if !limitChanged {
 		return defaultLimit, nil
 	}
 	if rawLimit < 1 {
 		return 0, fmt.Errorf("invalid %s limit %d: use a value of 1 or greater", cmdName, rawLimit)
 	}
+	if rawLimit > maxTradeLimit {
+		return 0, fmt.Errorf("invalid %s limit %d: use a value of %d or less", cmdName, rawLimit, maxTradeLimit)
+	}
 
 	return rawLimit, nil
+}
+
+func normalizeOutputOptions(rawFields, rawPreset, rawShape string) (fields []string, shape string, err error) {
+	shape = strings.ToLower(strings.TrimSpace(rawShape))
+	if shape == "" {
+		shape = defaultOutputShape
+	}
+	if shape != defaultOutputShape && shape != objectOutputShape {
+		return nil, "", fmt.Errorf("invalid shape %q: use array or objects", rawShape)
+	}
+
+	fields, err = normalizeFields(rawFields, rawPreset)
+	if err != nil {
+		return nil, "", err
+	}
+
+	return fields, shape, nil
+}
+
+func normalizeFields(rawFields, rawPreset string) ([]string, error) {
+	if strings.TrimSpace(rawFields) != "" {
+		return parseFields(rawFields)
+	}
+
+	preset := strings.ToLower(strings.TrimSpace(rawPreset))
+	if preset == "" {
+		preset = defaultFieldPreset
+	}
+	if preset == fullFieldPreset {
+		return nil, nil
+	}
+	fields, ok := tradeFieldPresets[preset]
+	if !ok {
+		return nil, fmt.Errorf("invalid preset-fields %q: use core, signals, or full", rawPreset)
+	}
+
+	return append([]string(nil), fields...), nil
+}
+
+func parseFields(rawFields string) ([]string, error) {
+	parts := strings.Split(rawFields, ",")
+	fields := make([]string, 0, len(parts))
+	seen := make(map[string]struct{}, len(parts))
+	for _, part := range parts {
+		field := strings.TrimSpace(part)
+		if field == "" {
+			return nil, fmt.Errorf("invalid fields %q: comma-delimited list contains an empty field", rawFields)
+		}
+		if strings.ContainsAny(field, " \t\n\r") {
+			return nil, fmt.Errorf("invalid field %q: field names cannot contain whitespace", field)
+		}
+		if _, ok := seen[field]; ok {
+			continue
+		}
+		seen[field] = struct{}{}
+		fields = append(fields, field)
+	}
+	if len(fields) == 0 {
+		return nil, fmt.Errorf("invalid fields %q: provide at least one field", rawFields)
+	}
+
+	return fields, nil
+}
+
+func applyTradeOutput(result *Result, trades []json.RawMessage, fields []string, shape string) error {
+	if trades == nil {
+		trades = []json.RawMessage{}
+	}
+	if fields == nil {
+		result.Trades = trades
+		return nil
+	}
+
+	result.Fields = fields
+	if shape == objectOutputShape {
+		projected, err := projectTradeObjects(trades, fields)
+		if err != nil {
+			return err
+		}
+		result.Trades = projected
+		return nil
+	}
+
+	rows, err := projectTradeRows(trades, fields)
+	if err != nil {
+		return err
+	}
+	result.Rows = rows
+	return nil
+}
+
+func applyRankedTradeOutput(result *RankedResult, trades []json.RawMessage, fields []string, shape string) error {
+	if trades == nil {
+		trades = []json.RawMessage{}
+	}
+	if fields == nil {
+		result.Trades = trades
+		return nil
+	}
+
+	result.Fields = fields
+	if shape == objectOutputShape {
+		projected, err := projectTradeObjects(trades, fields)
+		if err != nil {
+			return err
+		}
+		result.Trades = projected
+		return nil
+	}
+
+	rows, err := projectTradeRows(trades, fields)
+	if err != nil {
+		return err
+	}
+	result.Rows = rows
+	return nil
+}
+
+func projectTradeObjects(trades []json.RawMessage, fields []string) ([]json.RawMessage, error) {
+	projected := make([]json.RawMessage, 0, len(trades))
+	for _, trade := range trades {
+		object, err := decodeTradeObject(trade)
+		if err != nil {
+			return nil, err
+		}
+		row := make(map[string]json.RawMessage, len(fields))
+		for _, field := range fields {
+			if value, ok := object[field]; ok {
+				row[field] = value
+			}
+		}
+		encoded, err := json.Marshal(row)
+		if err != nil {
+			return nil, fmt.Errorf("encode projected trade row: %w", err)
+		}
+		projected = append(projected, encoded)
+	}
+
+	return projected, nil
+}
+
+func projectTradeRows(trades []json.RawMessage, fields []string) ([][]json.RawMessage, error) {
+	rows := make([][]json.RawMessage, 0, len(trades))
+	for _, trade := range trades {
+		object, err := decodeTradeObject(trade)
+		if err != nil {
+			return nil, err
+		}
+		row := make([]json.RawMessage, 0, len(fields))
+		for _, field := range fields {
+			value, ok := object[field]
+			if !ok {
+				value = nullJSON
+			}
+			row = append(row, value)
+		}
+		rows = append(rows, row)
+	}
+
+	return rows, nil
+}
+
+func decodeTradeObject(trade json.RawMessage) (map[string]json.RawMessage, error) {
+	var object map[string]json.RawMessage
+	if err := json.Unmarshal(trade, &object); err != nil {
+		return nil, fmt.Errorf("decode trade row: %w", err)
+	}
+
+	return object, nil
 }
 
 func encodeResult(w io.Writer, cmdName string, result any, pretty bool) error {
@@ -509,6 +753,9 @@ func fetchLeverageTrades(ctx context.Context, tradeDate, tickers string, preset 
 func fetchTradesPages(ctx context.Context, tradeDate, tickers string, options *getTradesRequestOptions, limit int) (getTradesResponse, error) {
 	if limit < 1 {
 		return getTradesResponse{}, fmt.Errorf("fetch GetTrades pages: limit must be 1 or greater")
+	}
+	if limit > maxTradeLimit {
+		return getTradesResponse{}, fmt.Errorf("fetch GetTrades pages: limit must be %d or less", maxTradeLimit)
 	}
 
 	var merged getTradesResponse

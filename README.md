@@ -26,14 +26,13 @@ make lint       # Run golangci-lint
 ```bash
 volumeleaders-agent trades --date 2026-04-30
 volumeleaders-agent trades --date 2026-04-30 --limit 10
-volumeleaders-agent trades --date 2026-04-30 --limit 250
 volumeleaders-agent trades --date 2026-04-30 --tickers AAPL,IONQ
 volumeleaders-agent trades --date 2026-04-30 --tickers AAPL,IONQ,AMZN
 ```
 
 The `trades` command fetches VolumeLeaders' default Disproportionately large trades preset for one trading day. The upstream filter is intended for a single day of data, so the CLI exposes only `--date` and sends the same value as both `StartDate` and `EndDate` in the `Trades/GetTrades` request. Add `--tickers` to filter the preset to one ticker or a comma-delimited ticker list without spaces.
 
-The command returns compact, stable JSON with the requested date, DataTables record counts, and raw trade objects from VolumeLeaders. Use `--limit` to control the total number of returned rows for token-efficient LLM workflows. Values above 100 automatically fetch additional VolumeLeaders result pages using the upstream DataTables pagination parameters. Use `--pretty` when reading the JSON directly. JSON examples in this README are formatted for readability:
+Trade commands return compact, stable JSON with the requested date, DataTables record counts, field names, and array rows by default. The default `--preset-fields core --shape array` output is optimized for token-efficient LLM workflows by emitting field names once and then returning each trade as an array in that order. Use `--limit` to control the total number of returned rows. Limits must be between 1 and 100, and omitted limits default to 100 for broad trade presets so the CLI never requests oversized result sets from VolumeLeaders. Use `--pretty` when reading the JSON directly. JSON examples in this README are formatted for readability:
 
 ```json
 {
@@ -41,18 +40,14 @@ The command returns compact, stable JSON with the requested date, DataTables rec
   "date": "2026-04-30",
   "recordsTotal": 1492,
   "recordsFiltered": 1492,
-  "trades": [
-    {
-      "Ticker": "KRE",
-      "FullTimeString24": "17:47:49",
-      "Dollars": 17501965.25,
-      "DollarsMultiplier": 5.019755999966191
-    }
+  "fields": ["Ticker", "FullTimeString24", "Price", "Dollars", "DollarsMultiplier", "Volume", "TradeRank", "DarkPool", "Sweep", "LatePrint", "SignaturePrint", "Sector"],
+  "rows": [
+    ["KRE", "17:47:49", 59.12, 17501965.25, 5.019755999966191, 296050, 16, false, false, false, true, "Financials"]
   ]
 }
 ```
 
-All trade commands support `--limit` and `--pretty`. Structcli features are available from the scaffold:
+All top-level trade commands support `--limit`, `--fields`, `--preset-fields core|signals|full`, `--shape array|objects`, and `--pretty`. Use `--preset-fields signals` for a richer LLM-friendly projection, `--fields Ticker,Dollars,TradeRank` for a custom projection, `--shape objects` when repeated key names are acceptable, or `--preset-fields full` to return raw upstream `trades` objects. Structcli features are available from the scaffold:
 
 ```bash
 volumeleaders-agent --jsonschema=tree  # Full command schema for agents
@@ -69,13 +64,12 @@ The date flag can also be set with the environment variable shown by `volumelead
 volumeleaders-agent top10 --date 2026-04-30
 volumeleaders-agent top100 --date 2026-04-30
 volumeleaders-agent top100 --date 2026-04-30 --limit 25
-volumeleaders-agent top100 --date 2026-04-30 --limit 250
 volumeleaders-agent top10 --date 2026-04-30 --tickers AAPL,MSFT
 ```
 
 The `top10` and `top100` commands fetch trades from one trading day where each trade ranks in the stock's all-time largest single trades. A `TradeRank` of `1` is the biggest single trade VolumeLeaders has recorded for that stock, while `10` means the tenth biggest. Both commands use the same `Trades/GetTrades` auth and response handling as `trades`, but they apply the ranked-trade presets captured from VolumeLeaders.
 
-The ranked commands return compact, stable JSON with the requested date, rank limit, DataTables record counts, and raw trade objects. Use `--limit` to override the command preset row count and fetch additional pages when needed, or `--pretty` when reading the JSON directly:
+The ranked commands return the same token-efficient trade output shape as `trades`, with an added `rankLimit` value. Use `--limit` to override the command preset row count, up to the same hard maximum of 100 rows:
 
 ```json
 {
@@ -84,12 +78,9 @@ The ranked commands return compact, stable JSON with the requested date, rank li
   "rankLimit": 10,
   "recordsTotal": 76,
   "recordsFiltered": 76,
-  "trades": [
-    {
-      "Ticker": "SNDQ",
-      "TradeRank": 1,
-      "Dollars": 15623499.12
-    }
+  "fields": ["Ticker", "FullTimeString24", "Price", "Dollars", "DollarsMultiplier", "Volume", "TradeRank", "DarkPool", "Sweep", "LatePrint", "SignaturePrint", "Sector"],
+  "rows": [
+    ["SNDQ", "09:54:09", 28.07, 15623499.12, 29.4, 556520, 1, true, false, false, true, "ETF"]
   ]
 }
 ```
@@ -105,7 +96,7 @@ volumeleaders-agent phantom --date 2026-04-30 --tickers PLTR,NVDA
 
 The `phantom` command fetches trades where VolumeLeaders marks the trade price as far from the current price. These prints can hint at where price may move later, but they are not guaranteed signals. The `offsetting` command fetches trades where nearly matching share sizes appear on different dates, which can hint that a trader entered and later exited a position.
 
-Both commands use the same `Trades/GetTrades` auth and response handling as `trades`, and both return compact, stable JSON with the requested date, DataTables record counts, and raw trade objects:
+Both commands use the same `Trades/GetTrades` auth and response handling as `trades`, and both return the same token-efficient trade output shape by default. Use `--preset-fields full` when you need signal-specific raw fields such as `PhantomPrint` or `OffsettingTradeDate` that are not part of the core default:
 
 ```json
 {
@@ -113,13 +104,9 @@ Both commands use the same `Trades/GetTrades` auth and response handling as `tra
   "date": "2026-04-30",
   "recordsTotal": 12,
   "recordsFiltered": 12,
-  "trades": [
-    {
-      "Ticker": "PLTR",
-      "PhantomPrint": 1,
-      "OffsettingTradeDate": "/Date(-2208988800000)/",
-      "Dollars": 1739337.39
-    }
+  "fields": ["Ticker", "FullTimeString24", "Price", "Dollars", "DollarsMultiplier", "Volume", "TradeRank", "DarkPool", "Sweep", "LatePrint", "SignaturePrint", "Sector"],
+  "rows": [
+    ["PLTR", "15:59:58", 112.47, 1739337.39, 6.7, 15465, 54, true, false, false, false, "Technology"]
   ]
 }
 ```
@@ -135,7 +122,7 @@ volumeleaders-agent bull-leverage --date 2026-04-30 --tickers TQQQ
 
 The `bull-leverage` and `bear-leverage` commands fetch one day of leveraged ETF trades from VolumeLeaders. They use the same `Trades/GetTrades` auth and response handling as `trades`, but apply the upstream bullish (`X Bull`) or bearish (`X Bear`) leveraged ETF preset captured from VolumeLeaders.
 
-Both commands return compact, stable JSON with the requested date, DataTables record counts, and raw trade objects:
+Both commands return the same token-efficient trade output shape by default:
 
 ```json
 {
@@ -143,13 +130,9 @@ Both commands return compact, stable JSON with the requested date, DataTables re
   "date": "2026-04-30",
   "recordsTotal": 8,
   "recordsFiltered": 8,
-  "trades": [
-    {
-      "Ticker": "TQQQ",
-      "Sector": "3x Bull Nasdaq",
-      "Dollars": 14846502.24,
-      "DollarsMultiplier": 11.96
-    }
+  "fields": ["Ticker", "FullTimeString24", "Price", "Dollars", "DollarsMultiplier", "Volume", "TradeRank", "DarkPool", "Sweep", "LatePrint", "SignaturePrint", "Sector"],
+  "rows": [
+    ["TQQQ", "10:08:39", 75.91, 14846502.24, 11.96, 195579, 22, true, false, false, true, "3x Bull Nasdaq"]
   ]
 }
 ```

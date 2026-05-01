@@ -43,3 +43,4 @@ coverage.out
 .playwright-cli
 .sisyphus
 .git-bak
+*.har

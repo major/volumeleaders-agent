@@ -33,6 +33,19 @@ var requiredCookieNames = []string{"ASP.NET_SessionId", ".ASPXAUTH"}
 
 var xsrfTokenPattern = regexp.MustCompile(`<input\s+name="__RequestVerificationToken"\s+type="hidden"\s+value="([^"]+)"`)
 
+// BrowserHeaders contains the 9 browser-fingerprint headers that mimic Chrome 147 on Windows.
+var BrowserHeaders = map[string]string{
+	"User-Agent":         UserAgent,
+	"Sec-Ch-Ua":          `"Chromium";v="147", "Not A(Brand";v="24", "Google Chrome";v="147"`,
+	"Sec-Ch-Ua-Mobile":   "?0",
+	"Sec-Ch-Ua-Platform": `"Windows"`,
+	"Sec-Fetch-Dest":     "empty",
+	"Sec-Fetch-Mode":     "cors",
+	"Sec-Fetch-Site":     "same-origin",
+	"Accept-Language":    "en-US,en;q=0.9",
+	"Accept-Encoding":    "gzip, deflate, br",
+}
+
 type sessionExpiredError struct {
 	redirectPath string
 }
@@ -210,13 +223,7 @@ func normalizeRedirectPath(redirectPath string) string {
 }
 
 func setBrowserHeaders(req *http.Request) {
-	req.Header.Set("User-Agent", UserAgent)
-	req.Header.Set("Sec-Ch-Ua", `"Chromium";v="147", "Not A(Brand";v="24", "Google Chrome";v="147"`)
-	req.Header.Set("Sec-Ch-Ua-Mobile", "?0")
-	req.Header.Set("Sec-Ch-Ua-Platform", `"Windows"`)
-	req.Header.Set("Sec-Fetch-Dest", "empty")
-	req.Header.Set("Sec-Fetch-Mode", "cors")
-	req.Header.Set("Sec-Fetch-Site", "same-origin")
-	req.Header.Set("Accept-Language", "en-US,en;q=0.9")
-	req.Header.Set("Accept-Encoding", "gzip, deflate, br")
+	for k, v := range BrowserHeaders {
+		req.Header.Set(k, v)
+	}
 }

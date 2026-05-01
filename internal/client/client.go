@@ -96,20 +96,14 @@ func New(ctx context.Context) (*Client, error) {
 
 func buildRequestMiddleware(xsrfToken string) resty.RequestMiddleware {
 	return func(_ *resty.Client, req *resty.Request) error {
-		req.SetHeaders(map[string]string{
-			"User-Agent":         auth.UserAgent,
-			"x-xsrf-token":       xsrfToken,
-			"x-requested-with":   "XMLHttpRequest",
-			"Accept":             "application/json, text/javascript, */*; q=0.01",
-			"Sec-Ch-Ua":          `"Chromium";v="147", "Not A(Brand";v="24", "Google Chrome";v="147"`,
-			"Sec-Ch-Ua-Mobile":   "?0",
-			"Sec-Ch-Ua-Platform": `"Windows"`,
-			"Sec-Fetch-Dest":     "empty",
-			"Sec-Fetch-Mode":     "cors",
-			"Sec-Fetch-Site":     "same-origin",
-			"Accept-Language":    "en-US,en;q=0.9",
-			"Accept-Encoding":    "gzip, deflate, br",
-		})
+		// Set shared browser headers
+		for k, v := range auth.BrowserHeaders {
+			req.SetHeader(k, v)
+		}
+		// Set API-specific headers
+		req.SetHeader("x-xsrf-token", xsrfToken)
+		req.SetHeader("x-requested-with", "XMLHttpRequest")
+		req.SetHeader("Accept", "application/json, text/javascript, */*; q=0.01")
 		// Only set default Content-Type if the caller hasn't already specified one.
 		if req.Header.Get("Content-Type") == "" {
 			req.SetHeader("Content-Type", "application/x-www-form-urlencoded; charset=UTF-8")

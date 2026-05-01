@@ -342,18 +342,7 @@ func (t rewriteHostTransport) RoundTrip(req *http.Request) (*http.Response, erro
 func assertBrowserHeaders(t *testing.T, r *http.Request) {
 	t.Helper()
 
-	checks := map[string]string{
-		"User-Agent":         UserAgent,
-		"Sec-Ch-Ua":          `"Chromium";v="147", "Not A(Brand";v="24", "Google Chrome";v="147"`,
-		"Sec-Ch-Ua-Mobile":   "?0",
-		"Sec-Ch-Ua-Platform": `"Windows"`,
-		"Sec-Fetch-Dest":     "empty",
-		"Sec-Fetch-Mode":     "cors",
-		"Sec-Fetch-Site":     "same-origin",
-		"Accept-Language":    "en-US,en;q=0.9",
-		"Accept-Encoding":    "gzip, deflate, br",
-	}
-	for key, expected := range checks {
+	for key, expected := range BrowserHeaders {
 		if got := r.Header.Get(key); got != expected {
 			t.Errorf("%s: expected %q, got %q", key, expected, got)
 		}

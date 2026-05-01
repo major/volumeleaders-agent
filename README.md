@@ -87,6 +87,34 @@ Trade levels use the same compact output controls as trade commands: `--fields`,
 
 Captured filters include `--min-dollars`, `--max-dollars`, `--min-volume`, `--max-volume`, `--min-price`, `--max-price`, `--vcd`, `--relative-size`, `--trade-level-rank`, and `--trade-level-count`. Use `--preset-fields expanded` when an LLM needs company context or upstream timestamps. Use `--preset-fields full` only for raw debugging.
 
+## Trade level touches
+
+```bash
+volumeleaders-agent trade-level-touches
+volumeleaders-agent trade-level-touches --start-date 2026-04-24 --end-date 2026-05-01
+volumeleaders-agent trade-level-touches --ticker MSFT --start-date 2025-05-01 --end-date 2026-05-01 --limit 25
+```
+
+The `trade-level-touches` command fetches the `TradeLevelTouches/GetTradeLevelTouches` table. A trade level touch records when price comes back from above or below to test a ranked large-trade level, which is useful for support and resistance workflows. VolumeLeaders enforces a 7-day maximum when querying all tickers or multiple comma-delimited tickers, so the command defaults those scans to the last 7 days and rejects wider ranges. Exactly one ticker can use a wider range; when `--tickers` contains one symbol and `--start-date` is omitted, the command defaults to a one-year lookback.
+
+The captured browser default is `TradeLevelRank=10`, meaning ranks 1 through 10. Output rows are emitted under `levelTouches` for `--shape objects` or `--preset-fields full`; default array output uses the visible touch table fields:
+
+```json
+{
+  "status": "ok",
+  "startDate": "2026-04-24",
+  "endDate": "2026-05-01",
+  "recordsTotal": 11,
+  "recordsFiltered": 11,
+  "fields": ["Ticker", "FullDateTime", "Price", "Dollars", "Volume", "Trades", "RelativeSize", "CumulativeDistribution", "TradeLevelRank", "Dates", "Sector", "Industry"],
+  "rows": [
+    ["MSFT", "2026-05-01 : 10:59:00", 413.6, 13744031091.14, 33228468, 117, 13.8, 0.9926, 10, "2024-02-29 - 2026-02-09", "Technology", "Software"]
+  ]
+}
+```
+
+Captured filters include `--min-dollars`, `--max-dollars`, `--min-volume`, `--max-volume`, `--min-price`, `--max-price`, `--vcd`, `--relative-size`, `--trade-level-rank`, and `--sector-industry`. The date and filter flags can also be set with environment variables such as `VOLUMELEADERS_AGENT_TRADE_LEVEL_TOUCHES_START_DATE`, `VOLUMELEADERS_AGENT_TRADE_LEVEL_TOUCHES_END_DATE`, and `VOLUMELEADERS_AGENT_TRADE_LEVEL_TOUCHES_TICKERS`.
+
 ## Watchlists
 
 ```bash

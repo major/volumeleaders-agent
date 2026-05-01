@@ -1,10 +1,10 @@
-# Trade, cluster, level, and watchlist fields
+# Trade, cluster, level, touch, and watchlist fields
 
-This page explains the upstream VolumeLeaders trade, cluster, level, and watchlist JSON fields used by the CLI presets. Keep the CLI help and structcli metadata token-efficient; use this page for longer field notes from `annotated-trade.jsonc`, `annotated-cluster.jsonc`, captured trade-level responses, and `Getwatchlists.jsonc`.
+This page explains the upstream VolumeLeaders trade, cluster, level, touch, and watchlist JSON fields used by the CLI presets. Keep the CLI help and structcli metadata token-efficient; use this page for longer field notes from `annotated-trade.jsonc`, `annotated-cluster.jsonc`, captured trade-level responses, captured trade-level-touch responses, and `Getwatchlists.jsonc`.
 
 ## Presets
 
-- Trade, cluster, trade-cluster-bomb, and trade-level `core`: compact default for LLM workflows. Trades and clusters emit the most useful table fields plus derived `CalendarEvent` and `AuctionTrade` where available. Trade cluster bombs emit the visible cluster-bomb table fields plus derived `CalendarEvent`. Trade levels emit the visible level table fields.
+- Trade, cluster, trade-cluster-bomb, trade-level, and trade-level-touch `core`: compact default for LLM workflows. Trades and clusters emit the most useful table fields plus derived `CalendarEvent` and `AuctionTrade` where available. Trade cluster bombs emit the visible cluster-bomb table fields plus derived `CalendarEvent`. Trade levels and level touches emit the visible level table fields.
 - Watchlist `summary`: compact watchlist default with only `SearchTemplateKey` and `Name`, so callers can choose a saved filter before requesting details.
 - `expanded`: all annotated non-internal signal fields for trades and clusters, or the saved filter configuration fields for watchlists. Still excludes raw upstream internals, always-zero fields, and always-null fields.
 - `full`: raw upstream payload. Use only for debugging or when a field has not been classified yet.
@@ -92,6 +92,22 @@ The `trade-levels` command fetches one ticker's level table from `TradeLevels/Ge
 - `TradeLevelRank`: all-time level rank when VolumeLeaders marks the level as ranked. Captured BAND output included ranks such as `44`, `81`, `89`, and `98`, while unranked rows used `0`.
 - `TradeLevelTouches`: upstream touch count for the level.
 - `Dates`: upstream level date range string, for example `2022-07-27 - 2026-04-13`.
+- `TotalRows`: upstream total row count used as a fallback when DataTables record totals are omitted.
+
+## Trade level touch fields
+
+The `trade-level-touches` command fetches `TradeLevelTouches/GetTradeLevelTouches` across a date range. A touch happens when price returns from above or below to test a ranked large-trade level, so these rows are support/resistance context tied to the rank of the touched level on that day. VolumeLeaders accepts at most 7 days when querying all tickers or multiple comma-delimited tickers, so those scans default to 7 days and reject wider requested ranges. Single-ticker scans default to a one-year lookback when `--start-date` is omitted. The captured browser default is `TradeLevelRank=10`, meaning ranks 1 through 10.
+
+Default `core` fields are `Ticker`, `FullDateTime`, `Price`, `Dollars`, `Volume`, `Trades`, `RelativeSize`, `CumulativeDistribution`, `TradeLevelRank`, `Dates`, `Sector`, and `Industry`.
+
+- `FullDateTime`, `FullTimeString24`: timestamp for the price touch event.
+- `Date`, `MinDate`, `MaxDate`, and `Dates`: date context for the touched level. `Dates` is the browser's level date range string.
+- `Price`: the support or resistance level touched by price.
+- `Dollars`, `Volume`, and `Trades`: aggregate large-trade size behind the touched level.
+- `RelativeSize`: the level's relative size versus the ticker's average dollar trade size.
+- `CumulativeDistribution`: percentile-like size distribution for the touched level, shown as `PCT` in the browser table.
+- `TradeLevelRank`: touched level rank on the touch date. The command defaults the request filter to `10`, which returns ranks 1 through 10.
+- `TradeLevelTouches`: upstream touch count for the level in the captured row.
 - `TotalRows`: upstream total row count used as a fallback when DataTables record totals are omitted.
 
 ## Watchlist fields

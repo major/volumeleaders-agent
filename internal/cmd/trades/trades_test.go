@@ -326,6 +326,182 @@ func TestNormalizeTradeClusterBombDateRangeSingleTickerAllowsLongerRange(t *test
 	}
 }
 
+func TestTradeLevelTouchesCommand(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		options := defaultGetTradeLevelTouchesRequestOptions()
+		options.length = 2
+		assertGetTradeLevelTouchesRequestWithOptions(t, r, "2026-04-24", "2026-05-01", "AAPL,AMZN", &options)
+		fmt.Fprint(w, `{"draw":1,"data":[{"Ticker":"MSFT","Sector":"Technology","Industry":"Software","FullDateTime":"2026-05-01 : 10:59:00","Price":413.6,"Dollars":13744031091.14,"Volume":33228468,"Trades":117,"RelativeSize":13.8,"CumulativeDistribution":0.9926,"TradeLevelRank":10,"Dates":"2024-02-29 - 2026-02-09","TotalRows":11},{"Ticker":"AAPL","Sector":"Technology","Industry":"Consumer Electronics","FullDateTime":"2026-05-01 : 11:10:00","Price":208.2,"Dollars":987654321.12,"Volume":4743776,"Trades":31,"RelativeSize":4.2,"CumulativeDistribution":0.978,"TradeLevelRank":3,"Dates":"2024-08-12 - 2026-01-20","TotalRows":11}]}`)
+	}))
+	t.Cleanup(server.Close)
+
+	withCommandDependencies(t, server.Client(), server.URL, nil, nil)
+
+	cmd, err := NewTradeLevelTouchesCommand()
+	if err != nil {
+		t.Fatalf("NewTradeLevelTouchesCommand() error = %v", err)
+	}
+
+	var stdout bytes.Buffer
+	cmd.SetOut(&stdout)
+	cmd.SetErr(io.Discard)
+	cmd.SetArgs([]string{"--start-date", "2026-04-24", "--end-date", "2026-05-01", "--tickers", "aapl,amzn", "--limit", "2"})
+
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("Execute() error = %v", err)
+	}
+
+	var got LevelTouchResult
+	if err := json.Unmarshal(stdout.Bytes(), &got); err != nil {
+		t.Fatalf("unmarshal output: %v\noutput: %s", err, stdout.String())
+	}
+	if got.Status != "ok" {
+		t.Fatalf("Status = %q, want ok", got.Status)
+	}
+	if got.StartDate != "2026-04-24" || got.EndDate != "2026-05-01" {
+		t.Fatalf("date range = %s/%s, want 2026-04-24/2026-05-01", got.StartDate, got.EndDate)
+	}
+	if got.RecordsTotal != 11 || got.RecordsFiltered != 11 {
+		t.Fatalf("record counts = %d/%d, want inferred 11/11", got.RecordsTotal, got.RecordsFiltered)
+	}
+	if strings.Join(got.Fields, ",") != strings.Join(tradeLevelTouchFieldPresets["core"], ",") {
+		t.Fatalf("Fields = %v, want core trade level touch fields", got.Fields)
+	}
+	if len(got.Rows) != 2 {
+		t.Fatalf("len(Rows) = %d, want 2", len(got.Rows))
+	}
+	if len(got.LevelTouches) != 0 {
+		t.Fatalf("len(LevelTouches) = %d, want 0 for default array shape", len(got.LevelTouches))
+	}
+	if string(got.Rows[0][0]) != `"MSFT"` {
+		t.Fatalf("first row ticker = %s, want MSFT", string(got.Rows[0][0]))
+	}
+	rankIndex := fieldIndex(t, got.Fields, "TradeLevelRank")
+	if string(got.Rows[1][rankIndex]) != "3" {
+		t.Fatalf("second trade level rank = %s, want 3", string(got.Rows[1][rankIndex]))
+	}
+}
+
+func TestTradeLevelTouchesCommandObjectShapeAndCustomFields(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		options := defaultGetTradeLevelTouchesRequestOptions()
+		options.minDollars = "1000000"
+		options.relativeSize = "5"
+		options.tradeLevelRank = 3
+		options.sectorIndustry = "Technology"
+		options.length = 1
+		assertGetTradeLevelTouchesRequestWithOptions(t, r, "2025-05-01", "2026-05-01", "MSFT", &options)
+		fmt.Fprint(w, `{"draw":1,"recordsTotal":1,"recordsFiltered":1,"data":[{"Ticker":"MSFT","Price":413.6,"TradeLevelRank":3,"Ignored":true,"TotalRows":1}]}`)
+	}))
+	t.Cleanup(server.Close)
+
+	withCommandDependencies(t, server.Client(), server.URL, nil, nil)
+
+	cmd, err := NewTradeLevelTouchesCommand()
+	if err != nil {
+		t.Fatalf("NewTradeLevelTouchesCommand() error = %v", err)
+	}
+
+	var stdout bytes.Buffer
+	cmd.SetOut(&stdout)
+	cmd.SetErr(io.Discard)
+	cmd.SetArgs([]string{"--start-date", "2025-05-01", "--end-date", "2026-05-01", "--ticker", "msft", "--min-dollars", "1000000", "--relative-size", "5", "--trade-level-rank", "3", "--sector-industry", "Technology", "--limit", "1", "--fields", "Ticker,Price,TradeLevelRank", "--shape", "objects"})
+
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("Execute() error = %v", err)
+	}
+
+	var got LevelTouchResult
+	if err := json.Unmarshal(stdout.Bytes(), &got); err != nil {
+		t.Fatalf("unmarshal output: %v\noutput: %s", err, stdout.String())
+	}
+	if strings.Join(got.Fields, ",") != "Ticker,Price,TradeLevelRank" {
+		t.Fatalf("Fields = %v, want custom level touch fields", got.Fields)
+	}
+	if len(got.LevelTouches) != 1 {
+		t.Fatalf("len(LevelTouches) = %d, want 1", len(got.LevelTouches))
+	}
+	if !bytes.Contains(got.LevelTouches[0], []byte(`"TradeLevelRank":3`)) || bytes.Contains(got.LevelTouches[0], []byte("Ignored")) {
+		t.Fatalf("projected level touch payload = %s", string(got.LevelTouches[0]))
+	}
+}
+
+func TestNormalizeTradeLevelTouchesDateRangeDefaults(t *testing.T) {
+	tests := []struct {
+		name      string
+		endDate   string
+		tickers   string
+		wantStart string
+	}{
+		{
+			name:      "broad scan defaults to seven days",
+			endDate:   "2026-05-01",
+			wantStart: "2026-04-24",
+		},
+		{
+			name:      "multi-ticker scan defaults to seven days",
+			endDate:   "2026-05-01",
+			tickers:   "AAPL,AMZN",
+			wantStart: "2026-04-24",
+		},
+		{
+			name:      "single-ticker scan defaults to one year",
+			endDate:   "2026-05-01",
+			tickers:   "AAPL",
+			wantStart: "2025-05-01",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotStart, gotEnd, err := normalizeTradeLevelTouchesDateRange("", tt.endDate, tt.tickers)
+			if err != nil {
+				t.Fatalf("normalizeTradeLevelTouchesDateRange() error = %v", err)
+			}
+			if gotStart != tt.wantStart || gotEnd != tt.endDate {
+				t.Fatalf("date range = %s/%s, want %s/%s", gotStart, gotEnd, tt.wantStart, tt.endDate)
+			}
+		})
+	}
+}
+
+func TestNormalizeTradeLevelTouchesDateRangeSevenDayLimit(t *testing.T) {
+	tests := []struct {
+		name    string
+		tickers string
+	}{
+		{
+			name: "all-ticker scan over seven days fails",
+		},
+		{
+			name:    "multi-ticker scan over seven days fails",
+			tickers: "AAPL,AMZN",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, _, err := normalizeTradeLevelTouchesDateRange("2026-04-23", "2026-05-01", tt.tickers)
+			if err == nil {
+				t.Fatal("expected date range error")
+			}
+			if !strings.Contains(err.Error(), "trade-level-touches accepts at most 7 days") {
+				t.Fatalf("error = %v, want trade-level-touches seven-day limit context", err)
+			}
+		})
+	}
+}
+
+func TestNormalizeTradeLevelTouchesDateRangeSingleTickerAllowsLongerRange(t *testing.T) {
+	gotStart, gotEnd, err := normalizeTradeLevelTouchesDateRange("2025-05-01", "2026-05-01", "AAPL")
+	if err != nil {
+		t.Fatalf("normalizeTradeLevelTouchesDateRange() error = %v", err)
+	}
+	if gotStart != "2025-05-01" || gotEnd != "2026-05-01" {
+		t.Fatalf("date range = %s/%s, want 2025-05-01/2026-05-01", gotStart, gotEnd)
+	}
+}
+
 func TestTradeLevelsCommand(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		options := defaultGetTradeLevelsRequestOptions()
@@ -2325,6 +2501,64 @@ func assertGetTradeLevelsRequestWithOptions(t *testing.T, r *http.Request, start
 	}
 }
 
+func assertGetTradeLevelTouchesRequestWithOptions(t *testing.T, r *http.Request, startDate, endDate, tickers string, options *getTradeLevelTouchesRequestOptions) {
+	t.Helper()
+
+	if r.Method != http.MethodPost {
+		t.Fatalf("method = %s, want POST", r.Method)
+	}
+	if got := r.Header.Get("Content-Type"); got != "application/x-www-form-urlencoded; charset=UTF-8" {
+		t.Fatalf("Content-Type = %q", got)
+	}
+	if got := r.Header.Get("Accept"); got != "application/json, text/javascript, */*; q=0.01" {
+		t.Fatalf("Accept = %q", got)
+	}
+	if got := r.Header.Get("Accept-Encoding"); got != "gzip" {
+		t.Fatalf("Accept-Encoding = %q", got)
+	}
+	if got := r.Header.Get("User-Agent"); got != auth.UserAgent {
+		t.Fatalf("User-Agent = %q", got)
+	}
+	if got := r.Header.Get("X-XSRF-Token"); got != "xsrf-token" {
+		t.Fatalf("X-XSRF-Token = %q", got)
+	}
+	if got := r.Header.Get("X-Requested-With"); got != "XMLHttpRequest" {
+		t.Fatalf("X-Requested-With = %q", got)
+	}
+	if got := r.Header.Get("Origin"); got != "https://www.volumeleaders.com" {
+		t.Fatalf("Origin = %q", got)
+	}
+	if got := r.Header.Get("Referer"); !strings.Contains(got, "TradeLevelTouches") || !strings.Contains(got, "StartDate="+url.QueryEscape(startDate)) || !strings.Contains(got, "EndDate="+url.QueryEscape(endDate)) || !strings.Contains(got, "Tickers="+url.QueryEscape(tickers)) {
+		t.Fatalf("Referer = %q, want trade level touches date range and tickers", got)
+	}
+	assertCookie(t, r, "ASP.NET_SessionId", "session-cookie")
+	assertCookie(t, r, ".ASPXAUTH", "auth-cookie")
+	assertCookie(t, r, "__RequestVerificationToken", "cookie-token")
+
+	if err := r.ParseForm(); err != nil {
+		t.Fatalf("ParseForm() error = %v", err)
+	}
+	assertFormValue(t, r.Form, "Tickers", tickers)
+	assertFormValue(t, r.Form, "StartDate", startDate)
+	assertFormValue(t, r.Form, "EndDate", endDate)
+	assertFormValue(t, r.Form, "MinDollars", options.minDollars)
+	assertFormValue(t, r.Form, "MaxDollars", options.maxDollars)
+	assertFormValue(t, r.Form, "MinVolume", options.minVolume)
+	assertFormValue(t, r.Form, "MaxVolume", options.maxVolume)
+	assertFormValue(t, r.Form, "MinPrice", options.minPrice)
+	assertFormValue(t, r.Form, "MaxPrice", options.maxPrice)
+	assertFormValue(t, r.Form, "VCD", options.vcd)
+	assertFormValue(t, r.Form, "RelativeSize", options.relativeSize)
+	assertFormValue(t, r.Form, "TradeLevelRank", fmt.Sprintf("%d", options.tradeLevelRank))
+	assertFormValue(t, r.Form, "SectorIndustry", options.sectorIndustry)
+	assertFormValue(t, r.Form, "order[0][column]", "0")
+	assertFormValue(t, r.Form, "order[0][name]", "FullDateTime")
+	wantForm := getTradeLevelTouchesForm(startDate, endDate, tickers, options)
+	if r.Form.Encode() != wantForm.Encode() {
+		t.Fatalf("form mismatch\ngot:  %s\nwant: %s", r.Form.Encode(), wantForm.Encode())
+	}
+}
+
 func assertCookie(t *testing.T, r *http.Request, name, want string) {
 	t.Helper()
 
@@ -2364,6 +2598,7 @@ func withCommandDependencies(
 	oldEndpoint := getTradesEndpoint
 	oldClusterEndpoint := getTradeClustersEndpoint
 	oldClusterBombsEndpoint := getTradeClusterBombsEndpoint
+	oldLevelTouchesEndpoint := getTradeLevelTouchesEndpoint
 	oldLevelsEndpoint := getTradeLevelsEndpoint
 	oldExtract := extractCookies
 	oldFetch := fetchXSRFToken
@@ -2371,6 +2606,7 @@ func withCommandDependencies(
 	getTradesEndpoint = endpoint
 	getTradeClustersEndpoint = endpoint
 	getTradeClusterBombsEndpoint = endpoint
+	getTradeLevelTouchesEndpoint = endpoint
 	getTradeLevelsEndpoint = endpoint
 	if extract == nil {
 		extract = func(context.Context) (map[string]string, error) {
@@ -2393,6 +2629,7 @@ func withCommandDependencies(
 		getTradesEndpoint = oldEndpoint
 		getTradeClustersEndpoint = oldClusterEndpoint
 		getTradeClusterBombsEndpoint = oldClusterBombsEndpoint
+		getTradeLevelTouchesEndpoint = oldLevelTouchesEndpoint
 		getTradeLevelsEndpoint = oldLevelsEndpoint
 		extractCookies = oldExtract
 		fetchXSRFToken = oldFetch

@@ -147,6 +147,126 @@ func TestTradeClustersCommand(t *testing.T) {
 	}
 }
 
+func TestTradeLevelsCommand(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		options := defaultGetTradeLevelsRequestOptions()
+		assertGetTradeLevelsRequestWithOptions(t, r, "2025-05-01", "2026-05-01", "BAND", &options)
+		fmt.Fprint(w, `{"draw":1,"recordsTotal":60,"recordsFiltered":60,"data":[{"Ticker":"BAND","Price":16.9,"Dollars":25076379.52,"Volume":1485429,"Trades":17,"RelativeSize":3.84,"CumulativeDistribution":0.9586,"TradeLevelRank":44,"Dates":"2022-07-27 - 2026-04-13","TotalRows":60}]}`)
+	}))
+	t.Cleanup(server.Close)
+
+	withCommandDependencies(t, server.Client(), server.URL, nil, nil)
+
+	cmd, err := NewTradeLevelsCommand()
+	if err != nil {
+		t.Fatalf("NewTradeLevelsCommand() error = %v", err)
+	}
+
+	var stdout bytes.Buffer
+	cmd.SetOut(&stdout)
+	cmd.SetErr(io.Discard)
+	cmd.SetArgs([]string{"--ticker", "band", "--start-date", "2025-05-01", "--end-date", "2026-05-01"})
+
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("Execute() error = %v", err)
+	}
+
+	var got LevelResult
+	if err := json.Unmarshal(stdout.Bytes(), &got); err != nil {
+		t.Fatalf("unmarshal output: %v\noutput: %s", err, stdout.String())
+	}
+	if got.Status != "ok" {
+		t.Fatalf("Status = %q, want ok", got.Status)
+	}
+	if got.Ticker != "BAND" || got.StartDate != "2025-05-01" || got.EndDate != "2026-05-01" {
+		t.Fatalf("query fields = %s/%s/%s, want BAND/2025-05-01/2026-05-01", got.Ticker, got.StartDate, got.EndDate)
+	}
+	if got.RecordsTotal != 60 || got.RecordsFiltered != 60 {
+		t.Fatalf("record counts = %d/%d, want 60/60", got.RecordsTotal, got.RecordsFiltered)
+	}
+	if strings.Join(got.Fields, ",") != strings.Join(tradeLevelFieldPresets["core"], ",") {
+		t.Fatalf("Fields = %v, want core trade level fields", got.Fields)
+	}
+	if len(got.Rows) != 1 {
+		t.Fatalf("len(Rows) = %d, want 1", len(got.Rows))
+	}
+	if len(got.Levels) != 0 {
+		t.Fatalf("len(Levels) = %d, want 0 for default array shape", len(got.Levels))
+	}
+	if string(got.Rows[0][0]) != `"BAND"` {
+		t.Fatalf("first row ticker = %s, want BAND", string(got.Rows[0][0]))
+	}
+	rankIndex := fieldIndex(t, got.Fields, "TradeLevelRank")
+	if string(got.Rows[0][rankIndex]) != "44" {
+		t.Fatalf("trade level rank cell = %s, want 44", string(got.Rows[0][rankIndex]))
+	}
+}
+
+func TestTradeLevelsCommandObjectShapeAndCustomFields(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		options := defaultGetTradeLevelsRequestOptions()
+		options.minDollars = "1000000"
+		options.relativeSize = "3"
+		options.tradeLevelRank = 100
+		options.tradeLevelCount = 20
+		options.length = 20
+		assertGetTradeLevelsRequestWithOptions(t, r, "2025-05-01", "2026-05-01", "SPY", &options)
+		fmt.Fprint(w, `{"draw":1,"data":[{"Ticker":"SPY","Price":610,"Dollars":9900000,"TradeLevelRank":0,"Ignored":true,"TotalRows":12}]}`)
+	}))
+	t.Cleanup(server.Close)
+
+	withCommandDependencies(t, server.Client(), server.URL, nil, nil)
+
+	cmd, err := NewTradeLevelsCommand()
+	if err != nil {
+		t.Fatalf("NewTradeLevelsCommand() error = %v", err)
+	}
+
+	var stdout bytes.Buffer
+	cmd.SetOut(&stdout)
+	cmd.SetErr(io.Discard)
+	cmd.SetArgs([]string{"--ticker", "SPY", "--start-date", "2025-05-01", "--end-date", "2026-05-01", "--min-dollars", "1000000", "--relative-size", "3", "--trade-level-rank", "100", "--trade-level-count", "20", "--fields", "Ticker,Price,TradeLevelRank", "--shape", "objects"})
+
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("Execute() error = %v", err)
+	}
+
+	var got LevelResult
+	if err := json.Unmarshal(stdout.Bytes(), &got); err != nil {
+		t.Fatalf("unmarshal output: %v\noutput: %s", err, stdout.String())
+	}
+	if got.RecordsTotal != 12 || got.RecordsFiltered != 12 {
+		t.Fatalf("record counts = %d/%d, want inferred 12/12", got.RecordsTotal, got.RecordsFiltered)
+	}
+	if strings.Join(got.Fields, ",") != "Ticker,Price,TradeLevelRank" {
+		t.Fatalf("Fields = %v, want custom trade level fields", got.Fields)
+	}
+	if len(got.Levels) != 1 {
+		t.Fatalf("len(Levels) = %d, want 1", len(got.Levels))
+	}
+	if !bytes.Contains(got.Levels[0], []byte(`"TradeLevelRank":0`)) || bytes.Contains(got.Levels[0], []byte("Ignored")) {
+		t.Fatalf("projected level payload = %s", string(got.Levels[0]))
+	}
+}
+
+func TestTradeLevelsCommandRejectsMultipleTickers(t *testing.T) {
+	cmd, err := NewTradeLevelsCommand()
+	if err != nil {
+		t.Fatalf("NewTradeLevelsCommand() error = %v", err)
+	}
+	cmd.SetOut(io.Discard)
+	cmd.SetErr(io.Discard)
+	cmd.SetArgs([]string{"--ticker", "AAPL,MSFT", "--start-date", "2025-05-01", "--end-date", "2026-05-01"})
+
+	err = cmd.Execute()
+	if err == nil {
+		t.Fatal("expected multiple ticker error")
+	}
+	if !strings.Contains(err.Error(), "accepts exactly one ticker") {
+		t.Fatalf("error = %v, want exactly one ticker context", err)
+	}
+}
+
 func TestTradeClustersCommandObjectShapeAndCustomFields(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		options := defaultGetTradeClustersRequestOptions()
@@ -1916,6 +2036,60 @@ func assertGetTradeClustersRequestWithOptions(t *testing.T, r *http.Request, tra
 	}
 }
 
+func assertGetTradeLevelsRequestWithOptions(t *testing.T, r *http.Request, startDate, endDate, ticker string, options *getTradeLevelsRequestOptions) {
+	t.Helper()
+
+	if r.Method != http.MethodPost {
+		t.Fatalf("method = %s, want POST", r.Method)
+	}
+	if got := r.Header.Get("Content-Type"); got != "application/x-www-form-urlencoded; charset=UTF-8" {
+		t.Fatalf("Content-Type = %q", got)
+	}
+	if got := r.Header.Get("Accept"); got != "application/json, text/javascript, */*; q=0.01" {
+		t.Fatalf("Accept = %q", got)
+	}
+	if got := r.Header.Get("Accept-Encoding"); got != "gzip" {
+		t.Fatalf("Accept-Encoding = %q", got)
+	}
+	if got := r.Header.Get("User-Agent"); got != auth.UserAgent {
+		t.Fatalf("User-Agent = %q", got)
+	}
+	if got := r.Header.Get("X-XSRF-Token"); got != "xsrf-token" {
+		t.Fatalf("X-XSRF-Token = %q", got)
+	}
+	if got := r.Header.Get("X-Requested-With"); got != "XMLHttpRequest" {
+		t.Fatalf("X-Requested-With = %q", got)
+	}
+	if got := r.Header.Get("Origin"); got != "https://www.volumeleaders.com" {
+		t.Fatalf("Origin = %q", got)
+	}
+	if got := r.Header.Get("Referer"); !strings.Contains(got, "TradeLevels") || !strings.Contains(got, "StartDate="+url.QueryEscape(startDate)) || !strings.Contains(got, "EndDate="+url.QueryEscape(endDate)) || !strings.Contains(got, "Ticker="+url.QueryEscape(ticker)) {
+		t.Fatalf("Referer = %q, want trade levels date range and ticker", got)
+	}
+	assertCookie(t, r, "ASP.NET_SessionId", "session-cookie")
+	assertCookie(t, r, ".ASPXAUTH", "auth-cookie")
+	assertCookie(t, r, "__RequestVerificationToken", "cookie-token")
+
+	if err := r.ParseForm(); err != nil {
+		t.Fatalf("ParseForm() error = %v", err)
+	}
+	assertFormValue(t, r.Form, "Ticker", ticker)
+	assertFormValue(t, r.Form, "StartDate", startDate)
+	assertFormValue(t, r.Form, "EndDate", endDate)
+	assertFormValue(t, r.Form, "MinDate", startDate)
+	assertFormValue(t, r.Form, "MaxDate", endDate)
+	assertFormValue(t, r.Form, "MinDollars", options.minDollars)
+	assertFormValue(t, r.Form, "MaxDollars", options.maxDollars)
+	assertFormValue(t, r.Form, "RelativeSize", options.relativeSize)
+	assertFormValue(t, r.Form, "TradeLevelRank", fmt.Sprintf("%d", options.tradeLevelRank))
+	assertFormValue(t, r.Form, "TradeLevelCount", fmt.Sprintf("%d", options.tradeLevelCount))
+	assertFormValue(t, r.Form, "order[0][name]", "$$")
+	wantForm := getTradeLevelsForm(startDate, endDate, ticker, options)
+	if r.Form.Encode() != wantForm.Encode() {
+		t.Fatalf("form mismatch\ngot:  %s\nwant: %s", r.Form.Encode(), wantForm.Encode())
+	}
+}
+
 func assertCookie(t *testing.T, r *http.Request, name, want string) {
 	t.Helper()
 
@@ -1954,11 +2128,13 @@ func withCommandDependencies(
 	oldClient := getTradesHTTPClient
 	oldEndpoint := getTradesEndpoint
 	oldClusterEndpoint := getTradeClustersEndpoint
+	oldLevelsEndpoint := getTradeLevelsEndpoint
 	oldExtract := extractCookies
 	oldFetch := fetchXSRFToken
 	getTradesHTTPClient = client
 	getTradesEndpoint = endpoint
 	getTradeClustersEndpoint = endpoint
+	getTradeLevelsEndpoint = endpoint
 	if extract == nil {
 		extract = func(context.Context) (map[string]string, error) {
 			return map[string]string{
@@ -1979,6 +2155,7 @@ func withCommandDependencies(
 		getTradesHTTPClient = oldClient
 		getTradesEndpoint = oldEndpoint
 		getTradeClustersEndpoint = oldClusterEndpoint
+		getTradeLevelsEndpoint = oldLevelsEndpoint
 		extractCookies = oldExtract
 		fetchXSRFToken = oldFetch
 	})

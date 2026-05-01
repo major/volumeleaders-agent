@@ -1,10 +1,10 @@
-# Trade, cluster, and watchlist fields
+# Trade, cluster, level, and watchlist fields
 
-This page explains the upstream VolumeLeaders trade, cluster, and watchlist JSON fields used by the CLI presets. Keep the CLI help and structcli metadata token-efficient; use this page for longer field notes from `annotated-trade.jsonc`, `annotated-cluster.jsonc`, and `Getwatchlists.jsonc`.
+This page explains the upstream VolumeLeaders trade, cluster, level, and watchlist JSON fields used by the CLI presets. Keep the CLI help and structcli metadata token-efficient; use this page for longer field notes from `annotated-trade.jsonc`, `annotated-cluster.jsonc`, captured trade-level responses, and `Getwatchlists.jsonc`.
 
 ## Presets
 
-- Trade and cluster `core`: compact default for LLM workflows. Emits the most useful table fields plus derived `CalendarEvent` and `AuctionTrade` where available.
+- Trade, cluster, and trade-level `core`: compact default for LLM workflows. Trades and clusters emit the most useful table fields plus derived `CalendarEvent` and `AuctionTrade` where available. Trade levels emit the visible level table fields.
 - Watchlist `summary`: compact watchlist default with only `SearchTemplateKey` and `Name`, so callers can choose a saved filter before requesting details.
 - `expanded`: all annotated non-internal signal fields for trades and clusters, or the saved filter configuration fields for watchlists. Still excludes raw upstream internals, always-zero fields, and always-null fields.
 - `full`: raw upstream payload. Use only for debugging or when a field has not been classified yet.
@@ -62,6 +62,23 @@ The `expanded` preset intentionally excludes fields annotated as internal, alway
 Trade exclusions include query echoes and internal dates (`StartDate`, `EndDate`, `TD30`, `TD90`, `TD1CY`), internal identifiers (`SecurityKey`, `SequenceNumber`), always-zero quote or aggregate fields (`Bid`, `Ask`, `AverageDailyVolume`, `PercentDailyVolume`, `AverageBlockSizeDollars`, `AverageBlockSizeShares`, institutional totals, closing totals, `ClosePrice`, `TotalDollars`, `TotalDollarsRank`, `TotalVolume`, `TotalTrades`), internal relative-size plumbing (`DollarsMultiplier`), always-null phantom fulfillment fields, `TradeConditions`, and `ExternalFeed`.
 
 Cluster exclusions include `SecurityKey`, `ClosePrice`, `AverageBlockSizeShares`, `AverageBlockSizeDollars`, `AverageDailyVolume`, `DollarsMultiplier`, `TotalRows`, and `ExternalFeed`.
+
+## Trade level fields
+
+The `trade-levels` command fetches one ticker's level table from `TradeLevels/GetTradeLevels`. A trade level groups large prints by price across a date range. Default `core` fields are `Ticker`, `Price`, `Dollars`, `Volume`, `Trades`, `RelativeSize`, `CumulativeDistribution`, `TradeLevelRank`, and `Dates`.
+
+- `Ticker`, `Sector`, `Industry`, `Name`: symbol and company classification fields.
+- `Date`, `MinDate`, `MaxDate`, `FullDateTime`, `FullTimeString24`: upstream date/timestamp context for the level result.
+- `Price`: the price level.
+- `Dollars`: aggregate dollars for large prints at that level.
+- `Volume`: aggregate shares for large prints at that level.
+- `Trades`: count of prints contributing to the level.
+- `RelativeSize`: the level's relative size versus the ticker's average dollar trade size. Captured filter values are `0`, `3`, `5`, and `10`, where `0` means any size.
+- `CumulativeDistribution`: percentile-like size distribution for the level, shown as `PCT` in the browser table.
+- `TradeLevelRank`: all-time level rank when VolumeLeaders marks the level as ranked. Captured BAND output included ranks such as `44`, `81`, `89`, and `98`, while unranked rows used `0`.
+- `TradeLevelTouches`: upstream touch count for the level.
+- `Dates`: upstream level date range string, for example `2022-07-27 - 2026-04-13`.
+- `TotalRows`: upstream total row count used as a fallback when DataTables record totals are omitted.
 
 ## Watchlist fields
 

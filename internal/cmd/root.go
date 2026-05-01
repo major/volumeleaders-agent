@@ -28,6 +28,7 @@ var rootCommandFactories = []commandFactory{
 	// Keep individual trade commands together so the help, JSON schema, and MCP
 	// discovery output read in the same order a user would browse trade filters.
 	{name: "trades", new: trades.NewCommand},
+	{name: "trade-levels", new: trades.NewTradeLevelsCommand},
 	{name: "top10", new: trades.NewTop10Command},
 	{name: "top100", new: trades.NewTop100Command},
 	{name: "top30-10x-99pct", new: trades.NewTop3010x99PctCommand},

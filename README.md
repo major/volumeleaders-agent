@@ -58,6 +58,35 @@ volumeleaders-agent --mcp              # Run stdio MCP server
 
 The date flag can also be set with the environment variable shown by `volumeleaders-agent env-vars`, for example `VOLUMELEADERS_AGENT_TRADES_DATE`.
 
+## Trade levels
+
+```bash
+volumeleaders-agent trade-levels --ticker BAND
+volumeleaders-agent trade-levels --ticker BAND --start-date 2025-05-01 --end-date 2026-05-01
+volumeleaders-agent trade-levels --ticker SPY --trade-level-count 10 --min-dollars 500000 --relative-size 3
+```
+
+The `trade-levels` command fetches VolumeLeaders price levels for one ticker through `TradeLevels/GetTradeLevels`. A level groups that ticker's large-trade history by price across the requested date range, then returns aggregate dollars, shares, trade count, relative size, percentile, rank, and the upstream level date range. Omit `--start-date` and `--end-date` to use a one-year window ending today, or pass both dates explicitly when you need reproducible output.
+
+Trade levels use the same compact output controls as trade commands: `--fields`, `--preset-fields core|expanded|full`, `--shape array|objects`, and `--pretty`. The default core preset focuses on the visible table values:
+
+```json
+{
+  "status": "ok",
+  "ticker": "BAND",
+  "startDate": "2025-05-01",
+  "endDate": "2026-05-01",
+  "recordsTotal": 60,
+  "recordsFiltered": 60,
+  "fields": ["Ticker", "Price", "Dollars", "Volume", "Trades", "RelativeSize", "CumulativeDistribution", "TradeLevelRank", "Dates"],
+  "rows": [
+    ["BAND", 16.9, 25076379.52, 1485429, 17, 3.84, 0.9586, 44, "2022-07-27 - 2026-04-13"]
+  ]
+}
+```
+
+Captured filters include `--min-dollars`, `--max-dollars`, `--min-volume`, `--max-volume`, `--min-price`, `--max-price`, `--vcd`, `--relative-size`, `--trade-level-rank`, and `--trade-level-count`. Use `--preset-fields expanded` when an LLM needs company context or upstream timestamps. Use `--preset-fields full` only for raw debugging.
+
 ## Watchlists
 
 ```bash

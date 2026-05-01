@@ -15,7 +15,7 @@ When modifying CLI commands, flags, output behavior, or authentication behavior:
 ```text
 cmd/volumeleaders-agent/              CLI entry point
 internal/cmd/                         structcli command tree
-internal/cmd/trades/                  large unusual trades and all-time ranked trades commands
+internal/cmd/trades/                  large unusual trades, trade levels, and all-time ranked trades commands
 internal/cmd/watchlists/              configured watchlist list, save, and delete commands
 internal/auth/                     Browser cookie + XSRF token extraction
 ```
@@ -41,6 +41,7 @@ make lint       # Run linters
 - Err on the side of adding too many helpful comments rather than too few, especially around non-obvious API filters, command grouping, authentication edge cases, and behavior copied from browser captures.
 - Command output should be stable JSON by default. Errors should rely on structcli/cobra error handling and include actionable context without leaking credentials.
 - Trade and cluster `core` presets use compact derived fields. `CalendarEvent` contains true upstream calendar markers (`EOM`, `EOQ`, `EOY`, `OPEX`, `VOLEX`); array output returns `null` when none are true and object output omits it. `AuctionTrade` derives from upstream `OpeningTrade` and `ClosingTrade` `0`/`1` flags; array output returns `"open"`, `"close"`, or `null`, and object output omits it when neither flag is true. Trade and cluster `expanded` presets include all annotated non-internal signal fields while still excluding raw upstream internals, always-zero fields, and always-null fields.
+- The `trade-levels` command posts the browser-compatible `TradeLevels/GetTradeLevels` DataTables form for one ticker across a date range. Default output is compact core array JSON with visible level table fields: `Ticker`, `Price`, `Dollars`, `Volume`, `Trades`, `RelativeSize`, `CumulativeDistribution`, `TradeLevelRank`, and `Dates`. `TradeLevelRank=0` means the returned row was not marked as ranked in captured browser responses.
 - The `watchlists` command lists account-level saved VolumeLeaders watchlist filter definitions through `WatchListConfigs/GetWatchLists`. Default output is compact summary array JSON with `SearchTemplateKey` and `Name`; `--preset-fields expanded` shows the saved filter configuration fields and `IncludedTradeTypes`, which derives enabled print/session booleans such as `DarkPools`, `Sweeps`, `RTHTrades`, and `OffsettingTrades`. The `save-watchlist` command creates or fully replaces those definitions by posting the browser-compatible `WatchListConfig` form; `SearchTemplateKey=0` creates a new watchlist, and a positive key replaces an existing one with the complete criteria in the request. The `delete-watchlist` command removes a definition by posting JSON `WatchListKey` to `WatchListConfigs/DeleteWatchList`.
 - Authentication errors must include useful troubleshooting context without exposing browser cookies, XSRF tokens, session values, profile paths, or other secrets.
 - Context cancellation must propagate through browser cookie extraction and token lookup paths.

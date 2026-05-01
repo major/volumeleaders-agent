@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/url"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -34,11 +35,14 @@ const (
 	closingTradeField    = "ClosingTrade"
 	getTradesPath        = "https://www.volumeleaders.com/Trades/GetTrades"
 	getTradeClustersPath = "https://www.volumeleaders.com/TradeClusters/GetTradeClusters"
+	getTradeLevelsPath   = "https://www.volumeleaders.com/TradeLevels/GetTradeLevels"
 	tradesPage           = "https://www.volumeleaders.com/Trades"
 	tradeClustersPage    = "https://www.volumeleaders.com/TradeClusters"
+	tradeLevelsPage      = "https://www.volumeleaders.com/TradeLevels"
 	tradeLLMFieldGuide   = "LLM field guide: users and LLM callers should focus on VolumeLeaders table fields: time, ticker/count, CP, TP, sector, industry, Sh, $$, RS, PCT, R, and Last. Ticker is the stock ticker symbol, such as TSLA or AMZN. TradeCount is the #T count shown beside the ticker: the number of large trades for that ticker today, so KRE (2) means two large KRE trades today. Raw fields outside that visible table are secondary debugging or correlation context unless this guide says otherwise. DarkPools and Sweeps are request filters. Dark pool trades are done off exchange and reported later; lit exchange trades are done on exchange and reported immediately. Sweeps are orders spread across multiple exchanges to get done quickly; blocks are orders sent to one exchange. For the trades command, false/false means show everything, --dark-pools alone means dark pools of all kinds, --sweeps alone means sweeps from dark pools or lit exchanges, and both flags together mean dark pool sweeps only. In raw output, DarkPool and Sweep describe the classification of each returned row. RelativeSize is a request filter for minimum relative size. Captured browser values are 0, 5, 10, 25, 50, and 100, where 0 means any size and the others mean at least that many times the ticker's average dollar trade size. DollarsMultiplier, shown as RS in the UI, is the returned relative size value: trade dollars divided by average dollars for that ticker. VolumeLeaders highlights trades at or above 25x average size. CumulativeDistribution, shown as PCT in the UI, is the trade's percentile rank relative to other trades for the same ticker. Conditions carries RSI condition filters: OBD means overbought daily, OBH means overbought hourly, OSD means oversold daily, and OSH means oversold hourly. Captured defaults use -1 for no RSI condition filter. IgnoreOBD, IgnoreOBH, IgnoreOSD, and IgnoreOSH mean do not consider that RSI condition; they do not mean exclude matching rows. VCD appears to carry the minimum CumulativeDistribution percentile. Captures use 0 for no percentile filter and 99 for the 99th percentile or above. TradeID, SequenceNumber, and SecurityKey are VolumeLeaders internal identifiers. DateKey and TimeKey are compact internal date/time keys. Treat these five fields as upstream metadata for correlation or debugging, not as trading-decision signals. Date is the trade date. FullDateTime is the full trade timestamp. StartDate and EndDate appear to be upstream query-range echoes or internal metadata rather than separate trade signals. LastComparibleTradeDate is the upstream spelling for the last date VolumeLeaders saw a trade close to this trade's size. Ask and Bid are the ask and bid prices in the bid/ask spread when the trade happened. ClosePrice is CP in the UI: the close price at the end of the day, or the current price if the market is still open. Price is TP in the UI: the trade price when the large trade hit. AverageDailyVolume is a moving-average measure of the stock's normal volume, and PercentDailyVolume compares today's volume with that moving average. Volume is Sh in the UI: how many shares were in the trade. Dollars is $$ in the UI: how big the trade was in dollars, calculated as shares times the trade price. TradeRank is the trade's current rank among all current trades and can change when larger trades arrive. In the UI R column, a dash means the trade is not ranked in the top 100 trades, while a number such as 27 means the trade is currently ranked 27th. TradeRankSnapshot is immutable: it preserves how the trade ranked at the time it appeared. TotalVolume and TotalDollars are internal upstream values; do not treat them as standalone trading-decision signals."
 	calendarEventGuide   = "CalendarEvent is a compact derived core field. It contains true upstream calendar markers joined with commas, or null in array output when no marker is true. Source markers are EOM for end of month, EOQ for end of quarter, EOY for end of year, OPEX for a market options expiration date, and VOLEX for a market volatility expiration date such as VIX options expiration. In object output, CalendarEvent is omitted when no marker is true. AuctionTrade is a compact derived core field from upstream OpeningTrade and ClosingTrade 0/1 flags. It is open for opening auction trades, close for market-on-close auction trades, or null in array output when neither flag is true. In object output, AuctionTrade is omitted when neither flag is true."
 	expandedPresetGuide  = "Use --preset-fields expanded when an LLM needs every annotated non-internal signal without raw upstream noise. Trade expanded fields add IDs/timestamps, ticker identity, price/size, comparable dates, ranks, print classifications, RSI values, frequency counts, cancellation state, calendar flags, and auction flags. Cluster expanded fields add the date/time range, ticker identity, price/size, cluster count/rank, comparable cluster date, IPO date, distribution, calendar flags, and inside-bar flags. Use --preset-fields full only for debugging raw upstream payloads, because full includes internal, always-zero, and always-null fields."
+	tradeLevelGuide      = "Trade levels group one ticker's large-trade history by price level across a date range. Price is the level price. Dollars and Volume aggregate large prints at that level. Trades is the count of prints contributing to that level. RelativeSize is the level's relative size versus the ticker's average dollar trade size. CumulativeDistribution is the level percentile shown as PCT. TradeLevelRank is the all-time level rank when VolumeLeaders marks the level as ranked; captured browser output uses 0 for unranked rows. Dates is the upstream level date range."
 	ignoredRSIConditions = "IgnoreOBD,IgnoreOBH,IgnoreOSD,IgnoreOSH"
 )
 
@@ -50,6 +54,7 @@ var (
 	getTradesHTTPClient      = http.DefaultClient
 	getTradesEndpoint        = getTradesPath
 	getTradeClustersEndpoint = getTradeClustersPath
+	getTradeLevelsEndpoint   = getTradeLevelsPath
 	tickerPattern            = regexp.MustCompile(`^[A-Z0-9.-]+$`)
 	nullJSON                 = json.RawMessage("null")
 )
@@ -165,6 +170,41 @@ var clusterFieldPresets = map[string][]string{
 	},
 }
 
+var tradeLevelFieldPresets = map[string][]string{
+	"core": {
+		"Ticker",
+		"Price",
+		"Dollars",
+		"Volume",
+		"Trades",
+		"RelativeSize",
+		"CumulativeDistribution",
+		"TradeLevelRank",
+		"Dates",
+	},
+	"expanded": {
+		"Ticker",
+		"Sector",
+		"Industry",
+		"Name",
+		"Date",
+		"MinDate",
+		"MaxDate",
+		"FullDateTime",
+		"FullTimeString24",
+		"Dates",
+		"Price",
+		"Dollars",
+		"Volume",
+		"Trades",
+		"RelativeSize",
+		"CumulativeDistribution",
+		"TradeLevelRank",
+		"TradeLevelTouches",
+		"TotalRows",
+	},
+}
+
 // Options defines the LLM-readable contract for fetching unusual trades.
 type Options struct {
 	Date         string `flag:"date" flagshort:"d" flagdescr:"Single trading date to query, formatted as YYYY-MM-DD. The disproportionately large trades preset is intentionally limited to one day." flagenv:"true" flagrequired:"true" flaggroup:"Query" validate:"required" mod:"trim"`
@@ -200,6 +240,27 @@ type ClusterOptions struct {
 	Pretty       bool   `flag:"pretty" flagdescr:"Pretty-print JSON output. Compact JSON is the default for token-efficient LLM and MCP use." flagenv:"true" flaggroup:"Output"`
 }
 
+// LevelOptions defines the LLM-readable contract for fetching trade price levels.
+type LevelOptions struct {
+	Ticker          string `flag:"ticker" flagdescr:"Ticker symbol to query. Trade levels are ticker-specific, for example SPY or BAND." flagenv:"true" flagrequired:"true" flaggroup:"Query" validate:"required" mod:"trim"`
+	StartDate       string `flag:"start-date" flagdescr:"Start date for level history, formatted as YYYY-MM-DD. Defaults to one year before today when omitted." flagenv:"true" flaggroup:"Query" mod:"trim"`
+	EndDate         string `flag:"end-date" flagdescr:"End date for level history, formatted as YYYY-MM-DD. Defaults to today when omitted." flagenv:"true" flaggroup:"Query" mod:"trim"`
+	MinDollars      string `flag:"min-dollars" flagdescr:"Minimum aggregate dollars filter sent to VolumeLeaders. Captured browser default is 500000." flagenv:"true" flaggroup:"Filters" mod:"trim"`
+	MaxDollars      string `flag:"max-dollars" flagdescr:"Maximum aggregate dollars filter sent to VolumeLeaders. Captured browser default is 30000000000." flagenv:"true" flaggroup:"Filters" mod:"trim"`
+	MinVolume       string `flag:"min-volume" flagdescr:"Minimum aggregate share volume filter. Captured browser default is 0." flagenv:"true" flaggroup:"Filters" mod:"trim"`
+	MaxVolume       string `flag:"max-volume" flagdescr:"Maximum aggregate share volume filter. Captured browser default is 2000000000." flagenv:"true" flaggroup:"Filters" mod:"trim"`
+	MinPrice        string `flag:"min-price" flagdescr:"Minimum level price filter. Captured browser default is 0." flagenv:"true" flaggroup:"Filters" mod:"trim"`
+	MaxPrice        string `flag:"max-price" flagdescr:"Maximum level price filter. Captured browser default is 100000." flagenv:"true" flaggroup:"Filters" mod:"trim"`
+	VCD             string `flag:"vcd" flagdescr:"Minimum CumulativeDistribution percentile filter. Captured browser default is 0." flagenv:"true" flaggroup:"Filters" mod:"trim"`
+	RelativeSize    string `flag:"relative-size" flagdescr:"Minimum relative size filter. Captured values are 0, 3, 5, and 10, where 0 means any size." flagenv:"true" flaggroup:"Filters" mod:"trim"`
+	TradeLevelRank  int    `flag:"trade-level-rank" flagdescr:"Rank bucket filter. Captured values are -1 for any, then 1, 3, 5, 10, 25, 50, and 100." flagenv:"true" flaggroup:"Filters"`
+	TradeLevelCount int    `flag:"trade-level-count" flagdescr:"Maximum level count requested from VolumeLeaders. Captured values are 5, 10, 20, 50, and -1 for all levels." flagenv:"true" flaggroup:"Filters"`
+	Fields          string `flag:"fields" flagdescr:"Comma-separated trade level fields to include. Overrides --preset-fields. Use upstream field names such as Price,Dollars,TradeLevelRank,Dates." flagenv:"true" flaggroup:"Output" mod:"trim"`
+	PresetFields    string `flag:"preset-fields" flagdescr:"Field preset to include: core, expanded, or full. Defaults to core for token-efficient output. Full returns raw upstream payloads." flagenv:"true" flaggroup:"Output" mod:"trim"`
+	Shape           string `flag:"shape" flagdescr:"Trade level row shape: array or objects. Array is the default and is most token-efficient." flagenv:"true" flaggroup:"Output" mod:"trim"`
+	Pretty          bool   `flag:"pretty" flagdescr:"Pretty-print JSON output. Compact JSON is the default for token-efficient LLM and MCP use." flagenv:"true" flaggroup:"Output"`
+}
+
 // SignalOptions defines the LLM-readable contract for fetching trade signal presets.
 type SignalOptions struct {
 	Date         string `flag:"date" flagshort:"d" flagdescr:"Single trading date to query, formatted as YYYY-MM-DD. Trade signal presets are intentionally limited to one day." flagenv:"true" flagrequired:"true" flaggroup:"Query" validate:"required" mod:"trim"`
@@ -232,6 +293,19 @@ type ClusterResult struct {
 	Fields          []string            `json:"fields,omitempty"`
 	Rows            [][]json.RawMessage `json:"rows,omitempty"`
 	Clusters        []json.RawMessage   `json:"clusters,omitempty"`
+}
+
+// LevelResult is the stable response shape for the trade levels command.
+type LevelResult struct {
+	Status          string              `json:"status"`
+	Ticker          string              `json:"ticker"`
+	StartDate       string              `json:"startDate"`
+	EndDate         string              `json:"endDate"`
+	RecordsTotal    int                 `json:"recordsTotal"`
+	RecordsFiltered int                 `json:"recordsFiltered"`
+	Fields          []string            `json:"fields,omitempty"`
+	Rows            [][]json.RawMessage `json:"rows,omitempty"`
+	Levels          []json.RawMessage   `json:"levels,omitempty"`
 }
 
 // RankedResult is the stable response shape for all-time ranked trade presets.
@@ -315,6 +389,22 @@ type getTradesRequestOptions struct {
 	includeOffsetting      string
 	sectorIndustry         string
 	presetSearchTemplateID string
+}
+
+type getTradeLevelsRequestOptions struct {
+	draw            int
+	start           int
+	length          int
+	minVolume       string
+	maxVolume       string
+	minPrice        string
+	maxPrice        string
+	minDollars      string
+	maxDollars      string
+	vcd             string
+	relativeSize    string
+	tradeLevelRank  int
+	tradeLevelCount int
 }
 
 type commandMetadata struct {
@@ -471,6 +561,17 @@ var getTradesColumns = []tradeColumn{
 	{data: "LastComparibleTradeDate", name: "Charts", orderable: "false"},
 }
 
+var getTradeLevelsColumns = []tradeColumn{
+	{data: "Price", name: "Price", orderable: "true"},
+	{data: "Dollars", name: "$$", orderable: "true"},
+	{data: "Volume", name: "Shares", orderable: "true"},
+	{data: "Trades", name: "Trades", orderable: "true"},
+	{data: "RelativeSize", name: "RS", orderable: "true"},
+	{data: "CumulativeDistribution", name: "PCT", orderable: "true"},
+	{data: "TradeLevelRank", name: "Level Rank", orderable: "true"},
+	{data: "Level Date Range", name: "Level Date Range", orderable: "false"},
+}
+
 // NewCommand builds the large unusual trades command.
 func NewCommand() (*cobra.Command, error) {
 	opts := &Options{}
@@ -490,7 +591,7 @@ func newBoundTradeCommand(meta *commandMetadata, opts any, tickerFlag *string, r
 		Use:     meta.use,
 		Aliases: meta.aliases,
 		Short:   meta.short,
-		Long:    meta.long + "\n\n" + tradeLLMFieldGuide + " " + calendarEventGuide + " " + expandedPresetGuide,
+		Long:    tradeCommandLong(meta.long),
 		Example: meta.example,
 		RunE:    runE,
 	}
@@ -498,9 +599,15 @@ func newBoundTradeCommand(meta *commandMetadata, opts any, tickerFlag *string, r
 	if err := structcli.Bind(cmd, opts); err != nil {
 		return nil, fmt.Errorf("bind %s options: %w", meta.use, err)
 	}
-	cmd.Flags().StringVar(tickerFlag, "ticker", "", "Optional ticker filter. Alias for --tickers.")
+	if tickerFlag != nil {
+		cmd.Flags().StringVar(tickerFlag, "ticker", "", "Optional ticker filter. Alias for --tickers.")
+	}
 
 	return cmd, nil
+}
+
+func tradeCommandLong(base string) string {
+	return base + "\n\n" + tradeLLMFieldGuide + " " + calendarEventGuide + " " + expandedPresetGuide + " " + tradeLevelGuide
 }
 
 // NewTradeClustersCommand builds the disproportionately large trade clusters command.
@@ -511,6 +618,20 @@ func NewTradeClustersCommand() (*cobra.Command, error) {
 		short:   "Fetch disproportionately large trade clusters for one date",
 		long:    "Fetch VolumeLeaders disproportionately large trade clusters for a single trading day. Trade clusters aggregate many smaller trades close together in time into larger dollar-volume events.",
 		example: "volumeleaders-agent trade-clusters --date 2026-04-30\nvolumeleaders-agent trade-clusters --date 2026-04-30 --tickers AAPL,MSFT",
+	})
+}
+
+// NewTradeLevelsCommand builds the trade price levels command.
+func NewTradeLevelsCommand() (*cobra.Command, error) {
+	opts := &LevelOptions{}
+	return newBoundTradeCommand(&commandMetadata{
+		use:     "trade-levels",
+		aliases: []string{"levels", "price-levels"},
+		short:   "Fetch large-trade price levels for one ticker",
+		long:    "Fetch VolumeLeaders trade levels for one ticker across a date range. Trade levels aggregate large prints by price and expose the level's dollars, shares, relative size, percentile, rank, and date range.",
+		example: "volumeleaders-agent trade-levels --ticker BAND\nvolumeleaders-agent trade-levels --ticker SPY --start-date 2025-05-01 --end-date 2026-05-01 --trade-level-count 10",
+	}, opts, nil, func(cmd *cobra.Command, _ []string) error {
+		return runTradeLevels(cmd.Context(), cmd, opts)
 	})
 }
 
@@ -921,6 +1042,42 @@ func run(ctx context.Context, cmd *cobra.Command, opts *Options) error {
 	})
 }
 
+func runTradeLevels(ctx context.Context, cmd *cobra.Command, opts *LevelOptions) error {
+	startDate, endDate, err := normalizeDateRange(opts.StartDate, opts.EndDate)
+	if err != nil {
+		return err
+	}
+	ticker, err := normalizeRequiredTicker(opts.Ticker)
+	if err != nil {
+		return err
+	}
+	options := defaultGetTradeLevelsRequestOptions()
+	applyTradeLevelOptions(&options, opts)
+	fields, shape, err := normalizeTradeLevelOutputOptions(opts.Fields, opts.PresetFields, opts.Shape)
+	if err != nil {
+		return err
+	}
+
+	apiResponse, err := fetchTradeLevels(ctx, startDate, endDate, ticker, &options)
+	if err != nil {
+		return err
+	}
+
+	result := LevelResult{
+		Status:          "ok",
+		Ticker:          ticker,
+		StartDate:       startDate,
+		EndDate:         endDate,
+		RecordsTotal:    apiResponse.RecordsTotal,
+		RecordsFiltered: apiResponse.RecordsFiltered,
+	}
+	if err := applyTradeLevelOutput(&result, apiResponse.Data, fields, shape); err != nil {
+		return err
+	}
+
+	return encodeResult(cmd.OutOrStdout(), "trade-levels", result, opts.Pretty)
+}
+
 func boolToTradeFilter(enabled bool) string {
 	if enabled {
 		return "1"
@@ -1073,6 +1230,66 @@ func parseDateAndTickers(ctx context.Context, cmdName, rawDate, rawTickers strin
 	return tradeDate.Format(dateLayout), tickers, nil
 }
 
+func normalizeDateRange(rawStartDate, rawEndDate string) (startDate, endDate string, err error) {
+	endDate = strings.TrimSpace(rawEndDate)
+	if endDate == "" {
+		endDate = time.Now().Format(dateLayout)
+	}
+	parsedEndDate, err := time.Parse(dateLayout, endDate)
+	if err != nil {
+		return "", "", fmt.Errorf("invalid end-date %q: use YYYY-MM-DD: %w", rawEndDate, err)
+	}
+
+	startDate = strings.TrimSpace(rawStartDate)
+	if startDate == "" {
+		startDate = parsedEndDate.AddDate(-1, 0, 0).Format(dateLayout)
+	}
+	parsedStartDate, err := time.Parse(dateLayout, startDate)
+	if err != nil {
+		return "", "", fmt.Errorf("invalid start-date %q: use YYYY-MM-DD: %w", rawStartDate, err)
+	}
+	if parsedStartDate.After(parsedEndDate) {
+		return "", "", fmt.Errorf("invalid date range: start-date %s is after end-date %s", startDate, endDate)
+	}
+
+	return parsedStartDate.Format(dateLayout), parsedEndDate.Format(dateLayout), nil
+}
+
+func normalizeRequiredTicker(rawTicker string) (string, error) {
+	ticker := strings.TrimSpace(rawTicker)
+	if ticker == "" {
+		return "", fmt.Errorf("ticker is required")
+	}
+	if strings.Contains(ticker, ",") {
+		return "", fmt.Errorf("invalid ticker %q: trade-levels accepts exactly one ticker", rawTicker)
+	}
+	return normalizeTickers(ticker)
+}
+
+func applyTradeLevelOptions(options *getTradeLevelsRequestOptions, opts *LevelOptions) {
+	setStringIfPresent(&options.minVolume, opts.MinVolume)
+	setStringIfPresent(&options.maxVolume, opts.MaxVolume)
+	setStringIfPresent(&options.minPrice, opts.MinPrice)
+	setStringIfPresent(&options.maxPrice, opts.MaxPrice)
+	setStringIfPresent(&options.minDollars, opts.MinDollars)
+	setStringIfPresent(&options.maxDollars, opts.MaxDollars)
+	setStringIfPresent(&options.vcd, opts.VCD)
+	setStringIfPresent(&options.relativeSize, opts.RelativeSize)
+	if opts.TradeLevelRank != 0 {
+		options.tradeLevelRank = opts.TradeLevelRank
+	}
+	if opts.TradeLevelCount != 0 {
+		options.tradeLevelCount = opts.TradeLevelCount
+		options.length = opts.TradeLevelCount
+	}
+}
+
+func setStringIfPresent(target *string, value string) {
+	if strings.TrimSpace(value) != "" {
+		*target = strings.TrimSpace(value)
+	}
+}
+
 func normalizeLimit(cmdName string, rawLimit, defaultLimit int, limitChanged bool) (int, error) {
 	if !limitChanged {
 		return defaultLimit, nil
@@ -1093,6 +1310,10 @@ func normalizeOutputOptions(rawFields, rawPreset, rawShape string) (fields []str
 
 func normalizeClusterOutputOptions(rawFields, rawPreset, rawShape string) (fields []string, shape string, err error) {
 	return normalizeOutputOptionsWithPresets(rawFields, rawPreset, rawShape, clusterFieldPresets)
+}
+
+func normalizeTradeLevelOutputOptions(rawFields, rawPreset, rawShape string) (fields []string, shape string, err error) {
+	return normalizeOutputOptionsWithPresets(rawFields, rawPreset, rawShape, tradeLevelFieldPresets)
 }
 
 func normalizeOutputOptionsWithPresets(rawFields, rawPreset, rawShape string, presets map[string][]string) (fields []string, shape string, err error) {
@@ -1176,6 +1397,17 @@ func applyClusterOutput(result *ClusterResult, clusters []json.RawMessage, field
 	result.Fields = output.fields
 	result.Rows = output.rows
 	result.Clusters = output.trades
+	return nil
+}
+
+func applyTradeLevelOutput(result *LevelResult, levels []json.RawMessage, fields []string, shape string) error {
+	output, err := projectTradeOutput(levels, fields, shape)
+	if err != nil {
+		return err
+	}
+	result.Fields = output.fields
+	result.Rows = output.rows
+	result.Levels = output.trades
 	return nil
 }
 
@@ -1378,6 +1610,18 @@ func fetchTradeClustersPages(ctx context.Context, tradeDate, tickers string, opt
 	})
 }
 
+func fetchTradeLevels(ctx context.Context, startDate, endDate, ticker string, options *getTradeLevelsRequestOptions) (getTradesResponse, error) {
+	return fetchTradeResponse(ctx, tradeRequestConfig{
+		operation: "GetTradeLevels",
+		endpoint:  getTradeLevelsEndpoint,
+		form:      getTradeLevelsForm(startDate, endDate, ticker, options),
+		setHeaders: func(req *http.Request, token string) {
+			setGetTradeLevelsHeaders(req, token, startDate, endDate, ticker, options)
+		},
+		afterDecode: inferTradeLevelTotals,
+	})
+}
+
 func fetchTradeClustersPage(ctx context.Context, tradeDate, tickers string, options *getTradeClustersRequestOptions) (getTradesResponse, error) {
 	return fetchTradeResponse(ctx, tradeRequestConfig{
 		operation: "GetTradeClusters",
@@ -1515,6 +1759,24 @@ func fetchTradeResponse(ctx context.Context, config tradeRequestConfig) (getTrad
 
 func defaultGetTradeClustersRequestOptions() getTradeClustersRequestOptions {
 	return clusterPresetRequestOptions(defaultClusterPreset())
+}
+
+func defaultGetTradeLevelsRequestOptions() getTradeLevelsRequestOptions {
+	return getTradeLevelsRequestOptions{
+		draw:            1,
+		start:           0,
+		length:          -1,
+		minVolume:       "0",
+		maxVolume:       "2000000000",
+		minPrice:        "0",
+		maxPrice:        "100000",
+		minDollars:      "500000",
+		maxDollars:      "30000000000",
+		vcd:             "0",
+		relativeSize:    "0",
+		tradeLevelRank:  -1,
+		tradeLevelCount: 10,
+	}
 }
 
 func defaultClusterPreset() *clusterPreset {
@@ -1729,6 +1991,11 @@ func setGetTradesHeaders(req *http.Request, token, tradeDate, tickers string, op
 	req.Header.Set("Referer", tradesReferer(tradeDate, tickers, options))
 }
 
+func setGetTradeLevelsHeaders(req *http.Request, token, startDate, endDate, ticker string, options *getTradeLevelsRequestOptions) {
+	setCommonXHRHeaders(req, token)
+	req.Header.Set("Referer", tradeLevelsReferer(startDate, endDate, ticker, options))
+}
+
 func setCommonXHRHeaders(req *http.Request, token string) {
 	req.Header.Set("User-Agent", auth.UserAgent)
 	req.Header.Set("Accept", "application/json, text/javascript, */*; q=0.01")
@@ -1757,6 +2024,12 @@ func tradesReferer(tradeDate, tickers string, options *getTradesRequestOptions) 
 	query.Set("PresetSearchTemplateID", options.presetSearchTemplateID)
 	query.Set("ViewMode", "Automatic")
 	return tradesPage + "?" + query.Encode()
+}
+
+func tradeLevelsReferer(startDate, endDate, ticker string, options *getTradeLevelsRequestOptions) string {
+	query := url.Values{}
+	setTradeLevelsQueryParams(query, startDate, endDate, ticker, options)
+	return tradeLevelsPage + "?" + query.Encode()
 }
 
 func setTradeClustersQueryParams(values url.Values, tradeDate, tickers string, options *getTradeClustersRequestOptions) {
@@ -1822,6 +2095,24 @@ func setSharedQueryParams(values url.Values, tradeDate, tickers string, options 
 	values.Set("SectorIndustry", options.sectorIndustry)
 }
 
+func setTradeLevelsQueryParams(values url.Values, startDate, endDate, ticker string, options *getTradeLevelsRequestOptions) {
+	values.Set("Ticker", ticker)
+	values.Set("MinVolume", options.minVolume)
+	values.Set("MaxVolume", options.maxVolume)
+	values.Set("VCD", options.vcd)
+	values.Set("RelativeSize", options.relativeSize)
+	values.Set("MinPrice", options.minPrice)
+	values.Set("MaxPrice", options.maxPrice)
+	values.Set("MinDollars", options.minDollars)
+	values.Set("MaxDollars", options.maxDollars)
+	values.Set("StartDate", startDate)
+	values.Set("EndDate", endDate)
+	values.Set("MinDate", startDate)
+	values.Set("MaxDate", endDate)
+	values.Set("TradeLevelRank", strconv.Itoa(options.tradeLevelRank))
+	values.Set("TradeLevelCount", strconv.Itoa(options.tradeLevelCount))
+}
+
 func getTradeClustersForm(tradeDate, tickers string, options *getTradeClustersRequestOptions) url.Values {
 	form := url.Values{}
 	setDataTableFormFields(form, getTradeClustersColumns, "MinFullTimeString24", options.draw, options.start, options.length)
@@ -1833,6 +2124,13 @@ func getTradesForm(tradeDate, tickers string, options *getTradesRequestOptions) 
 	form := url.Values{}
 	setDataTableFormFields(form, getTradesColumns, "FullTimeString24", options.draw, options.start, options.length)
 	setSharedQueryParams(form, tradeDate, tickers, options)
+	return form
+}
+
+func getTradeLevelsForm(startDate, endDate, ticker string, options *getTradeLevelsRequestOptions) url.Values {
+	form := url.Values{}
+	setDataTableFormFields(form, getTradeLevelsColumns, "$$", options.draw, options.start, options.length)
+	setTradeLevelsQueryParams(form, startDate, endDate, ticker, options)
 	return form
 }
 
@@ -1898,6 +2196,24 @@ func sessionExpiredCommandError() error {
 }
 
 func inferTradeClusterTotals(apiResponse *getTradesResponse) {
+	if len(apiResponse.Data) == 0 || (apiResponse.RecordsTotal != 0 && apiResponse.RecordsFiltered != 0) {
+		return
+	}
+	var row struct {
+		TotalRows int `json:"TotalRows"`
+	}
+	if err := json.Unmarshal(apiResponse.Data[0], &row); err != nil || row.TotalRows == 0 {
+		return
+	}
+	if apiResponse.RecordsTotal == 0 {
+		apiResponse.RecordsTotal = row.TotalRows
+	}
+	if apiResponse.RecordsFiltered == 0 {
+		apiResponse.RecordsFiltered = row.TotalRows
+	}
+}
+
+func inferTradeLevelTotals(apiResponse *getTradesResponse) {
 	if len(apiResponse.Data) == 0 || (apiResponse.RecordsTotal != 0 && apiResponse.RecordsFiltered != 0) {
 		return
 	}

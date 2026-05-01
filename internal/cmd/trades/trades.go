@@ -28,12 +28,15 @@ const (
 	fullFieldPreset      = "full"
 	objectOutputShape    = "objects"
 	calendarEventField   = "CalendarEvent"
+	auctionTradeField    = "AuctionTrade"
+	openingTradeField    = "OpeningTrade"
+	closingTradeField    = "ClosingTrade"
 	getTradesPath        = "https://www.volumeleaders.com/Trades/GetTrades"
 	getTradeClustersPath = "https://www.volumeleaders.com/TradeClusters/GetTradeClusters"
 	tradesPage           = "https://www.volumeleaders.com/Trades"
 	tradeClustersPage    = "https://www.volumeleaders.com/TradeClusters"
 	tradeLLMFieldGuide   = "LLM field guide: users and LLM callers should focus on VolumeLeaders table fields: time, ticker/count, CP, TP, sector, industry, Sh, $$, RS, PCT, R, and Last. Ticker is the stock ticker symbol, such as TSLA or AMZN. TradeCount is the #T count shown beside the ticker: the number of large trades for that ticker today, so KRE (2) means two large KRE trades today. Raw fields outside that visible table are secondary debugging or correlation context unless this guide says otherwise. DarkPools and Sweeps are request filters. Dark pool trades are done off exchange and reported later; lit exchange trades are done on exchange and reported immediately. Sweeps are orders spread across multiple exchanges to get done quickly; blocks are orders sent to one exchange. For the trades command, false/false means show everything, --dark-pools alone means dark pools of all kinds, --sweeps alone means sweeps from dark pools or lit exchanges, and both flags together mean dark pool sweeps only. In raw output, DarkPool and Sweep describe the classification of each returned row. RelativeSize is a request filter for minimum relative size. Captured browser values are 0, 5, 10, 25, 50, and 100, where 0 means any size and the others mean at least that many times the ticker's average dollar trade size. DollarsMultiplier, shown as RS in the UI, is the returned relative size value: trade dollars divided by average dollars for that ticker. VolumeLeaders highlights trades at or above 25x average size. CumulativeDistribution, shown as PCT in the UI, is the trade's percentile rank relative to other trades for the same ticker. Conditions carries RSI condition filters: OBD means overbought daily, OBH means overbought hourly, OSD means oversold daily, and OSH means oversold hourly. Captured defaults use -1 for no RSI condition filter. IgnoreOBD, IgnoreOBH, IgnoreOSD, and IgnoreOSH mean do not consider that RSI condition; they do not mean exclude matching rows. VCD appears to carry the minimum CumulativeDistribution percentile. Captures use 0 for no percentile filter and 99 for the 99th percentile or above. TradeID, SequenceNumber, and SecurityKey are VolumeLeaders internal identifiers. DateKey and TimeKey are compact internal date/time keys. Treat these five fields as upstream metadata for correlation or debugging, not as trading-decision signals. Date is the trade date. FullDateTime is the full trade timestamp. StartDate and EndDate appear to be upstream query-range echoes or internal metadata rather than separate trade signals. LastComparibleTradeDate is the upstream spelling for the last date VolumeLeaders saw a trade close to this trade's size. Ask and Bid are the ask and bid prices in the bid/ask spread when the trade happened. ClosePrice is CP in the UI: the close price at the end of the day, or the current price if the market is still open. Price is TP in the UI: the trade price when the large trade hit. AverageDailyVolume is a moving-average measure of the stock's normal volume, and PercentDailyVolume compares today's volume with that moving average. Volume is Sh in the UI: how many shares were in the trade. Dollars is $$ in the UI: how big the trade was in dollars, calculated as shares times the trade price. TradeRank is the trade's current rank among all current trades and can change when larger trades arrive. In the UI R column, a dash means the trade is not ranked in the top 100 trades, while a number such as 27 means the trade is currently ranked 27th. TradeRankSnapshot is immutable: it preserves how the trade ranked at the time it appeared. TotalVolume and TotalDollars are internal upstream values; do not treat them as standalone trading-decision signals."
-	calendarEventGuide   = "CalendarEvent is a compact derived core field. It contains true upstream calendar markers joined with commas, or null in array output when no marker is true. Source markers are EOM for end of month, EOQ for end of quarter, EOY for end of year, OPEX for a market options expiration date, and VOLEX for a market volatility expiration date such as VIX options expiration. In object output, CalendarEvent is omitted when no marker is true."
+	calendarEventGuide   = "CalendarEvent is a compact derived core field. It contains true upstream calendar markers joined with commas, or null in array output when no marker is true. Source markers are EOM for end of month, EOQ for end of quarter, EOY for end of year, OPEX for a market options expiration date, and VOLEX for a market volatility expiration date such as VIX options expiration. In object output, CalendarEvent is omitted when no marker is true. AuctionTrade is a compact derived core field from upstream OpeningTrade and ClosingTrade 0/1 flags. It is open for opening auction trades, close for market-on-close auction trades, or null in array output when neither flag is true. In object output, AuctionTrade is omitted when neither flag is true."
 	ignoredRSIConditions = "IgnoreOBD,IgnoreOBH,IgnoreOSD,IgnoreOSH"
 )
 
@@ -65,6 +68,7 @@ var tradeFieldPresets = map[string][]string{
 		"TradeRank",
 		"LastComparibleTradeDate",
 		"CalendarEvent",
+		"AuctionTrade",
 	},
 }
 
@@ -81,6 +85,7 @@ var clusterFieldPresets = map[string][]string{
 		"TradeClusterRank",
 		"Sector",
 		"CalendarEvent",
+		"AuctionTrade",
 	},
 }
 
@@ -1141,13 +1146,7 @@ func projectTradeObjects(trades []json.RawMessage, fields []string) ([]json.RawM
 		}
 		row := make(map[string]json.RawMessage, len(fields))
 		for _, field := range fields {
-			if field == calendarEventField {
-				if value, ok := calendarEventValue(object); ok {
-					row[field] = value
-				}
-				continue
-			}
-			if value, ok := object[field]; ok {
+			if value, ok := projectedFieldValue(object, field); ok {
 				row[field] = value
 			}
 		}
@@ -1195,16 +1194,38 @@ func projectedFieldValue(object map[string]json.RawMessage, field string) (json.
 	if field == calendarEventField {
 		return calendarEventValue(object)
 	}
+	if field == auctionTradeField {
+		return auctionTradeValue(object)
+	}
 
 	value, ok := object[field]
 	return value, ok
 }
 
+func auctionTradeValue(object map[string]json.RawMessage) (json.RawMessage, bool) {
+	if rawValue, ok := object[openingTradeField]; ok {
+		value, valid := rawJSONFlag(rawValue)
+		if valid && value {
+			return json.RawMessage(`"open"`), true
+		}
+	}
+	if rawValue, ok := object[closingTradeField]; ok {
+		value, valid := rawJSONFlag(rawValue)
+		if valid && value {
+			return json.RawMessage(`"close"`), true
+		}
+	}
+	return nil, false
+}
+
 func calendarEventValue(object map[string]json.RawMessage) (json.RawMessage, bool) {
 	events := make([]string, 0, len(calendarEventFields))
 	for _, field := range calendarEventFields {
-		if rawValue, ok := object[field]; ok && rawJSONBool(rawValue) {
-			events = append(events, field)
+		if rawValue, ok := object[field]; ok {
+			value, valid := rawJSONFlag(rawValue)
+			if valid && value {
+				events = append(events, field)
+			}
 		}
 	}
 	if len(events) == 0 {
@@ -1218,12 +1239,17 @@ func calendarEventValue(object map[string]json.RawMessage) (json.RawMessage, boo
 	return encoded, true
 }
 
-func rawJSONBool(rawValue json.RawMessage) bool {
-	var value bool
-	if err := json.Unmarshal(rawValue, &value); err != nil {
-		return false
+func rawJSONFlag(rawValue json.RawMessage) (value, ok bool) {
+	var boolValue bool
+	if err := json.Unmarshal(rawValue, &boolValue); err == nil {
+		return boolValue, true
 	}
-	return value
+
+	var numericValue int
+	if err := json.Unmarshal(rawValue, &numericValue); err != nil {
+		return false, false
+	}
+	return numericValue != 0, true
 }
 
 func encodeResult(w io.Writer, cmdName string, result any, pretty bool) error {

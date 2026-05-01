@@ -12,7 +12,6 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/url"
-	"strings"
 	"time"
 
 	"github.com/major/volumeleaders-agent/internal/auth"
@@ -179,18 +178,22 @@ func (c *Client) PostJSON(ctx context.Context, path string, payload, result any)
 		return fmt.Errorf("marshal JSON request: %w", err)
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.baseURL+path, bytes.NewReader(body))
+	resp, err := c.client.R().
+		SetContext(ctx).
+		SetBody(body).
+		SetHeader("Content-Type", "application/json").
+		Post(c.baseURL + path)
 	if err != nil {
-		return fmt.Errorf("create JSON request: %w", err)
+		return fmt.Errorf("post JSON request: %w", err)
 	}
-	req.Header.Set("Content-Type", "application/json")
-
-	responseBody, err := c.doRequest(req, "JSON")
-	if err != nil {
-		return err
+	if resp.Err != nil {
+		return fmt.Errorf("post JSON request: %w", resp.Err)
+	}
+	if resp.StatusCode() != http.StatusOK {
+		return fmt.Errorf("post JSON request: status %d: %s", resp.StatusCode(), resp.String())
 	}
 
-	if err := json.Unmarshal(responseBody, result); err != nil {
+	if err := json.Unmarshal(resp.Bytes(), result); err != nil {
 		return fmt.Errorf("decode JSON response: %w", err)
 	}
 	return nil
@@ -199,18 +202,23 @@ func (c *Client) PostJSON(ctx context.Context, path string, payload, result any)
 // PostForm sends a form-encoded POST and decodes the JSON response directly
 // (no DataTables envelope).
 func (c *Client) PostForm(ctx context.Context, path string, values url.Values, result any) error {
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.baseURL+path, strings.NewReader(values.Encode()))
+	resp, err := c.client.R().
+		SetContext(ctx).
+		SetBody(values.Encode()).
+		SetHeader("Content-Type", "application/x-www-form-urlencoded; charset=UTF-8").
+		Post(c.baseURL + path)
 	if err != nil {
-		return fmt.Errorf("create form request: %w", err)
+		return fmt.Errorf("post form request: %w", err)
 	}
-
-	responseBody, err := c.doRequest(req, "form")
-	if err != nil {
-		return err
+	if resp.Err != nil {
+		return fmt.Errorf("post form request: %w", resp.Err)
+	}
+	if resp.StatusCode() != http.StatusOK {
+		return fmt.Errorf("post form request: status %d: %s", resp.StatusCode(), resp.String())
 	}
 
 	if result != nil {
-		if err := json.Unmarshal(responseBody, result); err != nil {
+		if err := json.Unmarshal(resp.Bytes(), result); err != nil {
 			return fmt.Errorf("decode form response: %w", err)
 		}
 	}

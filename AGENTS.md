@@ -14,7 +14,7 @@ When modifying CLI commands, flags, output behavior, or authentication behavior:
 ```text
 cmd/volumeleaders-agent/              CLI entry point
 internal/cmd/                         structcli command tree
-internal/cmd/trades/                  large unusual trades command scaffold
+internal/cmd/trades/                  large unusual trades and all-time ranked trades commands
 internal/auth/                     Browser cookie + XSRF token extraction
 ```
 

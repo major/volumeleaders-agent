@@ -38,10 +38,26 @@ type Options struct {
 	Tickers string `flag:"tickers" flagdescr:"Optional ticker filter. Use one symbol or a comma-delimited list without spaces, for example AAPL or AAPL,MSFT." flagenv:"true" flaggroup:"Query" mod:"trim"`
 }
 
+// RankedOptions defines the LLM-readable contract for fetching all-time ranked trades.
+type RankedOptions struct {
+	Date    string `flag:"date" flagshort:"d" flagdescr:"Single trading date to query, formatted as YYYY-MM-DD. Ranked trade presets are intentionally limited to one day." flagenv:"true" flagrequired:"true" flaggroup:"Query" validate:"required" mod:"trim"`
+	Tickers string `flag:"tickers" flagdescr:"Optional ticker filter. Use one symbol or a comma-delimited list without spaces, for example AAPL or AAPL,MSFT." flagenv:"true" flaggroup:"Query" mod:"trim"`
+}
+
 // Result is the stable response shape for the unusual trades command.
 type Result struct {
 	Status          string            `json:"status"`
 	Date            string            `json:"date"`
+	RecordsTotal    int               `json:"recordsTotal"`
+	RecordsFiltered int               `json:"recordsFiltered"`
+	Trades          []json.RawMessage `json:"trades"`
+}
+
+// RankedResult is the stable response shape for all-time ranked trade presets.
+type RankedResult struct {
+	Status          string            `json:"status"`
+	Date            string            `json:"date"`
+	RankLimit       int               `json:"rankLimit"`
 	RecordsTotal    int               `json:"recordsTotal"`
 	RecordsFiltered int               `json:"recordsFiltered"`
 	Trades          []json.RawMessage `json:"trades"`
@@ -59,6 +75,29 @@ type tradeColumn struct {
 	data      string
 	name      string
 	orderable string
+}
+
+type getTradesRequestOptions struct {
+	tradeRank              int
+	length                 int
+	minVolume              string
+	maxDollars             string
+	conditions             string
+	relativeSize           string
+	includePhantom         string
+	includeOffsetting      string
+	presetSearchTemplateID string
+}
+
+type rankedPreset struct {
+	use      string
+	aliases  []string
+	short    string
+	long     string
+	example  string
+	rank     int
+	length   int
+	presetID string
 }
 
 var getTradesColumns = []tradeColumn{
@@ -94,6 +133,55 @@ func NewCommand() (*cobra.Command, error) {
 
 	if err := structcli.Bind(cmd, opts); err != nil {
 		return nil, fmt.Errorf("bind trades options: %w", err)
+	}
+	cmd.Flags().StringVar(&opts.Tickers, "ticker", "", "Optional ticker filter. Alias for --tickers.")
+
+	return cmd, nil
+}
+
+// NewTop10Command builds the top 10 all-time ranked trades command.
+func NewTop10Command() (*cobra.Command, error) {
+	return newRankedCommand(&rankedPreset{
+		use:      "top10",
+		aliases:  []string{"top-10", "ranked-top10", "ranked-top-10"},
+		short:    "Fetch trades ranked in a stock's all-time top 10",
+		long:     "Fetch VolumeLeaders trades for one day where each trade ranks in that stock's all-time top 10 single trades.",
+		example:  "volumeleaders-agent top10 --date 2026-04-30\nvolumeleaders-agent top10 --date 2026-04-30 --tickers AAPL,MSFT",
+		rank:     10,
+		length:   10,
+		presetID: "623",
+	})
+}
+
+// NewTop100Command builds the top 100 all-time ranked trades command.
+func NewTop100Command() (*cobra.Command, error) {
+	return newRankedCommand(&rankedPreset{
+		use:      "top100",
+		aliases:  []string{"top-100", "ranked-top100", "ranked-top-100"},
+		short:    "Fetch trades ranked in a stock's all-time top 100",
+		long:     "Fetch VolumeLeaders trades for one day where each trade ranks in that stock's all-time top 100 single trades.",
+		example:  "volumeleaders-agent top100 --date 2026-04-30\nvolumeleaders-agent top100 --date 2026-04-30 --tickers AAPL,MSFT",
+		rank:     100,
+		length:   100,
+		presetID: "568",
+	})
+}
+
+func newRankedCommand(preset *rankedPreset) (*cobra.Command, error) {
+	opts := &RankedOptions{}
+	cmd := &cobra.Command{
+		Use:     preset.use,
+		Aliases: preset.aliases,
+		Short:   preset.short,
+		Long:    preset.long,
+		Example: preset.example,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			return runRanked(cmd.Context(), cmd, opts, preset)
+		},
+	}
+
+	if err := structcli.Bind(cmd, opts); err != nil {
+		return nil, fmt.Errorf("bind %s options: %w", preset.use, err)
 	}
 	cmd.Flags().StringVar(&opts.Tickers, "ticker", "", "Optional ticker filter. Alias for --tickers.")
 
@@ -142,7 +230,60 @@ func run(ctx context.Context, cmd *cobra.Command, opts *Options) error {
 	return nil
 }
 
+func runRanked(ctx context.Context, cmd *cobra.Command, opts *RankedOptions, preset *rankedPreset) error {
+	select {
+	case <-ctx.Done():
+		return fmt.Errorf("run %s command: %w", preset.use, ctx.Err())
+	default:
+	}
+
+	tradeDate, err := time.Parse(dateLayout, opts.Date)
+	if err != nil {
+		return fmt.Errorf("invalid date %q: use YYYY-MM-DD: %w", opts.Date, err)
+	}
+	formattedDate := tradeDate.Format(dateLayout)
+	tickers, err := normalizeTickers(opts.Tickers)
+	if err != nil {
+		return err
+	}
+
+	apiResponse, err := fetchRankedTrades(ctx, formattedDate, tickers, preset)
+	if err != nil {
+		return err
+	}
+
+	result := RankedResult{
+		Status:          "ok",
+		Date:            formattedDate,
+		RankLimit:       preset.rank,
+		RecordsTotal:    apiResponse.RecordsTotal,
+		RecordsFiltered: apiResponse.RecordsFiltered,
+		Trades:          apiResponse.Data,
+	}
+	if result.Trades == nil {
+		result.Trades = []json.RawMessage{}
+	}
+
+	encoder := json.NewEncoder(cmd.OutOrStdout())
+	encoder.SetIndent("", "  ")
+	if err := encoder.Encode(result); err != nil {
+		return fmt.Errorf("encode %s response: %w", preset.use, err)
+	}
+
+	return nil
+}
+
 func fetchDisproportionatelyLargeTrades(ctx context.Context, tradeDate, tickers string) (getTradesResponse, error) {
+	options := defaultGetTradesRequestOptions()
+	return fetchTrades(ctx, tradeDate, tickers, &options)
+}
+
+func fetchRankedTrades(ctx context.Context, tradeDate, tickers string, preset *rankedPreset) (getTradesResponse, error) {
+	options := rankedGetTradesRequestOptions(preset)
+	return fetchTrades(ctx, tradeDate, tickers, &options)
+}
+
+func fetchTrades(ctx context.Context, tradeDate, tickers string, options *getTradesRequestOptions) (getTradesResponse, error) {
 	cookies, err := extractCookies(ctx)
 	if err != nil {
 		return getTradesResponse{}, fmt.Errorf("extract VolumeLeaders browser cookies: %w", err)
@@ -153,12 +294,12 @@ func fetchDisproportionatelyLargeTrades(ctx context.Context, tradeDate, tickers 
 		return getTradesResponse{}, fmt.Errorf("fetch VolumeLeaders XSRF token: %w", err)
 	}
 
-	form := getTradesForm(tradeDate, tickers)
+	form := getTradesForm(tradeDate, tickers, options)
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, getTradesEndpoint, strings.NewReader(form.Encode()))
 	if err != nil {
 		return getTradesResponse{}, fmt.Errorf("create GetTrades request: %w", err)
 	}
-	setGetTradesHeaders(req, token, tradeDate, tickers)
+	setGetTradesHeaders(req, token, tradeDate, tickers, options)
 	for name, value := range cookies {
 		req.AddCookie(&http.Cookie{Name: name, Value: value})
 	}
@@ -196,7 +337,35 @@ func fetchDisproportionatelyLargeTrades(ctx context.Context, tradeDate, tickers 
 	return apiResponse, nil
 }
 
-func setGetTradesHeaders(req *http.Request, token, tradeDate, tickers string) {
+func defaultGetTradesRequestOptions() getTradesRequestOptions {
+	return getTradesRequestOptions{
+		tradeRank:              -1,
+		length:                 100,
+		minVolume:              "0",
+		maxDollars:             "30000000000",
+		conditions:             "-1",
+		relativeSize:           "5",
+		includePhantom:         "1",
+		includeOffsetting:      "1",
+		presetSearchTemplateID: "87",
+	}
+}
+
+func rankedGetTradesRequestOptions(preset *rankedPreset) getTradesRequestOptions {
+	return getTradesRequestOptions{
+		tradeRank:              preset.rank,
+		length:                 preset.length,
+		minVolume:              "10000",
+		maxDollars:             "100000000000",
+		conditions:             "IgnoreOBD,IgnoreOBH,IgnoreOSD,IgnoreOSH",
+		relativeSize:           "0",
+		includePhantom:         "-1",
+		includeOffsetting:      "-1",
+		presetSearchTemplateID: preset.presetID,
+	}
+}
+
+func setGetTradesHeaders(req *http.Request, token, tradeDate, tickers string, options *getTradesRequestOptions) {
 	req.Header.Set("User-Agent", auth.UserAgent)
 	req.Header.Set("Accept", "application/json, text/javascript, */*; q=0.01")
 	req.Header.Set("Accept-Language", "en-US,en;q=0.9")
@@ -205,22 +374,22 @@ func setGetTradesHeaders(req *http.Request, token, tradeDate, tickers string) {
 	req.Header.Set("X-XSRF-Token", token)
 	req.Header.Set("X-Requested-With", "XMLHttpRequest")
 	req.Header.Set("Origin", "https://www.volumeleaders.com")
-	req.Header.Set("Referer", tradesReferer(tradeDate, tickers))
+	req.Header.Set("Referer", tradesReferer(tradeDate, tickers, options))
 	req.Header.Set("Sec-Fetch-Dest", "empty")
 	req.Header.Set("Sec-Fetch-Mode", "cors")
 	req.Header.Set("Sec-Fetch-Site", "same-origin")
 }
 
-func tradesReferer(tradeDate, tickers string) string {
+func tradesReferer(tradeDate, tickers string, options *getTradesRequestOptions) string {
 	query := url.Values{}
 	query.Set("Tickers", tickers)
 	query.Set("StartDate", tradeDate)
 	query.Set("EndDate", tradeDate)
-	query.Set("MinVolume", "0")
+	query.Set("MinVolume", options.minVolume)
 	query.Set("MaxVolume", "2000000000")
-	query.Set("Conditions", "-1")
+	query.Set("Conditions", options.conditions)
 	query.Set("VCD", "0")
-	query.Set("RelativeSize", "5")
+	query.Set("RelativeSize", options.relativeSize)
 	query.Set("DarkPools", "-1")
 	query.Set("Sweeps", "-1")
 	query.Set("LatePrints", "-1")
@@ -230,8 +399,8 @@ func tradesReferer(tradeDate, tickers string) string {
 	query.Set("MinPrice", "0")
 	query.Set("MaxPrice", "100000")
 	query.Set("MinDollars", "500000")
-	query.Set("MaxDollars", "30000000000")
-	query.Set("TradeRank", "-1")
+	query.Set("MaxDollars", options.maxDollars)
+	query.Set("TradeRank", fmt.Sprintf("%d", options.tradeRank))
 	query.Set("TradeRankSnapshot", "-1")
 	query.Set("MarketCap", "0")
 	query.Set("IncludePremarket", "1")
@@ -239,15 +408,15 @@ func tradesReferer(tradeDate, tickers string) string {
 	query.Set("IncludeAH", "1")
 	query.Set("IncludeOpening", "1")
 	query.Set("IncludeClosing", "1")
-	query.Set("IncludePhantom", "1")
-	query.Set("IncludeOffsetting", "1")
+	query.Set("IncludePhantom", options.includePhantom)
+	query.Set("IncludeOffsetting", options.includeOffsetting)
 	query.Set("SectorIndustry", "")
-	query.Set("PresetSearchTemplateID", "87")
+	query.Set("PresetSearchTemplateID", options.presetSearchTemplateID)
 	query.Set("ViewMode", "Automatic")
 	return tradesPage + "?" + query.Encode()
 }
 
-func getTradesForm(tradeDate, tickers string) url.Values {
+func getTradesForm(tradeDate, tickers string, options *getTradesRequestOptions) url.Values {
 	form := url.Values{}
 	form.Set("draw", "1")
 	for i, column := range getTradesColumns {
@@ -263,28 +432,28 @@ func getTradesForm(tradeDate, tickers string) url.Values {
 	form.Set("order[0][dir]", "DESC")
 	form.Set("order[0][name]", "FullTimeString24")
 	form.Set("start", "0")
-	form.Set("length", "100")
+	form.Set("length", fmt.Sprintf("%d", options.length))
 	form.Set("search[value]", "")
 	form.Set("search[regex]", "false")
 	form.Set("Tickers", tickers)
 	form.Set("StartDate", tradeDate)
 	form.Set("EndDate", tradeDate)
-	form.Set("MinVolume", "0")
+	form.Set("MinVolume", options.minVolume)
 	form.Set("MaxVolume", "2000000000")
 	form.Set("MinPrice", "0")
 	form.Set("MaxPrice", "100000")
 	form.Set("MinDollars", "500000")
-	form.Set("MaxDollars", "30000000000")
-	form.Set("Conditions", "-1")
+	form.Set("MaxDollars", options.maxDollars)
+	form.Set("Conditions", options.conditions)
 	form.Set("VCD", "0")
 	form.Set("SecurityTypeKey", "-1")
-	form.Set("RelativeSize", "5")
+	form.Set("RelativeSize", options.relativeSize)
 	form.Set("DarkPools", "-1")
 	form.Set("Sweeps", "-1")
 	form.Set("LatePrints", "-1")
 	form.Set("SignaturePrints", "-1")
 	form.Set("EvenShared", "-1")
-	form.Set("TradeRank", "-1")
+	form.Set("TradeRank", fmt.Sprintf("%d", options.tradeRank))
 	form.Set("TradeRankSnapshot", "-1")
 	form.Set("MarketCap", "0")
 	form.Set("IncludePremarket", "1")
@@ -292,8 +461,8 @@ func getTradesForm(tradeDate, tickers string) url.Values {
 	form.Set("IncludeAH", "1")
 	form.Set("IncludeOpening", "1")
 	form.Set("IncludeClosing", "1")
-	form.Set("IncludePhantom", "1")
-	form.Set("IncludeOffsetting", "1")
+	form.Set("IncludePhantom", options.includePhantom)
+	form.Set("IncludeOffsetting", options.includeOffsetting)
 	form.Set("SectorIndustry", "")
 	return form
 }

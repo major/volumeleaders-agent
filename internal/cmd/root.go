@@ -25,7 +25,15 @@ func NewRootCmd() (*cobra.Command, error) {
 	if err != nil {
 		return nil, fmt.Errorf("create trades command: %w", err)
 	}
-	rootCmd.AddCommand(tradesCmd)
+	top10Cmd, err := trades.NewTop10Command()
+	if err != nil {
+		return nil, fmt.Errorf("create top10 command: %w", err)
+	}
+	top100Cmd, err := trades.NewTop100Command()
+	if err != nil {
+		return nil, fmt.Errorf("create top100 command: %w", err)
+	}
+	rootCmd.AddCommand(tradesCmd, top10Cmd, top100Cmd)
 
 	if err := structcli.Setup(rootCmd,
 		structcli.WithAppName(appName),

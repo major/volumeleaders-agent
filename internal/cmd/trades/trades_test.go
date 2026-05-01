@@ -14,6 +14,7 @@ import (
 	"testing"
 
 	"github.com/major/volumeleaders-agent/internal/auth"
+	"github.com/spf13/cobra"
 )
 
 func TestTradesCommand(t *testing.T) {
@@ -58,6 +59,78 @@ func TestTradesCommand(t *testing.T) {
 	}
 	if !bytes.Contains(got.Trades[0], []byte(`"Ticker": "KRE"`)) {
 		t.Fatalf("trade payload = %s, want KRE ticker", string(got.Trades[0]))
+	}
+}
+
+func TestRankedTradesCommands(t *testing.T) {
+	tests := []struct {
+		name        string
+		newCommand  func() (*cobra.Command, error)
+		args        []string
+		wantRank    int
+		wantLength  int
+		wantPreset  string
+		wantTickers string
+	}{
+		{
+			name:       "top 10 ranked trades",
+			newCommand: NewTop10Command,
+			args:       []string{"--date", "2026-04-30"},
+			wantRank:   10,
+			wantLength: 10,
+			wantPreset: "623",
+		},
+		{
+			name:        "top 100 ranked trades with tickers",
+			newCommand:  NewTop100Command,
+			args:        []string{"--date", "2026-04-30", "--ticker", "aapl,msft"},
+			wantRank:    100,
+			wantLength:  100,
+			wantPreset:  "568",
+			wantTickers: "AAPL,MSFT",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			preset := &rankedPreset{rank: tt.wantRank, length: tt.wantLength, presetID: tt.wantPreset}
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				options := rankedGetTradesRequestOptions(preset)
+				assertGetTradesRequestWithOptions(t, r, "2026-04-30", tt.wantTickers, &options)
+				fmt.Fprint(w, `{"draw":1,"recordsTotal":76,"recordsFiltered":76,"data":[{"Ticker":"SNDQ","TradeRank":1}]}`)
+			}))
+			t.Cleanup(server.Close)
+
+			withCommandDependencies(t, server.Client(), server.URL, nil, nil)
+
+			cmd, err := tt.newCommand()
+			if err != nil {
+				t.Fatalf("new command error = %v", err)
+			}
+
+			var stdout bytes.Buffer
+			cmd.SetOut(&stdout)
+			cmd.SetErr(io.Discard)
+			cmd.SetArgs(tt.args)
+
+			if err := cmd.Execute(); err != nil {
+				t.Fatalf("Execute() error = %v", err)
+			}
+
+			var got RankedResult
+			if err := json.Unmarshal(stdout.Bytes(), &got); err != nil {
+				t.Fatalf("unmarshal output: %v\noutput: %s", err, stdout.String())
+			}
+			if got.Status != "ok" {
+				t.Fatalf("Status = %q, want ok", got.Status)
+			}
+			if got.RankLimit != tt.wantRank {
+				t.Fatalf("RankLimit = %d, want %d", got.RankLimit, tt.wantRank)
+			}
+			if len(got.Trades) != 1 {
+				t.Fatalf("len(Trades) = %d, want 1", len(got.Trades))
+			}
+		})
 	}
 }
 
@@ -278,6 +351,12 @@ func TestFetchDisproportionatelyLargeTradesDoesNotLeakSecrets(t *testing.T) {
 
 func assertGetTradesRequest(t *testing.T, r *http.Request, tradeDate, tickers string) {
 	t.Helper()
+	options := defaultGetTradesRequestOptions()
+	assertGetTradesRequestWithOptions(t, r, tradeDate, tickers, &options)
+}
+
+func assertGetTradesRequestWithOptions(t *testing.T, r *http.Request, tradeDate, tickers string, options *getTradesRequestOptions) {
+	t.Helper()
 
 	if r.Method != http.MethodPost {
 		t.Fatalf("method = %s, want POST", r.Method)
@@ -312,7 +391,7 @@ func assertGetTradesRequest(t *testing.T, r *http.Request, tradeDate, tickers st
 	if got := r.Header.Get("Sec-Fetch-Site"); got != "same-origin" {
 		t.Fatalf("Sec-Fetch-Site = %q", got)
 	}
-	if got := r.Header.Get("Referer"); !strings.Contains(got, "PresetSearchTemplateID=87") || !strings.Contains(got, "StartDate="+url.QueryEscape(tradeDate)) || !strings.Contains(got, "Tickers="+url.QueryEscape(tickers)) {
+	if got := r.Header.Get("Referer"); !strings.Contains(got, "PresetSearchTemplateID="+options.presetSearchTemplateID) || !strings.Contains(got, "StartDate="+url.QueryEscape(tradeDate)) || !strings.Contains(got, "Tickers="+url.QueryEscape(tickers)) {
 		t.Fatalf("Referer = %q, want preset and single date", got)
 	}
 	assertCookie(t, r, "ASP.NET_SessionId", "session-cookie")
@@ -324,7 +403,7 @@ func assertGetTradesRequest(t *testing.T, r *http.Request, tradeDate, tickers st
 	}
 	assertFormValue(t, r.Form, "StartDate", tradeDate)
 	assertFormValue(t, r.Form, "EndDate", tradeDate)
-	wantForm := getTradesForm(tradeDate, tickers)
+	wantForm := getTradesForm(tradeDate, tickers, options)
 	if r.Form.Encode() != wantForm.Encode() {
 		t.Fatalf("form mismatch\ngot:  %s\nwant: %s", r.Form.Encode(), wantForm.Encode())
 	}

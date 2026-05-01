@@ -61,6 +61,35 @@ volumeleaders-agent --mcp              # Run stdio MCP server
 
 The date flag can also be set with `VOLUMELEADERS_AGENT_TRADES_DATE`.
 
+## All-time ranked trades
+
+```bash
+volumeleaders-agent top10 --date 2026-04-30
+volumeleaders-agent top100 --date 2026-04-30
+volumeleaders-agent top10 --date 2026-04-30 --tickers AAPL,MSFT
+```
+
+The `top10` and `top100` commands fetch trades from one trading day where each trade ranks in the stock's all-time largest single trades. A `TradeRank` of `1` is the biggest single trade VolumeLeaders has recorded for that stock, while `10` means the tenth biggest. Both commands use the same `Trades/GetTrades` auth and response handling as `trades`, but they apply the ranked-trade presets captured from VolumeLeaders.
+
+The ranked commands return stable JSON with the requested date, rank limit, DataTables record counts, and raw trade objects:
+
+```json
+{
+  "status": "ok",
+  "date": "2026-04-30",
+  "rankLimit": 10,
+  "recordsTotal": 76,
+  "recordsFiltered": 76,
+  "trades": [
+    {
+      "Ticker": "SNDQ",
+      "TradeRank": 1,
+      "Dollars": 15623499.12
+    }
+  ]
+}
+```
+
 ## Auth package
 
 ```go

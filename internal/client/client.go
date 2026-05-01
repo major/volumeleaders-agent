@@ -30,6 +30,7 @@ type Client struct {
 	cookies          map[string]string
 	xsrfToken        string
 	closeOnce        sync.Once
+	closeErr         error
 }
 
 // NewForTesting creates a Client for test use, bypassing browser-based
@@ -94,11 +95,10 @@ func New(ctx context.Context) (*Client, error) {
 // Close releases resources held by both resty clients.
 // It is safe to call Close more than once.
 func (c *Client) Close() error {
-	var err error
 	c.closeOnce.Do(func() {
-		err = errors.Join(c.client.Close(), c.noRedirectClient.Close())
+		c.closeErr = errors.Join(c.client.Close(), c.noRedirectClient.Close())
 	})
-	return err
+	return c.closeErr
 }
 
 // configureClient applies the base URL and request middleware shared by all

@@ -7,6 +7,7 @@ toolchain go1.26.2
 require (
 	github.com/browserutils/kooky v0.2.9
 	github.com/urfave/cli/v3 v3.8.0
+	resty.dev/v3 v3.0.0-beta.6
 )
 
 require (
@@ -22,5 +23,4 @@ require (
 	golang.org/x/sys v0.41.0 // indirect
 	golang.org/x/text v0.34.0 // indirect
 	gopkg.in/ini.v1 v1.67.1 // indirect
-	resty.dev/v3 v3.0.0-beta.6 // indirect
 )

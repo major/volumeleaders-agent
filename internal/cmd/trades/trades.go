@@ -290,27 +290,6 @@ type signalPreset struct {
 	presetID   string
 }
 
-type leveragePreset struct {
-	use            string
-	aliases        []string
-	short          string
-	long           string
-	example        string
-	sectorIndustry string
-	presetID       string
-}
-
-type sectorPreset struct {
-	use            string
-	aliases        []string
-	short          string
-	long           string
-	example        string
-	vcd            string
-	sectorIndustry string
-	presetID       string
-}
-
 type clusterPreset struct {
 	use              string
 	aliases          []string
@@ -446,104 +425,6 @@ func NewTop100ClustersCommand() (*cobra.Command, error) {
 	})
 }
 
-// NewBullLeverageClustersCommand builds the bullish leveraged ETF trade clusters command.
-func NewBullLeverageClustersCommand() (*cobra.Command, error) {
-	return newClusterCommand(&clusterPreset{
-		use:            "bull-leverage-clusters",
-		aliases:        []string{"bullish-leverage-clusters", "bull-clusters", "bullish-clusters"},
-		short:          "Fetch bullish leveraged ETF trade clusters",
-		long:           "Fetch VolumeLeaders bullish leveraged ETF trade clusters for one day. This uses the bullish leverage ETF cluster preset and filters the upstream GetTradeClusters request to the X Bull sector group.",
-		example:        "volumeleaders-agent bull-leverage-clusters --date 2026-04-30\nvolumeleaders-agent bull-leverage-clusters --date 2026-04-30 --tickers TQQQ",
-		minVolume:      "10000",
-		maxDollars:     "10000000000",
-		vcd:            "97",
-		relativeSize:   "5",
-		sectorIndustry: "X Bull",
-		presetID:       "5",
-	})
-}
-
-// NewBearLeverageClustersCommand builds the bearish leveraged ETF trade clusters command.
-func NewBearLeverageClustersCommand() (*cobra.Command, error) {
-	return newClusterCommand(&clusterPreset{
-		use:            "bear-leverage-clusters",
-		aliases:        []string{"bearish-leverage-clusters", "bear-clusters", "bearish-clusters"},
-		short:          "Fetch bearish leveraged ETF trade clusters",
-		long:           "Fetch VolumeLeaders bearish leveraged ETF trade clusters for one day. This uses the bearish leverage ETF cluster preset and filters the upstream GetTradeClusters request to the X Bear sector group.",
-		example:        "volumeleaders-agent bear-leverage-clusters --date 2026-04-30\nvolumeleaders-agent bear-leverage-clusters --date 2026-04-30 --tickers SPXU",
-		minVolume:      "10000",
-		maxDollars:     "10000000000",
-		vcd:            "97",
-		relativeSize:   "5",
-		sectorIndustry: "X Bear",
-		presetID:       "6",
-	})
-}
-
-// NewBiotechClustersCommand builds the biotechnology stock trade clusters command.
-func NewBiotechClustersCommand() (*cobra.Command, error) {
-	return newClusterCommand(&clusterPreset{
-		use:            "biotech-clusters",
-		aliases:        []string{"biotechnology-clusters", "biotechnology-stock-clusters", "biotech-stock-clusters"},
-		short:          "Fetch biotechnology stock trade clusters",
-		long:           "Fetch VolumeLeaders biotechnology stock trade clusters for one day. This mirrors the biotechnology trades preset, but requests clustered trade events from GetTradeClusters.",
-		example:        "volumeleaders-agent biotech-clusters --date 2026-04-30\nvolumeleaders-agent biotech-clusters --date 2026-04-30 --tickers IBB,XBI",
-		minVolume:      "10000",
-		maxDollars:     "10000000000",
-		relativeSize:   "5",
-		sectorIndustry: "Biotech",
-		presetID:       "89",
-	})
-}
-
-// NewBondsClustersCommand builds the bonds trade clusters command.
-func NewBondsClustersCommand() (*cobra.Command, error) {
-	return newClusterCommand(&clusterPreset{
-		use:            "bonds-clusters",
-		aliases:        []string{"bond-clusters", "bond-etf-clusters"},
-		short:          "Fetch bonds trade clusters",
-		long:           "Fetch VolumeLeaders bonds trade clusters for one day. This mirrors the bonds trades preset, but requests clustered trade events from GetTradeClusters.",
-		example:        "volumeleaders-agent bonds-clusters --date 2026-04-30\nvolumeleaders-agent bonds-clusters --date 2026-04-30 --tickers HYG,TLT",
-		minVolume:      "10000",
-		maxDollars:     "10000000000",
-		relativeSize:   "5",
-		sectorIndustry: "Bonds",
-		presetID:       "90",
-	})
-}
-
-// NewCommoditiesClustersCommand builds the commodities trade clusters command.
-func NewCommoditiesClustersCommand() (*cobra.Command, error) {
-	return newClusterCommand(&clusterPreset{
-		use:          "commodities-clusters",
-		aliases:      []string{"commodity-clusters", "commodity-trade-clusters"},
-		short:        "Fetch commodities trade clusters",
-		long:         "Fetch VolumeLeaders commodities trade clusters for one day. This mirrors the commodities trades preset, but requests clustered trade events from GetTradeClusters.",
-		example:      "volumeleaders-agent commodities-clusters --date 2026-04-30\nvolumeleaders-agent commodities-clusters --date 2026-04-30 --tickers GLD,SLV",
-		minVolume:    "10000",
-		maxDollars:   "10000000000",
-		vcd:          "97",
-		relativeSize: "5",
-		presetID:     "9",
-	})
-}
-
-// NewCommunicationsServicesClustersCommand builds the communications services trade clusters command.
-func NewCommunicationsServicesClustersCommand() (*cobra.Command, error) {
-	return newClusterCommand(&clusterPreset{
-		use:            "communications-services-clusters",
-		aliases:        []string{"communication-services-clusters", "comm-services-clusters", "communications-clusters", "comms-clusters"},
-		short:          "Fetch communications services trade clusters",
-		long:           "Fetch VolumeLeaders communications services trade clusters for one day. This mirrors the communications services trades preset, but requests clustered trade events from GetTradeClusters.",
-		example:        "volumeleaders-agent communications-services-clusters --date 2026-04-30\nvolumeleaders-agent communications-services-clusters --date 2026-04-30 --tickers XLC,META",
-		minVolume:      "10000",
-		maxDollars:     "10000000000",
-		relativeSize:   "5",
-		sectorIndustry: "Comm Services",
-		presetID:       "91",
-	})
-}
-
 // NewTop10Command builds the top 10 all-time ranked trades command.
 func NewTop10Command() (*cobra.Command, error) {
 	return newRankedCommand(&rankedPreset{
@@ -602,84 +483,6 @@ func NewOffsettingCommand() (*cobra.Command, error) {
 	})
 }
 
-// NewBullLeverageCommand builds the bullish leveraged ETF trades command.
-func NewBullLeverageCommand() (*cobra.Command, error) {
-	return newLeverageCommand(&leveragePreset{
-		use:            "bull-leverage",
-		aliases:        []string{"bullish-leverage", "bull-leverage-etfs", "bullish-leverage-etfs"},
-		short:          "Fetch bullish leveraged ETF trades",
-		long:           "Fetch VolumeLeaders bullish leveraged ETF trades for one day. This uses the bullish leverage ETF preset and filters the upstream GetTrades request to the X Bull sector group.",
-		example:        "volumeleaders-agent bull-leverage --date 2026-04-30\nvolumeleaders-agent bull-leverage --date 2026-04-30 --tickers TQQQ",
-		sectorIndustry: "X Bull",
-		presetID:       "5",
-	})
-}
-
-// NewBearLeverageCommand builds the bearish leveraged ETF trades command.
-func NewBearLeverageCommand() (*cobra.Command, error) {
-	return newLeverageCommand(&leveragePreset{
-		use:            "bear-leverage",
-		aliases:        []string{"bearish-leverage", "bear-leverage-etfs", "bearish-leverage-etfs"},
-		short:          "Fetch bearish leveraged ETF trades",
-		long:           "Fetch VolumeLeaders bearish leveraged ETF trades for one day. This uses the bearish leverage ETF preset and filters the upstream GetTrades request to the X Bear sector group.",
-		example:        "volumeleaders-agent bear-leverage --date 2026-04-30\nvolumeleaders-agent bear-leverage --date 2026-04-30 --tickers SPXU",
-		sectorIndustry: "X Bear",
-		presetID:       "6",
-	})
-}
-
-// NewBiotechCommand builds the biotechnology stock trades command.
-func NewBiotechCommand() (*cobra.Command, error) {
-	return newSectorCommand(&sectorPreset{
-		use:            "biotech",
-		aliases:        []string{"biotechnology", "biotechnology-stocks", "biotech-stocks"},
-		short:          "Fetch biotechnology stock trades",
-		long:           "Fetch VolumeLeaders biotechnology stock trades for one day. This uses the biotechnology preset captured from VolumeLeaders and filters the upstream GetTrades request to the Biotech sector group.",
-		example:        "volumeleaders-agent biotech --date 2026-04-30\nvolumeleaders-agent biotech --date 2026-04-30 --tickers IBB,XBI",
-		sectorIndustry: "Biotech",
-		presetID:       "89",
-	})
-}
-
-// NewBondsCommand builds the bonds trades command.
-func NewBondsCommand() (*cobra.Command, error) {
-	return newSectorCommand(&sectorPreset{
-		use:            "bonds",
-		aliases:        []string{"bond-trades", "bond-etfs"},
-		short:          "Fetch bonds trades",
-		long:           "Fetch VolumeLeaders bonds trades for one day. This uses the bonds preset captured from VolumeLeaders and filters the upstream GetTrades request to the Bonds sector group.",
-		example:        "volumeleaders-agent bonds --date 2026-04-30\nvolumeleaders-agent bonds --date 2026-04-30 --tickers HYG,TLT",
-		sectorIndustry: "Bonds",
-		presetID:       "90",
-	})
-}
-
-// NewCommoditiesCommand builds the commodities trades command.
-func NewCommoditiesCommand() (*cobra.Command, error) {
-	return newSectorCommand(&sectorPreset{
-		use:      "commodities",
-		aliases:  []string{"commodity", "commodity-trades"},
-		short:    "Fetch commodities trades",
-		long:     "Fetch VolumeLeaders commodities trades for one day. This uses the commodities preset captured from VolumeLeaders and applies the upstream commodity search template.",
-		example:  "volumeleaders-agent commodities --date 2026-04-30\nvolumeleaders-agent commodities --date 2026-04-30 --tickers GLD,SLV",
-		vcd:      "97",
-		presetID: "9",
-	})
-}
-
-// NewCommunicationsServicesCommand builds the communications services trades command.
-func NewCommunicationsServicesCommand() (*cobra.Command, error) {
-	return newSectorCommand(&sectorPreset{
-		use:            "communications-services",
-		aliases:        []string{"communication-services", "comm-services", "communications", "comms"},
-		short:          "Fetch communications services trades",
-		long:           "Fetch VolumeLeaders communications services trades for one day. This uses the communications services preset captured from VolumeLeaders and filters the upstream GetTrades request to the Comm Services sector group.",
-		example:        "volumeleaders-agent communications-services --date 2026-04-30\nvolumeleaders-agent communications-services --date 2026-04-30 --tickers XLC,META",
-		sectorIndustry: "Comm Services",
-		presetID:       "91",
-	})
-}
-
 func newRankedCommand(preset *rankedPreset) (*cobra.Command, error) {
 	opts := &RankedOptions{}
 	return newBoundTradeCommand(&commandMetadata{
@@ -703,32 +506,6 @@ func newSignalCommand(preset *signalPreset) (*cobra.Command, error) {
 		example: preset.example,
 	}, opts, &opts.Tickers, func(cmd *cobra.Command, _ []string) error {
 		return runSignal(cmd.Context(), cmd, opts, preset)
-	})
-}
-
-func newLeverageCommand(preset *leveragePreset) (*cobra.Command, error) {
-	opts := &SignalOptions{}
-	return newBoundTradeCommand(&commandMetadata{
-		use:     preset.use,
-		aliases: preset.aliases,
-		short:   preset.short,
-		long:    preset.long,
-		example: preset.example,
-	}, opts, &opts.Tickers, func(cmd *cobra.Command, _ []string) error {
-		return runLeverage(cmd.Context(), cmd, opts, preset)
-	})
-}
-
-func newSectorCommand(preset *sectorPreset) (*cobra.Command, error) {
-	opts := &SignalOptions{}
-	return newBoundTradeCommand(&commandMetadata{
-		use:     preset.use,
-		aliases: preset.aliases,
-		short:   preset.short,
-		long:    preset.long,
-		example: preset.example,
-	}, opts, &opts.Tickers, func(cmd *cobra.Command, _ []string) error {
-		return runSector(cmd.Context(), cmd, opts, preset)
 	})
 }
 
@@ -830,18 +607,6 @@ func runRanked(ctx context.Context, cmd *cobra.Command, opts *RankedOptions, pre
 func runSignal(ctx context.Context, cmd *cobra.Command, opts *SignalOptions, preset *signalPreset) error {
 	return runSignalPreset(ctx, cmd, opts, preset.use, func(ctx context.Context, formattedDate, tickers string, limit int) (getTradesResponse, error) {
 		return fetchSignalTrades(ctx, formattedDate, tickers, preset, limit)
-	})
-}
-
-func runLeverage(ctx context.Context, cmd *cobra.Command, opts *SignalOptions, preset *leveragePreset) error {
-	return runSignalPreset(ctx, cmd, opts, preset.use, func(ctx context.Context, formattedDate, tickers string, limit int) (getTradesResponse, error) {
-		return fetchLeverageTrades(ctx, formattedDate, tickers, preset, limit)
-	})
-}
-
-func runSector(ctx context.Context, cmd *cobra.Command, opts *SignalOptions, preset *sectorPreset) error {
-	return runSignalPreset(ctx, cmd, opts, preset.use, func(ctx context.Context, formattedDate, tickers string, limit int) (getTradesResponse, error) {
-		return fetchSectorTrades(ctx, formattedDate, tickers, preset, limit)
 	})
 }
 
@@ -1135,16 +900,6 @@ func fetchSignalTrades(ctx context.Context, tradeDate, tickers string, preset *s
 	return fetchTradesPages(ctx, tradeDate, tickers, &options, limit)
 }
 
-func fetchLeverageTrades(ctx context.Context, tradeDate, tickers string, preset *leveragePreset, limit int) (getTradesResponse, error) {
-	options := leverageGetTradesRequestOptions(preset)
-	return fetchTradesPages(ctx, tradeDate, tickers, &options, limit)
-}
-
-func fetchSectorTrades(ctx context.Context, tradeDate, tickers string, preset *sectorPreset, limit int) (getTradesResponse, error) {
-	options := sectorGetTradesRequestOptions(preset)
-	return fetchTradesPages(ctx, tradeDate, tickers, &options, limit)
-}
-
 func fetchTradeClustersPages(ctx context.Context, tradeDate, tickers string, options *getTradeClustersRequestOptions, limit int) (getTradesResponse, error) {
 	return fetchTradesResponsePages(ctx, "GetTradeClusters", limit, func(page, pageLength int) (getTradesResponse, error) {
 		pageOptions := *options
@@ -1398,49 +1153,6 @@ func signalGetTradesRequestOptions(preset *signalPreset) getTradesRequestOptions
 		includePhantom:         preset.phantom,
 		includeOffsetting:      preset.offsetting,
 		sectorIndustry:         "",
-		presetSearchTemplateID: preset.presetID,
-	}
-}
-
-func leverageGetTradesRequestOptions(preset *leveragePreset) getTradesRequestOptions {
-	return getTradesRequestOptions{
-		tradeRank:              -1,
-		draw:                   1,
-		start:                  0,
-		length:                 defaultTradeLimit,
-		minVolume:              "10000",
-		maxDollars:             "10000000000",
-		conditions:             "IgnoreOBD,IgnoreOBH,IgnoreOSD,IgnoreOSH",
-		vcd:                    "97",
-		relativeSize:           "5",
-		darkPools:              "-1",
-		includePhantom:         "-1",
-		includeOffsetting:      "-1",
-		sectorIndustry:         preset.sectorIndustry,
-		presetSearchTemplateID: preset.presetID,
-	}
-}
-
-func sectorGetTradesRequestOptions(preset *sectorPreset) getTradesRequestOptions {
-	vcd := preset.vcd
-	if vcd == "" {
-		vcd = "0"
-	}
-
-	return getTradesRequestOptions{
-		tradeRank:              -1,
-		draw:                   1,
-		start:                  0,
-		length:                 defaultTradeLimit,
-		minVolume:              "10000",
-		maxDollars:             "10000000000",
-		conditions:             "IgnoreOBD,IgnoreOBH,IgnoreOSD,IgnoreOSH",
-		vcd:                    vcd,
-		relativeSize:           "5",
-		darkPools:              "-1",
-		includePhantom:         "-1",
-		includeOffsetting:      "-1",
-		sectorIndustry:         preset.sectorIndustry,
 		presetSearchTemplateID: preset.presetID,
 	}
 }

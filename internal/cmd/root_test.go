@@ -11,19 +11,22 @@ import (
 
 func TestRootCommandWiresStructCLIFeatures(t *testing.T) {
 	tests := []struct {
-		name     string
-		args     []string
-		wantOuts []string
+		name        string
+		args        []string
+		wantOuts    []string
+		wantNotOuts []string
 	}{
 		{
-			name:     "json schema tree is available",
-			args:     []string{"--jsonschema=tree"},
-			wantOuts: []string{"trades", "trade-clusters", "top10-clusters", "top100-clusters", "phantom", "offsetting", "bull-leverage", "bull-leverage-clusters", "bear-leverage", "bear-leverage-clusters", "biotech", "biotech-clusters", "bonds", "bonds-clusters", "commodities", "commodities-clusters", "communications-services", "communications-services-clusters"},
+			name:        "json schema tree is available",
+			args:        []string{"--jsonschema=tree"},
+			wantOuts:    []string{"trades", "trade-clusters", "top10-clusters", "top100-clusters", "phantom", "offsetting"},
+			wantNotOuts: []string{"bull-leverage", "bull-leverage-clusters", "bear-leverage", "bear-leverage-clusters", "biotech", "biotech-clusters", "bonds", "bonds-clusters", "commodities", "commodities-clusters", "communications-services", "communications-services-clusters"},
 		},
 		{
-			name:     "env vars reference topic is available",
-			args:     []string{"env-vars"},
-			wantOuts: []string{"VOLUMELEADERS_AGENT_TRADES_DATE", "VOLUMELEADERS_AGENT_TRADE_CLUSTERS_DATE", "VOLUMELEADERS_AGENT_TOP10_CLUSTERS_DATE", "VOLUMELEADERS_AGENT_TOP100_CLUSTERS_DATE", "VOLUMELEADERS_AGENT_PHANTOM_DATE", "VOLUMELEADERS_AGENT_OFFSETTING_DATE", "VOLUMELEADERS_AGENT_BULL_LEVERAGE_DATE", "VOLUMELEADERS_AGENT_BULL_LEVERAGE_CLUSTERS_DATE", "VOLUMELEADERS_AGENT_BEAR_LEVERAGE_DATE", "VOLUMELEADERS_AGENT_BEAR_LEVERAGE_CLUSTERS_DATE", "VOLUMELEADERS_AGENT_BIOTECH_DATE", "VOLUMELEADERS_AGENT_BIOTECH_CLUSTERS_DATE", "VOLUMELEADERS_AGENT_BONDS_DATE", "VOLUMELEADERS_AGENT_BONDS_CLUSTERS_DATE", "VOLUMELEADERS_AGENT_COMMODITIES_DATE", "VOLUMELEADERS_AGENT_COMMODITIES_CLUSTERS_DATE", "VOLUMELEADERS_AGENT_COMMUNICATIONS_SERVICES_DATE", "VOLUMELEADERS_AGENT_COMMUNICATIONS_SERVICES_CLUSTERS_DATE"},
+			name:        "env vars reference topic is available",
+			args:        []string{"env-vars"},
+			wantOuts:    []string{"VOLUMELEADERS_AGENT_TRADES_DATE", "VOLUMELEADERS_AGENT_TRADE_CLUSTERS_DATE", "VOLUMELEADERS_AGENT_TOP10_CLUSTERS_DATE", "VOLUMELEADERS_AGENT_TOP100_CLUSTERS_DATE", "VOLUMELEADERS_AGENT_PHANTOM_DATE", "VOLUMELEADERS_AGENT_OFFSETTING_DATE"},
+			wantNotOuts: []string{"VOLUMELEADERS_AGENT_BULL_LEVERAGE_DATE", "VOLUMELEADERS_AGENT_BULL_LEVERAGE_CLUSTERS_DATE", "VOLUMELEADERS_AGENT_BEAR_LEVERAGE_DATE", "VOLUMELEADERS_AGENT_BEAR_LEVERAGE_CLUSTERS_DATE", "VOLUMELEADERS_AGENT_BIOTECH_DATE", "VOLUMELEADERS_AGENT_BIOTECH_CLUSTERS_DATE", "VOLUMELEADERS_AGENT_BONDS_DATE", "VOLUMELEADERS_AGENT_BONDS_CLUSTERS_DATE", "VOLUMELEADERS_AGENT_COMMODITIES_DATE", "VOLUMELEADERS_AGENT_COMMODITIES_CLUSTERS_DATE", "VOLUMELEADERS_AGENT_COMMUNICATIONS_SERVICES_DATE", "VOLUMELEADERS_AGENT_COMMUNICATIONS_SERVICES_CLUSTERS_DATE"},
 		},
 	}
 
@@ -45,6 +48,11 @@ func TestRootCommandWiresStructCLIFeatures(t *testing.T) {
 			for _, wantOut := range tt.wantOuts {
 				if !strings.Contains(output.String(), wantOut) {
 					t.Fatalf("expected output to contain %q, got %q", wantOut, output.String())
+				}
+			}
+			for _, wantNotOut := range tt.wantNotOuts {
+				if strings.Contains(output.String(), wantNotOut) {
+					t.Fatalf("expected output not to contain %q, got %q", wantNotOut, output.String())
 				}
 			}
 		})

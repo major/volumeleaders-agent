@@ -86,22 +86,17 @@ Cluster commands return the same compact JSON envelope as trade commands, but cl
 
 The date flag can also be set with `VOLUMELEADERS_AGENT_TRADE_CLUSTERS_DATE`.
 
-## Ranked and leveraged trade clusters
+## All-time ranked trade clusters
 
 ```bash
 volumeleaders-agent top10-clusters --date 2026-04-30
 volumeleaders-agent top100-clusters --date 2026-04-30 --limit 25
-volumeleaders-agent bull-leverage-clusters --date 2026-04-30
-volumeleaders-agent bear-leverage-clusters --date 2026-04-30 --tickers SPXU
-volumeleaders-agent biotech-clusters --date 2026-04-30
-volumeleaders-agent bonds-clusters --date 2026-04-30 --tickers HYG,TLT
-volumeleaders-agent commodities-clusters --date 2026-04-30 --tickers GLD,SLV
-volumeleaders-agent communications-services-clusters --date 2026-04-30
+volumeleaders-agent top10-clusters --date 2026-04-30 --tickers AAPL,MSFT
 ```
 
-The `top10-clusters`, `top100-clusters`, `bull-leverage-clusters`, `bear-leverage-clusters`, `biotech-clusters`, `bonds-clusters`, `commodities-clusters`, and `communications-services-clusters` commands mirror the similarly named trade presets, but they query `TradeClusters/GetTradeClusters` and return cluster rows. The ranked cluster commands use VolumeLeaders' all-time cluster rank filters (`TradeClusterRank=10` or `100`), while the leveraged and sector cluster commands apply the same upstream preset IDs and filters as their trade counterparts. Phantom and offsetting are trade-only presets and do not have cluster commands.
+The `top10-clusters` and `top100-clusters` commands query `TradeClusters/GetTradeClusters` and return cluster rows for VolumeLeaders' all-time cluster rank filters (`TradeClusterRank=10` or `100`). Phantom and offsetting are trade-only presets and do not have cluster commands.
 
-These commands support the same cluster output flags as `trade-clusters`, including `--limit`, `--fields`, `--preset-fields core|signals|full`, `--shape array|objects`, and `--pretty`. Each command also exposes a matching date environment variable, for example `VOLUMELEADERS_AGENT_TOP10_CLUSTERS_DATE`, `VOLUMELEADERS_AGENT_BULL_LEVERAGE_CLUSTERS_DATE`, `VOLUMELEADERS_AGENT_BIOTECH_CLUSTERS_DATE`, or `VOLUMELEADERS_AGENT_COMMUNICATIONS_SERVICES_CLUSTERS_DATE`.
+These commands support the same cluster output flags as `trade-clusters`, including `--limit`, `--fields`, `--preset-fields core|signals|full`, `--shape array|objects`, and `--pretty`. Each command also exposes a matching date environment variable, for example `VOLUMELEADERS_AGENT_TOP10_CLUSTERS_DATE`.
 
 ## All-time ranked trades
 
@@ -152,62 +147,6 @@ Both commands use the same `Trades/GetTrades` auth and response handling as `tra
   "fields": ["Ticker", "FullTimeString24", "Price", "Dollars", "DollarsMultiplier", "Volume", "TradeRank", "DarkPool", "Sweep", "LatePrint", "SignaturePrint", "Sector"],
   "rows": [
     ["PLTR", "15:59:58", 112.47, 1739337.39, 6.7, 15465, 54, true, false, false, false, "Technology"]
-  ]
-}
-```
-
-## Bullish and bearish leveraged ETF trades
-
-```bash
-volumeleaders-agent bull-leverage --date 2026-04-30
-volumeleaders-agent bear-leverage --date 2026-04-30
-volumeleaders-agent bull-leverage --date 2026-04-30 --limit 5
-volumeleaders-agent bull-leverage --date 2026-04-30 --tickers TQQQ
-```
-
-The `bull-leverage` and `bear-leverage` commands fetch one day of leveraged ETF trades from VolumeLeaders. They use the same `Trades/GetTrades` auth and response handling as `trades`, but apply the upstream bullish (`X Bull`) or bearish (`X Bear`) leveraged ETF preset captured from VolumeLeaders.
-
-Both commands return the same token-efficient trade output shape by default:
-
-```json
-{
-  "status": "ok",
-  "date": "2026-04-30",
-  "recordsTotal": 8,
-  "recordsFiltered": 8,
-  "fields": ["Ticker", "FullTimeString24", "Price", "Dollars", "DollarsMultiplier", "Volume", "TradeRank", "DarkPool", "Sweep", "LatePrint", "SignaturePrint", "Sector"],
-  "rows": [
-    ["TQQQ", "10:08:39", 75.91, 14846502.24, 11.96, 195579, 22, true, false, false, true, "3x Bull Nasdaq"]
-  ]
-}
-```
-
-## Sector and category trades
-
-```bash
-volumeleaders-agent bonds --date 2026-04-30
-volumeleaders-agent bonds --date 2026-04-30 --tickers HYG,TLT
-volumeleaders-agent biotech --date 2026-04-30
-volumeleaders-agent biotech --date 2026-04-30 --tickers IBB,XBI
-volumeleaders-agent commodities --date 2026-04-30
-volumeleaders-agent commodities --date 2026-04-30 --tickers GLD,SLV
-volumeleaders-agent communications-services --date 2026-04-30
-volumeleaders-agent communications-services --date 2026-04-30 --tickers XLC,META
-```
-
-The `bonds`, `biotech`, `commodities`, and `communications-services` commands fetch one day of sector or category filtered trades from VolumeLeaders. They use the same `Trades/GetTrades` auth, pagination, and output handling as `trades`, but apply the upstream bonds (`SectorIndustry=Bonds`, preset `90`), biotechnology (`SectorIndustry=Biotech`, preset `89`), commodities (preset `9` with `VCD=97`), or communications services (`SectorIndustry=Comm Services`, preset `91`) presets captured from VolumeLeaders.
-
-Both commands return the same token-efficient trade output shape by default:
-
-```json
-{
-  "status": "ok",
-  "date": "2026-04-30",
-  "recordsTotal": 70,
-  "recordsFiltered": 70,
-  "fields": ["Ticker", "FullTimeString24", "Price", "Dollars", "DollarsMultiplier", "Volume", "TradeRank", "DarkPool", "Sweep", "LatePrint", "SignaturePrint", "Sector"],
-  "rows": [
-    ["USHY", "16:38:31", 37.23, 44115018.36, 8.004659259542926, 1184932, 9999, true, false, false, false, "Bonds"]
   ]
 }
 ```

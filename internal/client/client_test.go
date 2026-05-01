@@ -480,16 +480,27 @@ func TestClose(t *testing.T) {
 
 			client := newTestClient("http://localhost")
 
-			var lastErr error
+			var firstErr error
 			for i := 0; i < tt.calls; i++ {
-				lastErr = client.Close()
+				err := client.Close()
+				if i == 0 {
+					firstErr = err
+				} else {
+					// Verify all calls return the same error value (proving closeErr caching works)
+					if (err == nil && firstErr != nil) || (err != nil && firstErr == nil) {
+						t.Errorf("Close() call %d: got %v, want %v", i+1, err, firstErr)
+					}
+					if err != nil && firstErr != nil && err.Error() != firstErr.Error() {
+						t.Errorf("Close() call %d: got %v, want %v", i+1, err, firstErr)
+					}
+				}
 			}
 
-			if tt.wantErr && lastErr == nil {
+			if tt.wantErr && firstErr == nil {
 				t.Errorf("expected error, got nil")
 			}
-			if !tt.wantErr && lastErr != nil {
-				t.Errorf("expected nil, got error: %v", lastErr)
+			if !tt.wantErr && firstErr != nil {
+				t.Errorf("expected nil, got error: %v", firstErr)
 			}
 		})
 	}

@@ -21,7 +21,7 @@ import (
 func TestTradesCommand(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assertGetTradesRequest(t, r, "2026-04-30", "")
-		fmt.Fprint(w, `{"draw":1,"recordsTotal":1492,"recordsFiltered":1492,"data":[{"Ticker":"KRE","Dollars":17501965.25,"RelativeSize":5}]}`)
+		fmt.Fprint(w, `{"draw":1,"recordsTotal":1492,"recordsFiltered":1492,"data":[{"Ticker":"KRE","Dollars":17501965.25,"RelativeSize":5,"OPEX":true}]}`)
 	}))
 	t.Cleanup(server.Close)
 
@@ -67,6 +67,12 @@ func TestTradesCommand(t *testing.T) {
 	if string(got.Rows[0][0]) != `"KRE"` {
 		t.Fatalf("first row ticker = %s, want KRE", string(got.Rows[0][0]))
 	}
+	if got.Fields[len(got.Fields)-1] != calendarEventField {
+		t.Fatalf("last field = %q, want %q", got.Fields[len(got.Fields)-1], calendarEventField)
+	}
+	if string(got.Rows[0][len(got.Rows[0])-1]) != `"OPEX"` {
+		t.Fatalf("calendar event cell = %s, want OPEX", string(got.Rows[0][len(got.Rows[0])-1]))
+	}
 	if strings.Contains(stdout.String(), "\n  ") {
 		t.Fatalf("default output should be compact JSON, got %q", stdout.String())
 	}
@@ -77,7 +83,7 @@ func TestTradeClustersCommand(t *testing.T) {
 		options := defaultGetTradeClustersRequestOptions()
 		options.length = 2
 		assertGetTradeClustersRequestWithOptions(t, r, "2026-04-30", "AAPL,MSFT", &options)
-		fmt.Fprint(w, `{"draw":1,"data":[{"Ticker":"AAPL","MinFullTimeString24":"10:01:04","MaxFullTimeString24":"10:01:08","Dollars":1250000,"TradeCount":7,"TradeClusterRank":14,"Sector":"Technology","TotalRows":3213},{"Ticker":"MSFT","MinFullTimeString24":"10:02:00","Dollars":1800000,"TradeCount":5,"TradeClusterRank":18,"Sector":"Technology","TotalRows":3213}]}`)
+		fmt.Fprint(w, `{"draw":1,"data":[{"Ticker":"AAPL","MinFullTimeString24":"10:01:04","MaxFullTimeString24":"10:01:08","Dollars":1250000,"TradeCount":7,"TradeClusterRank":14,"Sector":"Technology","EOM":true,"VOLEX":true,"TotalRows":3213},{"Ticker":"MSFT","MinFullTimeString24":"10:02:00","Dollars":1800000,"TradeCount":5,"TradeClusterRank":18,"Sector":"Technology","TotalRows":3213}]}`)
 	}))
 	t.Cleanup(server.Close)
 
@@ -121,6 +127,15 @@ func TestTradeClustersCommand(t *testing.T) {
 	}
 	if string(got.Rows[0][0]) != `"AAPL"` {
 		t.Fatalf("first row ticker = %s, want AAPL", string(got.Rows[0][0]))
+	}
+	if got.Fields[len(got.Fields)-1] != calendarEventField {
+		t.Fatalf("last field = %q, want %q", got.Fields[len(got.Fields)-1], calendarEventField)
+	}
+	if string(got.Rows[0][len(got.Rows[0])-1]) != `"EOM,VOLEX"` {
+		t.Fatalf("first calendar event cell = %s, want EOM,VOLEX", string(got.Rows[0][len(got.Rows[0])-1]))
+	}
+	if string(got.Rows[1][len(got.Rows[1])-1]) != "null" {
+		t.Fatalf("second calendar event cell = %s, want null", string(got.Rows[1][len(got.Rows[1])-1]))
 	}
 }
 
@@ -1164,6 +1179,15 @@ func TestProjectTradeOutputBranches(t *testing.T) {
 			wantRowCell: "null",
 		},
 		{
+			name:        "array shape derives calendar event field",
+			trades:      []json.RawMessage{json.RawMessage(`{"Ticker":"KRE","EOQ":true,"OPEX":true,"VOLEX":false}`)},
+			fields:      []string{"Ticker", calendarEventField},
+			shape:       defaultOutputShape,
+			wantFields:  []string{"Ticker", calendarEventField},
+			wantRows:    1,
+			wantRowCell: `"EOQ,OPEX"`,
+		},
+		{
 			name:       "object shape omits missing fields",
 			trades:     trades,
 			fields:     []string{"Ticker", "Missing"},
@@ -1171,6 +1195,15 @@ func TestProjectTradeOutputBranches(t *testing.T) {
 			wantFields: []string{"Ticker", "Missing"},
 			wantTrades: 1,
 			wantTrade:  `"Ticker":"KRE"`,
+		},
+		{
+			name:       "object shape derives calendar event field",
+			trades:     []json.RawMessage{json.RawMessage(`{"Ticker":"KRE","EOY":true}`)},
+			fields:     []string{"Ticker", calendarEventField},
+			shape:      objectOutputShape,
+			wantFields: []string{"Ticker", calendarEventField},
+			wantTrades: 1,
+			wantTrade:  `"CalendarEvent":"EOY"`,
 		},
 		{
 			name:       "full shape keeps raw trades",

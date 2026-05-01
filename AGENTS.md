@@ -38,6 +38,7 @@ make lint       # Run linters
 - Treat structcli-visible code metadata as the source of truth for command behavior. When adding or changing commands, flags, filters, defaults, examples, output shapes, field meanings, or caveats, update option struct tags (`flagdescr`, `flagenv`, `flaggroup`, `flagrequired`), command `Short`/`Long` text, examples, and any embedded field guides so `--jsonschema=tree`, help output, `env-vars`, `config-keys`, and MCP discovery remain understandable without loading README files or skill files.
 - Err on the side of adding too many helpful comments rather than too few, especially around non-obvious API filters, command grouping, authentication edge cases, and behavior copied from browser captures.
 - Command output should be stable JSON by default. Errors should rely on structcli/cobra error handling and include actionable context without leaking credentials.
+- Trade and cluster `core` presets use the derived `CalendarEvent` field for true upstream calendar markers (`EOM`, `EOQ`, `EOY`, `OPEX`, `VOLEX`). Array output should return `null` when none are true; object output should omit `CalendarEvent` when none are true.
 - Authentication errors must include useful troubleshooting context without exposing browser cookies, XSRF tokens, session values, profile paths, or other secrets.
 - Context cancellation must propagate through browser cookie extraction and token lookup paths.
 

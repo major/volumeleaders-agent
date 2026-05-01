@@ -40,9 +40,9 @@ Trade commands return compact, stable JSON with the requested date, DataTables r
   "date": "2026-04-30",
   "recordsTotal": 1492,
   "recordsFiltered": 1492,
-  "fields": ["Ticker", "TradeCount", "FullTimeString24", "ClosePrice", "Price", "Sector", "Industry", "Volume", "Dollars", "DollarsMultiplier", "CumulativeDistribution", "TradeRank", "LastComparibleTradeDate"],
+  "fields": ["Ticker", "TradeCount", "FullTimeString24", "ClosePrice", "Price", "Sector", "Industry", "Volume", "Dollars", "DollarsMultiplier", "CumulativeDistribution", "TradeRank", "LastComparibleTradeDate", "CalendarEvent"],
   "rows": [
-    ["KRE", 2, "17:47:49", 0.0, 69.85, "Financial Services", "Banks", 250565, 17501965.25, 5.01912515023852678249, 0.9673, 9999, "/Date(1777334400000)/"]
+    ["KRE", 2, "17:47:49", 0.0, 69.85, "Financial Services", "Banks", 250565, 17501965.25, 5.01912515023852678249, 0.9673, 9999, "/Date(1777334400000)/", "OPEX"]
   ]
 }
 ```
@@ -70,6 +70,7 @@ These names come from VolumeLeaders' browser forms and JSON responses, so some a
 - `VCD` appears to carry the minimum `CumulativeDistribution` percentile. Captures use `0` for no percentile filter and `99` for the 99th percentile or above.
 - `TradeID`, `SequenceNumber`, and `SecurityKey` are VolumeLeaders internal identifiers. `DateKey` and `TimeKey` are compact internal date/time keys. Treat these five fields as upstream metadata for correlation or debugging, not as trading-decision signals.
 - `Date` is the trade date. `FullDateTime` is the full trade timestamp. `StartDate` and `EndDate` appear to be upstream query-range echoes or internal metadata rather than separate trade signals. `LastComparibleTradeDate` uses the upstream spelling and means the last date VolumeLeaders saw a trade close to this trade's size.
+- `CalendarEvent` is a compact derived core field. It contains the true upstream calendar markers joined with commas, or `null` in array output when no marker is true. Source markers are `EOM` for end of month, `EOQ` for end of quarter, `EOY` for end of year, `OPEX` for a market options expiration date, and `VOLEX` for a market volatility expiration date such as VIX options expiration. In object output, `CalendarEvent` is omitted when no marker is true.
 - `Ask` and `Bid` are the ask and bid prices in the bid/ask spread when the trade happened. `ClosePrice` is `CP` in the UI: the close price at the end of the day, or the current price if the market is still open. `Price` is `TP` in the UI: the trade price when the large trade hit. `AverageDailyVolume` is a moving-average measure of the stock's normal volume, and `PercentDailyVolume` compares today's volume with that moving average.
 - `Volume`, shown as `Sh` in the UI, is how many shares were in the trade. `Dollars`, shown as `$$` in the UI, is how big the trade was in dollars: number of shares times the trade price.
 - `TradeRank` is the trade's current rank among all current trades and can change when larger trades arrive. In the UI `R` column, a dash means the trade is not ranked in the top 100 trades, while a number such as `27` means the trade is currently ranked 27th. `TradeRankSnapshot` is immutable: it preserves how the trade ranked at the time it appeared.
@@ -109,9 +110,9 @@ Cluster commands return the same compact JSON envelope as trade commands, but cl
   "date": "2026-04-30",
   "recordsTotal": 3213,
   "recordsFiltered": 3213,
-  "fields": ["Ticker", "MinFullTimeString24", "MaxFullTimeString24", "Price", "Dollars", "DollarsMultiplier", "Volume", "TradeCount", "TradeClusterRank", "Sector"],
+  "fields": ["Ticker", "MinFullTimeString24", "MaxFullTimeString24", "Price", "Dollars", "DollarsMultiplier", "Volume", "TradeCount", "TradeClusterRank", "Sector", "CalendarEvent"],
   "rows": [
-    ["AAPL", "10:01:04", "10:01:08", 203.25, 1250000, 4.2, 6150, 7, 14, "Technology"]
+    ["AAPL", "10:01:04", "10:01:08", 203.25, 1250000, 4.2, 6150, 7, 14, "Technology", "EOM,VOLEX"]
   ]
 }
 ```
@@ -150,9 +151,9 @@ The ranked commands return the same token-efficient trade output shape as `trade
   "rankLimit": 10,
   "recordsTotal": 76,
   "recordsFiltered": 76,
-  "fields": ["Ticker", "TradeCount", "FullTimeString24", "ClosePrice", "Price", "Sector", "Industry", "Volume", "Dollars", "DollarsMultiplier", "CumulativeDistribution", "TradeRank", "LastComparibleTradeDate"],
+  "fields": ["Ticker", "TradeCount", "FullTimeString24", "ClosePrice", "Price", "Sector", "Industry", "Volume", "Dollars", "DollarsMultiplier", "CumulativeDistribution", "TradeRank", "LastComparibleTradeDate", "CalendarEvent"],
   "rows": [
-    ["SNDQ", 1, "09:54:09", 28.55, 28.07, "ETF", "ETF", 556520, 15623499.12, 29.4, 0.99, 1, "/Date(1777334400000)/"]
+    ["SNDQ", 1, "09:54:09", 28.55, 28.07, "ETF", "ETF", 556520, 15623499.12, 29.4, 0.99, 1, "/Date(1777334400000)/", null]
   ]
 }
 ```

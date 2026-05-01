@@ -11,7 +11,7 @@ Go CLI for [VolumeLeaders](https://www.volumeleaders.com) market intelligence wo
 
 ## Prerequisites
 
-You must be logged into volumeleaders.com in a supported browser (Chrome, Firefox, Edge, etc.). The auth package extracts session cookies directly from the browser's cookie store, so no API keys or manual token management is needed once the API call is wired.
+You must be logged into volumeleaders.com in a supported browser (Chrome, Firefox, Edge, etc.). The auth package extracts session cookies directly from the browser's cookie store, so no API keys or manual token management is needed.
 
 ## Build
 
@@ -21,13 +21,34 @@ make test       # Run tests
 make lint       # Run golangci-lint
 ```
 
-## Current scaffold
+## Disproportionately large trades
 
 ```bash
 volumeleaders-agent trades --date 2026-04-30
+volumeleaders-agent trades --date 2026-04-30 --tickers AAPL,IONQ
+volumeleaders-agent trades --date 2026-04-30 --tickers AAPL,IONQ,AMZN
 ```
 
-The `trades` command currently validates the date and returns a no-op JSON response. The VolumeLeaders API request is intentionally not wired yet.
+The `trades` command fetches VolumeLeaders' default Disproportionately large trades preset for one trading day. The upstream filter is intended for a single day of data, so the CLI exposes only `--date` and sends the same value as both `StartDate` and `EndDate` in the `Trades/GetTrades` request. Add `--tickers` to filter the preset to one ticker or a comma-delimited ticker list without spaces.
+
+The command returns stable JSON with the requested date, DataTables record counts, and the first 100 raw trade objects from VolumeLeaders:
+
+```json
+{
+  "status": "ok",
+  "date": "2026-04-30",
+  "recordsTotal": 1492,
+  "recordsFiltered": 1492,
+  "trades": [
+    {
+      "Ticker": "KRE",
+      "FullTimeString24": "17:47:49",
+      "Dollars": 17501965.25,
+      "DollarsMultiplier": 5.019755999966191
+    }
+  ]
+}
+```
 
 Structcli features are available from the scaffold:
 

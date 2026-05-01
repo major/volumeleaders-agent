@@ -41,14 +41,12 @@ func NewForTesting(httpClient *http.Client, baseURL string) *Client {
 		".ASPXAUTH":         "test-auth",
 	}
 	restyClient := resty.NewWithClient(httpClient)
-	restyClient.SetBaseURL(baseURL)
-	restyClient.AddRequestMiddleware(buildRequestMiddleware("test-token"))
+	configureClient(restyClient, baseURL, "test-token")
 	restyClient.SetCookies(buildCookies(testCookies))
 
 	noRedirectClient := resty.NewWithClient(httpClient)
-	noRedirectClient.SetBaseURL(baseURL)
+	configureClient(noRedirectClient, baseURL, "test-token")
 	noRedirectClient.SetRedirectPolicy(resty.NoRedirectPolicy())
-	noRedirectClient.AddRequestMiddleware(buildRequestMiddleware("test-token"))
 	noRedirectClient.SetCookies(buildCookies(testCookies))
 
 	return &Client{
@@ -76,14 +74,12 @@ func New(ctx context.Context) (*Client, error) {
 		return nil, fmt.Errorf("fetch XSRF token: %w", err)
 	}
 
-	restyClient.SetBaseURL(BaseURL)
-	restyClient.AddRequestMiddleware(buildRequestMiddleware(xsrfToken))
+	configureClient(restyClient, BaseURL, xsrfToken)
 
 	noRedirectClient := resty.New()
 	noRedirectClient.SetTimeout(60 * time.Second)
-	noRedirectClient.SetBaseURL(BaseURL)
+	configureClient(noRedirectClient, BaseURL, xsrfToken)
 	noRedirectClient.SetRedirectPolicy(resty.NoRedirectPolicy())
-	noRedirectClient.AddRequestMiddleware(buildRequestMiddleware(xsrfToken))
 	noRedirectClient.SetCookies(buildCookies(cookies))
 
 	return &Client{
@@ -103,6 +99,14 @@ func (c *Client) Close() error {
 		err = errors.Join(c.client.Close(), c.noRedirectClient.Close())
 	})
 	return err
+}
+
+// configureClient applies the base URL and request middleware shared by all
+// resty clients. Cookies are set separately by each constructor to avoid
+// duplicate appends (resty's SetCookies appends rather than replaces).
+func configureClient(c *resty.Client, baseURL, xsrfToken string) {
+	c.SetBaseURL(baseURL)
+	c.AddRequestMiddleware(buildRequestMiddleware(xsrfToken))
 }
 
 func buildRequestMiddleware(xsrfToken string) resty.RequestMiddleware {

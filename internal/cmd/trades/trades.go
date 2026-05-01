@@ -318,18 +318,7 @@ func newLeverageCommand(preset *leveragePreset) (*cobra.Command, error) {
 }
 
 func run(ctx context.Context, cmd *cobra.Command, opts *Options) error {
-	select {
-	case <-ctx.Done():
-		return fmt.Errorf("run trades command: %w", ctx.Err())
-	default:
-	}
-
-	tradeDate, err := time.Parse(dateLayout, opts.Date)
-	if err != nil {
-		return fmt.Errorf("invalid date %q: use YYYY-MM-DD: %w", opts.Date, err)
-	}
-	formattedDate := tradeDate.Format(dateLayout)
-	tickers, err := normalizeTickers(opts.Tickers)
+	formattedDate, tickers, err := parseDateAndTickers(ctx, "trades", opts.Date, opts.Tickers)
 	if err != nil {
 		return err
 	}
@@ -350,28 +339,11 @@ func run(ctx context.Context, cmd *cobra.Command, opts *Options) error {
 		result.Trades = []json.RawMessage{}
 	}
 
-	encoder := json.NewEncoder(cmd.OutOrStdout())
-	encoder.SetIndent("", "  ")
-	if err := encoder.Encode(result); err != nil {
-		return fmt.Errorf("encode trades response: %w", err)
-	}
-
-	return nil
+	return encodeResult(cmd.OutOrStdout(), "trades", result)
 }
 
 func runRanked(ctx context.Context, cmd *cobra.Command, opts *RankedOptions, preset *rankedPreset) error {
-	select {
-	case <-ctx.Done():
-		return fmt.Errorf("run %s command: %w", preset.use, ctx.Err())
-	default:
-	}
-
-	tradeDate, err := time.Parse(dateLayout, opts.Date)
-	if err != nil {
-		return fmt.Errorf("invalid date %q: use YYYY-MM-DD: %w", opts.Date, err)
-	}
-	formattedDate := tradeDate.Format(dateLayout)
-	tickers, err := normalizeTickers(opts.Tickers)
+	formattedDate, tickers, err := parseDateAndTickers(ctx, preset.use, opts.Date, opts.Tickers)
 	if err != nil {
 		return err
 	}
@@ -393,28 +365,11 @@ func runRanked(ctx context.Context, cmd *cobra.Command, opts *RankedOptions, pre
 		result.Trades = []json.RawMessage{}
 	}
 
-	encoder := json.NewEncoder(cmd.OutOrStdout())
-	encoder.SetIndent("", "  ")
-	if err := encoder.Encode(result); err != nil {
-		return fmt.Errorf("encode %s response: %w", preset.use, err)
-	}
-
-	return nil
+	return encodeResult(cmd.OutOrStdout(), preset.use, result)
 }
 
 func runSignal(ctx context.Context, cmd *cobra.Command, opts *SignalOptions, preset *signalPreset) error {
-	select {
-	case <-ctx.Done():
-		return fmt.Errorf("run %s command: %w", preset.use, ctx.Err())
-	default:
-	}
-
-	tradeDate, err := time.Parse(dateLayout, opts.Date)
-	if err != nil {
-		return fmt.Errorf("invalid date %q: use YYYY-MM-DD: %w", opts.Date, err)
-	}
-	formattedDate := tradeDate.Format(dateLayout)
-	tickers, err := normalizeTickers(opts.Tickers)
+	formattedDate, tickers, err := parseDateAndTickers(ctx, preset.use, opts.Date, opts.Tickers)
 	if err != nil {
 		return err
 	}
@@ -435,28 +390,11 @@ func runSignal(ctx context.Context, cmd *cobra.Command, opts *SignalOptions, pre
 		result.Trades = []json.RawMessage{}
 	}
 
-	encoder := json.NewEncoder(cmd.OutOrStdout())
-	encoder.SetIndent("", "  ")
-	if err := encoder.Encode(result); err != nil {
-		return fmt.Errorf("encode %s response: %w", preset.use, err)
-	}
-
-	return nil
+	return encodeResult(cmd.OutOrStdout(), preset.use, result)
 }
 
 func runLeverage(ctx context.Context, cmd *cobra.Command, opts *SignalOptions, preset *leveragePreset) error {
-	select {
-	case <-ctx.Done():
-		return fmt.Errorf("run %s command: %w", preset.use, ctx.Err())
-	default:
-	}
-
-	tradeDate, err := time.Parse(dateLayout, opts.Date)
-	if err != nil {
-		return fmt.Errorf("invalid date %q: use YYYY-MM-DD: %w", opts.Date, err)
-	}
-	formattedDate := tradeDate.Format(dateLayout)
-	tickers, err := normalizeTickers(opts.Tickers)
+	formattedDate, tickers, err := parseDateAndTickers(ctx, preset.use, opts.Date, opts.Tickers)
 	if err != nil {
 		return err
 	}
@@ -477,10 +415,33 @@ func runLeverage(ctx context.Context, cmd *cobra.Command, opts *SignalOptions, p
 		result.Trades = []json.RawMessage{}
 	}
 
-	encoder := json.NewEncoder(cmd.OutOrStdout())
+	return encodeResult(cmd.OutOrStdout(), preset.use, result)
+}
+
+func parseDateAndTickers(ctx context.Context, cmdName, rawDate, rawTickers string) (formattedDate, normalizedTickers string, err error) {
+	select {
+	case <-ctx.Done():
+		return "", "", fmt.Errorf("run %s command: %w", cmdName, ctx.Err())
+	default:
+	}
+
+	tradeDate, err := time.Parse(dateLayout, rawDate)
+	if err != nil {
+		return "", "", fmt.Errorf("invalid date %q: use YYYY-MM-DD: %w", rawDate, err)
+	}
+	tickers, err := normalizeTickers(rawTickers)
+	if err != nil {
+		return "", "", err
+	}
+
+	return tradeDate.Format(dateLayout), tickers, nil
+}
+
+func encodeResult(w io.Writer, cmdName string, result any) error {
+	encoder := json.NewEncoder(w)
 	encoder.SetIndent("", "  ")
 	if err := encoder.Encode(result); err != nil {
-		return fmt.Errorf("encode %s response: %w", preset.use, err)
+		return fmt.Errorf("encode %s response: %w", cmdName, err)
 	}
 
 	return nil
@@ -645,38 +606,42 @@ func setGetTradesHeaders(req *http.Request, token, tradeDate, tickers string, op
 
 func tradesReferer(tradeDate, tickers string, options *getTradesRequestOptions) string {
 	query := url.Values{}
-	query.Set("Tickers", tickers)
-	query.Set("StartDate", tradeDate)
-	query.Set("EndDate", tradeDate)
-	query.Set("MinVolume", options.minVolume)
-	query.Set("MaxVolume", "2000000000")
-	query.Set("Conditions", options.conditions)
-	query.Set("VCD", options.vcd)
-	query.Set("RelativeSize", options.relativeSize)
-	query.Set("DarkPools", options.darkPools)
-	query.Set("Sweeps", "-1")
-	query.Set("LatePrints", "-1")
-	query.Set("SignaturePrints", "-1")
-	query.Set("EvenShared", "-1")
-	query.Set("SecurityTypeKey", "-1")
-	query.Set("MinPrice", "0")
-	query.Set("MaxPrice", "100000")
-	query.Set("MinDollars", "500000")
-	query.Set("MaxDollars", options.maxDollars)
-	query.Set("TradeRank", fmt.Sprintf("%d", options.tradeRank))
-	query.Set("TradeRankSnapshot", "-1")
-	query.Set("MarketCap", "0")
-	query.Set("IncludePremarket", "1")
-	query.Set("IncludeRTH", "1")
-	query.Set("IncludeAH", "1")
-	query.Set("IncludeOpening", "1")
-	query.Set("IncludeClosing", "1")
-	query.Set("IncludePhantom", options.includePhantom)
-	query.Set("IncludeOffsetting", options.includeOffsetting)
-	query.Set("SectorIndustry", options.sectorIndustry)
+	setSharedQueryParams(query, tradeDate, tickers, options)
 	query.Set("PresetSearchTemplateID", options.presetSearchTemplateID)
 	query.Set("ViewMode", "Automatic")
 	return tradesPage + "?" + query.Encode()
+}
+
+func setSharedQueryParams(values url.Values, tradeDate, tickers string, options *getTradesRequestOptions) {
+	values.Set("Tickers", tickers)
+	values.Set("StartDate", tradeDate)
+	values.Set("EndDate", tradeDate)
+	values.Set("MinVolume", options.minVolume)
+	values.Set("MaxVolume", "2000000000")
+	values.Set("Conditions", options.conditions)
+	values.Set("VCD", options.vcd)
+	values.Set("RelativeSize", options.relativeSize)
+	values.Set("DarkPools", options.darkPools)
+	values.Set("Sweeps", "-1")
+	values.Set("LatePrints", "-1")
+	values.Set("SignaturePrints", "-1")
+	values.Set("EvenShared", "-1")
+	values.Set("SecurityTypeKey", "-1")
+	values.Set("MinPrice", "0")
+	values.Set("MaxPrice", "100000")
+	values.Set("MinDollars", "500000")
+	values.Set("MaxDollars", options.maxDollars)
+	values.Set("TradeRank", fmt.Sprintf("%d", options.tradeRank))
+	values.Set("TradeRankSnapshot", "-1")
+	values.Set("MarketCap", "0")
+	values.Set("IncludePremarket", "1")
+	values.Set("IncludeRTH", "1")
+	values.Set("IncludeAH", "1")
+	values.Set("IncludeOpening", "1")
+	values.Set("IncludeClosing", "1")
+	values.Set("IncludePhantom", options.includePhantom)
+	values.Set("IncludeOffsetting", options.includeOffsetting)
+	values.Set("SectorIndustry", options.sectorIndustry)
 }
 
 func getTradesForm(tradeDate, tickers string, options *getTradesRequestOptions) url.Values {
@@ -698,35 +663,7 @@ func getTradesForm(tradeDate, tickers string, options *getTradesRequestOptions) 
 	form.Set("length", fmt.Sprintf("%d", options.length))
 	form.Set("search[value]", "")
 	form.Set("search[regex]", "false")
-	form.Set("Tickers", tickers)
-	form.Set("StartDate", tradeDate)
-	form.Set("EndDate", tradeDate)
-	form.Set("MinVolume", options.minVolume)
-	form.Set("MaxVolume", "2000000000")
-	form.Set("MinPrice", "0")
-	form.Set("MaxPrice", "100000")
-	form.Set("MinDollars", "500000")
-	form.Set("MaxDollars", options.maxDollars)
-	form.Set("Conditions", options.conditions)
-	form.Set("VCD", options.vcd)
-	form.Set("SecurityTypeKey", "-1")
-	form.Set("RelativeSize", options.relativeSize)
-	form.Set("DarkPools", options.darkPools)
-	form.Set("Sweeps", "-1")
-	form.Set("LatePrints", "-1")
-	form.Set("SignaturePrints", "-1")
-	form.Set("EvenShared", "-1")
-	form.Set("TradeRank", fmt.Sprintf("%d", options.tradeRank))
-	form.Set("TradeRankSnapshot", "-1")
-	form.Set("MarketCap", "0")
-	form.Set("IncludePremarket", "1")
-	form.Set("IncludeRTH", "1")
-	form.Set("IncludeAH", "1")
-	form.Set("IncludeOpening", "1")
-	form.Set("IncludeClosing", "1")
-	form.Set("IncludePhantom", options.includePhantom)
-	form.Set("IncludeOffsetting", options.includeOffsetting)
-	form.Set("SectorIndustry", options.sectorIndustry)
+	setSharedQueryParams(form, tradeDate, tickers, options)
 	return form
 }
 

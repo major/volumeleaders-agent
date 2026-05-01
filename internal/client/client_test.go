@@ -1,7 +1,6 @@
 package client
 
 import (
-	"bytes"
 	"compress/gzip"
 	"encoding/json"
 	"fmt"
@@ -17,12 +16,8 @@ import (
 )
 
 func newTestClient(baseURL string) *Client {
-	return &Client{
-		http:      &http.Client{Timeout: 5 * time.Second},
-		baseURL:   baseURL,
-		cookies:   map[string]string{"ASP.NET_SessionId": "test", ".ASPXAUTH": "test"},
-		xsrfToken: "test-token",
-	}
+	httpClient := &http.Client{Timeout: 5 * time.Second}
+	return NewForTesting(httpClient, baseURL)
 }
 
 func TestPostDataTables(t *testing.T) {
@@ -272,51 +267,6 @@ func TestPostMultipart(t *testing.T) {
 	}
 }
 
-func TestReadResponseBody(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name     string
-		body     string
-		gzipBody bool
-	}{
-		{name: "plain body", body: "plain response"},
-		{name: "gzip body", body: "gzip response", gzipBody: true},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-
-			var body bytes.Buffer
-			if tt.gzipBody {
-				gz := gzip.NewWriter(&body)
-				if _, err := gz.Write([]byte(tt.body)); err != nil {
-					t.Fatalf("write gzip body: %v", err)
-				}
-				if err := gz.Close(); err != nil {
-					t.Fatalf("close gzip body: %v", err)
-				}
-			} else {
-				body.WriteString(tt.body)
-			}
-
-			resp := &http.Response{Body: io.NopCloser(&body), Header: make(http.Header)}
-			if tt.gzipBody {
-				resp.Header.Set("Content-Encoding", "gzip")
-			}
-
-			got, err := readResponseBody(resp)
-			if err != nil {
-				t.Fatalf("unexpected error: %v", err)
-			}
-			if string(got) != tt.body {
-				t.Errorf("expected %q, got %q", tt.body, string(got))
-			}
-		})
-	}
-}
-
 func TestSetHeaders(t *testing.T) {
 	t.Parallel()
 
@@ -367,8 +317,8 @@ func TestSetCookies(t *testing.T) {
 	client.setCookies(req)
 
 	checks := map[string]string{
-		"ASP.NET_SessionId": "test",
-		".ASPXAUTH":         "test",
+		"ASP.NET_SessionId": "test-session",
+		".ASPXAUTH":         "test-auth",
 	}
 	for name, expected := range checks {
 		cookie, err := req.Cookie(name)
@@ -378,6 +328,73 @@ func TestSetCookies(t *testing.T) {
 		}
 		if cookie.Value != expected {
 			t.Errorf("cookie %s: expected %q, got %q", name, expected, cookie.Value)
+		}
+	}
+}
+
+func TestMiddlewareHeaders(t *testing.T) {
+	t.Parallel()
+
+	var capturedHeaders http.Header
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		capturedHeaders = r.Header.Clone()
+		w.WriteHeader(http.StatusOK)
+		fmt.Fprint(w, `{}`)
+	}))
+	t.Cleanup(server.Close)
+
+	client := newTestClient(server.URL)
+	if _, err := client.client.R().Post("/test"); err != nil {
+		t.Fatalf("post through Resty client: %v", err)
+	}
+
+	checks := map[string]string{
+		"User-Agent":         auth.UserAgent,
+		"x-xsrf-token":       "test-token",
+		"x-requested-with":   "XMLHttpRequest",
+		"Accept":             "application/json, text/javascript, */*; q=0.01",
+		"Content-Type":       "application/x-www-form-urlencoded; charset=UTF-8",
+		"Sec-Ch-Ua":          `"Chromium";v="147", "Not A(Brand";v="24", "Google Chrome";v="147"`,
+		"Sec-Ch-Ua-Mobile":   "?0",
+		"Sec-Ch-Ua-Platform": `"Windows"`,
+		"Sec-Fetch-Dest":     "empty",
+		"Sec-Fetch-Mode":     "cors",
+		"Sec-Fetch-Site":     "same-origin",
+		"Accept-Language":    "en-US,en;q=0.9",
+		"Accept-Encoding":    "gzip, deflate, br",
+	}
+	for key, expected := range checks {
+		if got := capturedHeaders.Get(key); got != expected {
+			t.Errorf("%s: expected %q, got %q", key, expected, got)
+		}
+	}
+}
+
+func TestMiddlewareCookies(t *testing.T) {
+	t.Parallel()
+
+	capturedCookies := make(map[string]string)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		for _, cookie := range r.Cookies() {
+			capturedCookies[cookie.Name] = cookie.Value
+		}
+		w.WriteHeader(http.StatusOK)
+		fmt.Fprint(w, `{}`)
+	}))
+	t.Cleanup(server.Close)
+
+	client := newTestClient(server.URL)
+	if _, err := client.client.R().Post("/test"); err != nil {
+		t.Fatalf("post through Resty client: %v", err)
+	}
+
+	checks := map[string]string{
+		"ASP.NET_SessionId": "test-session",
+		".ASPXAUTH":         "test-auth",
+	}
+	for name, expected := range checks {
+		if got := capturedCookies[name]; got != expected {
+			t.Errorf("cookie %s: expected %q, got %q", name, expected, got)
 		}
 	}
 }
@@ -407,6 +424,15 @@ func TestNewForTesting(t *testing.T) {
 	}
 	if c.xsrfToken != "test-token" {
 		t.Errorf("expected xsrfToken test-token, got %s", c.xsrfToken)
+	}
+	if c.http != httpClient {
+		t.Errorf("expected stdlib http client to be preserved")
+	}
+	if c.client == nil {
+		t.Errorf("expected Resty client to be populated")
+	}
+	if c.noRedirectClient == nil {
+		t.Errorf("expected no-redirect Resty client to be populated")
 	}
 }
 
@@ -461,17 +487,6 @@ func TestDoRequestConnectionError(t *testing.T) {
 	c := newTestClient(server.URL)
 	err := c.PostJSON(t.Context(), "/test", struct{}{}, &struct{}{})
 	assertErrorContains(t, err, "post JSON request")
-}
-
-func TestReadResponseBodyGzipError(t *testing.T) {
-	t.Parallel()
-
-	resp := &http.Response{
-		Body:   io.NopCloser(strings.NewReader("not-gzip-data")),
-		Header: http.Header{"Content-Encoding": []string{"gzip"}},
-	}
-	_, err := readResponseBody(resp)
-	assertErrorContains(t, err, "open gzip response body")
 }
 
 func TestPostMultipartConnectionError(t *testing.T) {

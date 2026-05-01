@@ -141,7 +141,7 @@ type RankedOptions struct {
 
 // ClusterOptions defines the LLM-readable contract for fetching trade cluster presets.
 type ClusterOptions struct {
-	Date         string `flag:"date" flagshort:"d" flagdescr:"Single trading date to query, formatted as YYYY-MM-DD. The disproportionately large trade clusters preset is intentionally limited to one day." flagenv:"true" flagrequired:"true" flaggroup:"Query" validate:"required" mod:"trim"`
+	Date         string `flag:"date" flagshort:"d" flagdescr:"Single trading date to query, formatted as YYYY-MM-DD. Trade cluster presets are intentionally limited to one day." flagenv:"true" flagrequired:"true" flaggroup:"Query" validate:"required" mod:"trim"`
 	Tickers      string `flag:"tickers" flagdescr:"Optional ticker filter. Use one symbol or a comma-delimited list without spaces, for example AAPL or AAPL,MSFT." flagenv:"true" flaggroup:"Query" mod:"trim"`
 	Limit        int    `flag:"limit" flagdescr:"Maximum cluster rows to return. Must be between 1 and 100. Defaults to 100 when omitted." flagenv:"true" flaggroup:"Output"`
 	Fields       string `flag:"fields" flagdescr:"Comma-separated cluster fields to include. Overrides --preset-fields. Use upstream field names such as Ticker,Dollars,TradeCount,TradeClusterRank." flagenv:"true" flaggroup:"Output" mod:"trim"`
@@ -176,6 +176,7 @@ type Result struct {
 type ClusterResult struct {
 	Status          string              `json:"status"`
 	Date            string              `json:"date"`
+	RankLimit       int                 `json:"rankLimit,omitempty"`
 	RecordsTotal    int                 `json:"recordsTotal"`
 	RecordsFiltered int                 `json:"recordsFiltered"`
 	Fields          []string            `json:"fields,omitempty"`
@@ -310,6 +311,23 @@ type sectorPreset struct {
 	presetID       string
 }
 
+type clusterPreset struct {
+	use              string
+	aliases          []string
+	short            string
+	long             string
+	example          string
+	tradeClusterRank int
+	length           int
+	minVolume        string
+	maxDollars       string
+	vcd              string
+	relativeSize     string
+	securityTypeKey  string
+	sectorIndustry   string
+	presetID         string
+}
+
 var getTradeClustersColumns = []tradeColumn{
 	{data: "MinFullTimeString24", name: "", orderable: "false"},
 	{data: "MinFullTimeString24", name: "MinFullTimeString24", orderable: "true"},
@@ -379,15 +397,78 @@ func newBoundTradeCommand(meta *commandMetadata, opts any, tickerFlag *string, r
 
 // NewTradeClustersCommand builds the disproportionately large trade clusters command.
 func NewTradeClustersCommand() (*cobra.Command, error) {
-	opts := &ClusterOptions{}
-	return newBoundTradeCommand(&commandMetadata{
+	return newClusterCommand(&clusterPreset{
 		use:     "trade-clusters",
 		aliases: []string{"clusters", "large-clusters"},
 		short:   "Fetch disproportionately large trade clusters for one date",
 		long:    "Fetch VolumeLeaders disproportionately large trade clusters for a single trading day. Trade clusters aggregate many smaller trades close together in time into larger dollar-volume events.",
 		example: "volumeleaders-agent trade-clusters --date 2026-04-30\nvolumeleaders-agent trade-clusters --date 2026-04-30 --tickers AAPL,MSFT",
-	}, opts, &opts.Tickers, func(cmd *cobra.Command, _ []string) error {
-		return runTradeClusters(cmd.Context(), cmd, opts)
+	})
+}
+
+// NewTop10ClustersCommand builds the top 10 all-time ranked trade clusters command.
+func NewTop10ClustersCommand() (*cobra.Command, error) {
+	return newClusterCommand(&clusterPreset{
+		use:              "top10-clusters",
+		aliases:          []string{"top-10-clusters", "cluster-top10", "cluster-top-10"},
+		short:            "Fetch trade clusters ranked in a stock's all-time top 10",
+		long:             "Fetch VolumeLeaders trade clusters for one day where each cluster ranks in that stock's all-time top 10 clusters.",
+		example:          "volumeleaders-agent top10-clusters --date 2026-04-30\nvolumeleaders-agent top10-clusters --date 2026-04-30 --tickers AAPL,MSFT",
+		tradeClusterRank: 10,
+		length:           10,
+		minVolume:        "10000",
+		maxDollars:       "100000000000",
+		presetID:         "623",
+	})
+}
+
+// NewTop100ClustersCommand builds the top 100 all-time ranked trade clusters command.
+func NewTop100ClustersCommand() (*cobra.Command, error) {
+	return newClusterCommand(&clusterPreset{
+		use:              "top100-clusters",
+		aliases:          []string{"top-100-clusters", "cluster-top100", "cluster-top-100"},
+		short:            "Fetch trade clusters ranked in a stock's all-time top 100",
+		long:             "Fetch VolumeLeaders trade clusters for one day where each cluster ranks in that stock's all-time top 100 clusters.",
+		example:          "volumeleaders-agent top100-clusters --date 2026-04-30\nvolumeleaders-agent top100-clusters --date 2026-04-30 --tickers AAPL,MSFT",
+		tradeClusterRank: 100,
+		length:           100,
+		minVolume:        "10000",
+		maxDollars:       "100000000000",
+		presetID:         "568",
+	})
+}
+
+// NewBullLeverageClustersCommand builds the bullish leveraged ETF trade clusters command.
+func NewBullLeverageClustersCommand() (*cobra.Command, error) {
+	return newClusterCommand(&clusterPreset{
+		use:            "bull-leverage-clusters",
+		aliases:        []string{"bullish-leverage-clusters", "bull-clusters", "bullish-clusters"},
+		short:          "Fetch bullish leveraged ETF trade clusters",
+		long:           "Fetch VolumeLeaders bullish leveraged ETF trade clusters for one day. This uses the bullish leverage ETF cluster preset and filters the upstream GetTradeClusters request to the X Bull sector group.",
+		example:        "volumeleaders-agent bull-leverage-clusters --date 2026-04-30\nvolumeleaders-agent bull-leverage-clusters --date 2026-04-30 --tickers TQQQ",
+		minVolume:      "10000",
+		maxDollars:     "10000000000",
+		vcd:            "97",
+		relativeSize:   "5",
+		sectorIndustry: "X Bull",
+		presetID:       "5",
+	})
+}
+
+// NewBearLeverageClustersCommand builds the bearish leveraged ETF trade clusters command.
+func NewBearLeverageClustersCommand() (*cobra.Command, error) {
+	return newClusterCommand(&clusterPreset{
+		use:            "bear-leverage-clusters",
+		aliases:        []string{"bearish-leverage-clusters", "bear-clusters", "bearish-clusters"},
+		short:          "Fetch bearish leveraged ETF trade clusters",
+		long:           "Fetch VolumeLeaders bearish leveraged ETF trade clusters for one day. This uses the bearish leverage ETF cluster preset and filters the upstream GetTradeClusters request to the X Bear sector group.",
+		example:        "volumeleaders-agent bear-leverage-clusters --date 2026-04-30\nvolumeleaders-agent bear-leverage-clusters --date 2026-04-30 --tickers SPXU",
+		minVolume:      "10000",
+		maxDollars:     "10000000000",
+		vcd:            "97",
+		relativeSize:   "5",
+		sectorIndustry: "X Bear",
+		presetID:       "6",
 	})
 }
 
@@ -579,6 +660,19 @@ func newSectorCommand(preset *sectorPreset) (*cobra.Command, error) {
 	})
 }
 
+func newClusterCommand(preset *clusterPreset) (*cobra.Command, error) {
+	opts := &ClusterOptions{}
+	return newBoundTradeCommand(&commandMetadata{
+		use:     preset.use,
+		aliases: preset.aliases,
+		short:   preset.short,
+		long:    preset.long,
+		example: preset.example,
+	}, opts, &opts.Tickers, func(cmd *cobra.Command, _ []string) error {
+		return runClusterPreset(cmd.Context(), cmd, opts, preset)
+	})
+}
+
 func run(ctx context.Context, cmd *cobra.Command, opts *Options) error {
 	return runStandardTrades(ctx, cmd, &standardRunConfig{
 		cmdName:       "trades",
@@ -593,12 +687,12 @@ func run(ctx context.Context, cmd *cobra.Command, opts *Options) error {
 	})
 }
 
-func runTradeClusters(ctx context.Context, cmd *cobra.Command, opts *ClusterOptions) error {
-	formattedDate, tickers, err := parseDateAndTickers(ctx, "trade-clusters", opts.Date, opts.Tickers)
+func runClusterPreset(ctx context.Context, cmd *cobra.Command, opts *ClusterOptions, preset *clusterPreset) error {
+	formattedDate, tickers, err := parseDateAndTickers(ctx, preset.use, opts.Date, opts.Tickers)
 	if err != nil {
 		return err
 	}
-	limit, err := normalizeLimit("trade-clusters", opts.Limit, defaultTradeLimit, cmd.Flags().Changed("limit"))
+	limit, err := normalizeLimit(preset.use, opts.Limit, clusterPresetDefaultLimit(preset), cmd.Flags().Changed("limit"))
 	if err != nil {
 		return err
 	}
@@ -607,7 +701,7 @@ func runTradeClusters(ctx context.Context, cmd *cobra.Command, opts *ClusterOpti
 		return err
 	}
 
-	apiResponse, err := fetchTradeClusters(ctx, formattedDate, tickers, limit)
+	apiResponse, err := fetchClusterPreset(ctx, formattedDate, tickers, preset, limit)
 	if err != nil {
 		return err
 	}
@@ -618,11 +712,14 @@ func runTradeClusters(ctx context.Context, cmd *cobra.Command, opts *ClusterOpti
 		RecordsTotal:    apiResponse.RecordsTotal,
 		RecordsFiltered: apiResponse.RecordsFiltered,
 	}
+	if preset.tradeClusterRank > 0 {
+		result.RankLimit = preset.tradeClusterRank
+	}
 	if err := applyClusterOutput(&result, apiResponse.Data, fields, shape); err != nil {
 		return err
 	}
 
-	return encodeResult(cmd.OutOrStdout(), "trade-clusters", result, opts.Pretty)
+	return encodeResult(cmd.OutOrStdout(), preset.use, result, opts.Pretty)
 }
 
 func runRanked(ctx context.Context, cmd *cobra.Command, opts *RankedOptions, preset *rankedPreset) error {
@@ -951,8 +1048,8 @@ func fetchDisproportionatelyLargeTrades(ctx context.Context, tradeDate, tickers 
 	return fetchTradesPages(ctx, tradeDate, tickers, &options, limit)
 }
 
-func fetchTradeClusters(ctx context.Context, tradeDate, tickers string, limit int) (getTradesResponse, error) {
-	options := defaultGetTradeClustersRequestOptions()
+func fetchClusterPreset(ctx context.Context, tradeDate, tickers string, preset *clusterPreset, limit int) (getTradesResponse, error) {
+	options := clusterPresetRequestOptions(preset)
 	return fetchTradeClustersPages(ctx, tradeDate, tickers, &options, limit)
 }
 
@@ -1186,19 +1283,57 @@ func fetchTrades(ctx context.Context, tradeDate, tickers string, options *getTra
 }
 
 func defaultGetTradeClustersRequestOptions() getTradeClustersRequestOptions {
+	return clusterPresetRequestOptions(defaultClusterPreset())
+}
+
+func defaultClusterPreset() *clusterPreset {
+	return &clusterPreset{
+		tradeClusterRank: -1,
+		minVolume:        "0",
+		maxDollars:       "30000000000",
+		vcd:              "0",
+		relativeSize:     "0",
+		securityTypeKey:  "-1",
+		sectorIndustry:   "",
+		presetID:         "87",
+	}
+}
+
+func clusterPresetRequestOptions(preset *clusterPreset) getTradeClustersRequestOptions {
 	return getTradeClustersRequestOptions{
-		tradeClusterRank:       -1,
+		tradeClusterRank:       clusterPresetRank(preset),
 		draw:                   1,
 		start:                  0,
-		length:                 defaultTradeLimit,
-		minVolume:              "0",
-		maxDollars:             "30000000000",
-		vcd:                    "0",
-		relativeSize:           "0",
-		securityTypeKey:        "-1",
-		sectorIndustry:         "",
-		presetSearchTemplateID: "87",
+		length:                 clusterPresetDefaultLimit(preset),
+		minVolume:              clusterPresetString(preset.minVolume, "0"),
+		maxDollars:             clusterPresetString(preset.maxDollars, "30000000000"),
+		vcd:                    clusterPresetString(preset.vcd, "0"),
+		relativeSize:           clusterPresetString(preset.relativeSize, "0"),
+		securityTypeKey:        clusterPresetString(preset.securityTypeKey, "-1"),
+		sectorIndustry:         preset.sectorIndustry,
+		presetSearchTemplateID: clusterPresetString(preset.presetID, "87"),
 	}
+}
+
+func clusterPresetDefaultLimit(preset *clusterPreset) int {
+	if preset.length > 0 {
+		return preset.length
+	}
+	return defaultTradeLimit
+}
+
+func clusterPresetRank(preset *clusterPreset) int {
+	if preset.tradeClusterRank > 0 {
+		return preset.tradeClusterRank
+	}
+	return -1
+}
+
+func clusterPresetString(value, fallback string) string {
+	if value != "" {
+		return value
+	}
+	return fallback
 }
 
 func defaultGetTradesRequestOptions() getTradesRequestOptions {

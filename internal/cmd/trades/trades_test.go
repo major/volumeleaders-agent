@@ -164,6 +164,179 @@ func TestTradeClustersCommandObjectShapeAndCustomFields(t *testing.T) {
 	}
 }
 
+func TestRankedTradeClustersCommands(t *testing.T) {
+	tests := []struct {
+		name        string
+		newCommand  func() (*cobra.Command, error)
+		args        []string
+		wantPreset  *clusterPreset
+		wantLength  int
+		wantTickers string
+	}{
+		{
+			name:       "top 10 ranked clusters",
+			newCommand: NewTop10ClustersCommand,
+			args:       []string{"--date", "2026-04-30"},
+			wantPreset: &clusterPreset{
+				tradeClusterRank: 10,
+				length:           10,
+				minVolume:        "10000",
+				maxDollars:       "100000000000",
+				presetID:         "623",
+			},
+			wantLength: 10,
+		},
+		{
+			name:       "top 100 ranked clusters with tickers",
+			newCommand: NewTop100ClustersCommand,
+			args:       []string{"--date", "2026-04-30", "--ticker", "aapl,msft", "--limit", "25"},
+			wantPreset: &clusterPreset{
+				tradeClusterRank: 100,
+				length:           100,
+				minVolume:        "10000",
+				maxDollars:       "100000000000",
+				presetID:         "568",
+			},
+			wantLength:  25,
+			wantTickers: "AAPL,MSFT",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				options := clusterPresetRequestOptions(tt.wantPreset)
+				options.length = tt.wantLength
+				assertGetTradeClustersRequestWithOptions(t, r, "2026-04-30", tt.wantTickers, &options)
+				fmt.Fprint(w, `{"draw":1,"recordsTotal":76,"recordsFiltered":76,"data":[{"Ticker":"SNDQ","TradeClusterRank":1,"TradeCount":8,"TotalRows":76}]}`)
+			}))
+			t.Cleanup(server.Close)
+
+			withCommandDependencies(t, server.Client(), server.URL, nil, nil)
+
+			cmd, err := tt.newCommand()
+			if err != nil {
+				t.Fatalf("new command error = %v", err)
+			}
+
+			var stdout bytes.Buffer
+			cmd.SetOut(&stdout)
+			cmd.SetErr(io.Discard)
+			cmd.SetArgs(tt.args)
+
+			if err := cmd.Execute(); err != nil {
+				t.Fatalf("Execute() error = %v", err)
+			}
+
+			var got ClusterResult
+			if err := json.Unmarshal(stdout.Bytes(), &got); err != nil {
+				t.Fatalf("unmarshal output: %v\noutput: %s", err, stdout.String())
+			}
+			if got.Status != "ok" {
+				t.Fatalf("Status = %q, want ok", got.Status)
+			}
+			if got.RankLimit != tt.wantPreset.tradeClusterRank {
+				t.Fatalf("RankLimit = %d, want %d", got.RankLimit, tt.wantPreset.tradeClusterRank)
+			}
+			if len(got.Fields) != len(clusterFieldPresets["core"]) {
+				t.Fatalf("len(Fields) = %d, want core cluster fields", len(got.Fields))
+			}
+			if len(got.Rows) != 1 {
+				t.Fatalf("len(Rows) = %d, want 1", len(got.Rows))
+			}
+		})
+	}
+}
+
+func TestLeverageTradeClustersCommands(t *testing.T) {
+	tests := []struct {
+		name           string
+		newCommand     func() (*cobra.Command, error)
+		args           []string
+		wantPreset     *clusterPreset
+		wantTickers    string
+		wantLength     int
+		responseSector string
+	}{
+		{
+			name:       "bull leverage clusters",
+			newCommand: NewBullLeverageClustersCommand,
+			args:       []string{"--date", "2026-04-30"},
+			wantPreset: &clusterPreset{
+				minVolume:      "10000",
+				maxDollars:     "10000000000",
+				vcd:            "97",
+				relativeSize:   "5",
+				sectorIndustry: "X Bull",
+				presetID:       "5",
+			},
+			wantLength:     defaultTradeLimit,
+			responseSector: "3x Bull Nasdaq",
+		},
+		{
+			name:       "bear leverage clusters with tickers",
+			newCommand: NewBearLeverageClustersCommand,
+			args:       []string{"--date", "2026-04-30", "--ticker", "spxu", "--limit", "3"},
+			wantPreset: &clusterPreset{
+				minVolume:      "10000",
+				maxDollars:     "10000000000",
+				vcd:            "97",
+				relativeSize:   "5",
+				sectorIndustry: "X Bear",
+				presetID:       "6",
+			},
+			wantTickers:    "SPXU",
+			wantLength:     3,
+			responseSector: "3x Bear S&P 500",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				options := clusterPresetRequestOptions(tt.wantPreset)
+				options.length = tt.wantLength
+				assertGetTradeClustersRequestWithOptions(t, r, "2026-04-30", tt.wantTickers, &options)
+				fmt.Fprintf(w, `{"draw":1,"recordsTotal":8,"recordsFiltered":8,"data":[{"Ticker":"TQQQ","Sector":"%s","TradeCount":5,"TotalRows":8}]}`, tt.responseSector)
+			}))
+			t.Cleanup(server.Close)
+
+			withCommandDependencies(t, server.Client(), server.URL, nil, nil)
+
+			cmd, err := tt.newCommand()
+			if err != nil {
+				t.Fatalf("new command error = %v", err)
+			}
+
+			var stdout bytes.Buffer
+			cmd.SetOut(&stdout)
+			cmd.SetErr(io.Discard)
+			cmd.SetArgs(tt.args)
+
+			if err := cmd.Execute(); err != nil {
+				t.Fatalf("Execute() error = %v", err)
+			}
+
+			var got ClusterResult
+			if err := json.Unmarshal(stdout.Bytes(), &got); err != nil {
+				t.Fatalf("unmarshal output: %v\noutput: %s", err, stdout.String())
+			}
+			if got.Status != "ok" {
+				t.Fatalf("Status = %q, want ok", got.Status)
+			}
+			if got.RankLimit != 0 {
+				t.Fatalf("RankLimit = %d, want omitted zero value", got.RankLimit)
+			}
+			if len(got.Fields) != len(clusterFieldPresets["core"]) {
+				t.Fatalf("len(Fields) = %d, want core cluster fields", len(got.Fields))
+			}
+			if len(got.Rows) != 1 {
+				t.Fatalf("len(Rows) = %d, want 1", len(got.Rows))
+			}
+		})
+	}
+}
+
 func TestTradesCommandOutputOptions(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		options := defaultGetTradesRequestOptions()

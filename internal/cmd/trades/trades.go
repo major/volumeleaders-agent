@@ -168,6 +168,32 @@ type getTradesRequestOptions struct {
 	presetSearchTemplateID string
 }
 
+type commandMetadata struct {
+	use     string
+	aliases []string
+	short   string
+	long    string
+	example string
+}
+
+type standardRunConfig struct {
+	cmdName       string
+	date          string
+	tickers       string
+	limit         int
+	fields        string
+	presetFields  string
+	shape         string
+	pretty        bool
+	fetchResponse func(context.Context, string, string, int) (getTradesResponse, error)
+}
+
+type tradeOutput struct {
+	fields []string
+	rows   [][]json.RawMessage
+	trades []json.RawMessage
+}
+
 type rankedPreset struct {
 	use      string
 	aliases  []string
@@ -232,21 +258,31 @@ var getTradesColumns = []tradeColumn{
 // NewCommand builds the large unusual trades command.
 func NewCommand() (*cobra.Command, error) {
 	opts := &Options{}
+	return newBoundTradeCommand(&commandMetadata{
+		use:     "trades",
+		aliases: []string{"large-trades", "unusual-trades"},
+		short:   "Fetch disproportionately large trades for one date",
+		long:    "Fetch VolumeLeaders disproportionately large trades for a single trading day. This reproduces the default Disproportionately large trades GetTrades request and intentionally does not allow multi-day ranges.",
+		example: "volumeleaders-agent trades --date 2026-04-30\nvolumeleaders-agent trades --date 2026-04-30 --tickers AAPL,MSFT",
+	}, opts, &opts.Tickers, func(cmd *cobra.Command, _ []string) error {
+		return run(cmd.Context(), cmd, opts)
+	})
+}
+
+func newBoundTradeCommand(meta *commandMetadata, opts any, tickerFlag *string, runE func(*cobra.Command, []string) error) (*cobra.Command, error) {
 	cmd := &cobra.Command{
-		Use:     "trades",
-		Aliases: []string{"large-trades", "unusual-trades"},
-		Short:   "Fetch disproportionately large trades for one date",
-		Long:    "Fetch VolumeLeaders disproportionately large trades for a single trading day. This reproduces the default Disproportionately large trades GetTrades request and intentionally does not allow multi-day ranges.",
-		Example: "volumeleaders-agent trades --date 2026-04-30\nvolumeleaders-agent trades --date 2026-04-30 --tickers AAPL,MSFT",
-		RunE: func(cmd *cobra.Command, _ []string) error {
-			return run(cmd.Context(), cmd, opts)
-		},
+		Use:     meta.use,
+		Aliases: meta.aliases,
+		Short:   meta.short,
+		Long:    meta.long,
+		Example: meta.example,
+		RunE:    runE,
 	}
 
 	if err := structcli.Bind(cmd, opts); err != nil {
-		return nil, fmt.Errorf("bind trades options: %w", err)
+		return nil, fmt.Errorf("bind %s options: %w", meta.use, err)
 	}
-	cmd.Flags().StringVar(&opts.Tickers, "ticker", "", "Optional ticker filter. Alias for --tickers.")
+	cmd.Flags().StringVar(tickerFlag, "ticker", "", "Optional ticker filter. Alias for --tickers.")
 
 	return cmd, nil
 }
@@ -389,118 +425,68 @@ func NewCommunicationsServicesCommand() (*cobra.Command, error) {
 
 func newRankedCommand(preset *rankedPreset) (*cobra.Command, error) {
 	opts := &RankedOptions{}
-	cmd := &cobra.Command{
-		Use:     preset.use,
-		Aliases: preset.aliases,
-		Short:   preset.short,
-		Long:    preset.long,
-		Example: preset.example,
-		RunE: func(cmd *cobra.Command, _ []string) error {
-			return runRanked(cmd.Context(), cmd, opts, preset)
-		},
-	}
-
-	if err := structcli.Bind(cmd, opts); err != nil {
-		return nil, fmt.Errorf("bind %s options: %w", preset.use, err)
-	}
-	cmd.Flags().StringVar(&opts.Tickers, "ticker", "", "Optional ticker filter. Alias for --tickers.")
-
-	return cmd, nil
+	return newBoundTradeCommand(&commandMetadata{
+		use:     preset.use,
+		aliases: preset.aliases,
+		short:   preset.short,
+		long:    preset.long,
+		example: preset.example,
+	}, opts, &opts.Tickers, func(cmd *cobra.Command, _ []string) error {
+		return runRanked(cmd.Context(), cmd, opts, preset)
+	})
 }
 
 func newSignalCommand(preset *signalPreset) (*cobra.Command, error) {
 	opts := &SignalOptions{}
-	cmd := &cobra.Command{
-		Use:     preset.use,
-		Aliases: preset.aliases,
-		Short:   preset.short,
-		Long:    preset.long,
-		Example: preset.example,
-		RunE: func(cmd *cobra.Command, _ []string) error {
-			return runSignal(cmd.Context(), cmd, opts, preset)
-		},
-	}
-
-	if err := structcli.Bind(cmd, opts); err != nil {
-		return nil, fmt.Errorf("bind %s options: %w", preset.use, err)
-	}
-	cmd.Flags().StringVar(&opts.Tickers, "ticker", "", "Optional ticker filter. Alias for --tickers.")
-
-	return cmd, nil
+	return newBoundTradeCommand(&commandMetadata{
+		use:     preset.use,
+		aliases: preset.aliases,
+		short:   preset.short,
+		long:    preset.long,
+		example: preset.example,
+	}, opts, &opts.Tickers, func(cmd *cobra.Command, _ []string) error {
+		return runSignal(cmd.Context(), cmd, opts, preset)
+	})
 }
 
 func newLeverageCommand(preset *leveragePreset) (*cobra.Command, error) {
 	opts := &SignalOptions{}
-	cmd := &cobra.Command{
-		Use:     preset.use,
-		Aliases: preset.aliases,
-		Short:   preset.short,
-		Long:    preset.long,
-		Example: preset.example,
-		RunE: func(cmd *cobra.Command, _ []string) error {
-			return runLeverage(cmd.Context(), cmd, opts, preset)
-		},
-	}
-
-	if err := structcli.Bind(cmd, opts); err != nil {
-		return nil, fmt.Errorf("bind %s options: %w", preset.use, err)
-	}
-	cmd.Flags().StringVar(&opts.Tickers, "ticker", "", "Optional ticker filter. Alias for --tickers.")
-
-	return cmd, nil
+	return newBoundTradeCommand(&commandMetadata{
+		use:     preset.use,
+		aliases: preset.aliases,
+		short:   preset.short,
+		long:    preset.long,
+		example: preset.example,
+	}, opts, &opts.Tickers, func(cmd *cobra.Command, _ []string) error {
+		return runLeverage(cmd.Context(), cmd, opts, preset)
+	})
 }
 
 func newSectorCommand(preset *sectorPreset) (*cobra.Command, error) {
 	opts := &SignalOptions{}
-	cmd := &cobra.Command{
-		Use:     preset.use,
-		Aliases: preset.aliases,
-		Short:   preset.short,
-		Long:    preset.long,
-		Example: preset.example,
-		RunE: func(cmd *cobra.Command, _ []string) error {
-			return runSector(cmd.Context(), cmd, opts, preset)
-		},
-	}
-
-	if err := structcli.Bind(cmd, opts); err != nil {
-		return nil, fmt.Errorf("bind %s options: %w", preset.use, err)
-	}
-	cmd.Flags().StringVar(&opts.Tickers, "ticker", "", "Optional ticker filter. Alias for --tickers.")
-
-	return cmd, nil
+	return newBoundTradeCommand(&commandMetadata{
+		use:     preset.use,
+		aliases: preset.aliases,
+		short:   preset.short,
+		long:    preset.long,
+		example: preset.example,
+	}, opts, &opts.Tickers, func(cmd *cobra.Command, _ []string) error {
+		return runSector(cmd.Context(), cmd, opts, preset)
+	})
 }
 
 func run(ctx context.Context, cmd *cobra.Command, opts *Options) error {
-	formattedDate, tickers, err := parseDateAndTickers(ctx, "trades", opts.Date, opts.Tickers)
-	if err != nil {
-		return err
-	}
-	limit, err := normalizeLimit("trades", opts.Limit, defaultTradeLimit, cmd.Flags().Changed("limit"))
-	if err != nil {
-		return err
-	}
-	fields, shape, err := normalizeOutputOptions(opts.Fields, opts.PresetFields, opts.Shape)
-	if err != nil {
-		return err
-	}
-
-	apiResponse, err := fetchDisproportionatelyLargeTrades(ctx, formattedDate, tickers, limit)
-	if err != nil {
-		return err
-	}
-
-	result := Result{
-		Status:          "ok",
-		Date:            formattedDate,
-		RecordsTotal:    apiResponse.RecordsTotal,
-		RecordsFiltered: apiResponse.RecordsFiltered,
-	}
-	if err := applyTradeOutput(&result, apiResponse.Data, fields, shape); err != nil {
-		return err
-	}
-
-	return encodeResult(cmd.OutOrStdout(), "trades", result, opts.Pretty)
+	return runStandardTrades(ctx, cmd, &standardRunConfig{
+		cmdName:       "trades",
+		date:          opts.Date,
+		tickers:       opts.Tickers,
+		limit:         opts.Limit,
+		fields:        opts.Fields,
+		presetFields:  opts.PresetFields,
+		shape:         opts.Shape,
+		pretty:        opts.Pretty,
+		fetchResponse: fetchDisproportionatelyLargeTrades,
+	})
 }
 
 func runRanked(ctx context.Context, cmd *cobra.Command, opts *RankedOptions, preset *rankedPreset) error {
@@ -537,84 +523,52 @@ func runRanked(ctx context.Context, cmd *cobra.Command, opts *RankedOptions, pre
 }
 
 func runSignal(ctx context.Context, cmd *cobra.Command, opts *SignalOptions, preset *signalPreset) error {
-	formattedDate, tickers, err := parseDateAndTickers(ctx, preset.use, opts.Date, opts.Tickers)
-	if err != nil {
-		return err
-	}
-	limit, err := normalizeLimit(preset.use, opts.Limit, defaultTradeLimit, cmd.Flags().Changed("limit"))
-	if err != nil {
-		return err
-	}
-	fields, shape, err := normalizeOutputOptions(opts.Fields, opts.PresetFields, opts.Shape)
-	if err != nil {
-		return err
-	}
-
-	apiResponse, err := fetchSignalTrades(ctx, formattedDate, tickers, preset, limit)
-	if err != nil {
-		return err
-	}
-
-	result := Result{
-		Status:          "ok",
-		Date:            formattedDate,
-		RecordsTotal:    apiResponse.RecordsTotal,
-		RecordsFiltered: apiResponse.RecordsFiltered,
-	}
-	if err := applyTradeOutput(&result, apiResponse.Data, fields, shape); err != nil {
-		return err
-	}
-
-	return encodeResult(cmd.OutOrStdout(), preset.use, result, opts.Pretty)
+	return runSignalPreset(ctx, cmd, opts, preset.use, func(ctx context.Context, formattedDate, tickers string, limit int) (getTradesResponse, error) {
+		return fetchSignalTrades(ctx, formattedDate, tickers, preset, limit)
+	})
 }
 
 func runLeverage(ctx context.Context, cmd *cobra.Command, opts *SignalOptions, preset *leveragePreset) error {
-	formattedDate, tickers, err := parseDateAndTickers(ctx, preset.use, opts.Date, opts.Tickers)
-	if err != nil {
-		return err
-	}
-	limit, err := normalizeLimit(preset.use, opts.Limit, defaultTradeLimit, cmd.Flags().Changed("limit"))
-	if err != nil {
-		return err
-	}
-	fields, shape, err := normalizeOutputOptions(opts.Fields, opts.PresetFields, opts.Shape)
-	if err != nil {
-		return err
-	}
-
-	apiResponse, err := fetchLeverageTrades(ctx, formattedDate, tickers, preset, limit)
-	if err != nil {
-		return err
-	}
-
-	result := Result{
-		Status:          "ok",
-		Date:            formattedDate,
-		RecordsTotal:    apiResponse.RecordsTotal,
-		RecordsFiltered: apiResponse.RecordsFiltered,
-	}
-	if err := applyTradeOutput(&result, apiResponse.Data, fields, shape); err != nil {
-		return err
-	}
-
-	return encodeResult(cmd.OutOrStdout(), preset.use, result, opts.Pretty)
+	return runSignalPreset(ctx, cmd, opts, preset.use, func(ctx context.Context, formattedDate, tickers string, limit int) (getTradesResponse, error) {
+		return fetchLeverageTrades(ctx, formattedDate, tickers, preset, limit)
+	})
 }
 
 func runSector(ctx context.Context, cmd *cobra.Command, opts *SignalOptions, preset *sectorPreset) error {
-	formattedDate, tickers, err := parseDateAndTickers(ctx, preset.use, opts.Date, opts.Tickers)
+	return runSignalPreset(ctx, cmd, opts, preset.use, func(ctx context.Context, formattedDate, tickers string, limit int) (getTradesResponse, error) {
+		return fetchSectorTrades(ctx, formattedDate, tickers, preset, limit)
+	})
+}
+
+func runSignalPreset(ctx context.Context, cmd *cobra.Command, opts *SignalOptions, cmdName string, fetchResponse func(context.Context, string, string, int) (getTradesResponse, error)) error {
+	return runStandardTrades(ctx, cmd, &standardRunConfig{
+		cmdName:       cmdName,
+		date:          opts.Date,
+		tickers:       opts.Tickers,
+		limit:         opts.Limit,
+		fields:        opts.Fields,
+		presetFields:  opts.PresetFields,
+		shape:         opts.Shape,
+		pretty:        opts.Pretty,
+		fetchResponse: fetchResponse,
+	})
+}
+
+func runStandardTrades(ctx context.Context, cmd *cobra.Command, config *standardRunConfig) error {
+	formattedDate, tickers, err := parseDateAndTickers(ctx, config.cmdName, config.date, config.tickers)
 	if err != nil {
 		return err
 	}
-	limit, err := normalizeLimit(preset.use, opts.Limit, defaultTradeLimit, cmd.Flags().Changed("limit"))
+	limit, err := normalizeLimit(config.cmdName, config.limit, defaultTradeLimit, cmd.Flags().Changed("limit"))
 	if err != nil {
 		return err
 	}
-	fields, shape, err := normalizeOutputOptions(opts.Fields, opts.PresetFields, opts.Shape)
+	fields, shape, err := normalizeOutputOptions(config.fields, config.presetFields, config.shape)
 	if err != nil {
 		return err
 	}
 
-	apiResponse, err := fetchSectorTrades(ctx, formattedDate, tickers, preset, limit)
+	apiResponse, err := config.fetchResponse(ctx, formattedDate, tickers, limit)
 	if err != nil {
 		return err
 	}
@@ -629,7 +583,7 @@ func runSector(ctx context.Context, cmd *cobra.Command, opts *SignalOptions, pre
 		return err
 	}
 
-	return encodeResult(cmd.OutOrStdout(), preset.use, result, opts.Pretty)
+	return encodeResult(cmd.OutOrStdout(), config.cmdName, result, config.pretty)
 }
 
 func parseDateAndTickers(ctx context.Context, cmdName, rawDate, rawTickers string) (formattedDate, normalizedTickers string, err error) {
@@ -728,57 +682,48 @@ func parseFields(rawFields string) ([]string, error) {
 }
 
 func applyTradeOutput(result *Result, trades []json.RawMessage, fields []string, shape string) error {
-	if trades == nil {
-		trades = []json.RawMessage{}
-	}
-	if fields == nil {
-		result.Trades = trades
-		return nil
-	}
-
-	result.Fields = fields
-	if shape == objectOutputShape {
-		projected, err := projectTradeObjects(trades, fields)
-		if err != nil {
-			return err
-		}
-		result.Trades = projected
-		return nil
-	}
-
-	rows, err := projectTradeRows(trades, fields)
+	output, err := projectTradeOutput(trades, fields, shape)
 	if err != nil {
 		return err
 	}
-	result.Rows = rows
+	result.Fields = output.fields
+	result.Rows = output.rows
+	result.Trades = output.trades
 	return nil
 }
 
 func applyRankedTradeOutput(result *RankedResult, trades []json.RawMessage, fields []string, shape string) error {
+	output, err := projectTradeOutput(trades, fields, shape)
+	if err != nil {
+		return err
+	}
+	result.Fields = output.fields
+	result.Rows = output.rows
+	result.Trades = output.trades
+	return nil
+}
+
+func projectTradeOutput(trades []json.RawMessage, fields []string, shape string) (tradeOutput, error) {
 	if trades == nil {
 		trades = []json.RawMessage{}
 	}
 	if fields == nil {
-		result.Trades = trades
-		return nil
+		return tradeOutput{trades: trades}, nil
 	}
 
-	result.Fields = fields
 	if shape == objectOutputShape {
 		projected, err := projectTradeObjects(trades, fields)
 		if err != nil {
-			return err
+			return tradeOutput{}, err
 		}
-		result.Trades = projected
-		return nil
+		return tradeOutput{fields: fields, trades: projected}, nil
 	}
 
 	rows, err := projectTradeRows(trades, fields)
 	if err != nil {
-		return err
+		return tradeOutput{}, err
 	}
-	result.Rows = rows
-	return nil
+	return tradeOutput{fields: fields, rows: rows}, nil
 }
 
 func projectTradeObjects(trades []json.RawMessage, fields []string) ([]json.RawMessage, error) {

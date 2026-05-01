@@ -12,6 +12,25 @@ import (
 
 const appName = "volumeleaders-agent"
 
+type commandFactory struct {
+	name string
+	new  func() (*cobra.Command, error)
+}
+
+var rootCommandFactories = []commandFactory{
+	{name: "trades", new: trades.NewCommand},
+	{name: "top10", new: trades.NewTop10Command},
+	{name: "top100", new: trades.NewTop100Command},
+	{name: "phantom", new: trades.NewPhantomCommand},
+	{name: "offsetting", new: trades.NewOffsettingCommand},
+	{name: "bull-leverage", new: trades.NewBullLeverageCommand},
+	{name: "bear-leverage", new: trades.NewBearLeverageCommand},
+	{name: "biotech", new: trades.NewBiotechCommand},
+	{name: "bonds", new: trades.NewBondsCommand},
+	{name: "commodities", new: trades.NewCommoditiesCommand},
+	{name: "communications-services", new: trades.NewCommunicationsServicesCommand},
+}
+
 // NewRootCmd builds a fresh command tree for the VolumeLeaders CLI.
 func NewRootCmd() (*cobra.Command, error) {
 	rootCmd := &cobra.Command{
@@ -21,51 +40,13 @@ func NewRootCmd() (*cobra.Command, error) {
 		TraverseChildren: true,
 	}
 
-	tradesCmd, err := trades.NewCommand()
-	if err != nil {
-		return nil, fmt.Errorf("create trades command: %w", err)
+	for _, factory := range rootCommandFactories {
+		cmd, err := factory.new()
+		if err != nil {
+			return nil, fmt.Errorf("create %s command: %w", factory.name, err)
+		}
+		rootCmd.AddCommand(cmd)
 	}
-	top10Cmd, err := trades.NewTop10Command()
-	if err != nil {
-		return nil, fmt.Errorf("create top10 command: %w", err)
-	}
-	top100Cmd, err := trades.NewTop100Command()
-	if err != nil {
-		return nil, fmt.Errorf("create top100 command: %w", err)
-	}
-	phantomCmd, err := trades.NewPhantomCommand()
-	if err != nil {
-		return nil, fmt.Errorf("create phantom command: %w", err)
-	}
-	offsettingCmd, err := trades.NewOffsettingCommand()
-	if err != nil {
-		return nil, fmt.Errorf("create offsetting command: %w", err)
-	}
-	bullLeverageCmd, err := trades.NewBullLeverageCommand()
-	if err != nil {
-		return nil, fmt.Errorf("create bull-leverage command: %w", err)
-	}
-	bearLeverageCmd, err := trades.NewBearLeverageCommand()
-	if err != nil {
-		return nil, fmt.Errorf("create bear-leverage command: %w", err)
-	}
-	biotechCmd, err := trades.NewBiotechCommand()
-	if err != nil {
-		return nil, fmt.Errorf("create biotech command: %w", err)
-	}
-	bondsCmd, err := trades.NewBondsCommand()
-	if err != nil {
-		return nil, fmt.Errorf("create bonds command: %w", err)
-	}
-	commoditiesCmd, err := trades.NewCommoditiesCommand()
-	if err != nil {
-		return nil, fmt.Errorf("create commodities command: %w", err)
-	}
-	communicationsServicesCmd, err := trades.NewCommunicationsServicesCommand()
-	if err != nil {
-		return nil, fmt.Errorf("create communications-services command: %w", err)
-	}
-	rootCmd.AddCommand(tradesCmd, top10Cmd, top100Cmd, phantomCmd, offsettingCmd, bullLeverageCmd, bearLeverageCmd, biotechCmd, bondsCmd, commoditiesCmd, communicationsServicesCmd)
 
 	if err := structcli.Setup(rootCmd,
 		structcli.WithAppName(appName),

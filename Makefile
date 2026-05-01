@@ -1,4 +1,7 @@
-.PHONY: test lint clean
+.PHONY: build test lint clean
+
+build:
+	go build -o volumeleaders-agent ./cmd/volumeleaders-agent
 
 test:
 	go test -v ./...

@@ -59,6 +59,12 @@ reviews:
         - Verify no credentials are logged or exposed in error messages
         - Cookie/token handling must degrade gracefully on errors
 
+    - path: "internal/cmd/**/*.go"
+      instructions: |
+        CLI review:
+        - Verify structcli tags keep flags, env vars, JSON schema, and MCP tools accurate
+        - Command output should be stable JSON suitable for humans and LLM agents
+
     - path: "**/*_test.go"
       instructions: |
         Focus on test quality:
@@ -74,6 +80,9 @@ reviews:
         Makefile validation:
         - .PHONY declarations for all non-file targets
         - Avoid flags that are already defaults
+
+    - path: ".goreleaser.yml"
+      instructions: "Verify goreleaser v2 config, CGO settings, signing behavior, and the intended platform matrix"
 
 chat:
   auto_reply: true

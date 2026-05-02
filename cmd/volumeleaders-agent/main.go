@@ -1,19 +1,19 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"os"
 
 	"github.com/major/volumeleaders-agent/internal/auth"
-	"github.com/major/volumeleaders-agent/internal/commands"
+	cli "github.com/major/volumeleaders-agent/internal/cli"
 )
 
 // version is set at build time via ldflags (see .goreleaser.yml).
 var version = "dev"
 
 func main() {
-	if err := commands.NewApp(version).Run(context.Background(), os.Args); err != nil {
+	rootCmd := cli.NewRootCmd(version)
+	if err := rootCmd.Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, userFacingError(err))
 		os.Exit(exitCode(err))
 	}

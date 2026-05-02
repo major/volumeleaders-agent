@@ -488,14 +488,10 @@ func TestBuildWatchlistConfigFields(t *testing.T) {
 	t.Parallel()
 
 	// Verify all expected form field names are present.
-	cmd := newCreateCmd()
-	cmd.SetArgs([]string{"--name", "Test"})
-	// Parse flags so they have values.
-	if err := cmd.ParseFlags([]string{"--name", "Test"}); err != nil {
-		t.Fatalf("parse flags: %v", err)
-	}
+	opts := &watchlistConfigFlags{Name: "Test"}
+	presetWatchlistConfigDefaults(opts)
 
-	fields := buildWatchlistConfigFields(cmd, 42)
+	fields := buildWatchlistConfigFields(opts, 42)
 
 	expectedKeys := []string{
 		"SearchTemplateKey", "Name", "Tickers",

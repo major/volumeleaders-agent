@@ -6,12 +6,111 @@ import (
 	"net/url"
 	"strconv"
 
+	"github.com/leodido/structcli"
 	"github.com/spf13/cobra"
 
 	"github.com/major/volumeleaders-agent/internal/cli/common"
 	"github.com/major/volumeleaders-agent/internal/datatables"
 	"github.com/major/volumeleaders-agent/internal/models"
 )
+
+// watchlistConfigsOptions holds flags for the "watchlist configs" subcommand.
+type watchlistConfigsOptions struct {
+	Format string `flag:"format" default:"json" flagdescr:"Output format: json, csv, or tsv"`
+}
+
+// watchlistTickersOptions holds flags for the "watchlist tickers" subcommand.
+type watchlistTickersOptions struct {
+	WatchlistKey int    `flag:"watchlist-key" flagdescr:"Watch list key (-1 for all)"`
+	Format       string `flag:"format" default:"json" flagdescr:"Output format: json, csv, or tsv"`
+}
+
+// watchlistDeleteOptions holds flags for the "watchlist delete" subcommand.
+type watchlistDeleteOptions struct {
+	Key int `flag:"key" flagrequired:"true" flagdescr:"Watch list key to delete"`
+}
+
+// watchlistAddTickerOptions holds flags for the "watchlist add-ticker" subcommand.
+type watchlistAddTickerOptions struct {
+	WatchlistKey int    `flag:"watchlist-key" flagrequired:"true" flagdescr:"Watch list key"`
+	Ticker       string `flag:"ticker" flagrequired:"true" flagdescr:"Ticker symbol to add"`
+}
+
+// watchlistConfigFlags holds the shared flag set for watchlist create/edit commands.
+type watchlistConfigFlags struct {
+	Name                string  `flag:"name" flagdescr:"Watch list name"`
+	Tickers             string  `flag:"tickers" flagdescr:"Comma-separated ticker symbols (max 500)"`
+	MinVolume           int     `flag:"min-volume" flagdescr:"Minimum volume filter"`
+	MaxVolume           int     `flag:"max-volume" flagdescr:"Maximum volume filter"`
+	MinDollars          float64 `flag:"min-dollars" flagdescr:"Minimum dollars filter"`
+	MaxDollars          float64 `flag:"max-dollars" flagdescr:"Maximum dollars filter"`
+	MinPrice            float64 `flag:"min-price" flagdescr:"Minimum price filter"`
+	MaxPrice            float64 `flag:"max-price" flagdescr:"Maximum price filter"`
+	MinVCD              float64 `flag:"min-vcd" flagdescr:"Minimum VCD percentile (0-100)"`
+	SectorIndustry      string  `flag:"sector-industry" flagdescr:"Sector/industry filter (max 100 chars)"`
+	SecurityType        int     `flag:"security-type" flagdescr:"Security type (-1=all, 1=stocks, 26=ETFs, 4=REITs)"`
+	MinRelativeSize     int     `flag:"min-relative-size" flagdescr:"Minimum relative size (0/5/10/25/50/100)"`
+	MaxTradeRank        int     `flag:"max-trade-rank" flagdescr:"Maximum trade rank (-1=all, 1/3/5/10/25/50/100)"`
+	NormalPrints        bool    `flag:"normal-prints" flagdescr:"Include normal prints"`
+	SignaturePrints     bool    `flag:"signature-prints" flagdescr:"Include signature prints"`
+	LatePrints          bool    `flag:"late-prints" flagdescr:"Include late prints"`
+	TimelyPrints        bool    `flag:"timely-prints" flagdescr:"Include timely prints"`
+	DarkPools           bool    `flag:"dark-pools" flagdescr:"Include dark pool trades"`
+	LitExchanges        bool    `flag:"lit-exchanges" flagdescr:"Include lit exchange trades"`
+	Sweeps              bool    `flag:"sweeps" flagdescr:"Include sweep trades"`
+	Blocks              bool    `flag:"blocks" flagdescr:"Include block trades"`
+	PremarketTrades     bool    `flag:"premarket-trades" flagdescr:"Include premarket trades"`
+	RTHTrades           bool    `flag:"rth-trades" flagdescr:"Include regular trading hours trades"`
+	AHTrades            bool    `flag:"ah-trades" flagdescr:"Include after-hours trades"`
+	OpeningTrades       bool    `flag:"opening-trades" flagdescr:"Include opening trades"`
+	ClosingTrades       bool    `flag:"closing-trades" flagdescr:"Include closing trades"`
+	PhantomTrades       bool    `flag:"phantom-trades" flagdescr:"Include phantom trades"`
+	OffsettingTrades    bool    `flag:"offsetting-trades" flagdescr:"Include offsetting trades"`
+	RSIOverboughtDaily  int     `flag:"rsi-overbought-daily" flagdescr:"RSI overbought daily (1=yes, 0=no, -1=ignore)"`
+	RSIOverboughtHourly int     `flag:"rsi-overbought-hourly" flagdescr:"RSI overbought hourly (1=yes, 0=no, -1=ignore)"`
+	RSIOversoldDaily    int     `flag:"rsi-oversold-daily" flagdescr:"RSI oversold daily (1=yes, 0=no, -1=ignore)"`
+	RSIOversoldHourly   int     `flag:"rsi-oversold-hourly" flagdescr:"RSI oversold hourly (1=yes, 0=no, -1=ignore)"`
+}
+
+// watchlistCreateOptions holds flags for the "watchlist create" subcommand.
+type watchlistCreateOptions struct {
+	watchlistConfigFlags
+}
+
+// watchlistEditOptions holds flags for the "watchlist edit" subcommand.
+type watchlistEditOptions struct {
+	Key int `flag:"key" flagrequired:"true" flagdescr:"Watch list key to edit"`
+	watchlistConfigFlags
+}
+
+// presetWatchlistConfigDefaults sets non-zero default values on watchlistConfigFlags
+// before structcli.Bind so they become pflag defaults without using default tags.
+func presetWatchlistConfigDefaults(cfg *watchlistConfigFlags) {
+	cfg.MaxVolume = 2000000000
+	cfg.MaxDollars = 30000000000
+	cfg.MaxPrice = 100000
+	cfg.SecurityType = -1
+	cfg.MaxTradeRank = -1
+	cfg.NormalPrints = true
+	cfg.SignaturePrints = true
+	cfg.LatePrints = true
+	cfg.TimelyPrints = true
+	cfg.DarkPools = true
+	cfg.LitExchanges = true
+	cfg.Sweeps = true
+	cfg.Blocks = true
+	cfg.PremarketTrades = true
+	cfg.RTHTrades = true
+	cfg.AHTrades = true
+	cfg.OpeningTrades = true
+	cfg.ClosingTrades = true
+	cfg.PhantomTrades = true
+	cfg.OffsettingTrades = true
+	cfg.RSIOverboughtDaily = -1
+	cfg.RSIOverboughtHourly = -1
+	cfg.RSIOversoldDaily = -1
+	cfg.RSIOversoldHourly = -1
+}
 
 // NewCmd returns the "watchlist" command group with all subcommands.
 func NewCmd() *cobra.Command {
@@ -35,6 +134,7 @@ func NewCmd() *cobra.Command {
 
 // newConfigsCmd returns the "configs" subcommand.
 func newConfigsCmd() *cobra.Command {
+	opts := &watchlistConfigsOptions{}
 	cmd := &cobra.Command{
 		Use:        "configs",
 		Short:      "List saved watch list configurations",
@@ -44,8 +144,7 @@ func newConfigsCmd() *cobra.Command {
 		Aliases:    []string{"ls"},
 		SuggestFor: []string{"config", "cfg"},
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			format, _ := cmd.Flags().GetString("format")
-			opts := common.DataTableOptions{
+			dtOpts := common.DataTableOptions{
 				Start:    0,
 				Length:   -1,
 				OrderCol: 1,
@@ -55,18 +154,22 @@ func newConfigsCmd() *cobra.Command {
 				cmd,
 				"/WatchListConfigs/GetWatchLists",
 				datatables.WatchlistConfigColumns,
-				opts,
-				format,
+				dtOpts,
+				opts.Format,
 				"query watchlist configs",
 			)
 		},
 	}
-	common.AddOutputFormatFlags(cmd)
+	if err := structcli.Bind(cmd, opts); err != nil {
+		panic(fmt.Sprintf("structcli.Bind configs: %v", err))
+	}
 	return cmd
 }
 
 // newTickersCmd returns the "tickers" subcommand.
 func newTickersCmd() *cobra.Command {
+	opts := &watchlistTickersOptions{}
+	opts.WatchlistKey = -1
 	cmd := &cobra.Command{
 		Use:        "tickers",
 		Short:      "Query tickers for a selected watch list",
@@ -75,34 +178,34 @@ func newTickersCmd() *cobra.Command {
 		Args:       cobra.NoArgs,
 		SuggestFor: []string{"ticker", "tkrs"},
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			watchlistKey, _ := cmd.Flags().GetInt("watchlist-key")
-			format, _ := cmd.Flags().GetString("format")
-			opts := common.DataTableOptions{
+			dtOpts := common.DataTableOptions{
 				Start:    0,
 				Length:   -1,
 				OrderCol: 0,
 				OrderDir: "asc",
 				Filters: map[string]string{
-					"WatchListKey": strconv.Itoa(watchlistKey),
+					"WatchListKey": strconv.Itoa(opts.WatchlistKey),
 				},
 			}
 			return common.RunDataTablesCommand[models.WatchListTicker](
 				cmd,
 				"/WatchLists/GetWatchListTickers",
 				datatables.WatchlistTickerColumns,
-				opts,
-				format,
+				dtOpts,
+				opts.Format,
 				"query watchlist tickers",
 			)
 		},
 	}
-	cmd.Flags().Int("watchlist-key", -1, "Watch list key (-1 for all)")
-	common.AddOutputFormatFlags(cmd)
+	if err := structcli.Bind(cmd, opts); err != nil {
+		panic(fmt.Sprintf("structcli.Bind tickers: %v", err))
+	}
 	return cmd
 }
 
 // newDeleteCmd returns the "delete" subcommand.
 func newDeleteCmd() *cobra.Command {
+	opts := &watchlistDeleteOptions{}
 	cmd := &cobra.Command{
 		Use:        "delete",
 		Short:      "Delete a watch list configuration",
@@ -112,7 +215,6 @@ func newDeleteCmd() *cobra.Command {
 		Aliases:    []string{"rm"},
 		SuggestFor: []string{"del", "remove"},
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			key, _ := cmd.Flags().GetInt("key")
 			ctx := cmd.Context()
 
 			vlClient, err := common.NewCommandClient(ctx)
@@ -120,7 +222,7 @@ func newDeleteCmd() *cobra.Command {
 				return err
 			}
 
-			payload := map[string]int{"WatchListKey": key}
+			payload := map[string]int{"WatchListKey": opts.Key}
 			var result any
 			if err := vlClient.PostJSON(ctx, "/WatchListConfigs/DeleteWatchList", payload, &result); err != nil {
 				slog.Error("failed to delete watchlist", "error", err)
@@ -130,13 +232,15 @@ func newDeleteCmd() *cobra.Command {
 			return common.PrintJSON(cmd.OutOrStdout(), ctx, result)
 		},
 	}
-	cmd.Flags().Int("key", 0, "Watch list key to delete")
-	_ = cmd.MarkFlagRequired("key")
+	if err := structcli.Bind(cmd, opts); err != nil {
+		panic(fmt.Sprintf("structcli.Bind delete: %v", err))
+	}
 	return cmd
 }
 
 // newAddTickerCmd returns the "add-ticker" subcommand.
 func newAddTickerCmd() *cobra.Command {
+	opts := &watchlistAddTickerOptions{}
 	cmd := &cobra.Command{
 		Use:        "add-ticker",
 		Short:      "Add a ticker to an existing watch list",
@@ -145,8 +249,6 @@ func newAddTickerCmd() *cobra.Command {
 		Args:       cobra.NoArgs,
 		SuggestFor: []string{"addticker", "add-tkr"},
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			watchlistKey, _ := cmd.Flags().GetInt("watchlist-key")
-			ticker, _ := cmd.Flags().GetString("ticker")
 			ctx := cmd.Context()
 
 			vlClient, err := common.NewCommandClient(ctx)
@@ -155,8 +257,8 @@ func newAddTickerCmd() *cobra.Command {
 			}
 
 			values := url.Values{
-				"WatchListKey": {strconv.Itoa(watchlistKey)},
-				"Ticker":       {ticker},
+				"WatchListKey": {strconv.Itoa(opts.WatchlistKey)},
+				"Ticker":       {opts.Ticker},
 			}
 			var result any
 			if err := vlClient.PostForm(ctx, "/Chart0/UpdateWatchList", values, &result); err != nil {
@@ -167,15 +269,16 @@ func newAddTickerCmd() *cobra.Command {
 			return common.PrintJSON(cmd.OutOrStdout(), ctx, result)
 		},
 	}
-	cmd.Flags().Int("watchlist-key", 0, "Watch list key")
-	_ = cmd.MarkFlagRequired("watchlist-key")
-	cmd.Flags().String("ticker", "", "Ticker symbol to add")
-	_ = cmd.MarkFlagRequired("ticker")
+	if err := structcli.Bind(cmd, opts); err != nil {
+		panic(fmt.Sprintf("structcli.Bind add-ticker: %v", err))
+	}
 	return cmd
 }
 
 // newCreateCmd returns the "create" subcommand.
 func newCreateCmd() *cobra.Command {
+	opts := &watchlistCreateOptions{}
+	presetWatchlistConfigDefaults(&opts.watchlistConfigFlags)
 	cmd := &cobra.Command{
 		Use:   "create",
 		Short: "Create a new watch list configuration",
@@ -186,16 +289,20 @@ volumeleaders-agent watchlist create --name "Large caps" --security-type 1 --min
 		Aliases:    []string{"new"},
 		SuggestFor: []string{"crate", "creat"},
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			return runCreateEdit(cmd, 0)
+			return runCreateEdit(cmd, &opts.watchlistConfigFlags, 0)
 		},
 	}
-	addWatchlistConfigFlags(cmd)
+	if err := structcli.Bind(cmd, opts); err != nil {
+		panic(fmt.Sprintf("structcli.Bind create: %v", err))
+	}
 	_ = cmd.MarkFlagRequired("name")
 	return cmd
 }
 
 // newEditCmd returns the "edit" subcommand.
 func newEditCmd() *cobra.Command {
+	opts := &watchlistEditOptions{}
+	presetWatchlistConfigDefaults(&opts.watchlistConfigFlags)
 	cmd := &cobra.Command{
 		Use:        "edit",
 		Short:      "Edit an existing watch list configuration",
@@ -204,13 +311,12 @@ func newEditCmd() *cobra.Command {
 		Args:       cobra.NoArgs,
 		SuggestFor: []string{"edt", "modify"},
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			key, _ := cmd.Flags().GetInt("key")
-			return runCreateEdit(cmd, key)
+			return runCreateEdit(cmd, &opts.watchlistConfigFlags, opts.Key)
 		},
 	}
-	cmd.Flags().Int("key", 0, "Watch list key to edit")
-	_ = cmd.MarkFlagRequired("key")
-	addWatchlistConfigFlags(cmd)
+	if err := structcli.Bind(cmd, opts); err != nil {
+		panic(fmt.Sprintf("structcli.Bind edit: %v", err))
+	}
 	return cmd
 }
 
@@ -250,82 +356,49 @@ func addWatchlistConfigFlags(cmd *cobra.Command) {
 	cmd.Flags().Int("rsi-oversold-hourly", -1, "RSI oversold hourly (1=yes, 0=no, -1=ignore)")
 }
 
-// buildWatchlistConfigFields maps CLI flag values to form field names for the
+// buildWatchlistConfigFields maps struct field values to form field names for the
 // WatchListConfig create/edit multipart POST.
-func buildWatchlistConfigFields(cmd *cobra.Command, key int) map[string]string {
-	getName, _ := cmd.Flags().GetString("name")
-	getTickers, _ := cmd.Flags().GetString("tickers")
-	getMinVolume, _ := cmd.Flags().GetInt("min-volume")
-	getMaxVolume, _ := cmd.Flags().GetInt("max-volume")
-	getMinDollars, _ := cmd.Flags().GetFloat64("min-dollars")
-	getMaxDollars, _ := cmd.Flags().GetFloat64("max-dollars")
-	getMinPrice, _ := cmd.Flags().GetFloat64("min-price")
-	getMaxPrice, _ := cmd.Flags().GetFloat64("max-price")
-	getMinVCD, _ := cmd.Flags().GetFloat64("min-vcd")
-	getSectorIndustry, _ := cmd.Flags().GetString("sector-industry")
-	getSecurityType, _ := cmd.Flags().GetInt("security-type")
-	getMinRelativeSize, _ := cmd.Flags().GetInt("min-relative-size")
-	getMaxTradeRank, _ := cmd.Flags().GetInt("max-trade-rank")
-	getNormalPrints, _ := cmd.Flags().GetBool("normal-prints")
-	getSignaturePrints, _ := cmd.Flags().GetBool("signature-prints")
-	getLatePrints, _ := cmd.Flags().GetBool("late-prints")
-	getTimelyPrints, _ := cmd.Flags().GetBool("timely-prints")
-	getDarkPools, _ := cmd.Flags().GetBool("dark-pools")
-	getLitExchanges, _ := cmd.Flags().GetBool("lit-exchanges")
-	getSweeps, _ := cmd.Flags().GetBool("sweeps")
-	getBlocks, _ := cmd.Flags().GetBool("blocks")
-	getPremarketTrades, _ := cmd.Flags().GetBool("premarket-trades")
-	getRTHTrades, _ := cmd.Flags().GetBool("rth-trades")
-	getAHTrades, _ := cmd.Flags().GetBool("ah-trades")
-	getOpeningTrades, _ := cmd.Flags().GetBool("opening-trades")
-	getClosingTrades, _ := cmd.Flags().GetBool("closing-trades")
-	getPhantomTrades, _ := cmd.Flags().GetBool("phantom-trades")
-	getOffsettingTrades, _ := cmd.Flags().GetBool("offsetting-trades")
-	getRSIOverboughtDaily, _ := cmd.Flags().GetInt("rsi-overbought-daily")
-	getRSIOverboughtHourly, _ := cmd.Flags().GetInt("rsi-overbought-hourly")
-	getRSIOversoldDaily, _ := cmd.Flags().GetInt("rsi-oversold-daily")
-	getRSIOversoldHourly, _ := cmd.Flags().GetInt("rsi-oversold-hourly")
-
+func buildWatchlistConfigFields(opts *watchlistConfigFlags, key int) map[string]string {
 	return map[string]string{
 		"SearchTemplateKey":           strconv.Itoa(key),
-		"Name":                        getName,
-		"Tickers":                     getTickers,
-		"MinVolume":                   strconv.Itoa(getMinVolume),
-		"MaxVolume":                   strconv.Itoa(getMaxVolume),
-		"MinDollars":                  common.FormatFloat(getMinDollars),
-		"MaxDollars":                  common.FormatFloat(getMaxDollars),
-		"MinPrice":                    common.FormatFloat(getMinPrice),
-		"MaxPrice":                    common.FormatFloat(getMaxPrice),
-		"MinVCD":                      common.FormatFloat(getMinVCD),
-		"SectorIndustry":              getSectorIndustry,
-		"SecurityTypeKey":             strconv.Itoa(getSecurityType),
-		"MinRelativeSizeSelected":     strconv.Itoa(getMinRelativeSize),
-		"MaxTradeRankSelected":        strconv.Itoa(getMaxTradeRank),
-		"NormalPrintsSelected":        common.BoolString(getNormalPrints),
-		"SignaturePrintsSelected":     common.BoolString(getSignaturePrints),
-		"LatePrintsSelected":          common.BoolString(getLatePrints),
-		"TimelyPrintsSelected":        common.BoolString(getTimelyPrints),
-		"DarkPoolsSelected":           common.BoolString(getDarkPools),
-		"LitExchangesSelected":        common.BoolString(getLitExchanges),
-		"SweepsSelected":              common.BoolString(getSweeps),
-		"BlocksSelected":              common.BoolString(getBlocks),
-		"PremarketTradesSelected":     common.BoolString(getPremarketTrades),
-		"RTHTradesSelected":           common.BoolString(getRTHTrades),
-		"AHTradesSelected":            common.BoolString(getAHTrades),
-		"OpeningTradesSelected":       common.BoolString(getOpeningTrades),
-		"ClosingTradesSelected":       common.BoolString(getClosingTrades),
-		"PhantomTradesSelected":       common.BoolString(getPhantomTrades),
-		"OffsettingTradesSelected":    common.BoolString(getOffsettingTrades),
-		"RSIOverboughtDailySelected":  strconv.Itoa(getRSIOverboughtDaily),
-		"RSIOverboughtHourlySelected": strconv.Itoa(getRSIOverboughtHourly),
-		"RSIOversoldDailySelected":    strconv.Itoa(getRSIOversoldDaily),
-		"RSIOversoldHourlySelected":   strconv.Itoa(getRSIOversoldHourly),
+		"Name":                        opts.Name,
+		"Tickers":                     opts.Tickers,
+		"MinVolume":                   strconv.Itoa(opts.MinVolume),
+		"MaxVolume":                   strconv.Itoa(opts.MaxVolume),
+		"MinDollars":                  common.FormatFloat(opts.MinDollars),
+		"MaxDollars":                  common.FormatFloat(opts.MaxDollars),
+		"MinPrice":                    common.FormatFloat(opts.MinPrice),
+		"MaxPrice":                    common.FormatFloat(opts.MaxPrice),
+		"MinVCD":                      common.FormatFloat(opts.MinVCD),
+		"SectorIndustry":              opts.SectorIndustry,
+		"SecurityTypeKey":             strconv.Itoa(opts.SecurityType),
+		"MinRelativeSizeSelected":     strconv.Itoa(opts.MinRelativeSize),
+		"MaxTradeRankSelected":        strconv.Itoa(opts.MaxTradeRank),
+		"NormalPrintsSelected":        common.BoolString(opts.NormalPrints),
+		"SignaturePrintsSelected":     common.BoolString(opts.SignaturePrints),
+		"LatePrintsSelected":          common.BoolString(opts.LatePrints),
+		"TimelyPrintsSelected":        common.BoolString(opts.TimelyPrints),
+		"DarkPoolsSelected":           common.BoolString(opts.DarkPools),
+		"LitExchangesSelected":        common.BoolString(opts.LitExchanges),
+		"SweepsSelected":              common.BoolString(opts.Sweeps),
+		"BlocksSelected":              common.BoolString(opts.Blocks),
+		"PremarketTradesSelected":     common.BoolString(opts.PremarketTrades),
+		"RTHTradesSelected":           common.BoolString(opts.RTHTrades),
+		"AHTradesSelected":            common.BoolString(opts.AHTrades),
+		"OpeningTradesSelected":       common.BoolString(opts.OpeningTrades),
+		"ClosingTradesSelected":       common.BoolString(opts.ClosingTrades),
+		"PhantomTradesSelected":       common.BoolString(opts.PhantomTrades),
+		"OffsettingTradesSelected":    common.BoolString(opts.OffsettingTrades),
+		"RSIOverboughtDailySelected":  strconv.Itoa(opts.RSIOverboughtDaily),
+		"RSIOverboughtHourlySelected": strconv.Itoa(opts.RSIOverboughtHourly),
+		"RSIOversoldDailySelected":    strconv.Itoa(opts.RSIOversoldDaily),
+		"RSIOversoldHourlySelected":   strconv.Itoa(opts.RSIOversoldHourly),
 	}
 }
 
 // runCreateEdit handles both the create and edit subcommands. A key of 0
 // indicates a new watchlist; a non-zero key indicates an edit.
-func runCreateEdit(cmd *cobra.Command, key int) error {
+func runCreateEdit(cmd *cobra.Command, opts *watchlistConfigFlags, key int) error {
 	ctx := cmd.Context()
 
 	vlClient, err := common.NewCommandClient(ctx)
@@ -333,7 +406,7 @@ func runCreateEdit(cmd *cobra.Command, key int) error {
 		return err
 	}
 
-	fields := buildWatchlistConfigFields(cmd, key)
+	fields := buildWatchlistConfigFields(opts, key)
 	if err := vlClient.PostMultipart(ctx, "/WatchListConfig", fields); err != nil {
 		slog.Error("failed to save watchlist config", "error", err)
 		return fmt.Errorf("save watchlist config: %w", err)

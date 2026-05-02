@@ -2,7 +2,10 @@ package cli
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"os/exec"
+	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
@@ -293,6 +296,122 @@ func TestArbitraryArgsCommandsAcceptPositionalArgs(t *testing.T) {
 						t.Fatalf("command rejected positional arg: %v", err)
 					}
 				}
+			}
+		})
+	}
+}
+
+// buildBinary compiles the CLI binary into a temp directory and returns the
+// path. Tests that need SetupCLI (which registers process-global cobra
+// callbacks) use this to run the binary as a subprocess, avoiding data races
+// in parallel tests.
+func buildBinary(t *testing.T) string {
+	t.Helper()
+	dir := t.TempDir()
+	binary := filepath.Join(dir, "volumeleaders-agent")
+	cmd := exec.Command("go", "build", "-o", binary, "../../cmd/volumeleaders-agent")
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("build failed: %v\n%s", err, out)
+	}
+	return binary
+}
+
+func TestJSONSchemaTreeProducesValidJSON(t *testing.T) {
+	t.Parallel()
+	binary := buildBinary(t)
+
+	out, err := exec.Command(binary, "--jsonschema=tree").CombinedOutput()
+	if err != nil {
+		t.Fatalf("--jsonschema=tree failed: %v\nOutput: %s", err, out)
+	}
+
+	var schemas []map[string]any
+	if jsonErr := json.Unmarshal(out, &schemas); jsonErr != nil {
+		t.Fatalf("output is not valid JSON array: %v\nOutput: %s", jsonErr, out)
+	}
+	if len(schemas) == 0 {
+		t.Fatal("--jsonschema=tree produced empty schema array")
+	}
+
+	// Collect all titles from the schema array.
+	titles := make(map[string]bool)
+	for _, s := range schemas {
+		if title, ok := s["title"].(string); ok {
+			titles[title] = true
+		}
+	}
+
+	expectedTitles := []string{
+		"volumeleaders-agent trade list", "volumeleaders-agent trade sentiment",
+		"volumeleaders-agent market earnings", "volumeleaders-agent volume institutional",
+		"volumeleaders-agent alert create", "volumeleaders-agent watchlist create",
+	}
+	for _, expected := range expectedTitles {
+		if !titles[expected] {
+			t.Errorf("missing expected command title %q; found titles: %v", expected, titles)
+		}
+	}
+}
+
+func TestJSONSchemaSubcommandProducesValidJSON(t *testing.T) {
+	t.Parallel()
+	binary := buildBinary(t)
+
+	out, err := exec.Command(binary, "trade", "list", "--jsonschema").CombinedOutput()
+	if err != nil {
+		t.Fatalf("trade list --jsonschema failed: %v\nOutput: %s", err, out)
+	}
+
+	var schema map[string]any
+	if jsonErr := json.Unmarshal(out, &schema); jsonErr != nil {
+		t.Fatalf("output is not valid JSON object: %v\nOutput: %s", jsonErr, out)
+	}
+
+	props, ok := schema["properties"].(map[string]any)
+	if !ok {
+		t.Fatal("schema missing 'properties' key")
+	}
+
+	expectedFlags := []string{"tickers", "start-date", "end-date", "min-dollars", "format", "length"}
+	for _, flag := range expectedFlags {
+		if _, exists := props[flag]; !exists {
+			t.Errorf("trade list --jsonschema missing expected flag %q", flag)
+		}
+	}
+}
+
+func TestStructuredErrorExitCodes(t *testing.T) {
+	t.Parallel()
+	binary := buildBinary(t)
+
+	tests := []struct {
+		name     string
+		args     []string
+		wantCode int
+	}{
+		{
+			name:     "unknown flag returns exit code 12",
+			args:     []string{"trade", "list", "--nonexistent-flag"},
+			wantCode: 12,
+		},
+		{
+			name:     "missing required flag returns exit code 10",
+			args:     []string{"alert", "delete"},
+			wantCode: 10,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			cmd := exec.Command(binary, tc.args...)
+			err := cmd.Run()
+			var exitErr *exec.ExitError
+			if !errors.As(err, &exitErr) {
+				t.Fatalf("expected exit error, got: %v", err)
+			}
+			if exitErr.ExitCode() != tc.wantCode {
+				t.Errorf("exit code = %d, want %d", exitErr.ExitCode(), tc.wantCode)
 			}
 		})
 	}

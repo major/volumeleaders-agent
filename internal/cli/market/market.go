@@ -24,9 +24,11 @@ var marketEarningsDefaultFields = []string{
 // NewMarketCommand returns the "market" command group with all subcommands.
 func NewMarketCommand() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:      "market",
-		Short:    "Market-wide data commands",
-		GroupID:  "market",
+		Use:     "market",
+		Short:   "Market-wide data commands",
+		GroupID: "market",
+		Args:    cobra.NoArgs,
+		Long:    "market contains subcommands for querying market-wide data from VolumeLeaders, including price snapshots, earnings calendars, and exhaustion signals. None of the subcommands accept positional arguments; all filtering is done via flags.",
 	}
 	cmd.AddCommand(
 		newSnapshotsCmd(),
@@ -39,9 +41,12 @@ func NewMarketCommand() *cobra.Command {
 // newSnapshotsCmd returns the "snapshots" subcommand.
 func newSnapshotsCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:     "snapshots",
-		Short:   "Get current price snapshots for all symbols",
-		Example: "volumeleaders-agent market snapshots",
+		Use:        "snapshots",
+		Short:      "Get current price snapshots for all symbols",
+		Example:    "volumeleaders-agent market snapshots",
+		Args:       cobra.NoArgs,
+		Long:       "Retrieve current price snapshot data for all symbols tracked by VolumeLeaders, returning the latest available price and volume data. No date filtering is available; always returns the most recent data. Outputs compact JSON by default.",
+		SuggestFor: []string{"snapshot", "snaps"},
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			ctx := cmd.Context()
 			vlClient, err := common.NewCommandClient(ctx)
@@ -64,9 +69,12 @@ func newSnapshotsCmd() *cobra.Command {
 // newEarningsCmd returns the "earnings" subcommand.
 func newEarningsCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "earnings",
-		Short:   "Query earnings calendar within a date range",
-		Example: "volumeleaders-agent market earnings --days 5",
+		Use:        "earnings",
+		Short:      "Query earnings calendar within a date range",
+		Example:    "volumeleaders-agent market earnings --days 5",
+		Args:       cobra.NoArgs,
+		Long:       "Query the earnings calendar for a date range, showing tickers with earnings dates and associated trade activity counts. Requires --start-date and --end-date (or --days). Outputs compact JSON or CSV/TSV with --format.",
+		SuggestFor: []string{"earning", "earings"},
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			startDate, endDate, err := common.RequiredDateRange(cmd)
 			if err != nil {
@@ -104,9 +112,12 @@ func newEarningsCmd() *cobra.Command {
 // newExhaustionCmd returns the "exhaustion" subcommand.
 func newExhaustionCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "exhaustion",
-		Short:   "Query exhaustion scores for a date",
-		Example: "volumeleaders-agent market exhaustion --date 2025-01-15",
+		Use:        "exhaustion",
+		Short:      "Query exhaustion scores for a date",
+		Example:    "volumeleaders-agent market exhaustion --date 2025-01-15",
+		Args:       cobra.NoArgs,
+		Long:       "Query exhaustion scores that indicate overbought or oversold market conditions based on institutional trade clustering patterns. Omit --date to query the current trading day. Outputs compact JSON with rank metrics at different lookback periods.",
+		SuggestFor: []string{"exhaust", "exhastion"},
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			ctx := cmd.Context()
 			date, _ := cmd.Flags().GetString("date")

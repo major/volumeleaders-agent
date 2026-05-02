@@ -205,7 +205,6 @@ func TestAllLeafCommandsHaveExamples(t *testing.T) {
 
 	walkCommands(cmd, func(c *cobra.Command) {
 		t.Run(c.CommandPath(), func(t *testing.T) {
-			t.Parallel()
 			if slices.Contains(builtins, c.Name()) || !c.Runnable() {
 				return
 			}
@@ -240,7 +239,6 @@ func TestKnownCommandAliases(t *testing.T) {
 		}
 		delete(aliasesByCommand, c.CommandPath())
 		t.Run(c.CommandPath(), func(t *testing.T) {
-			t.Parallel()
 			assertStringSet(t, c.Aliases, expectedAliases)
 		})
 	})
@@ -290,7 +288,6 @@ func TestNoShortFlagConflictsWithinCommand(t *testing.T) {
 
 	walkCommands(cmd, func(c *cobra.Command) {
 		t.Run(c.CommandPath(), func(t *testing.T) {
-			t.Parallel()
 			seen := make(map[string]string) // shorthand -> owning flag
 			check := func(flags *pflag.FlagSet) {
 				flags.VisitAll(func(flag *pflag.Flag) {

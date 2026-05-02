@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/major/volumeleaders-agent/internal/cli"
+	"github.com/major/volumeleaders-agent/internal/cli/testutil"
 )
 
 // flagSpec describes the expected name, type, and default value for a CLI flag
@@ -118,4 +119,40 @@ func TestAlertCreateFlagRegistration(t *testing.T) {
 		{"trade-rank-lte", "int", "0"},
 		{"trade-dollars-gte", "int", "0"},
 	})
+}
+
+// TestEnumFlagValidation verifies structcli rejects invalid bounded values
+// during flag parsing, before command handlers can perform API requests.
+func TestEnumFlagValidation(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		args    []string
+		wantErr string
+	}{
+		{
+			name:    "format",
+			args:    []string{"alert", "configs", "--format", "table"},
+			wantErr: `invalid value "table"`,
+		},
+		{
+			name:    "order-dir",
+			args:    []string{"volume", "institutional", "--date", "2025-01-15", "--order-dir", "sideways"},
+			wantErr: `invalid value "sideways"`,
+		},
+		{
+			name:    "group-by",
+			args:    []string{"trade", "list", "--summary", "--group-by", "sector"},
+			wantErr: `invalid value "sector"`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			_, _, err := testutil.ExecuteCommand(t, cli.NewRootCmd("test"), t.Context(), tt.args...)
+			testutil.AssertErrContains(t, err, tt.wantErr)
+		})
+	}
 }

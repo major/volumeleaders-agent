@@ -13,13 +13,13 @@ import (
 
 // volumeOptions holds flags shared by all volume subcommands.
 type volumeOptions struct {
-	Date     string `flag:"date" flaggroup:"Dates" flagshort:"d" flagdescr:"Date YYYY-MM-DD" flagrequired:"true"`
-	Tickers  string `flag:"tickers" flaggroup:"Input" flagshort:"t" flagdescr:"Comma-separated ticker symbols"`
-	Format   string `flag:"format" flaggroup:"Output" flagshort:"f" default:"json" flagdescr:"Output format: json, csv, or tsv"`
-	Start    int    `flag:"start" flaggroup:"Pagination" flagdescr:"DataTables start offset"`
-	Length   int    `flag:"length" flaggroup:"Pagination" flagshort:"l" flagdescr:"Number of results"`
-	OrderCol int    `flag:"order-col" flaggroup:"Pagination" flagdescr:"Order column index"`
-	OrderDir string `flag:"order-dir" flaggroup:"Pagination" flagdescr:"Order direction"`
+	Date     string                `flag:"date" flaggroup:"Dates" flagshort:"d" flagdescr:"Date YYYY-MM-DD" flagrequired:"true"`
+	Tickers  string                `flag:"tickers" flaggroup:"Input" flagshort:"t" flagdescr:"Comma-separated ticker symbols"`
+	Format   common.OutputFormat   `flag:"format" flaggroup:"Output" flagshort:"f" default:"json" flagdescr:"Output format: json, csv, or tsv"`
+	Start    int                   `flag:"start" flaggroup:"Pagination" flagdescr:"DataTables start offset"`
+	Length   int                   `flag:"length" flaggroup:"Pagination" flagshort:"l" flagdescr:"Number of results"`
+	OrderCol int                   `flag:"order-col" flaggroup:"Pagination" flagdescr:"Order column index"`
+	OrderDir common.OrderDirection `flag:"order-dir" flaggroup:"Pagination" flagdescr:"Order direction"`
 }
 
 // NewVolumeCommand returns the "volume" command group with all subcommands.

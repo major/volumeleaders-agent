@@ -21,7 +21,7 @@ type tradePreset struct {
 }
 
 type tradePresetsOptions struct {
-	Format string `flag:"format" flagdescr:"Output format: json, csv, or tsv"`
+	Format common.OutputFormat `flag:"format" flagdescr:"Output format: json, csv, or tsv"`
 }
 
 type tradePresetTickersOptions struct {

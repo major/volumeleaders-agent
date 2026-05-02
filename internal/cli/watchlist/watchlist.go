@@ -16,13 +16,13 @@ import (
 
 // watchlistConfigsOptions holds flags for the "watchlist configs" subcommand.
 type watchlistConfigsOptions struct {
-	Format string `flag:"format" flaggroup:"Output" flagshort:"f" default:"json" flagdescr:"Output format: json, csv, or tsv"`
+	Format common.OutputFormat `flag:"format" flaggroup:"Output" flagshort:"f" default:"json" flagdescr:"Output format: json, csv, or tsv"`
 }
 
 // watchlistTickersOptions holds flags for the "watchlist tickers" subcommand.
 type watchlistTickersOptions struct {
-	WatchlistKey int    `flag:"watchlist-key" flaggroup:"Input" flagshort:"k" flagdescr:"Watch list key (-1 for all)"`
-	Format       string `flag:"format" flaggroup:"Output" flagshort:"f" default:"json" flagdescr:"Output format: json, csv, or tsv"`
+	WatchlistKey int                 `flag:"watchlist-key" flaggroup:"Input" flagshort:"k" flagdescr:"Watch list key (-1 for all)"`
+	Format       common.OutputFormat `flag:"format" flaggroup:"Output" flagshort:"f" default:"json" flagdescr:"Output format: json, csv, or tsv"`
 }
 
 // watchlistDeleteOptions holds flags for the "watchlist delete" subcommand.

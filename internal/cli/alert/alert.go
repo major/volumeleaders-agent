@@ -15,8 +15,8 @@ import (
 
 // alertConfigsOptions holds flags for the "alert configs" subcommand.
 type alertConfigsOptions struct {
-	Format string `flag:"format" flaggroup:"Output" flagshort:"f" default:"json" flagdescr:"Output format: json, csv, or tsv"`
-	Fields string `flag:"fields" flaggroup:"Output" flagdescr:"Comma-separated fields to include (use 'all' for every field)"`
+	Format common.OutputFormat `flag:"format" flaggroup:"Output" flagshort:"f" default:"json" flagdescr:"Output format: json, csv, or tsv"`
+	Fields string              `flag:"fields" flaggroup:"Output" flagdescr:"Comma-separated fields to include (use 'all' for every field)"`
 }
 
 // alertDeleteOptions holds flags for the "alert delete" subcommand.

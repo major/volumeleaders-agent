@@ -25,6 +25,14 @@ const (
 	tradeListTickerLookbackDays = 365
 )
 
+func init() {
+	structcli.RegisterEnum[tradeSummaryGroup](map[tradeSummaryGroup][]string{
+		tradeSummaryGroupTicker:    {"ticker"},
+		tradeSummaryGroupDay:       {"day"},
+		tradeSummaryGroupTickerDay: {"ticker,day", "ticker, day", "ticker day", "ticker-day"},
+	})
+}
+
 var tradeClusterDefaultFields = []string{
 	"Date",
 	"Ticker",
@@ -111,14 +119,14 @@ type tradeFilterFlags struct {
 }
 
 type tradePaginationFlags struct {
-	Start    int    `flag:"start" flaggroup:"Pagination" flagdescr:"DataTables start offset"`
-	Length   int    `flag:"length" flaggroup:"Pagination" flagshort:"l" flagdescr:"Number of results"`
-	OrderCol int    `flag:"order-col" flaggroup:"Pagination" flagdescr:"Order column index"`
-	OrderDir string `flag:"order-dir" flaggroup:"Pagination" flagdescr:"Order direction"`
+	Start    int                   `flag:"start" flaggroup:"Pagination" flagdescr:"DataTables start offset"`
+	Length   int                   `flag:"length" flaggroup:"Pagination" flagshort:"l" flagdescr:"Number of results"`
+	OrderCol int                   `flag:"order-col" flaggroup:"Pagination" flagdescr:"Order column index"`
+	OrderDir common.OrderDirection `flag:"order-dir" flaggroup:"Pagination" flagdescr:"Order direction"`
 }
 
 type tradeFormatFlag struct {
-	Format string `flag:"format" flaggroup:"Output" flagshort:"f" flagdescr:"Output format: json, csv, or tsv"`
+	Format common.OutputFormat `flag:"format" flaggroup:"Output" flagshort:"f" flagdescr:"Output format: json, csv, or tsv"`
 }
 
 type tradeTickersFlag struct {
@@ -134,12 +142,12 @@ type tradeListOptions struct {
 	tradeOptionalDateRangeFlags
 	tradeRangeFlags
 	tradeFilterFlags
-	Sector    string `flag:"sector" flaggroup:"Input" flagdescr:"Sector/Industry filter"`
-	Preset    string `flag:"preset" flaggroup:"Input" flagdescr:"Apply a built-in filter preset (see: trade presets)"`
-	Watchlist string `flag:"watchlist" flaggroup:"Input" flagdescr:"Apply filters from a saved watchlist by name"`
-	Fields    string `flag:"fields" flaggroup:"Output" flagdescr:"Comma-separated trade fields to include in output"`
-	Summary   bool   `flag:"summary" flaggroup:"Output" flagdescr:"Return aggregate metrics instead of individual trades"`
-	GroupBy   string `flag:"group-by" flaggroup:"Output" flagdescr:"Summary grouping (requires --summary): ticker, day, or ticker,day"`
+	Sector    string            `flag:"sector" flaggroup:"Input" flagdescr:"Sector/Industry filter"`
+	Preset    string            `flag:"preset" flaggroup:"Input" flagdescr:"Apply a built-in filter preset (see: trade presets)"`
+	Watchlist string            `flag:"watchlist" flaggroup:"Input" flagdescr:"Apply filters from a saved watchlist by name"`
+	Fields    string            `flag:"fields" flaggroup:"Output" flagdescr:"Comma-separated trade fields to include in output"`
+	Summary   bool              `flag:"summary" flaggroup:"Output" flagdescr:"Return aggregate metrics instead of individual trades"`
+	GroupBy   tradeSummaryGroup `flag:"group-by" flaggroup:"Output" flagdescr:"Summary grouping (requires --summary): ticker, day, or ticker,day"`
 	tradeFormatFlag
 	tradePaginationFlags
 }
@@ -676,7 +684,7 @@ func runTradeListRows(cmd *cobra.Command, opts common.DataTableOptions) error {
 	return common.PrintJSON(cmd.OutOrStdout(), ctx, models.NewTradeListRows(result))
 }
 
-func runTradeSummary(cmd *cobra.Command, opts common.DataTableOptions, groupBy, startDate, endDate string) error {
+func runTradeSummary(cmd *cobra.Command, opts common.DataTableOptions, groupBy tradeSummaryGroup, startDate, endDate string) error {
 	group, err := parseTradeSummaryGroup(groupBy)
 	if err != nil {
 		return err
@@ -711,8 +719,8 @@ const (
 	tradeSummaryGroupTickerDay tradeSummaryGroup = "ticker,day"
 )
 
-func parseTradeSummaryGroup(value string) (tradeSummaryGroup, error) {
-	normalized := strings.ToLower(strings.ReplaceAll(strings.TrimSpace(value), " ", ""))
+func parseTradeSummaryGroup(value tradeSummaryGroup) (tradeSummaryGroup, error) {
+	normalized := strings.ToLower(strings.ReplaceAll(strings.TrimSpace(string(value)), " ", ""))
 	switch tradeSummaryGroup(normalized) {
 	case tradeSummaryGroupTicker, tradeSummaryGroupDay, tradeSummaryGroupTickerDay:
 		return tradeSummaryGroup(normalized), nil

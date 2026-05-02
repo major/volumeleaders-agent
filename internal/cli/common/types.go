@@ -1,5 +1,19 @@
 package common
 
+import "github.com/leodido/structcli"
+
+func init() {
+	structcli.RegisterEnum[OutputFormat](map[OutputFormat][]string{
+		OutputFormatJSON: {"json"},
+		OutputFormatCSV:  {"csv"},
+		OutputFormatTSV:  {"tsv"},
+	})
+	structcli.RegisterEnum[OrderDirection](map[OrderDirection][]string{
+		OrderDirectionASC:  {"asc"},
+		OrderDirectionDESC: {"desc"},
+	})
+}
+
 // ContextKey identifies values stored in command contexts.
 type ContextKey int
 
@@ -22,12 +36,22 @@ const (
 	OutputFormatTSV OutputFormat = "tsv"
 )
 
+// OrderDirection identifies the supported DataTables sort directions.
+type OrderDirection string
+
+const (
+	// OrderDirectionASC sorts results in ascending order.
+	OrderDirectionASC OrderDirection = "asc"
+	// OrderDirectionDESC sorts results in descending order.
+	OrderDirectionDESC OrderDirection = "desc"
+)
+
 // DataTableOptions carries common DataTables request options.
 type DataTableOptions struct {
 	Start    int
 	Length   int
 	OrderCol int
-	OrderDir string
+	OrderDir OrderDirection
 	Filters  map[string]string
 	Fields   []string
 }

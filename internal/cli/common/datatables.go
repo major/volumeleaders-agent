@@ -13,7 +13,7 @@ import (
 )
 
 // RunDataTablesCommand is the shared handler for DataTables-backed commands.
-func RunDataTablesCommand[T any](cmd *cobra.Command, path string, columns []string, opts DataTableOptions, formatValue, label string) error {
+func RunDataTablesCommand[T any](cmd *cobra.Command, path string, columns []string, opts DataTableOptions, formatValue OutputFormat, label string) error {
 	format, err := ParseOutputFormat(formatValue)
 	if err != nil {
 		return err
@@ -37,7 +37,7 @@ func RunDataTablesCommand[T any](cmd *cobra.Command, path string, columns []stri
 
 // RunDataTablesSingleRequestCommand sends exactly one DataTables request, even
 // when opts.Length is -1.
-func RunDataTablesSingleRequestCommand[T any](cmd *cobra.Command, path string, columns []string, opts DataTableOptions, formatValue, label string) error {
+func RunDataTablesSingleRequestCommand[T any](cmd *cobra.Command, path string, columns []string, opts DataTableOptions, formatValue OutputFormat, label string) error {
 	format, err := ParseOutputFormat(formatValue)
 	if err != nil {
 		return err
@@ -89,5 +89,5 @@ func RunPaginatedCommand[T any](ctx context.Context, vlClient *client.Client, w 
 
 // NewDataTablesRequest builds the common DataTables request shape.
 func NewDataTablesRequest(columns []string, opts DataTableOptions) datatables.Request {
-	return datatables.Request{Columns: columns, Start: opts.Start, Length: opts.Length, OrderColumnIndex: opts.OrderCol, OrderDirection: opts.OrderDir, CustomFilters: opts.Filters, Draw: 1}
+	return datatables.Request{Columns: columns, Start: opts.Start, Length: opts.Length, OrderColumnIndex: opts.OrderCol, OrderDirection: string(opts.OrderDir), CustomFilters: opts.Filters, Draw: 1}
 }

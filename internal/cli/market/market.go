@@ -24,11 +24,11 @@ var marketEarningsDefaultFields = []string{
 
 // earningsOptions holds flags for the "market earnings" subcommand.
 type earningsOptions struct {
-	StartDate string `flag:"start-date" flaggroup:"Dates" flagshort:"s" flagdescr:"Start date YYYY-MM-DD (required unless --days is set)"`
-	EndDate   string `flag:"end-date" flaggroup:"Dates" flagshort:"e" flagdescr:"End date YYYY-MM-DD (required unless --days is set)"`
-	Days      int    `flag:"days" flaggroup:"Dates" flagshort:"d" flagdescr:"Look back this many days from --end-date or today"`
-	Format    string `flag:"format" flaggroup:"Output" flagshort:"f" flagdescr:"Output format: json, csv, or tsv" default:"json"`
-	Fields    string `flag:"fields" flaggroup:"Output" flagdescr:"Comma-separated fields to include (use 'all' for every field)"`
+	StartDate string              `flag:"start-date" flaggroup:"Dates" flagshort:"s" flagdescr:"Start date YYYY-MM-DD (required unless --days is set)"`
+	EndDate   string              `flag:"end-date" flaggroup:"Dates" flagshort:"e" flagdescr:"End date YYYY-MM-DD (required unless --days is set)"`
+	Days      int                 `flag:"days" flaggroup:"Dates" flagshort:"d" flagdescr:"Look back this many days from --end-date or today"`
+	Format    common.OutputFormat `flag:"format" flaggroup:"Output" flagshort:"f" flagdescr:"Output format: json, csv, or tsv" default:"json"`
+	Fields    string              `flag:"fields" flaggroup:"Output" flagdescr:"Comma-separated fields to include (use 'all' for every field)"`
 }
 
 // exhaustionOptions holds flags for the "market exhaustion" subcommand.

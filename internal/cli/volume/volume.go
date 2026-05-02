@@ -105,15 +105,6 @@ func newTotalCmd() *cobra.Command {
 	return cmd
 }
 
-// addVolumeFlags registers the shared flag set used by all volume subcommands.
-func addVolumeFlags(cmd *cobra.Command) {
-	cmd.Flags().String("date", "", "Date YYYY-MM-DD")
-	_ = cmd.MarkFlagRequired("date")
-	common.AddTickersFlag(cmd)
-	common.AddOutputFormatFlags(cmd)
-	common.AddPaginationFlags(cmd, 100, 1, "asc")
-}
-
 // runVolume is the shared handler for all volume subcommands.
 func runVolume(cmd *cobra.Command, opts *volumeOptions, path string, columns []string) error {
 	tickers := common.MultiTickerValue(cmd)

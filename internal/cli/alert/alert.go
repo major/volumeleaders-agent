@@ -220,46 +220,6 @@ func newEditCmd() *cobra.Command {
 	return cmd
 }
 
-// addAlertConfigFlags registers the shared flags for alert create/edit commands.
-func addAlertConfigFlags(cmd *cobra.Command) {
-	cmd.Flags().String("name", "", "Alert name (max 50 chars)")
-	cmd.Flags().String("ticker-group", "AllTickers", "Ticker group (AllTickers or SelectedTickers)")
-	cmd.Flags().String("tickers", "", "Comma-separated ticker symbols (max 500, used with SelectedTickers)")
-	// Trade thresholds
-	cmd.Flags().Int("trade-rank-lte", 0, "Trade rank <= (0=N/A, 1/3/5/10/25/50/100)")
-	cmd.Flags().Int("trade-vcd-gte", 0, "Trade VCD >= (0=N/A, 99/100)")
-	cmd.Flags().Int("trade-mult-gte", 0, "Trade multiplier >= (0=N/A, 5/10/25/50/100)")
-	cmd.Flags().Int("trade-volume-gte", 0, "Trade volume >= (0=N/A, 1000000/2000000/5000000/10000000)")
-	cmd.Flags().Int("trade-dollars-gte", 0, "Trade dollars >= (0=N/A, 1000000/10000000/...)")
-	cmd.Flags().String("trade-conditions", "0", "Trade conditions (0=N/A, OBH/OBD/OSH/OSD combos)")
-	cmd.Flags().Bool("dark-pool", false, "Dark pool filter")
-	cmd.Flags().Bool("sweep", false, "Sweep filter")
-	// Closing trade thresholds
-	cmd.Flags().Int("closing-trade-rank-lte", 0, "Closing trade rank <=")
-	cmd.Flags().Int("closing-trade-vcd-gte", 0, "Closing trade VCD >= (0/97/98/99/100)")
-	cmd.Flags().Int("closing-trade-mult-gte", 0, "Closing trade multiplier >=")
-	cmd.Flags().Int("closing-trade-volume-gte", 0, "Closing trade volume >=")
-	cmd.Flags().Int("closing-trade-dollars-gte", 0, "Closing trade dollars >=")
-	cmd.Flags().String("closing-trade-conditions", "0", "Closing trade conditions")
-	// Trade cluster thresholds
-	cmd.Flags().Int("cluster-rank-lte", 0, "Trade cluster rank <=")
-	cmd.Flags().Int("cluster-vcd-gte", 0, "Trade cluster VCD >= (0/97/98/99/100)")
-	cmd.Flags().Int("cluster-mult-gte", 0, "Trade cluster multiplier >=")
-	cmd.Flags().Int("cluster-volume-gte", 0, "Trade cluster volume >=")
-	cmd.Flags().Int("cluster-dollars-gte", 0, "Trade cluster dollars >=")
-	// Cumulative institutional totals
-	cmd.Flags().Int("total-rank-lte", 0, "Total rank <= (0/1/3/10/25/50/100)")
-	cmd.Flags().Int("total-volume-gte", 0, "Total volume >=")
-	cmd.Flags().Int("total-dollars-gte", 0, "Total dollars >=")
-	// After-hours cumulative
-	cmd.Flags().Int("ah-rank-lte", 0, "After-hours rank <=")
-	cmd.Flags().Int("ah-volume-gte", 0, "After-hours volume >=")
-	cmd.Flags().Int("ah-dollars-gte", 0, "After-hours dollars >=")
-	// Special conditions
-	cmd.Flags().Bool("offsetting-print", false, "Offsetting print filter")
-	cmd.Flags().Bool("phantom-print", false, "Phantom print filter")
-}
-
 // buildAlertConfigFields maps struct field values to form field names for the
 // multipart POST request.
 func buildAlertConfigFields(opts *alertConfigFlags, key int) map[string]string {

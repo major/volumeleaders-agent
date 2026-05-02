@@ -320,42 +320,6 @@ func newEditCmd() *cobra.Command {
 	return cmd
 }
 
-// addWatchlistConfigFlags registers the shared CLI flags for watchlist create/edit.
-func addWatchlistConfigFlags(cmd *cobra.Command) {
-	cmd.Flags().String("name", "", "Watch list name")
-	cmd.Flags().String("tickers", "", "Comma-separated ticker symbols (max 500)")
-	cmd.Flags().Int("min-volume", 0, "Minimum volume filter")
-	cmd.Flags().Int("max-volume", 2000000000, "Maximum volume filter")
-	cmd.Flags().Float64("min-dollars", 0, "Minimum dollars filter")
-	cmd.Flags().Float64("max-dollars", 30000000000, "Maximum dollars filter")
-	cmd.Flags().Float64("min-price", 0, "Minimum price filter")
-	cmd.Flags().Float64("max-price", 100000, "Maximum price filter")
-	cmd.Flags().Float64("min-vcd", 0, "Minimum VCD percentile (0-100)")
-	cmd.Flags().String("sector-industry", "", "Sector/industry filter (max 100 chars)")
-	cmd.Flags().Int("security-type", -1, "Security type (-1=all, 1=stocks, 26=ETFs, 4=REITs)")
-	cmd.Flags().Int("min-relative-size", 0, "Minimum relative size (0/5/10/25/50/100)")
-	cmd.Flags().Int("max-trade-rank", -1, "Maximum trade rank (-1=all, 1/3/5/10/25/50/100)")
-	cmd.Flags().Bool("normal-prints", true, "Include normal prints")
-	cmd.Flags().Bool("signature-prints", true, "Include signature prints")
-	cmd.Flags().Bool("late-prints", true, "Include late prints")
-	cmd.Flags().Bool("timely-prints", true, "Include timely prints")
-	cmd.Flags().Bool("dark-pools", true, "Include dark pool trades")
-	cmd.Flags().Bool("lit-exchanges", true, "Include lit exchange trades")
-	cmd.Flags().Bool("sweeps", true, "Include sweep trades")
-	cmd.Flags().Bool("blocks", true, "Include block trades")
-	cmd.Flags().Bool("premarket-trades", true, "Include premarket trades")
-	cmd.Flags().Bool("rth-trades", true, "Include regular trading hours trades")
-	cmd.Flags().Bool("ah-trades", true, "Include after-hours trades")
-	cmd.Flags().Bool("opening-trades", true, "Include opening trades")
-	cmd.Flags().Bool("closing-trades", true, "Include closing trades")
-	cmd.Flags().Bool("phantom-trades", true, "Include phantom trades")
-	cmd.Flags().Bool("offsetting-trades", true, "Include offsetting trades")
-	cmd.Flags().Int("rsi-overbought-daily", -1, "RSI overbought daily (1=yes, 0=no, -1=ignore)")
-	cmd.Flags().Int("rsi-overbought-hourly", -1, "RSI overbought hourly (1=yes, 0=no, -1=ignore)")
-	cmd.Flags().Int("rsi-oversold-daily", -1, "RSI oversold daily (1=yes, 0=no, -1=ignore)")
-	cmd.Flags().Int("rsi-oversold-hourly", -1, "RSI oversold hourly (1=yes, 0=no, -1=ignore)")
-}
-
 // buildWatchlistConfigFields maps struct field values to form field names for the
 // WatchListConfig create/edit multipart POST.
 func buildWatchlistConfigFields(opts *watchlistConfigFlags, key int) map[string]string {

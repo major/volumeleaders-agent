@@ -494,34 +494,6 @@ func setFloatFlagDefValue(cmd *cobra.Command, name string, value float64) {
 	}
 }
 
-func addTradeRangeFlags(cmd *cobra.Command, minDollarsDefault float64) {
-	common.AddVolumeRangeFlags(cmd)
-	common.AddPriceRangeFlags(cmd)
-	common.AddDollarRangeFlags(cmd, minDollarsDefault)
-}
-
-func addTradeFilterFlags(cmd *cobra.Command, vcdDefault int) {
-	cmd.Flags().Int("conditions", -1, "Trade conditions filter")
-	cmd.Flags().Int("vcd", vcdDefault, "VCD filter")
-	cmd.Flags().Int("security-type", -1, "Security type key")
-	cmd.Flags().Int("relative-size", 5, "Relative size threshold")
-	cmd.Flags().Int("dark-pools", -1, "Dark pool filter")
-	cmd.Flags().Int("sweeps", -1, "Sweep filter")
-	cmd.Flags().Int("late-prints", -1, "Late print filter")
-	cmd.Flags().Int("sig-prints", -1, "Signature print filter")
-	cmd.Flags().Int("even-shared", -1, "Even shared filter")
-	cmd.Flags().Int("trade-rank", -1, "Trade rank filter")
-	cmd.Flags().Int("rank-snapshot", -1, "Trade rank snapshot filter")
-	cmd.Flags().Int("market-cap", 0, "Market cap filter")
-	cmd.Flags().Int("premarket", 1, "Include premarket")
-	cmd.Flags().Int("rth", 1, "Include regular trading hours")
-	cmd.Flags().Int("ah", 1, "Include after hours")
-	cmd.Flags().Int("opening", 1, "Include opening trades")
-	cmd.Flags().Int("closing", 1, "Include closing trades")
-	cmd.Flags().Int("phantom", 1, "Include phantom prints")
-	cmd.Flags().Int("offsetting", 1, "Include offsetting trades")
-}
-
 func runTradeList(cmd *cobra.Command, opts *tradeListOptions) error {
 	presetName := opts.Preset
 	watchlistName := opts.Watchlist

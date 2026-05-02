@@ -109,7 +109,13 @@ func applyExplicitFlags(cmd *cobra.Command, filters map[string]string) {
 			filters[sf[1]] = getString(cmd, sf[0])
 		}
 	}
-	intFlags := [][2]string{{"conditions", "Conditions"}, {"vcd", "VCD"}, {"security-type", "SecurityTypeKey"}, {"relative-size", "RelativeSize"}, {"dark-pools", "DarkPools"}, {"sweeps", "Sweeps"}, {"late-prints", "LatePrints"}, {"sig-prints", "SignaturePrints"}, {"even-shared", "EvenShared"}, {"trade-rank", "TradeRank"}, {"rank-snapshot", "TradeRankSnapshot"}, {"market-cap", "MarketCap"}, {"premarket", "IncludePremarket"}, {"rth", "IncludeRTH"}, {"ah", "IncludeAH"}, {"opening", "IncludeOpening"}, {"closing", "IncludeClosing"}, {"phantom", "IncludePhantom"}, {"offsetting", "IncludeOffsetting"}, {"min-volume", "MinVolume"}, {"max-volume", "MaxVolume"}}
+	triStateFlags := [][2]string{{"dark-pools", "DarkPools"}, {"sweeps", "Sweeps"}, {"late-prints", "LatePrints"}, {"sig-prints", "SignaturePrints"}, {"even-shared", "EvenShared"}, {"premarket", "IncludePremarket"}, {"rth", "IncludeRTH"}, {"ah", "IncludeAH"}, {"opening", "IncludeOpening"}, {"closing", "IncludeClosing"}, {"phantom", "IncludePhantom"}, {"offsetting", "IncludeOffsetting"}}
+	for _, tf := range triStateFlags {
+		if cmd.Flags().Changed(tf[0]) {
+			filters[tf[1]] = getString(cmd, tf[0])
+		}
+	}
+	intFlags := [][2]string{{"conditions", "Conditions"}, {"vcd", "VCD"}, {"security-type", "SecurityTypeKey"}, {"relative-size", "RelativeSize"}, {"trade-rank", "TradeRank"}, {"rank-snapshot", "TradeRankSnapshot"}, {"market-cap", "MarketCap"}, {"min-volume", "MinVolume"}, {"max-volume", "MaxVolume"}}
 	for _, inf := range intFlags {
 		if cmd.Flags().Changed(inf[0]) {
 			filters[inf[1]] = common.IntStr(getInt(cmd, inf[0]))

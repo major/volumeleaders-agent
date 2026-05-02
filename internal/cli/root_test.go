@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os/exec"
 	"path/filepath"
 	"slices"
@@ -486,6 +487,111 @@ func TestJSONSchemaSubcommandIncludesFlagUsabilityMetadata(t *testing.T) {
 			t.Fatalf("schema groups missing %q: %v", expectedGroup, groups)
 		}
 	}
+}
+
+func TestJSONSchemaIncludesDiscreteValueEnums(t *testing.T) {
+	t.Parallel()
+	binary := buildBinary(t)
+
+	tests := []struct {
+		name string
+		args []string
+		flag string
+		want []string
+	}{
+		{
+			name: "trade list tri-state filter",
+			args: []string{"trade", "list", "--jsonschema"},
+			flag: "dark-pools",
+			want: []string{"-1", "0", "1"},
+		},
+		{
+			name: "trade list session filter",
+			args: []string{"trade", "list", "--jsonschema"},
+			flag: "premarket",
+			want: []string{"-1", "0", "1"},
+		},
+		{
+			name: "alert create ticker group",
+			args: []string{"alert", "create", "--jsonschema"},
+			flag: "ticker-group",
+			want: []string{"AllTickers", "SelectedTickers"},
+		},
+		{
+			name: "watchlist create security type",
+			args: []string{"watchlist", "create", "--jsonschema"},
+			flag: "security-type",
+			want: []string{"-1", "1", "26", "4"},
+		},
+		{
+			name: "watchlist create relative size",
+			args: []string{"watchlist", "create", "--jsonschema"},
+			flag: "min-relative-size",
+			want: []string{"0", "5", "10", "25", "50", "100"},
+		},
+		{
+			name: "watchlist create RSI toggle",
+			args: []string{"watchlist", "create", "--jsonschema"},
+			flag: "rsi-overbought-daily",
+			want: []string{"-1", "0", "1"},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			props := schemaProperties(t, binary, tc.args...)
+			flagSchema, ok := props[tc.flag].(map[string]any)
+			if !ok {
+				t.Fatalf("flag %q schema is not an object", tc.flag)
+			}
+
+			got := schemaEnumValues(t, flagSchema)
+			if !slices.Equal(got, sortedStrings(tc.want)) {
+				t.Fatalf("flag %q enum = %v, want %v", tc.flag, got, sortedStrings(tc.want))
+			}
+		})
+	}
+}
+
+func schemaProperties(t *testing.T, binary string, args ...string) map[string]any {
+	t.Helper()
+	out, err := exec.Command(binary, args...).CombinedOutput()
+	if err != nil {
+		t.Fatalf("%v failed: %v\nOutput: %s", args, err, out)
+	}
+
+	var schema map[string]any
+	if jsonErr := json.Unmarshal(out, &schema); jsonErr != nil {
+		t.Fatalf("output is not valid JSON object: %v\nOutput: %s", jsonErr, out)
+	}
+
+	props, ok := schema["properties"].(map[string]any)
+	if !ok {
+		t.Fatal("schema missing 'properties' key")
+	}
+	return props
+}
+
+func schemaEnumValues(t *testing.T, flagSchema map[string]any) []string {
+	t.Helper()
+	rawEnum, ok := flagSchema["enum"].([]any)
+	if !ok {
+		t.Fatalf("schema missing enum: %v", flagSchema)
+	}
+
+	values := make([]string, 0, len(rawEnum))
+	for _, rawValue := range rawEnum {
+		values = append(values, fmt.Sprint(rawValue))
+	}
+	slices.Sort(values)
+	return values
+}
+
+func sortedStrings(values []string) []string {
+	clone := slices.Clone(values)
+	slices.Sort(clone)
+	return clone
 }
 
 func TestHelpOutputDisplaysFlagGroups(t *testing.T) {

@@ -448,3 +448,60 @@ func assertErrorContains(t *testing.T, err error, want string) {
 		t.Fatalf("expected error containing %q, got %v", want, err)
 	}
 }
+
+func TestClose(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		calls   int
+		wantErr bool
+	}{
+		{
+			name:    "single close returns nil",
+			calls:   1,
+			wantErr: false,
+		},
+		{
+			name:    "double close does not panic",
+			calls:   2,
+			wantErr: false,
+		},
+		{
+			name:    "triple close does not panic",
+			calls:   3,
+			wantErr: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			client := newTestClient("http://localhost")
+
+			var firstErr error
+			for i := 0; i < tt.calls; i++ {
+				err := client.Close()
+				if i == 0 {
+					firstErr = err
+				} else {
+					// Verify all calls return the same error value (proving closeErr caching works)
+					if (err == nil && firstErr != nil) || (err != nil && firstErr == nil) {
+						t.Errorf("Close() call %d: got %v, want %v", i+1, err, firstErr)
+					}
+					if err != nil && firstErr != nil && err.Error() != firstErr.Error() {
+						t.Errorf("Close() call %d: got %v, want %v", i+1, err, firstErr)
+					}
+				}
+			}
+
+			if tt.wantErr && firstErr == nil {
+				t.Errorf("expected error, got nil")
+			}
+			if !tt.wantErr && firstErr != nil {
+				t.Errorf("expected nil, got error: %v", firstErr)
+			}
+		})
+	}
+}

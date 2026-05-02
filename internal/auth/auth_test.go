@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/browserutils/kooky"
+	"resty.dev/v3"
 )
 
 func TestXSRFTokenPattern(t *testing.T) {
@@ -141,11 +142,13 @@ func TestFetchXSRFToken(t *testing.T) {
 
 			client := server.Client()
 			client.Transport = rewriteHostTransport{base: client.Transport, target: server.URL}
-
-			token, err := FetchXSRFToken(t.Context(), client, map[string]string{
-				"ASP.NET_SessionId": "session-cookie",
-				".ASPXAUTH":         "auth-cookie",
+			restyClient := resty.NewWithClient(client)
+			restyClient.SetCookies([]*http.Cookie{
+				{Name: "ASP.NET_SessionId", Value: "session-cookie"},
+				{Name: ".ASPXAUTH", Value: "auth-cookie"},
 			})
+
+			token, err := FetchXSRFToken(t.Context(), restyClient)
 			if tt.wantErr != "" {
 				if err == nil {
 					t.Fatalf("expected error containing %q", tt.wantErr)
@@ -307,14 +310,16 @@ func TestFetchXSRFToken_CanceledContext(t *testing.T) {
 
 	client := server.Client()
 	client.Transport = rewriteHostTransport{base: client.Transport, target: server.URL}
+	restyClient := resty.NewWithClient(client)
+	restyClient.SetCookies([]*http.Cookie{
+		{Name: "ASP.NET_SessionId", Value: "session-cookie"},
+		{Name: ".ASPXAUTH", Value: "auth-cookie"},
+	})
 
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel() // cancel immediately
 
-	_, err := FetchXSRFToken(ctx, client, map[string]string{
-		"ASP.NET_SessionId": "session-cookie",
-		".ASPXAUTH":         "auth-cookie",
-	})
+	_, err := FetchXSRFToken(ctx, restyClient)
 	if err == nil {
 		t.Fatal("expected error from canceled context")
 	}
@@ -342,18 +347,7 @@ func (t rewriteHostTransport) RoundTrip(req *http.Request) (*http.Response, erro
 func assertBrowserHeaders(t *testing.T, r *http.Request) {
 	t.Helper()
 
-	checks := map[string]string{
-		"User-Agent":         UserAgent,
-		"Sec-Ch-Ua":          `"Chromium";v="147", "Not A(Brand";v="24", "Google Chrome";v="147"`,
-		"Sec-Ch-Ua-Mobile":   "?0",
-		"Sec-Ch-Ua-Platform": `"Windows"`,
-		"Sec-Fetch-Dest":     "empty",
-		"Sec-Fetch-Mode":     "cors",
-		"Sec-Fetch-Site":     "same-origin",
-		"Accept-Language":    "en-US,en;q=0.9",
-		"Accept-Encoding":    "gzip, deflate, br",
-	}
-	for key, expected := range checks {
+	for key, expected := range BrowserHeaders {
 		if got := r.Header.Get(key); got != expected {
 			t.Errorf("%s: expected %q, got %q", key, expected, got)
 		}

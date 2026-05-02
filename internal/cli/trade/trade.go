@@ -61,72 +61,72 @@ type tradeLevelOptions struct {
 }
 
 type tradeDateRangeFlags struct {
-	StartDate string `flag:"start-date" flagdescr:"Start date YYYY-MM-DD (required unless --days is set)"`
-	EndDate   string `flag:"end-date" flagdescr:"End date YYYY-MM-DD (required unless --days is set)"`
-	Days      int    `flag:"days" flagdescr:"Look back this many days from --end-date or today"`
+	StartDate string `flag:"start-date" flaggroup:"Dates" flagshort:"s" flagdescr:"Start date YYYY-MM-DD (required unless --days is set)"`
+	EndDate   string `flag:"end-date" flaggroup:"Dates" flagshort:"e" flagdescr:"End date YYYY-MM-DD (required unless --days is set)"`
+	Days      int    `flag:"days" flaggroup:"Dates" flagshort:"d" flagdescr:"Look back this many days from --end-date or today"`
 }
 
 type tradeOptionalDateRangeFlags struct {
-	StartDate string `flag:"start-date" flagdescr:"Start date YYYY-MM-DD (default: auto)"`
-	EndDate   string `flag:"end-date" flagdescr:"End date YYYY-MM-DD (default: today)"`
-	Days      int    `flag:"days" flagdescr:"Look back this many days from --end-date or today"`
+	StartDate string `flag:"start-date" flaggroup:"Dates" flagshort:"s" flagdescr:"Start date YYYY-MM-DD (default: auto)"`
+	EndDate   string `flag:"end-date" flaggroup:"Dates" flagshort:"e" flagdescr:"End date YYYY-MM-DD (default: today)"`
+	Days      int    `flag:"days" flaggroup:"Dates" flagshort:"d" flagdescr:"Look back this many days from --end-date or today"`
 }
 
 type tradeRangeFlags struct {
-	MinVolume  int     `flag:"min-volume" flagdescr:"Minimum volume"`
-	MaxVolume  int     `flag:"max-volume" flagdescr:"Maximum volume"`
-	MinPrice   float64 `flag:"min-price" flagdescr:"Minimum price"`
-	MaxPrice   float64 `flag:"max-price" flagdescr:"Maximum price"`
-	MinDollars float64 `flag:"min-dollars" flagdescr:"Minimum dollar value"`
-	MaxDollars float64 `flag:"max-dollars" flagdescr:"Maximum dollar value"`
+	MinVolume  int     `flag:"min-volume" flaggroup:"Ranges" flagdescr:"Minimum volume"`
+	MaxVolume  int     `flag:"max-volume" flaggroup:"Ranges" flagdescr:"Maximum volume"`
+	MinPrice   float64 `flag:"min-price" flaggroup:"Ranges" flagdescr:"Minimum price"`
+	MaxPrice   float64 `flag:"max-price" flaggroup:"Ranges" flagdescr:"Maximum price"`
+	MinDollars float64 `flag:"min-dollars" flaggroup:"Ranges" flagdescr:"Minimum dollar value"`
+	MaxDollars float64 `flag:"max-dollars" flaggroup:"Ranges" flagdescr:"Maximum dollar value"`
 }
 
 type tradeVolumeDollarRangeFlags struct {
-	MinVolume  int     `flag:"min-volume" flagdescr:"Minimum volume"`
-	MaxVolume  int     `flag:"max-volume" flagdescr:"Maximum volume"`
-	MinDollars float64 `flag:"min-dollars" flagdescr:"Minimum dollar value"`
-	MaxDollars float64 `flag:"max-dollars" flagdescr:"Maximum dollar value"`
+	MinVolume  int     `flag:"min-volume" flaggroup:"Ranges" flagdescr:"Minimum volume"`
+	MaxVolume  int     `flag:"max-volume" flaggroup:"Ranges" flagdescr:"Maximum volume"`
+	MinDollars float64 `flag:"min-dollars" flaggroup:"Ranges" flagdescr:"Minimum dollar value"`
+	MaxDollars float64 `flag:"max-dollars" flaggroup:"Ranges" flagdescr:"Maximum dollar value"`
 }
 
 type tradeFilterFlags struct {
-	Conditions   int `flag:"conditions" flagdescr:"Trade conditions filter"`
-	VCD          int `flag:"vcd" flagdescr:"VCD filter"`
-	SecurityType int `flag:"security-type" flagdescr:"Security type key"`
-	RelativeSize int `flag:"relative-size" flagdescr:"Relative size threshold"`
-	DarkPools    int `flag:"dark-pools" flagdescr:"Dark pool filter"`
-	Sweeps       int `flag:"sweeps" flagdescr:"Sweep filter"`
-	LatePrints   int `flag:"late-prints" flagdescr:"Late print filter"`
-	SigPrints    int `flag:"sig-prints" flagdescr:"Signature print filter"`
-	EvenShared   int `flag:"even-shared" flagdescr:"Even shared filter"`
-	TradeRank    int `flag:"trade-rank" flagdescr:"Trade rank filter"`
-	RankSnapshot int `flag:"rank-snapshot" flagdescr:"Trade rank snapshot filter"`
-	MarketCap    int `flag:"market-cap" flagdescr:"Market cap filter"`
-	Premarket    int `flag:"premarket" flagdescr:"Include premarket"`
-	RTH          int `flag:"rth" flagdescr:"Include regular trading hours"`
-	AH           int `flag:"ah" flagdescr:"Include after hours"`
-	Opening      int `flag:"opening" flagdescr:"Include opening trades"`
-	Closing      int `flag:"closing" flagdescr:"Include closing trades"`
-	Phantom      int `flag:"phantom" flagdescr:"Include phantom prints"`
-	Offsetting   int `flag:"offsetting" flagdescr:"Include offsetting trades"`
+	Conditions   int `flag:"conditions" flaggroup:"Filters" flagdescr:"Trade conditions filter"`
+	VCD          int `flag:"vcd" flaggroup:"Filters" flagdescr:"VCD filter"`
+	SecurityType int `flag:"security-type" flaggroup:"Filters" flagdescr:"Security type key"`
+	RelativeSize int `flag:"relative-size" flaggroup:"Filters" flagdescr:"Relative size threshold"`
+	DarkPools    int `flag:"dark-pools" flaggroup:"Filters" flagdescr:"Dark pool filter"`
+	Sweeps       int `flag:"sweeps" flaggroup:"Filters" flagdescr:"Sweep filter"`
+	LatePrints   int `flag:"late-prints" flaggroup:"Filters" flagdescr:"Late print filter"`
+	SigPrints    int `flag:"sig-prints" flaggroup:"Filters" flagdescr:"Signature print filter"`
+	EvenShared   int `flag:"even-shared" flaggroup:"Filters" flagdescr:"Even shared filter"`
+	TradeRank    int `flag:"trade-rank" flaggroup:"Filters" flagdescr:"Trade rank filter"`
+	RankSnapshot int `flag:"rank-snapshot" flaggroup:"Filters" flagdescr:"Trade rank snapshot filter"`
+	MarketCap    int `flag:"market-cap" flaggroup:"Filters" flagdescr:"Market cap filter"`
+	Premarket    int `flag:"premarket" flaggroup:"Sessions" flagdescr:"Include premarket"`
+	RTH          int `flag:"rth" flaggroup:"Sessions" flagdescr:"Include regular trading hours"`
+	AH           int `flag:"ah" flaggroup:"Sessions" flagdescr:"Include after hours"`
+	Opening      int `flag:"opening" flaggroup:"Sessions" flagdescr:"Include opening trades"`
+	Closing      int `flag:"closing" flaggroup:"Sessions" flagdescr:"Include closing trades"`
+	Phantom      int `flag:"phantom" flaggroup:"Sessions" flagdescr:"Include phantom prints"`
+	Offsetting   int `flag:"offsetting" flaggroup:"Sessions" flagdescr:"Include offsetting trades"`
 }
 
 type tradePaginationFlags struct {
-	Start    int    `flag:"start" flagdescr:"DataTables start offset"`
-	Length   int    `flag:"length" flagdescr:"Number of results"`
-	OrderCol int    `flag:"order-col" flagdescr:"Order column index"`
-	OrderDir string `flag:"order-dir" flagdescr:"Order direction"`
+	Start    int    `flag:"start" flaggroup:"Pagination" flagdescr:"DataTables start offset"`
+	Length   int    `flag:"length" flaggroup:"Pagination" flagshort:"l" flagdescr:"Number of results"`
+	OrderCol int    `flag:"order-col" flaggroup:"Pagination" flagdescr:"Order column index"`
+	OrderDir string `flag:"order-dir" flaggroup:"Pagination" flagdescr:"Order direction"`
 }
 
 type tradeFormatFlag struct {
-	Format string `flag:"format" flagdescr:"Output format: json, csv, or tsv"`
+	Format string `flag:"format" flaggroup:"Output" flagshort:"f" flagdescr:"Output format: json, csv, or tsv"`
 }
 
 type tradeTickersFlag struct {
-	Tickers string `flag:"tickers" flagdescr:"Comma-separated ticker symbols"`
+	Tickers string `flag:"tickers" flaggroup:"Input" flagshort:"t" flagdescr:"Comma-separated ticker symbols"`
 }
 
 type tradeTickerFlag struct {
-	Ticker string `flag:"ticker" flagdescr:"Ticker symbol"`
+	Ticker string `flag:"ticker" flaggroup:"Input" flagshort:"t" flagdescr:"Ticker symbol"`
 }
 
 type tradeListOptions struct {
@@ -134,12 +134,12 @@ type tradeListOptions struct {
 	tradeOptionalDateRangeFlags
 	tradeRangeFlags
 	tradeFilterFlags
-	Sector    string `flag:"sector" flagdescr:"Sector/Industry filter"`
-	Preset    string `flag:"preset" flagdescr:"Apply a built-in filter preset (see: trade presets)"`
-	Watchlist string `flag:"watchlist" flagdescr:"Apply filters from a saved watchlist by name"`
-	Fields    string `flag:"fields" flagdescr:"Comma-separated trade fields to include in output"`
-	Summary   bool   `flag:"summary" flagdescr:"Return aggregate metrics instead of individual trades"`
-	GroupBy   string `flag:"group-by" flagdescr:"Summary grouping (requires --summary): ticker, day, or ticker,day"`
+	Sector    string `flag:"sector" flaggroup:"Input" flagdescr:"Sector/Industry filter"`
+	Preset    string `flag:"preset" flaggroup:"Input" flagdescr:"Apply a built-in filter preset (see: trade presets)"`
+	Watchlist string `flag:"watchlist" flaggroup:"Input" flagdescr:"Apply filters from a saved watchlist by name"`
+	Fields    string `flag:"fields" flaggroup:"Output" flagdescr:"Comma-separated trade fields to include in output"`
+	Summary   bool   `flag:"summary" flaggroup:"Output" flagdescr:"Return aggregate metrics instead of individual trades"`
+	GroupBy   string `flag:"group-by" flaggroup:"Output" flagdescr:"Summary grouping (requires --summary): ticker, day, or ticker,day"`
 	tradeFormatFlag
 	tradePaginationFlags
 }
@@ -155,12 +155,12 @@ type tradeClustersOptions struct {
 	tradeTickersFlag
 	tradeDateRangeFlags
 	tradeRangeFlags
-	VCD              int    `flag:"vcd" flagdescr:"VCD filter"`
-	SecurityType     int    `flag:"security-type" flagdescr:"Security type key"`
-	RelativeSize     int    `flag:"relative-size" flagdescr:"Relative size threshold"`
-	TradeClusterRank int    `flag:"trade-cluster-rank" flagdescr:"Trade cluster rank filter"`
-	Sector           string `flag:"sector" flagdescr:"Sector/Industry filter"`
-	Fields           string `flag:"fields" flagdescr:"Comma-separated TradeCluster fields to include in output, or 'all' for every field"`
+	VCD              int    `flag:"vcd" flaggroup:"Filters" flagdescr:"VCD filter"`
+	SecurityType     int    `flag:"security-type" flaggroup:"Filters" flagdescr:"Security type key"`
+	RelativeSize     int    `flag:"relative-size" flaggroup:"Filters" flagdescr:"Relative size threshold"`
+	TradeClusterRank int    `flag:"trade-cluster-rank" flaggroup:"Filters" flagdescr:"Trade cluster rank filter"`
+	Sector           string `flag:"sector" flaggroup:"Input" flagdescr:"Sector/Industry filter"`
+	Fields           string `flag:"fields" flaggroup:"Output" flagdescr:"Comma-separated TradeCluster fields to include in output, or 'all' for every field"`
 	tradeFormatFlag
 	tradePaginationFlags
 }
@@ -169,11 +169,11 @@ type tradeClusterBombsOptions struct {
 	tradeTickersFlag
 	tradeDateRangeFlags
 	tradeVolumeDollarRangeFlags
-	VCD                  int    `flag:"vcd" flagdescr:"VCD filter"`
-	SecurityType         int    `flag:"security-type" flagdescr:"Security type key"`
-	RelativeSize         int    `flag:"relative-size" flagdescr:"Relative size threshold"`
-	TradeClusterBombRank int    `flag:"trade-cluster-bomb-rank" flagdescr:"Trade cluster bomb rank filter"`
-	Sector               string `flag:"sector" flagdescr:"Sector/Industry filter"`
+	VCD                  int    `flag:"vcd" flaggroup:"Filters" flagdescr:"VCD filter"`
+	SecurityType         int    `flag:"security-type" flaggroup:"Filters" flagdescr:"Security type key"`
+	RelativeSize         int    `flag:"relative-size" flaggroup:"Filters" flagdescr:"Relative size threshold"`
+	TradeClusterBombRank int    `flag:"trade-cluster-bomb-rank" flaggroup:"Filters" flagdescr:"Trade cluster bomb rank filter"`
+	Sector               string `flag:"sector" flaggroup:"Input" flagdescr:"Sector/Industry filter"`
 	tradeFormatFlag
 	tradePaginationFlags
 }
@@ -182,11 +182,11 @@ type tradeLevelsOptions struct {
 	tradeTickerFlag
 	tradeOptionalDateRangeFlags
 	tradeRangeFlags
-	VCD             int    `flag:"vcd" flagdescr:"VCD filter"`
-	RelativeSize    int    `flag:"relative-size" flagdescr:"Relative size threshold"`
-	TradeLevelRank  int    `flag:"trade-level-rank" flagdescr:"Trade level rank filter"`
-	TradeLevelCount int    `flag:"trade-level-count" flagdescr:"Number of price levels to return (1-50)"`
-	Fields          string `flag:"fields" flagdescr:"Comma-separated TradeLevel fields to include in output, or 'all' for every field"`
+	VCD             int    `flag:"vcd" flaggroup:"Filters" flagdescr:"VCD filter"`
+	RelativeSize    int    `flag:"relative-size" flaggroup:"Filters" flagdescr:"Relative size threshold"`
+	TradeLevelRank  int    `flag:"trade-level-rank" flaggroup:"Filters" flagdescr:"Trade level rank filter"`
+	TradeLevelCount int    `flag:"trade-level-count" flaggroup:"Output" flagdescr:"Number of price levels to return (1-50)"`
+	Fields          string `flag:"fields" flaggroup:"Output" flagdescr:"Comma-separated TradeLevel fields to include in output, or 'all' for every field"`
 	tradeFormatFlag
 }
 
@@ -194,10 +194,10 @@ type tradeLevelTouchesOptions struct {
 	tradeTickerFlag
 	tradeDateRangeFlags
 	tradeRangeFlags
-	VCD             int `flag:"vcd" flagdescr:"VCD filter"`
-	RelativeSize    int `flag:"relative-size" flagdescr:"Relative size threshold"`
-	TradeLevelRank  int `flag:"trade-level-rank" flagdescr:"Trade level rank filter"`
-	TradeLevelCount int `flag:"trade-level-count" flagdescr:"Number of price levels to include (1-50)"`
+	VCD             int `flag:"vcd" flaggroup:"Filters" flagdescr:"VCD filter"`
+	RelativeSize    int `flag:"relative-size" flaggroup:"Filters" flagdescr:"Relative size threshold"`
+	TradeLevelRank  int `flag:"trade-level-rank" flaggroup:"Filters" flagdescr:"Trade level rank filter"`
+	TradeLevelCount int `flag:"trade-level-count" flaggroup:"Output" flagdescr:"Number of price levels to include (1-50)"`
 	tradeFormatFlag
 	tradePaginationFlags
 }
@@ -227,13 +227,13 @@ func (opts *tradeLevelTouchesOptions) Validate(_ context.Context) []error {
 }
 
 type tradeAlertsOptions struct {
-	Date string `flag:"date" flagdescr:"Date YYYY-MM-DD"`
+	Date string `flag:"date" flaggroup:"Dates" flagshort:"d" flagdescr:"Date YYYY-MM-DD"`
 	tradeFormatFlag
 	tradePaginationFlags
 }
 
 type tradeClusterAlertsOptions struct {
-	Date string `flag:"date" flagdescr:"Date YYYY-MM-DD"`
+	Date string `flag:"date" flaggroup:"Dates" flagshort:"d" flagdescr:"Date YYYY-MM-DD"`
 	tradeFormatFlag
 	tradePaginationFlags
 }

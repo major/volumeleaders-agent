@@ -16,60 +16,60 @@ import (
 
 // watchlistConfigsOptions holds flags for the "watchlist configs" subcommand.
 type watchlistConfigsOptions struct {
-	Format string `flag:"format" default:"json" flagdescr:"Output format: json, csv, or tsv"`
+	Format string `flag:"format" flaggroup:"Output" flagshort:"f" default:"json" flagdescr:"Output format: json, csv, or tsv"`
 }
 
 // watchlistTickersOptions holds flags for the "watchlist tickers" subcommand.
 type watchlistTickersOptions struct {
-	WatchlistKey int    `flag:"watchlist-key" flagdescr:"Watch list key (-1 for all)"`
-	Format       string `flag:"format" default:"json" flagdescr:"Output format: json, csv, or tsv"`
+	WatchlistKey int    `flag:"watchlist-key" flaggroup:"Input" flagshort:"k" flagdescr:"Watch list key (-1 for all)"`
+	Format       string `flag:"format" flaggroup:"Output" flagshort:"f" default:"json" flagdescr:"Output format: json, csv, or tsv"`
 }
 
 // watchlistDeleteOptions holds flags for the "watchlist delete" subcommand.
 type watchlistDeleteOptions struct {
-	Key int `flag:"key" flagrequired:"true" flagdescr:"Watch list key to delete"`
+	Key int `flag:"key" flaggroup:"Input" flagshort:"k" flagrequired:"true" flagdescr:"Watch list key to delete"`
 }
 
 // watchlistAddTickerOptions holds flags for the "watchlist add-ticker" subcommand.
 type watchlistAddTickerOptions struct {
-	WatchlistKey int    `flag:"watchlist-key" flagrequired:"true" flagdescr:"Watch list key"`
-	Ticker       string `flag:"ticker" flagrequired:"true" flagdescr:"Ticker symbol to add"`
+	WatchlistKey int    `flag:"watchlist-key" flaggroup:"Input" flagshort:"k" flagrequired:"true" flagdescr:"Watch list key"`
+	Ticker       string `flag:"ticker" flaggroup:"Input" flagshort:"t" flagrequired:"true" flagdescr:"Ticker symbol to add"`
 }
 
 // watchlistConfigFlags holds the shared flag set for watchlist create/edit commands.
 type watchlistConfigFlags struct {
-	Name                string  `flag:"name" flagdescr:"Watch list name"`
-	Tickers             string  `flag:"tickers" flagdescr:"Comma-separated ticker symbols (max 500)"`
-	MinVolume           int     `flag:"min-volume" flagdescr:"Minimum volume filter"`
-	MaxVolume           int     `flag:"max-volume" flagdescr:"Maximum volume filter"`
-	MinDollars          float64 `flag:"min-dollars" flagdescr:"Minimum dollars filter"`
-	MaxDollars          float64 `flag:"max-dollars" flagdescr:"Maximum dollars filter"`
-	MinPrice            float64 `flag:"min-price" flagdescr:"Minimum price filter"`
-	MaxPrice            float64 `flag:"max-price" flagdescr:"Maximum price filter"`
-	MinVCD              float64 `flag:"min-vcd" flagdescr:"Minimum VCD percentile (0-100)"`
-	SectorIndustry      string  `flag:"sector-industry" flagdescr:"Sector/industry filter (max 100 chars)"`
-	SecurityType        int     `flag:"security-type" flagdescr:"Security type (-1=all, 1=stocks, 26=ETFs, 4=REITs)"`
-	MinRelativeSize     int     `flag:"min-relative-size" flagdescr:"Minimum relative size (0/5/10/25/50/100)"`
-	MaxTradeRank        int     `flag:"max-trade-rank" flagdescr:"Maximum trade rank (-1=all, 1/3/5/10/25/50/100)"`
-	NormalPrints        bool    `flag:"normal-prints" flagdescr:"Include normal prints"`
-	SignaturePrints     bool    `flag:"signature-prints" flagdescr:"Include signature prints"`
-	LatePrints          bool    `flag:"late-prints" flagdescr:"Include late prints"`
-	TimelyPrints        bool    `flag:"timely-prints" flagdescr:"Include timely prints"`
-	DarkPools           bool    `flag:"dark-pools" flagdescr:"Include dark pool trades"`
-	LitExchanges        bool    `flag:"lit-exchanges" flagdescr:"Include lit exchange trades"`
-	Sweeps              bool    `flag:"sweeps" flagdescr:"Include sweep trades"`
-	Blocks              bool    `flag:"blocks" flagdescr:"Include block trades"`
-	PremarketTrades     bool    `flag:"premarket-trades" flagdescr:"Include premarket trades"`
-	RTHTrades           bool    `flag:"rth-trades" flagdescr:"Include regular trading hours trades"`
-	AHTrades            bool    `flag:"ah-trades" flagdescr:"Include after-hours trades"`
-	OpeningTrades       bool    `flag:"opening-trades" flagdescr:"Include opening trades"`
-	ClosingTrades       bool    `flag:"closing-trades" flagdescr:"Include closing trades"`
-	PhantomTrades       bool    `flag:"phantom-trades" flagdescr:"Include phantom trades"`
-	OffsettingTrades    bool    `flag:"offsetting-trades" flagdescr:"Include offsetting trades"`
-	RSIOverboughtDaily  int     `flag:"rsi-overbought-daily" flagdescr:"RSI overbought daily (1=yes, 0=no, -1=ignore)"`
-	RSIOverboughtHourly int     `flag:"rsi-overbought-hourly" flagdescr:"RSI overbought hourly (1=yes, 0=no, -1=ignore)"`
-	RSIOversoldDaily    int     `flag:"rsi-oversold-daily" flagdescr:"RSI oversold daily (1=yes, 0=no, -1=ignore)"`
-	RSIOversoldHourly   int     `flag:"rsi-oversold-hourly" flagdescr:"RSI oversold hourly (1=yes, 0=no, -1=ignore)"`
+	Name                string  `flag:"name" flaggroup:"Basic" flagdescr:"Watch list name"`
+	Tickers             string  `flag:"tickers" flaggroup:"Basic" flagshort:"t" flagdescr:"Comma-separated ticker symbols (max 500)"`
+	MinVolume           int     `flag:"min-volume" flaggroup:"Ranges" flagdescr:"Minimum volume filter"`
+	MaxVolume           int     `flag:"max-volume" flaggroup:"Ranges" flagdescr:"Maximum volume filter"`
+	MinDollars          float64 `flag:"min-dollars" flaggroup:"Ranges" flagdescr:"Minimum dollars filter"`
+	MaxDollars          float64 `flag:"max-dollars" flaggroup:"Ranges" flagdescr:"Maximum dollars filter"`
+	MinPrice            float64 `flag:"min-price" flaggroup:"Ranges" flagdescr:"Minimum price filter"`
+	MaxPrice            float64 `flag:"max-price" flaggroup:"Ranges" flagdescr:"Maximum price filter"`
+	MinVCD              float64 `flag:"min-vcd" flaggroup:"Filters" flagdescr:"Minimum VCD percentile (0-100)"`
+	SectorIndustry      string  `flag:"sector-industry" flaggroup:"Filters" flagdescr:"Sector/industry filter (max 100 chars)"`
+	SecurityType        int     `flag:"security-type" flaggroup:"Filters" flagdescr:"Security type (-1=all, 1=stocks, 26=ETFs, 4=REITs)"`
+	MinRelativeSize     int     `flag:"min-relative-size" flaggroup:"Filters" flagdescr:"Minimum relative size (0/5/10/25/50/100)"`
+	MaxTradeRank        int     `flag:"max-trade-rank" flaggroup:"Filters" flagdescr:"Maximum trade rank (-1=all, 1/3/5/10/25/50/100)"`
+	NormalPrints        bool    `flag:"normal-prints" flaggroup:"Print Types" flagdescr:"Include normal prints"`
+	SignaturePrints     bool    `flag:"signature-prints" flaggroup:"Print Types" flagdescr:"Include signature prints"`
+	LatePrints          bool    `flag:"late-prints" flaggroup:"Print Types" flagdescr:"Include late prints"`
+	TimelyPrints        bool    `flag:"timely-prints" flaggroup:"Print Types" flagdescr:"Include timely prints"`
+	DarkPools           bool    `flag:"dark-pools" flaggroup:"Venues" flagdescr:"Include dark pool trades"`
+	LitExchanges        bool    `flag:"lit-exchanges" flaggroup:"Venues" flagdescr:"Include lit exchange trades"`
+	Sweeps              bool    `flag:"sweeps" flaggroup:"Venues" flagdescr:"Include sweep trades"`
+	Blocks              bool    `flag:"blocks" flaggroup:"Venues" flagdescr:"Include block trades"`
+	PremarketTrades     bool    `flag:"premarket-trades" flaggroup:"Sessions" flagdescr:"Include premarket trades"`
+	RTHTrades           bool    `flag:"rth-trades" flaggroup:"Sessions" flagdescr:"Include regular trading hours trades"`
+	AHTrades            bool    `flag:"ah-trades" flaggroup:"Sessions" flagdescr:"Include after-hours trades"`
+	OpeningTrades       bool    `flag:"opening-trades" flaggroup:"Sessions" flagdescr:"Include opening trades"`
+	ClosingTrades       bool    `flag:"closing-trades" flaggroup:"Sessions" flagdescr:"Include closing trades"`
+	PhantomTrades       bool    `flag:"phantom-trades" flaggroup:"Sessions" flagdescr:"Include phantom trades"`
+	OffsettingTrades    bool    `flag:"offsetting-trades" flaggroup:"Sessions" flagdescr:"Include offsetting trades"`
+	RSIOverboughtDaily  int     `flag:"rsi-overbought-daily" flaggroup:"RSI" flagdescr:"RSI overbought daily (1=yes, 0=no, -1=ignore)"`
+	RSIOverboughtHourly int     `flag:"rsi-overbought-hourly" flaggroup:"RSI" flagdescr:"RSI overbought hourly (1=yes, 0=no, -1=ignore)"`
+	RSIOversoldDaily    int     `flag:"rsi-oversold-daily" flaggroup:"RSI" flagdescr:"RSI oversold daily (1=yes, 0=no, -1=ignore)"`
+	RSIOversoldHourly   int     `flag:"rsi-oversold-hourly" flaggroup:"RSI" flagdescr:"RSI oversold hourly (1=yes, 0=no, -1=ignore)"`
 }
 
 // watchlistCreateOptions holds flags for the "watchlist create" subcommand.
@@ -79,7 +79,7 @@ type watchlistCreateOptions struct {
 
 // watchlistEditOptions holds flags for the "watchlist edit" subcommand.
 type watchlistEditOptions struct {
-	Key int `flag:"key" flagrequired:"true" flagdescr:"Watch list key to edit"`
+	Key int `flag:"key" flaggroup:"Input" flagshort:"k" flagrequired:"true" flagdescr:"Watch list key to edit"`
 	watchlistConfigFlags
 }
 

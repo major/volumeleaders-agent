@@ -24,16 +24,16 @@ var marketEarningsDefaultFields = []string{
 
 // earningsOptions holds flags for the "market earnings" subcommand.
 type earningsOptions struct {
-	StartDate string `flag:"start-date" flagdescr:"Start date YYYY-MM-DD (required unless --days is set)"`
-	EndDate   string `flag:"end-date" flagdescr:"End date YYYY-MM-DD (required unless --days is set)"`
-	Days      int    `flag:"days" flagdescr:"Look back this many days from --end-date or today"`
-	Format    string `flag:"format" flagdescr:"Output format: json, csv, or tsv" default:"json"`
-	Fields    string `flag:"fields" flagdescr:"Comma-separated fields to include (use 'all' for every field)"`
+	StartDate string `flag:"start-date" flaggroup:"Dates" flagshort:"s" flagdescr:"Start date YYYY-MM-DD (required unless --days is set)"`
+	EndDate   string `flag:"end-date" flaggroup:"Dates" flagshort:"e" flagdescr:"End date YYYY-MM-DD (required unless --days is set)"`
+	Days      int    `flag:"days" flaggroup:"Dates" flagshort:"d" flagdescr:"Look back this many days from --end-date or today"`
+	Format    string `flag:"format" flaggroup:"Output" flagshort:"f" flagdescr:"Output format: json, csv, or tsv" default:"json"`
+	Fields    string `flag:"fields" flaggroup:"Output" flagdescr:"Comma-separated fields to include (use 'all' for every field)"`
 }
 
 // exhaustionOptions holds flags for the "market exhaustion" subcommand.
 type exhaustionOptions struct {
-	Date string `flag:"date" flagdescr:"Date YYYY-MM-DD (empty for current day)"`
+	Date string `flag:"date" flaggroup:"Dates" flagshort:"d" flagdescr:"Date YYYY-MM-DD (empty for current day)"`
 }
 
 // NewMarketCommand returns the "market" command group with all subcommands.

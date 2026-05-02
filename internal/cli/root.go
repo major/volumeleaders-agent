@@ -21,7 +21,7 @@ import (
 // rootOptions holds flags bound to the root command via structcli.Bind.
 // The bind pipeline populates these fields before PersistentPreRunE fires.
 type rootOptions struct {
-	Pretty bool `flag:"pretty" flagdescr:"Pretty-print JSON output with indentation"`
+	Pretty bool `flag:"pretty" flaggroup:"Output" flagshort:"p" flagdescr:"Pretty-print JSON output with indentation"`
 }
 
 // NewRootCmd returns the root cobra command for volumeleaders-agent.

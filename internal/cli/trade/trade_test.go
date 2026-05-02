@@ -139,9 +139,9 @@ func TestBuildTradeLevelFiltersUseObservedLevelKeys(t *testing.T) {
 func TestTradeListLengthCappedAtFifty(t *testing.T) {
 	t.Parallel()
 
-	cmd := newTradeListCommand()
+	cmd := NewCmd()
 	ctx := testutil.ContextWithTestClient(t, "http://127.0.0.1")
-	_, _, err := testutil.ExecuteCommand(t, cmd, ctx, "--start-date", "2025-04-21", "--end-date", "2025-04-21", "--length", "100")
+	_, _, err := testutil.ExecuteCommand(t, cmd, ctx, "list", "--start-date", "2025-04-21", "--end-date", "2025-04-21", "--length", "100")
 	testutil.AssertErrContains(t, err, "--length must be between 1 and 50 for trade retrieval")
 }
 
@@ -160,9 +160,9 @@ func TestTradeListAcceptsMaximumLength(t *testing.T) {
 	}))
 	t.Cleanup(server.Close)
 
-	cmd := newTradeListCommand()
+	cmd := NewCmd()
 	ctx := testutil.ContextWithTestClient(t, server.URL)
-	_, _, err := testutil.ExecuteCommand(t, cmd, ctx, "--start-date", "2025-04-21", "--end-date", "2025-04-21", "--length", "50")
+	_, _, err := testutil.ExecuteCommand(t, cmd, ctx, "list", "--start-date", "2025-04-21", "--end-date", "2025-04-21", "--length", "50")
 	testutil.AssertErrContains(t, err, "")
 	if gotLength != "50" {
 		t.Fatalf("length = %q, want 50", gotLength)
@@ -191,12 +191,22 @@ func TestTradeLevelTouchesCapsLengthAndTradeLevelCount(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			cmd := newTradeLevelTouchesCommand()
+			cmd := NewCmd()
 			ctx := testutil.ContextWithTestClient(t, "http://127.0.0.1")
-			_, _, err := testutil.ExecuteCommand(t, cmd, ctx, tt.args...)
+			args := append([]string{"level-touches"}, tt.args...)
+			_, _, err := testutil.ExecuteCommand(t, cmd, ctx, args...)
 			testutil.AssertErrContains(t, err, tt.want)
 		})
 	}
+}
+
+func TestTradeLevelsCapsTradeLevelCount(t *testing.T) {
+	t.Parallel()
+
+	cmd := NewCmd()
+	ctx := testutil.ContextWithTestClient(t, "http://127.0.0.1")
+	_, _, err := testutil.ExecuteCommand(t, cmd, ctx, "levels", "AAPL", "--trade-level-count", "100")
+	testutil.AssertErrContains(t, err, "--trade-level-count must be between 1 and 50 for trade level retrieval")
 }
 
 func TestTradeLevelTouchesAcceptsMaximumTradeLevelCount(t *testing.T) {
@@ -213,9 +223,9 @@ func TestTradeLevelTouchesAcceptsMaximumTradeLevelCount(t *testing.T) {
 	}))
 	t.Cleanup(server.Close)
 
-	cmd := newTradeLevelTouchesCommand()
+	cmd := NewCmd()
 	ctx := testutil.ContextWithTestClient(t, server.URL)
-	_, _, err := testutil.ExecuteCommand(t, cmd, ctx, "AAPL", "--start-date", "2025-04-21", "--end-date", "2025-04-21", "--trade-level-count", "50")
+	_, _, err := testutil.ExecuteCommand(t, cmd, ctx, "level-touches", "AAPL", "--start-date", "2025-04-21", "--end-date", "2025-04-21", "--trade-level-count", "50")
 	testutil.AssertErrContains(t, err, "")
 	if got.Get("Levels") != "50" {
 		t.Fatalf("Levels = %q, want 50", got.Get("Levels"))

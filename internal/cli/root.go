@@ -29,7 +29,54 @@ func NewRootCmd(version string) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:              "volumeleaders-agent",
 		Short:            "CLI tool for querying VolumeLeaders institutional trade data",
-		Long:             "volumeleaders-agent queries institutional trade data from VolumeLeaders, providing access to trades, volume leaderboards, market snapshots, alert configurations, and watchlists. All commands output compact JSON to stdout by default; use --pretty for indented output or --format csv/tsv where supported. Authenticate via browser cookie extraction (see documentation for setup).",
+		Long: `volumeleaders-agent queries institutional trade data from VolumeLeaders. Use it for trades, volume leaderboards, market data, alerts, and watchlists.
+
+Auth: reads browser cookies automatically. If auth fails with exit code 2 and "Authentication required: VolumeLeaders session has expired.", log in at https://www.volumeleaders.com in your browser, then retry.
+
+Output: compact JSON to stdout by default. Use --pretty before the command group for indented JSON. The schema command always emits raw indented JSON for machine-readable CLI introspection. Errors and logs go to stderr.
+
+COMMAND CHOOSER
+
+Goal                                          Start with                              Notes
+--------------------------------------------  --------------------------------------  -----------------------------------------------
+Find individual institutional prints          trade list X --days N                   Use ticker filters, presets, or watchlists
+Compare leveraged ETF bull/bear flow          trade sentiment --days N                Fixed leveraged ETF universe, not buy/sell flow
+Find converging price-level activity          trade clusters --days N                 Cluster conviction around similar prices
+Find sudden aggressive bursts                 trade cluster-bombs --days N            Burst detection, different defaults than clusters
+Inspect trade or cluster alerts               trade alerts --date D                   System-generated alerts
+Find support/resistance levels                trade levels X --days N                 One ticker, capped level count
+Find revisits to institutional levels         trade level-touches X --days N          Level retests, capped pagination
+See institutional volume leaders              volume institutional --date D            Same trade model, volume-ranked
+See after-hours institutional leaders         volume ah-institutional --date D        After-hours institutional flow
+See total volume leaders                      volume total --date D                   Total market volume across trade types
+Get current prices                            market snapshots                        JSON object
+Find earnings with prior institutional flow   market earnings --days N                CSV/TSV supported
+Check exhaustion/reversal signals             market exhaustion --date D              Lower rank is stronger
+Manage alert configs                          alert configs/create/edit/delete        Edit replaces unspecified values with defaults
+Manage watchlists                             watchlist configs/create/edit/delete    Edit replaces unspecified values with defaults
+Get watchlist tickers                         watchlist tickers --watchlist-key K     Key comes from watchlist configs
+
+ANALYSIS WORKFLOW
+
+1. volume institutional --date D for top dollar movers.
+2. trade list X --days N for individual prints.
+3. trade levels X --days N for support/resistance.
+4. trade clusters X --days N when prints appear concentrated around a price.
+5. market earnings --days N and market exhaustion --date D for event and reversal context.
+
+GLOBAL CONVENTIONS
+
+Dates: YYYY-MM-DD. Commands with date ranges accept either --start-date D --end-date D or --days N. --days counts backward from today unless --end-date is also set, and cannot be combined with --start-date.
+
+Pagination: --start offset, --length count, --length -1 means all rows unless a capped endpoint rejects it. trade list, trade list --summary, and trade level-touches only allow 1 to 50 rows. trade levels caps --trade-level-count at 50.
+
+Toggle filters: -1 means all/unfiltered, 0 means exclude, 1 means include/only.
+
+Tickers: --tickers is comma-separated, --ticker is single-symbol. Commands that take tickers generally accept positional tickers too, for example: trade list XLE XLK. Trade and volume ticker filters also accept --symbol and --symbols aliases.
+
+Output formats: list-style commands may support --format json/csv/tsv. CSV/TSV include headers, booleans render as true/false, null or missing values render as empty cells. Nested summaries and single-object commands are JSON-only unless the schema shows a format flag.
+
+Performance: use explicit dates and tickers when possible. Start narrow, then expand. VolumeLeaders endpoints can be expensive and some trade retrieval endpoints are intentionally capped.`,
 		Version:          version,
 		SilenceErrors:    true,
 		SilenceUsage:     true,

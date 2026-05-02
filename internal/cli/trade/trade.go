@@ -250,7 +250,39 @@ func newTradeListCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "list [tickers...]",
 		Short: "Query institutional trades",
-		Long:  "Query individual institutional trades from VolumeLeaders, filterable by ticker, date range, dollar amounts, volume, trade conditions, session type, and trade rank. Supports built-in filter presets (--preset) and watchlist-based filtering (--watchlist). Outputs compact JSON or CSV/TSV with --format; use --summary for aggregate metrics grouped by ticker or day.",
+		Long: `Query individual institutional trades from VolumeLeaders, filterable by ticker, date range, dollar amounts, volume, trade conditions, session type, and trade rank. Supports built-in filter presets (--preset) and watchlist-based filtering (--watchlist). Outputs compact JSON or CSV/TSV with --format; use --summary for aggregate metrics grouped by ticker or day.
+
+Date defaults: 365-day lookback when tickers are provided, today-only without tickers. Preset and watchlist filters do not supply dates. Filter precedence is preset baseline, then watchlist merge, then explicit CLI flags override both.
+
+Default JSON is compact and omits repetitive/internal fields. Use --fields FIELD1,FIELD2, CSV/TSV, or --fields all where supported when raw API fields are needed. --summary returns aggregate JSON with valid --group-by values of ticker, day, or ticker,day; do not combine summary mode with --fields or non-JSON formats.
+
+KEY METRICS
+
+Field                      Meaning
+-------------------------  ---------------------------------------------------------------
+CumulativeDistribution     Volume percentile, 0 to 1, higher means more accumulation
+DollarsMultiplier          Trade dollars relative to average block size
+TradeRank                  VL significance rank now, lower is stronger
+TradeRankSnapshot          VL significance rank at print time, lower is stronger
+TradeClusterRank           Rank for cluster significance, lower is stronger
+TradeClusterBombRank       Rank for burst significance, lower is stronger
+TradeLevelRank             Rank for level significance, lower is stronger
+RelativeSize               Trade size vs normal activity
+PercentDailyVolume         Trade volume as percent of average daily volume
+VCD                        Volume Confirmation Distribution score
+FrequencyLast30TD          Similar-magnitude trade frequency over last 30 trading days
+FrequencyLast90TD          Similar-magnitude trade frequency over last 90 trading days
+FrequencyLast1CY           Similar-magnitude trade frequency over last calendar year
+RSIHour                    Hourly RSI at time of trade
+RSIDay                     Daily RSI at time of trade
+DarkPool                   Boolean: trade printed on a dark pool
+Sweep                      Boolean: trade was a sweep order
+LatePrint                  Boolean: trade was a late print
+SignaturePrint             Boolean: trade matched a signature print pattern
+PhantomPrint               Boolean: trade was a phantom print
+InsideBar                  Boolean: bar was an inside bar
+
+Shared trade filters include volume, price, dollars, conditions, VCD, relative size, security type, market cap, trade rank, dark pools, sweeps, late prints, signature prints, even-share prints, and session/event toggles.`,
 		Example: `volumeleaders-agent trade list AAPL MSFT
 volumeleaders-agent trade list --tickers AAPL,MSFT
 volumeleaders-agent trade list --tickers NVDA --dark-pools 1 --min-dollars 1000000
@@ -279,7 +311,11 @@ func newTradeSentimentCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:        "sentiment",
 		Short:      "Summarize leveraged ETF bull/bear flow by day",
-		Long:       "Summarize leveraged ETF bull and bear flow by trading day, showing aggregate institutional dollar volume on the bull and bear side. Requires --start-date and --end-date (or --days). Outputs one record per day with bull and bear totals.",
+		Long: `Summarize leveraged ETF bull and bear flow by trading day, showing aggregate institutional dollar volume on the bull and bear side. Requires --start-date and --end-date (or --days). Outputs one record per day with bull and bear totals.
+
+This command always queries the combined leveraged ETF sector filter SectorIndustry=X B, classifies bull and bear ETFs locally, and cannot be constrained by ticker or sector flags. Non-standard defaults include --min-dollars 5000000 and --vcd 97; shared --relative-size 5 still applies.
+
+Ratio is bull dollars divided by bear dollars and is null when bear flow is zero. Treat the output as leveraged ETF proxy flow, not signed buy/sell flow for the broader market.`,
 		Example:    "volumeleaders-agent trade sentiment --start-date 2025-04-21 --end-date 2025-04-25",
 		Args:       cobra.NoArgs,
 		SuggestFor: []string{"sentment", "sentimnt"},
@@ -305,7 +341,9 @@ func newTradeClustersCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:        "clusters [tickers...]",
 		Short:      "Query aggregated trade clusters",
-		Long:       "Query aggregated trade clusters, which group multiple trades in a short window into a single cluster record. Filterable by ticker, date range, dollar amounts, sector, and trade cluster rank. Outputs compact JSON or CSV/TSV with --format.",
+		Long: `Query aggregated trade clusters, which group multiple trades in a short window into a single cluster record. Filterable by ticker, date range, dollar amounts, sector, and trade cluster rank. Outputs compact JSON or CSV/TSV with --format.
+
+Use clusters when the question is about price-level concentration, not single prints. This command uses larger default retrieval and dollar thresholds than ordinary trade list. Use trade cluster-bombs instead when looking for sudden aggressive bursts tightly grouped in time and price.`,
 		Example:    "volumeleaders-agent trade clusters AAPL --days 7",
 		Args:       cobra.ArbitraryArgs,
 		SuggestFor: []string{"cluster", "clsters"},
@@ -329,7 +367,9 @@ func newTradeClusterBombsCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:        "cluster-bombs [tickers...]",
 		Short:      "Query trade cluster bombs",
-		Long:       "Query trade cluster bombs, which are extreme-magnitude trade clusters that exceed normal institutional activity thresholds. Filterable by ticker, date range, dollar amounts, sector, and cluster bomb rank. Outputs compact JSON by default.",
+		Long: `Query trade cluster bombs, which are extreme-magnitude trade clusters that exceed normal institutional activity thresholds. Filterable by ticker, date range, dollar amounts, sector, and cluster bomb rank. Outputs compact JSON by default.
+
+Cluster bombs find sudden aggressive bursts tightly grouped in time and price, with different defaults and rank fields than trade clusters. Use this command when looking for extreme concentration events, not general price-level clustering.`,
 		Example:    "volumeleaders-agent trade cluster-bombs TSLA --days 3",
 		Args:       cobra.ArbitraryArgs,
 		SuggestFor: []string{"clusterbombs", "cluster-bomb"},
@@ -351,7 +391,9 @@ func newTradeAlertsCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:        "alerts",
 		Short:      "Query trade alerts for a date",
-		Long:       "Query trade alerts fired on a specific date based on saved alert configurations. Requires --date. Returns alert records matching your configured filters. Outputs compact JSON or CSV/TSV with --format.",
+		Long: `Query trade alerts fired on a specific date based on saved alert configurations. Requires --date. Returns alert records matching your configured filters. Outputs compact JSON or CSV/TSV with --format.
+
+Alert configs trigger when trades match thresholds. Threshold names follow the pattern CategoryMetricLTE or CategoryMetricGTE where LTE is maximum rank and GTE is minimum value. Use alert configs to see your configured thresholds.`,
 		Example:    "volumeleaders-agent trade alerts --date 2025-01-15",
 		Args:       cobra.NoArgs,
 		SuggestFor: []string{"alert", "alrts"},
@@ -373,7 +415,9 @@ func newTradeClusterAlertsCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:        "cluster-alerts",
 		Short:      "Query trade cluster alerts for a date",
-		Long:       "Query trade cluster alerts fired on a specific date based on saved alert configurations that target cluster activity. Requires --date. Returns cluster alert records matching your configured filters.",
+		Long: `Query trade cluster alerts fired on a specific date based on saved alert configurations that target cluster activity. Requires --date. Returns cluster alert records matching your configured filters.
+
+Cluster alert rows use the full cluster-shaped model rather than the compact default from trade clusters. Use trade alerts for individual trade alert rows and this command for cluster-level alert rows.`,
 		Example:    "volumeleaders-agent trade cluster-alerts --date 2025-01-15",
 		Args:       cobra.NoArgs,
 		SuggestFor: []string{"clusteralerts", "cluster-alert"},
@@ -397,7 +441,9 @@ func newTradeLevelsCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:        "levels [ticker]",
 		Short:      "Query significant price levels for a ticker",
-		Long:       "Query significant price levels for a ticker, showing historical support and resistance zones identified by institutional trade clustering. Accepts a ticker as positional argument or via --ticker flag. Outputs compact JSON by default.",
+		Long: `Query significant price levels for a ticker, showing historical support and resistance zones identified by institutional trade clustering. Accepts a ticker as positional argument or via --ticker flag. Outputs compact JSON by default.
+
+Defaults to a 1-year lookback when dates are omitted. Uses non-standard --relative-size 0 and caps level count from 1 to 50 via --trade-level-count. Default JSON is compact and omits repetitive ticker metadata and the verbose Dates list; use --fields all or CSV/TSV when raw fields are needed.`,
 		Example:    "volumeleaders-agent trade levels AAPL",
 		Args:       cobra.ArbitraryArgs,
 		SuggestFor: []string{"level", "lvels"},
@@ -422,7 +468,9 @@ func newTradeLevelTouchesCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:        "level-touches [ticker]",
 		Short:      "Query trade events at notable price levels",
-		Long:       "Query institutional trade events that occurred at notable price levels for a ticker, showing how the market interacted with key support and resistance zones. Accepts a ticker as positional argument or via --ticker flag. Requires --start-date and --end-date (or --days).",
+		Long: `Query institutional trade events that occurred at notable price levels for a ticker, showing how the market interacted with key support and resistance zones. Accepts a ticker as positional argument or via --ticker flag. Requires --start-date and --end-date (or --days).
+
+Defaults to --length 50 and rejects --length -1, --length 0, and values above 50. Use trade levels first to identify significant price zones, then use this command to find events where price revisited those levels.`,
 		Example:    "volumeleaders-agent trade level-touches AAPL --days 14",
 		Args:       cobra.ArbitraryArgs,
 		SuggestFor: []string{"leveltouches", "level-touch"},

@@ -105,8 +105,8 @@ func JSONFieldNamesInOrder[T any]() []string {
 }
 
 // ParseOutputFormat normalizes and validates a command output format value.
-func ParseOutputFormat(value string) (OutputFormat, error) {
-	format := OutputFormat(strings.ToLower(strings.TrimSpace(value)))
+func ParseOutputFormat[T ~string](value T) (OutputFormat, error) {
+	format := OutputFormat(strings.ToLower(strings.TrimSpace(string(value))))
 	if format == "" {
 		return OutputFormatJSON, nil
 	}
@@ -115,6 +115,6 @@ func ParseOutputFormat(value string) (OutputFormat, error) {
 	case OutputFormatJSON, OutputFormatCSV, OutputFormatTSV:
 		return format, nil
 	default:
-		return "", fmt.Errorf("invalid format %q; valid formats: json,csv,tsv", value)
+		return "", fmt.Errorf("invalid format %q; valid formats: json,csv,tsv", string(value))
 	}
 }

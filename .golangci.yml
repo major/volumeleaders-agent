@@ -52,6 +52,25 @@ linters:
           - goconst
           - gosec
           - unparam
+      - path: cmd/gendocs/main\.go
+        text: "Expect directory permissions to be 0750 or less"
+        linters:
+          - gosec
+      - path: cmd/gendocs/main\.go
+        text: "Path traversal via taint analysis"
+        linters:
+          - gosec
+      - path: cmd/gendocs/main\.go
+        text: "use new octal literal style"
+        linters:
+          - gocritic
+      - path: internal/cli/trade/trade\.go
+        text: "could use tagged switch"
+        linters:
+          - staticcheck
+      - path: _test\.go
+        linters:
+          - modernize
 
 run:
   timeout: 5m

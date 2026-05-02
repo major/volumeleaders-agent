@@ -7,7 +7,12 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/major/volumeleaders-agent/internal/cli/alert"
 	"github.com/major/volumeleaders-agent/internal/cli/common"
+	"github.com/major/volumeleaders-agent/internal/cli/market"
+	"github.com/major/volumeleaders-agent/internal/cli/trade"
+	"github.com/major/volumeleaders-agent/internal/cli/volume"
+	"github.com/major/volumeleaders-agent/internal/cli/watchlist"
 )
 
 // NewRootCmd returns the root cobra command for volumeleaders-agent.
@@ -26,5 +31,12 @@ func NewRootCmd(version string) *cobra.Command {
 		},
 	}
 	cmd.PersistentFlags().Bool("pretty", false, "Pretty-print JSON output with indentation")
+	cmd.AddCommand(
+		trade.NewCmd(),
+		volume.NewVolumeCommand(),
+		market.NewMarketCommand(),
+		alert.NewAlertCommand(),
+		watchlist.NewCmd(),
+	)
 	return cmd
 }

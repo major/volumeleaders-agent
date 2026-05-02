@@ -7,7 +7,6 @@ toolchain go1.26.2
 require (
 	github.com/browserutils/kooky v0.2.9
 	github.com/spf13/cobra v1.10.2
-	github.com/urfave/cli/v3 v3.8.0
 	resty.dev/v3 v3.0.0-beta.6
 )
 

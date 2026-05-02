@@ -33,7 +33,7 @@ func NewRootCmd(version string) *cobra.Command {
 
 Auth: reads browser cookies automatically. If auth fails with exit code 2 and "Authentication required: VolumeLeaders session has expired.", log in at https://www.volumeleaders.com in your browser, then retry.
 
-Output: compact JSON to stdout by default. Use --pretty before the command group for indented JSON. The schema command always emits raw indented JSON for machine-readable CLI introspection. Errors and logs go to stderr.
+Output: compact JSON to stdout by default. Use --pretty before the command group for indented JSON. Use --jsonschema on any command for machine-readable JSON Schema output, or --jsonschema=tree on the root for the full CLI tree. Errors and logs go to stderr.
 
 COMMAND CHOOSER
 

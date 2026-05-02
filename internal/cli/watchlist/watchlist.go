@@ -16,8 +16,11 @@ import (
 // NewCmd returns the "watchlist" command group with all subcommands.
 func NewCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "watchlist",
-		Short: "Watch list commands",
+		Use:     "watchlist",
+		Short:   "Watch list commands",
+		Long:    "watchlist contains subcommands for managing saved watchlist configurations that group and track ticker symbols for use in trade filtering. Use create to define new watchlists, edit to update them, delete to remove them, configs to list all watchlists, and tickers to view the symbols in a watchlist.",
+		GroupID: "watchlists",
+		Args:    cobra.NoArgs,
 	}
 	cmd.AddCommand(
 		newConfigsCmd(),
@@ -33,9 +36,13 @@ func NewCmd() *cobra.Command {
 // newConfigsCmd returns the "configs" subcommand.
 func newConfigsCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "configs",
-		Short:   "List saved watch list configurations",
-		Example: "volumeleaders-agent watchlist configs",
+		Use:        "configs",
+		Short:      "List saved watch list configurations",
+		Long:       "List all saved watchlist configurations with their keys and names. Outputs compact JSON or CSV/TSV with --format. Each row shows the watchlist key and name; use the tickers subcommand to view symbols in a specific watchlist.",
+		Example:    "volumeleaders-agent watchlist configs",
+		Args:       cobra.NoArgs,
+		Aliases:    []string{"ls"},
+		SuggestFor: []string{"config", "cfg"},
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			format, _ := cmd.Flags().GetString("format")
 			opts := common.DataTableOptions{
@@ -61,9 +68,12 @@ func newConfigsCmd() *cobra.Command {
 // newTickersCmd returns the "tickers" subcommand.
 func newTickersCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "tickers",
-		Short:   "Query tickers for a selected watch list",
-		Example: "volumeleaders-agent watchlist tickers --watchlist-key 1",
+		Use:        "tickers",
+		Short:      "Query tickers for a selected watch list",
+		Long:       "Query the ticker symbols belonging to a specific watchlist identified by --watchlist-key. Returns all tickers in the watchlist with their metadata. Outputs compact JSON or CSV/TSV with --format.",
+		Example:    "volumeleaders-agent watchlist tickers --watchlist-key 1",
+		Args:       cobra.NoArgs,
+		SuggestFor: []string{"ticker", "tkrs"},
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			watchlistKey, _ := cmd.Flags().GetInt("watchlist-key")
 			format, _ := cmd.Flags().GetString("format")
@@ -94,9 +104,13 @@ func newTickersCmd() *cobra.Command {
 // newDeleteCmd returns the "delete" subcommand.
 func newDeleteCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "delete",
-		Short:   "Delete a watch list configuration",
-		Example: "volumeleaders-agent watchlist delete --key 1",
+		Use:        "delete",
+		Short:      "Delete a watch list configuration",
+		Long:       "Remove a saved watchlist configuration by its numeric key. Requires --key with the watchlist key (visible in configs output). The deletion is permanent and removes the watchlist and all its tickers.",
+		Example:    "volumeleaders-agent watchlist delete --key 1",
+		Args:       cobra.NoArgs,
+		Aliases:    []string{"rm"},
+		SuggestFor: []string{"del", "remove"},
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			key, _ := cmd.Flags().GetInt("key")
 			ctx := cmd.Context()
@@ -124,9 +138,12 @@ func newDeleteCmd() *cobra.Command {
 // newAddTickerCmd returns the "add-ticker" subcommand.
 func newAddTickerCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "add-ticker",
-		Short:   "Add a ticker to an existing watch list",
-		Example: "volumeleaders-agent watchlist add-ticker --watchlist-key 1 --ticker NVDA",
+		Use:        "add-ticker",
+		Short:      "Add a ticker to an existing watch list",
+		Long:       "Add a ticker symbol to an existing watchlist. Requires --watchlist-key with the watchlist key and --ticker with the symbol to add. The ticker is appended to the watchlist without affecting existing symbols.",
+		Example:    "volumeleaders-agent watchlist add-ticker --watchlist-key 1 --ticker NVDA",
+		Args:       cobra.NoArgs,
+		SuggestFor: []string{"addticker", "add-tkr"},
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			watchlistKey, _ := cmd.Flags().GetInt("watchlist-key")
 			ticker, _ := cmd.Flags().GetString("ticker")
@@ -162,8 +179,12 @@ func newCreateCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "create",
 		Short: "Create a new watch list configuration",
+		Long:  "Create a new watchlist configuration with a name and optional filter settings such as minimum volume, price range, sector, and trade conditions. Requires --name. Use --tickers to specify an explicit ticker list or leave unset for a filter-based watchlist.",
 		Example: `volumeleaders-agent watchlist create --name "Tech stocks" --tickers AAPL,MSFT,GOOGL
 volumeleaders-agent watchlist create --name "Large caps" --security-type 1 --min-dollars 10000000`,
+		Args:       cobra.NoArgs,
+		Aliases:    []string{"new"},
+		SuggestFor: []string{"crate", "creat"},
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			return runCreateEdit(cmd, 0)
 		},
@@ -176,9 +197,12 @@ volumeleaders-agent watchlist create --name "Large caps" --security-type 1 --min
 // newEditCmd returns the "edit" subcommand.
 func newEditCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "edit",
-		Short:   "Edit an existing watch list configuration",
-		Example: `volumeleaders-agent watchlist edit --key 1 --name "Updated watchlist" --tickers AAPL,MSFT`,
+		Use:        "edit",
+		Short:      "Edit an existing watch list configuration",
+		Long:       "Modify an existing watchlist configuration identified by its numeric key. Requires --key with the watchlist key. Specify only the fields you want to change; unspecified fields retain their current values.",
+		Example:    `volumeleaders-agent watchlist edit --key 1 --name "Updated watchlist" --tickers AAPL,MSFT`,
+		Args:       cobra.NoArgs,
+		SuggestFor: []string{"edt", "modify"},
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			key, _ := cmd.Flags().GetInt("key")
 			return runCreateEdit(cmd, key)

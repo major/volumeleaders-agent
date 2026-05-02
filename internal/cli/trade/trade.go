@@ -59,7 +59,13 @@ type tradeLevelOptions struct {
 
 // NewCmd returns the "trade" command group with all subcommands.
 func NewCmd() *cobra.Command {
-	cmd := &cobra.Command{Use: "trade", Short: "Trade-related commands"}
+	cmd := &cobra.Command{
+		Use:     "trade",
+		Short:   "Trade-related commands",
+		GroupID: "trading",
+		Args:    cobra.NoArgs,
+		Long:    "trade contains subcommands for querying institutional trade data, trade clusters, sentiment metrics, price levels, and alert activity from VolumeLeaders. Use subcommands to filter by ticker, date range, dollar amounts, trade conditions, and more. All subcommands output compact JSON to stdout by default.",
+	}
 	cmd.AddCommand(
 		newTradeListCommand(),
 		newTradeSentimentCommand(),
@@ -82,13 +88,17 @@ func newTradeListCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "list [tickers...]",
 		Short: "Query institutional trades",
+		Long:  "Query individual institutional trades from VolumeLeaders, filterable by ticker, date range, dollar amounts, volume, trade conditions, session type, and trade rank. Supports built-in filter presets (--preset) and watchlist-based filtering (--watchlist). Outputs compact JSON or CSV/TSV with --format; use --summary for aggregate metrics grouped by ticker or day.",
 		Example: `volumeleaders-agent trade list AAPL MSFT
 volumeleaders-agent trade list --tickers AAPL,MSFT
 volumeleaders-agent trade list --tickers NVDA --dark-pools 1 --min-dollars 1000000
 volumeleaders-agent trade list --sector Technology --relative-size 10 --length 50
 volumeleaders-agent trade list --preset "Top-100 Rank" --start-date 2025-04-01 --end-date 2025-04-24
 volumeleaders-agent trade list --watchlist "Magnificent 7" --start-date 2025-04-01 --end-date 2025-04-24`,
-		RunE: runTradeList,
+		Args:       cobra.ArbitraryArgs,
+		Aliases:    []string{"ls"},
+		SuggestFor: []string{"lst", "lis"},
+		RunE:       runTradeList,
 	}
 	common.AddOptionalDateRangeFlags(cmd)
 	addTradeRangeFlags(cmd, 500000)
@@ -107,10 +117,13 @@ volumeleaders-agent trade list --watchlist "Magnificent 7" --start-date 2025-04-
 
 func newTradeSentimentCommand() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "sentiment",
-		Short:   "Summarize leveraged ETF bull/bear flow by day",
-		Example: "volumeleaders-agent trade sentiment --start-date 2025-04-21 --end-date 2025-04-25",
-		RunE:    runTradeSentiment,
+		Use:        "sentiment",
+		Short:      "Summarize leveraged ETF bull/bear flow by day",
+		Long:       "Summarize leveraged ETF bull and bear flow by trading day, showing aggregate institutional dollar volume on the bull and bear side. Requires --start-date and --end-date (or --days). Outputs one record per day with bull and bear totals.",
+		Example:    "volumeleaders-agent trade sentiment --start-date 2025-04-21 --end-date 2025-04-25",
+		Args:       cobra.NoArgs,
+		SuggestFor: []string{"sentment", "sentimnt"},
+		RunE:       runTradeSentiment,
 	}
 	common.AddDateRangeFlags(cmd)
 	addTradeRangeFlags(cmd, 5000000)
@@ -121,10 +134,13 @@ func newTradeSentimentCommand() *cobra.Command {
 
 func newTradeClustersCommand() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "clusters [tickers...]",
-		Short:   "Query aggregated trade clusters",
-		Example: "volumeleaders-agent trade clusters AAPL --days 7",
-		RunE:    runTradeClusters,
+		Use:        "clusters [tickers...]",
+		Short:      "Query aggregated trade clusters",
+		Long:       "Query aggregated trade clusters, which group multiple trades in a short window into a single cluster record. Filterable by ticker, date range, dollar amounts, sector, and trade cluster rank. Outputs compact JSON or CSV/TSV with --format.",
+		Example:    "volumeleaders-agent trade clusters AAPL --days 7",
+		Args:       cobra.ArbitraryArgs,
+		SuggestFor: []string{"cluster", "clsters"},
+		RunE:       runTradeClusters,
 	}
 	common.AddDateRangeFlags(cmd)
 	addTradeRangeFlags(cmd, 10000000)
@@ -142,10 +158,13 @@ func newTradeClustersCommand() *cobra.Command {
 
 func newTradeClusterBombsCommand() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "cluster-bombs [tickers...]",
-		Short:   "Query trade cluster bombs",
-		Example: "volumeleaders-agent trade cluster-bombs TSLA --days 3",
-		RunE:    runTradeClusterBombs,
+		Use:        "cluster-bombs [tickers...]",
+		Short:      "Query trade cluster bombs",
+		Long:       "Query trade cluster bombs, which are extreme-magnitude trade clusters that exceed normal institutional activity thresholds. Filterable by ticker, date range, dollar amounts, sector, and cluster bomb rank. Outputs compact JSON by default.",
+		Example:    "volumeleaders-agent trade cluster-bombs TSLA --days 3",
+		Args:       cobra.ArbitraryArgs,
+		SuggestFor: []string{"clusterbombs", "cluster-bomb"},
+		RunE:       runTradeClusterBombs,
 	}
 	common.AddDateRangeFlags(cmd)
 	common.AddVolumeRangeFlags(cmd)
@@ -163,10 +182,13 @@ func newTradeClusterBombsCommand() *cobra.Command {
 
 func newTradeAlertsCommand() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "alerts",
-		Short:   "Query trade alerts for a date",
-		Example: "volumeleaders-agent trade alerts --date 2025-01-15",
-		RunE:    runTradeAlerts,
+		Use:        "alerts",
+		Short:      "Query trade alerts for a date",
+		Long:       "Query trade alerts fired on a specific date based on saved alert configurations. Requires --date. Returns alert records matching your configured filters. Outputs compact JSON or CSV/TSV with --format.",
+		Example:    "volumeleaders-agent trade alerts --date 2025-01-15",
+		Args:       cobra.NoArgs,
+		SuggestFor: []string{"alert", "alrts"},
+		RunE:       runTradeAlerts,
 	}
 	cmd.Flags().String("date", "", "Date YYYY-MM-DD")
 	_ = cmd.MarkFlagRequired("date")
@@ -177,10 +199,13 @@ func newTradeAlertsCommand() *cobra.Command {
 
 func newTradeClusterAlertsCommand() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "cluster-alerts",
-		Short:   "Query trade cluster alerts for a date",
-		Example: "volumeleaders-agent trade cluster-alerts --date 2025-01-15",
-		RunE:    runTradeClusterAlerts,
+		Use:        "cluster-alerts",
+		Short:      "Query trade cluster alerts for a date",
+		Long:       "Query trade cluster alerts fired on a specific date based on saved alert configurations that target cluster activity. Requires --date. Returns cluster alert records matching your configured filters.",
+		Example:    "volumeleaders-agent trade cluster-alerts --date 2025-01-15",
+		Args:       cobra.NoArgs,
+		SuggestFor: []string{"clusteralerts", "cluster-alert"},
+		RunE:       runTradeClusterAlerts,
 	}
 	cmd.Flags().String("date", "", "Date YYYY-MM-DD")
 	_ = cmd.MarkFlagRequired("date")
@@ -191,10 +216,13 @@ func newTradeClusterAlertsCommand() *cobra.Command {
 
 func newTradeLevelsCommand() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "levels [ticker]",
-		Short:   "Query significant price levels for a ticker",
-		Example: "volumeleaders-agent trade levels AAPL",
-		RunE:    runTradeLevels,
+		Use:        "levels [ticker]",
+		Short:      "Query significant price levels for a ticker",
+		Long:       "Query significant price levels for a ticker, showing historical support and resistance zones identified by institutional trade clustering. Accepts a ticker as positional argument or via --ticker flag. Outputs compact JSON by default.",
+		Example:    "volumeleaders-agent trade levels AAPL",
+		Args:       cobra.ArbitraryArgs,
+		SuggestFor: []string{"level", "lvels"},
+		RunE:       runTradeLevels,
 	}
 	common.AddOptionalDateRangeFlags(cmd)
 	addTradeRangeFlags(cmd, 500000)
@@ -210,10 +238,13 @@ func newTradeLevelsCommand() *cobra.Command {
 
 func newTradeLevelTouchesCommand() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "level-touches [ticker]",
-		Short:   "Query trade events at notable price levels",
-		Example: "volumeleaders-agent trade level-touches AAPL --days 14",
-		RunE:    runTradeLevelTouches,
+		Use:        "level-touches [ticker]",
+		Short:      "Query trade events at notable price levels",
+		Long:       "Query institutional trade events that occurred at notable price levels for a ticker, showing how the market interacted with key support and resistance zones. Accepts a ticker as positional argument or via --ticker flag. Requires --start-date and --end-date (or --days).",
+		Example:    "volumeleaders-agent trade level-touches AAPL --days 14",
+		Args:       cobra.ArbitraryArgs,
+		SuggestFor: []string{"leveltouches", "level-touch"},
+		RunE:       runTradeLevelTouches,
 	}
 	common.AddDateRangeFlags(cmd)
 	addTradeRangeFlags(cmd, 500000)

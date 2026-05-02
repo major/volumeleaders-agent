@@ -11,8 +11,11 @@ import (
 // NewVolumeCommand returns the "volume" command group with all subcommands.
 func NewVolumeCommand() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "volume",
-		Short: "Volume leaderboard commands",
+		Use:      "volume",
+		Short:    "Volume leaderboard commands",
+		GroupID:  "volume",
+		Args:     cobra.NoArgs,
+		Long:     "volume contains subcommands for querying volume leaderboard data from VolumeLeaders, showing tickers ranked by institutional trade volume. Filter by date and optional ticker list. All subcommands output compact JSON or CSV/TSV with --format.",
 	}
 	cmd.AddCommand(
 		newInstitutionalCmd(),
@@ -25,9 +28,12 @@ func NewVolumeCommand() *cobra.Command {
 // newInstitutionalCmd returns the "institutional" subcommand.
 func newInstitutionalCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "institutional",
-		Short:   "Query institutional volume leaderboard",
-		Example: "volumeleaders-agent volume institutional AAPL MSFT --date 2025-01-15",
+		Use:       "institutional [tickers...]",
+		Short:     "Query institutional volume leaderboard",
+		Long:      "Query the regular-hours institutional volume leaderboard, ranking tickers by total institutional trade volume for a given date. Accepts optional ticker positional arguments to filter results; also accepts --tickers flag. Requires --date. Outputs compact JSON or CSV/TSV with --format.",
+		Example:   "volumeleaders-agent volume institutional AAPL MSFT --date 2025-01-15",
+		Args:      cobra.ArbitraryArgs,
+		SuggestFor: []string{"inst", "insitutional"},
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			return runVolume(cmd,
 				"/InstitutionalVolume/GetInstitutionalVolume",
@@ -41,9 +47,12 @@ func newInstitutionalCmd() *cobra.Command {
 // newAHInstitutionalCmd returns the "ah-institutional" subcommand.
 func newAHInstitutionalCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "ah-institutional",
-		Short:   "Query after-hours institutional volume leaderboard",
-		Example: "volumeleaders-agent volume ah-institutional --date 2025-01-15",
+		Use:       "ah-institutional [tickers...]",
+		Short:     "Query after-hours institutional volume leaderboard",
+		Long:      "Query the after-hours institutional volume leaderboard, ranking tickers by total institutional trade volume during after-hours sessions for a given date. Accepts optional ticker positional arguments; also accepts --tickers flag. Requires --date.",
+		Example:   "volumeleaders-agent volume ah-institutional --date 2025-01-15",
+		Args:      cobra.ArbitraryArgs,
+		SuggestFor: []string{"ah", "afterhours"},
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			return runVolume(cmd,
 				"/AHInstitutionalVolume/GetAHInstitutionalVolume",
@@ -57,9 +66,12 @@ func newAHInstitutionalCmd() *cobra.Command {
 // newTotalCmd returns the "total" subcommand.
 func newTotalCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "total",
-		Short:   "Query total volume leaderboard",
-		Example: "volumeleaders-agent volume total XLE --date 2025-01-15 --length 20",
+		Use:       "total [tickers...]",
+		Short:     "Query total volume leaderboard",
+		Long:      "Query the total volume leaderboard combining all session types, ranking tickers by total institutional trade volume for a given date. Accepts optional ticker positional arguments; also accepts --tickers flag. Requires --date.",
+		Example:   "volumeleaders-agent volume total XLE --date 2025-01-15 --length 20",
+		Args:      cobra.ArbitraryArgs,
+		SuggestFor: []string{"totl", "all"},
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			return runVolume(cmd,
 				"/TotalVolume/GetTotalVolume",

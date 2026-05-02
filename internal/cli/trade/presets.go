@@ -199,7 +199,15 @@ func watchlistConfigToFilters(cfg *models.WatchListConfig) map[string]string {
 }
 
 func newTradePresetTickersCommand() *cobra.Command {
-	cmd := &cobra.Command{Use: "preset-tickers", Short: "Extract ticker symbols from a preset", Example: "volumeleaders-agent trade preset-tickers --preset NAME", RunE: runTradePresetTickers}
+	cmd := &cobra.Command{
+		Use:        "preset-tickers",
+		Short:      "Extract ticker symbols from a preset",
+		Long:       "Extract the ticker symbols configured in a named trade filter preset, showing whether the preset uses an explicit ticker list, a sector/industry filter, or is unfiltered. Requires --preset with the preset name (case-insensitive). Outputs JSON with the preset name, group, type, and ticker details.",
+		Example:    "volumeleaders-agent trade preset-tickers --preset NAME",
+		Args:       cobra.NoArgs,
+		SuggestFor: []string{"presettickers", "preset-ticker"},
+		RunE:       runTradePresetTickers,
+	}
 	cmd.Flags().String("preset", "", "Preset name (case-insensitive)")
 	_ = cmd.MarkFlagRequired("preset")
 	return cmd
@@ -240,7 +248,15 @@ func splitTickers(tickers string) []string {
 }
 
 func newTradePresetsCommand() *cobra.Command {
-	cmd := &cobra.Command{Use: "presets", Short: "List available trade filter presets", Example: "volumeleaders-agent trade presets", RunE: runTradePresets}
+	cmd := &cobra.Command{
+		Use:        "presets",
+		Short:      "List available trade filter presets",
+		Long:       "List all built-in trade filter presets with their names, groups, and filter configurations. Each preset defines a named set of filters that can be applied to trade list queries via --preset. Outputs compact JSON by default; use --format csv or tsv for tabular output.",
+		Example:    "volumeleaders-agent trade presets",
+		Args:       cobra.NoArgs,
+		SuggestFor: []string{"preset", "prsets"},
+		RunE:       runTradePresets,
+	}
 	common.AddOutputFormatFlags(cmd)
 	return cmd
 }

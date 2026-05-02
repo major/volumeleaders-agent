@@ -3,6 +3,7 @@ package cli
 import (
 	"context"
 	"errors"
+	"slices"
 	"strings"
 	"testing"
 
@@ -69,5 +70,230 @@ func TestRootSilenceUsagePreventsUsageOutputOnError(t *testing.T) {
 	combinedOutput := stdout + stderr
 	if strings.Contains(combinedOutput, "Usage:") {
 		t.Fatalf("expected no usage output, got stdout=%q stderr=%q", stdout, stderr)
+	}
+}
+
+// walkCommands recursively visits cmd and all of its subcommands, calling fn
+// on each one. This lets structural tests assert properties across the entire
+// command tree without duplicating the traversal logic.
+func walkCommands(cmd *cobra.Command, fn func(*cobra.Command)) {
+	fn(cmd)
+	for _, sub := range cmd.Commands() {
+		walkCommands(sub, fn)
+	}
+}
+
+func TestRootTraverseChildrenEnabled(t *testing.T) {
+	t.Parallel()
+	cmd := NewRootCmd("test")
+	if !cmd.TraverseChildren {
+		t.Fatal("expected TraverseChildren = true on root command")
+	}
+}
+
+func TestRootHasCommandGroups(t *testing.T) {
+	t.Parallel()
+	cmd := NewRootCmd("test")
+
+	groups := cmd.Groups()
+	if len(groups) != 5 {
+		t.Fatalf("expected 5 command groups, got %d", len(groups))
+	}
+
+	expectedGroups := []struct {
+		id string
+	}{
+		{"trading"},
+		{"volume"},
+		{"market"},
+		{"alerts"},
+		{"watchlists"},
+	}
+	for _, tt := range expectedGroups {
+		t.Run(tt.id, func(t *testing.T) {
+			t.Parallel()
+			var found bool
+			for _, g := range groups {
+				if g.ID == tt.id {
+					found = true
+					if g.Title == "" {
+						t.Fatalf("group %q has empty Title", tt.id)
+					}
+					break
+				}
+			}
+			if !found {
+				t.Fatalf("expected group %q not found", tt.id)
+			}
+		})
+	}
+}
+
+func TestAllTopLevelCommandsHaveGroupID(t *testing.T) {
+	t.Parallel()
+	cmd := NewRootCmd("test")
+
+	validGroups := []string{"trading", "volume", "market", "alerts", "watchlists"}
+	builtins := []string{"help", "completion"}
+
+	for _, sub := range cmd.Commands() {
+		t.Run(sub.Name(), func(t *testing.T) {
+			t.Parallel()
+			if slices.Contains(builtins, sub.Name()) {
+				return
+			}
+			if sub.GroupID == "" {
+				t.Fatalf("command %q has empty GroupID", sub.Name())
+			}
+			if !slices.Contains(validGroups, sub.GroupID) {
+				t.Fatalf("command %q has unexpected GroupID %q", sub.Name(), sub.GroupID)
+			}
+		})
+	}
+}
+
+func TestAllCommandsHaveArgsValidator(t *testing.T) {
+	t.Parallel()
+	cmd := NewRootCmd("test")
+
+	walkCommands(cmd, func(c *cobra.Command) {
+		t.Run(c.CommandPath(), func(t *testing.T) {
+			t.Parallel()
+			if c.Args == nil {
+				t.Fatalf("command %q has nil Args validator", c.CommandPath())
+			}
+		})
+	})
+}
+
+func TestAllCommandsHaveLongDescription(t *testing.T) {
+	t.Parallel()
+	cmd := NewRootCmd("test")
+
+	builtins := []string{"help", "completion"}
+
+	walkCommands(cmd, func(c *cobra.Command) {
+		t.Run(c.CommandPath(), func(t *testing.T) {
+			t.Parallel()
+			if slices.Contains(builtins, c.Name()) {
+				return
+			}
+			if c.Long == "" {
+				t.Fatalf("command %q has empty Long description", c.CommandPath())
+			}
+			if c.Long == c.Short {
+				t.Fatalf("command %q Long equals Short; Long must add value", c.CommandPath())
+			}
+			for _, ch := range []string{"#", "`", "[", "]"} {
+				if strings.Contains(c.Long, ch) {
+					t.Fatalf("command %q Long contains Markdown character %q", c.CommandPath(), ch)
+				}
+			}
+		})
+	})
+}
+
+func TestNoAliasConflictsWithinParentScope(t *testing.T) {
+	t.Parallel()
+	cmd := NewRootCmd("test")
+
+	walkCommands(cmd, func(parent *cobra.Command) {
+		children := parent.Commands()
+		if len(children) == 0 {
+			return
+		}
+		t.Run(parent.CommandPath(), func(t *testing.T) {
+			t.Parallel()
+			seen := make(map[string]string) // name/alias -> owning command
+			for _, child := range children {
+				name := child.Name()
+				if owner, ok := seen[name]; ok {
+					t.Fatalf("duplicate name %q: used by both %q and %q", name, owner, child.CommandPath())
+				}
+				seen[name] = child.CommandPath()
+
+				for _, alias := range child.Aliases {
+					if owner, ok := seen[alias]; ok {
+						t.Fatalf("alias %q of %q conflicts with %q", alias, child.CommandPath(), owner)
+					}
+					seen[alias] = child.CommandPath()
+				}
+			}
+		})
+	})
+}
+
+func TestNoArgsCommandsRejectPositionalArgs(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		args []string
+	}{
+		{"trade sentiment", []string{"trade", "sentiment", "bogus"}},
+		{"trade presets", []string{"trade", "presets", "bogus"}},
+		{"trade preset-tickers", []string{"trade", "preset-tickers", "bogus"}},
+		{"trade alerts", []string{"trade", "alerts", "--date", "2025-01-01", "bogus"}},
+		{"trade cluster-alerts", []string{"trade", "cluster-alerts", "--date", "2025-01-01", "bogus"}},
+		{"market snapshots", []string{"market", "snapshots", "bogus"}},
+		{"market earnings", []string{"market", "earnings", "bogus"}},
+		{"market exhaustion", []string{"market", "exhaustion", "bogus"}},
+		{"alert configs", []string{"alert", "configs", "bogus"}},
+		{"alert delete", []string{"alert", "delete", "bogus"}},
+		{"alert create", []string{"alert", "create", "bogus"}},
+		{"alert edit", []string{"alert", "edit", "bogus"}},
+		{"watchlist configs", []string{"watchlist", "configs", "bogus"}},
+		{"watchlist tickers", []string{"watchlist", "tickers", "bogus"}},
+		{"watchlist delete", []string{"watchlist", "delete", "bogus"}},
+		{"watchlist add-ticker", []string{"watchlist", "add-ticker", "bogus"}},
+		{"watchlist create", []string{"watchlist", "create", "bogus"}},
+		{"watchlist edit", []string{"watchlist", "edit", "bogus"}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			cmd := NewRootCmd("test")
+			_, _, err := testutil.ExecuteCommand(t, cmd, context.Background(), tt.args...)
+			if err == nil {
+				t.Fatalf("expected error for args %v, got nil", tt.args)
+			}
+		})
+	}
+}
+
+func TestArbitraryArgsCommandsAcceptPositionalArgs(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		args []string
+	}{
+		{"trade list", []string{"trade", "list", "AAPL"}},
+		{"trade clusters", []string{"trade", "clusters", "AAPL"}},
+		{"trade cluster-bombs", []string{"trade", "cluster-bombs", "AAPL"}},
+		{"trade levels", []string{"trade", "levels", "AAPL"}},
+		{"trade level-touches", []string{"trade", "level-touches", "AAPL"}},
+		{"volume institutional", []string{"volume", "institutional", "--date", "2025-01-01", "AAPL"}},
+		{"volume ah-institutional", []string{"volume", "ah-institutional", "--date", "2025-01-01", "AAPL"}},
+		{"volume total", []string{"volume", "total", "--date", "2025-01-01", "AAPL"}},
+	}
+
+	rejectMsgs := []string{"unknown command", "does not accept"}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			cmd := NewRootCmd("test")
+			_, _, err := testutil.ExecuteCommand(t, cmd, context.Background(), tt.args...)
+			if err != nil {
+				msg := err.Error()
+				for _, reject := range rejectMsgs {
+					if strings.Contains(msg, reject) {
+						t.Fatalf("command rejected positional arg: %v", err)
+					}
+				}
+			}
+		})
 	}
 }

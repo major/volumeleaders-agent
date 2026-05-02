@@ -244,7 +244,7 @@ func newTradeListCommand() *cobra.Command {
 	opts := &tradeListOptions{}
 	presetTradeFilterDefaults(&opts.tradeFilterFlags, 97)
 	presetTradeRangeDefaults(&opts.tradeRangeFlags, 500000)
-	presetTradePaginationDefaults(&opts.tradePaginationFlags, defaultTradeRequestLength, 1, "desc")
+	presetTradePaginationDefaults(&opts.tradePaginationFlags, defaultTradeRequestLength, 1)
 	opts.Format = "json"
 	opts.GroupBy = "ticker"
 	cmd := &cobra.Command{
@@ -333,7 +333,7 @@ Ratio is bull dollars divided by bear dollars and is null when bear flow is zero
 func newTradeClustersCommand() *cobra.Command {
 	opts := &tradeClustersOptions{}
 	presetTradeRangeDefaults(&opts.tradeRangeFlags, 10000000)
-	presetTradePaginationDefaults(&opts.tradePaginationFlags, 1000, 1, "desc")
+	presetTradePaginationDefaults(&opts.tradePaginationFlags, 1000, 1)
 	opts.SecurityType = -1
 	opts.RelativeSize = 5
 	opts.TradeClusterRank = -1
@@ -361,7 +361,7 @@ Use clusters when the question is about price-level concentration, not single pr
 func newTradeClusterBombsCommand() *cobra.Command {
 	opts := &tradeClusterBombsOptions{}
 	presetTradeVolumeDollarRangeDefaults(&opts.tradeVolumeDollarRangeFlags, 0)
-	presetTradePaginationDefaults(&opts.tradePaginationFlags, 100, 1, "desc")
+	presetTradePaginationDefaults(&opts.tradePaginationFlags, 100, 1)
 	opts.TradeClusterBombRank = -1
 	opts.Format = "json"
 	cmd := &cobra.Command{
@@ -386,7 +386,7 @@ Cluster bombs find sudden aggressive bursts tightly grouped in time and price, w
 
 func newTradeAlertsCommand() *cobra.Command {
 	opts := &tradeAlertsOptions{}
-	presetTradePaginationDefaults(&opts.tradePaginationFlags, 100, 1, "desc")
+	presetTradePaginationDefaults(&opts.tradePaginationFlags, 100, 1)
 	opts.Format = "json"
 	cmd := &cobra.Command{
 		Use:        "alerts",
@@ -410,7 +410,7 @@ Alert configs trigger when trades match thresholds. Threshold names follow the p
 
 func newTradeClusterAlertsCommand() *cobra.Command {
 	opts := &tradeClusterAlertsOptions{}
-	presetTradePaginationDefaults(&opts.tradePaginationFlags, 100, 1, "desc")
+	presetTradePaginationDefaults(&opts.tradePaginationFlags, 100, 1)
 	opts.Format = "json"
 	cmd := &cobra.Command{
 		Use:        "cluster-alerts",
@@ -461,7 +461,7 @@ Defaults to a 1-year lookback when dates are omitted. Uses non-standard --relati
 func newTradeLevelTouchesCommand() *cobra.Command {
 	opts := &tradeLevelTouchesOptions{}
 	presetTradeRangeDefaults(&opts.tradeRangeFlags, 500000)
-	presetTradePaginationDefaults(&opts.tradePaginationFlags, maxTradeLevelRequestLength, 0, "desc")
+	presetTradePaginationDefaults(&opts.tradePaginationFlags, maxTradeLevelRequestLength, 0)
 	opts.TradeLevelRank = 10
 	opts.TradeLevelCount = maxTradeLevelRequestLength
 	opts.Format = "json"
@@ -519,10 +519,10 @@ func presetTradeFilterDefaults(opts *tradeFilterFlags, vcdDefault int) {
 	opts.Offsetting = 1
 }
 
-func presetTradePaginationDefaults(opts *tradePaginationFlags, length, orderCol int, orderDir string) {
+func presetTradePaginationDefaults(opts *tradePaginationFlags, length, orderCol int) {
 	opts.Length = length
 	opts.OrderCol = orderCol
-	opts.OrderDir = orderDir
+	opts.OrderDir = "desc"
 }
 
 func setTradeRangeFlagDefValues(cmd *cobra.Command, minDollarsDefault float64) {
@@ -616,20 +616,6 @@ func tradesOptionsFromListOptions(opts *tradeListOptions, tickers, startDate, en
 
 func tradesOptionsFromSentimentOptions(opts *tradeSentimentOptions, startDate, endDate string) *tradesOptions {
 	return &tradesOptions{startDate: startDate, endDate: endDate, minVolume: opts.MinVolume, maxVolume: opts.MaxVolume, minPrice: opts.MinPrice, maxPrice: opts.MaxPrice, minDollars: opts.MinDollars, maxDollars: opts.MaxDollars, conditions: opts.Conditions, vcd: opts.VCD, securityType: opts.SecurityType, relativeSize: opts.RelativeSize, darkPools: opts.DarkPools, sweeps: opts.Sweeps, latePrints: opts.LatePrints, sigPrints: opts.SigPrints, evenShared: opts.EvenShared, tradeRank: opts.TradeRank, rankSnapshot: opts.RankSnapshot, marketCap: opts.MarketCap, premarket: opts.Premarket, rth: opts.RTH, ah: opts.AH, opening: opts.Opening, closing: opts.Closing, phantom: opts.Phantom, offsetting: opts.Offsetting}
-}
-
-func tradesOptionsFromFlags(cmd *cobra.Command, tickers, startDate, endDate string) *tradesOptions {
-	return &tradesOptions{
-		tickers: tickers, startDate: startDate, endDate: endDate,
-		minVolume: getInt(cmd, "min-volume"), maxVolume: getInt(cmd, "max-volume"),
-		minPrice: getFloat(cmd, "min-price"), maxPrice: getFloat(cmd, "max-price"),
-		minDollars: getFloat(cmd, "min-dollars"), maxDollars: getFloat(cmd, "max-dollars"),
-		conditions: getInt(cmd, "conditions"), vcd: getInt(cmd, "vcd"), securityType: getInt(cmd, "security-type"), relativeSize: getInt(cmd, "relative-size"),
-		darkPools: getInt(cmd, "dark-pools"), sweeps: getInt(cmd, "sweeps"), latePrints: getInt(cmd, "late-prints"), sigPrints: getInt(cmd, "sig-prints"),
-		evenShared: getInt(cmd, "even-shared"), tradeRank: getInt(cmd, "trade-rank"), rankSnapshot: getInt(cmd, "rank-snapshot"), marketCap: getInt(cmd, "market-cap"),
-		premarket: getInt(cmd, "premarket"), rth: getInt(cmd, "rth"), ah: getInt(cmd, "ah"), opening: getInt(cmd, "opening"), closing: getInt(cmd, "closing"),
-		phantom: getInt(cmd, "phantom"), offsetting: getInt(cmd, "offsetting"), sector: getString(cmd, "sector"),
-	}
 }
 
 func validateTradeRequestLength(length int) error {
@@ -915,10 +901,6 @@ func runTradeLevels(cmd *cobra.Command, opts *tradeLevelsOptions) error {
 
 func tradeLevelOptionsFromLevelsOptions(opts *tradeLevelsOptions, ticker, startDate, endDate string) *tradeLevelOptions {
 	return &tradeLevelOptions{ticker: ticker, startDate: startDate, endDate: endDate, minVolume: opts.MinVolume, maxVolume: opts.MaxVolume, minPrice: opts.MinPrice, maxPrice: opts.MaxPrice, minDollars: opts.MinDollars, maxDollars: opts.MaxDollars, vcd: opts.VCD, relativeSize: opts.RelativeSize, tradeLevelRank: opts.TradeLevelRank, tradeLevelCount: opts.TradeLevelCount}
-}
-
-func tradeLevelOptionsFromFlags(cmd *cobra.Command, ticker, startDate, endDate string) *tradeLevelOptions {
-	return &tradeLevelOptions{ticker: ticker, startDate: startDate, endDate: endDate, minVolume: getInt(cmd, "min-volume"), maxVolume: getInt(cmd, "max-volume"), minPrice: getFloat(cmd, "min-price"), maxPrice: getFloat(cmd, "max-price"), minDollars: getFloat(cmd, "min-dollars"), maxDollars: getFloat(cmd, "max-dollars"), vcd: getInt(cmd, "vcd"), relativeSize: getInt(cmd, "relative-size"), tradeLevelRank: getInt(cmd, "trade-level-rank"), tradeLevelCount: getInt(cmd, "trade-level-count")}
 }
 
 func fetchTradeLevels(cmd *cobra.Command, opts common.DataTableOptions) ([]models.TradeLevel, error) {

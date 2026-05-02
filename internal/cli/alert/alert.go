@@ -28,9 +28,11 @@ var alertConfigDefaultFields = []string{
 // NewAlertCommand returns the "alert" command group with all subcommands.
 func NewAlertCommand() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:      "alert",
-		Short:    "Alert configuration commands",
-		GroupID:  "alerts",
+		Use:     "alert",
+		Short:   "Alert configuration commands",
+		Long:    "alert contains subcommands for managing saved alert configurations that notify on institutional trade activity matching your criteria. Use create to define new alerts, edit to update existing ones, delete to remove them, and configs to list all saved configurations.",
+		GroupID: "alerts",
+		Args:    cobra.NoArgs,
 	}
 	cmd.AddCommand(
 		newConfigsCmd(),
@@ -44,9 +46,13 @@ func NewAlertCommand() *cobra.Command {
 // newConfigsCmd returns the "configs" subcommand.
 func newConfigsCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "configs",
-		Short:   "List saved alert configurations",
-		Example: "volumeleaders-agent alert configs",
+		Use:        "configs",
+		Short:      "List saved alert configurations",
+		Long:       "List all saved alert configurations with their keys, names, ticker filters, trade conditions, and notification settings. Outputs compact JSON or CSV/TSV with --format. Use --fields to select specific output fields.",
+		Example:    "volumeleaders-agent alert configs",
+		Args:       cobra.NoArgs,
+		Aliases:    []string{"ls"},
+		SuggestFor: []string{"config", "cfg"},
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			fieldsValue, _ := cmd.Flags().GetString("fields")
 			fields, err := common.OutputFields[models.AlertConfig](fieldsValue, alertConfigDefaultFields)
@@ -76,9 +82,13 @@ func newConfigsCmd() *cobra.Command {
 // newDeleteCmd returns the "delete" subcommand.
 func newDeleteCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "delete",
-		Short:   "Delete an alert configuration",
-		Example: "volumeleaders-agent alert delete --key 42",
+		Use:        "delete",
+		Short:      "Delete an alert configuration",
+		Long:       "Remove a saved alert configuration by its numeric key. Requires --key with the alert config key (visible in configs output). The deletion is permanent and cannot be undone.",
+		Example:    "volumeleaders-agent alert delete --key 42",
+		Args:       cobra.NoArgs,
+		Aliases:    []string{"rm"},
+		SuggestFor: []string{"del", "remove"},
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			key, _ := cmd.Flags().GetInt("key")
 			ctx := cmd.Context()
@@ -108,8 +118,12 @@ func newCreateCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "create",
 		Short: "Create a new alert configuration",
+		Long:  "Create a new alert configuration with a name and filter settings for institutional trade activity. Requires --name. Specify filters such as trade rank, dollar thresholds, dark pool and sweep conditions, and ticker scope. Returns a success response with the new configuration key.",
 		Example: `volumeleaders-agent alert create --name "Big trades" --tickers AAPL,MSFT --trade-rank-lte 5
 volumeleaders-agent alert create --name "Dark pool sweeps" --sweep --dark-pool --trade-volume-gte 1000000`,
+		Args:       cobra.NoArgs,
+		Aliases:    []string{"new"},
+		SuggestFor: []string{"crate", "creat"},
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			return runAlertCreateEdit(cmd, 0)
 		},
@@ -122,9 +136,12 @@ volumeleaders-agent alert create --name "Dark pool sweeps" --sweep --dark-pool -
 // newEditCmd returns the "edit" subcommand.
 func newEditCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "edit",
-		Short:   "Edit an existing alert configuration",
-		Example: `volumeleaders-agent alert edit --key 42 --name "Updated alert" --trade-rank-lte 3`,
+		Use:        "edit",
+		Short:      "Edit an existing alert configuration",
+		Long:       "Modify an existing alert configuration identified by its numeric key. Requires --key with the alert config key. Specify only the fields you want to change; unspecified fields retain their current values.",
+		Example:    `volumeleaders-agent alert edit --key 42 --name "Updated alert" --trade-rank-lte 3`,
+		Args:       cobra.NoArgs,
+		SuggestFor: []string{"edt", "modify"},
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			key, _ := cmd.Flags().GetInt("key")
 			return runAlertCreateEdit(cmd, key)

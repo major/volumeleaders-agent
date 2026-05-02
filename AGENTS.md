@@ -8,10 +8,12 @@ When modifying CLI commands, flags, models, or behavior:
 
 - Update `AGENTS.md` if the change affects project structure, build process, or conventions.
 - Use `volumeleaders-agent --jsonschema=tree` as the source of truth for command names, flags, aliases, defaults, and examples. Command Long descriptions contain embedded domain knowledge (workflows, conventions, gotchas).
+- Run `make generate-discovery` when commands, flags, defaults, examples, or Long descriptions change. The generated LLM discovery files live in `docs/llm/` so they do not overwrite this hand-maintained root `AGENTS.md`.
 
 Command documentation mapping:
 
 - All command groups -> `volumeleaders-agent --jsonschema=tree` for command shape and Long descriptions for semantic guidance.
+- Generated LLM discovery files -> `make generate-discovery` writes `docs/llm/AGENTS.md`, `docs/llm/SKILL.md`, and `docs/llm/llms.txt` from structcli metadata.
 - Shared conventions, workflows, output behavior, auth guidance, and domain gotchas -> root command Long description (run `volumeleaders-agent --help`).
 
 ## Project Layout
@@ -20,9 +22,11 @@ Command documentation mapping:
 cmd/volumeleaders-agent/main.go    Entry point
 internal/auth/                     Browser cookie + XSRF token extraction
 internal/client/                   HTTP client (DataTables + JSON requests)
-internal/commands/                 CLI command definitions (6 top-level commands, 26 subcommands)
+internal/cli/                      CLI command definitions (5 top-level commands, 26 subcommands)
+internal/discovery/                Generated LLM discovery file writer
 internal/datatables/               DataTables protocol encoding + column definitions
 internal/models/                   Response type definitions
+docs/llm/                          Generated AGENTS.md, SKILL.md, and llms.txt for LLM clients
 ```
 
 ## Build and Test
@@ -32,6 +36,7 @@ make build      # Build binary
 make test       # Run tests
 make lint       # Run linters
 make install    # Install to $GOPATH/bin
+make generate-discovery # Refresh docs/llm discovery files
 ```
 
 ## Conventions
@@ -53,7 +58,8 @@ make install    # Install to $GOPATH/bin
 - For `internal/auth/**/*.go`, check cookie extraction, browser profile handling, and token lookup paths for credential safety, useful error messages, and graceful behavior when browsers or cookies are unavailable.
 - For `internal/client/**/*.go`, check HTTP status handling, request context propagation, response body closure, DataTables encoding, and errors that explain the endpoint or operation that failed.
 - For `internal/models/**/*.go`, verify JSON tags match VolumeLeaders response fields and that model changes do not silently drop data needed by commands, summaries, or CSV/TSV output.
-- For `internal/commands/**/*.go`, verify command behavior matches README, `volumeleaders-agent --jsonschema=tree`, and the conventions above. If commands, flags, aliases, defaults, or examples change, verify `--jsonschema=tree` output reflects the changes. If workflows, behavior, models, or output formats change, update the relevant command Long descriptions.
+- For `internal/cli/**/*.go`, verify command behavior matches README, `volumeleaders-agent --jsonschema=tree`, and the conventions above. If commands, flags, aliases, defaults, or examples change, verify `--jsonschema=tree` output reflects the changes and run `make generate-discovery`. If workflows, behavior, models, or output formats change, update the relevant command Long descriptions.
+- For `internal/discovery/**/*.go`, verify generated files are deterministic, do not overwrite the root `AGENTS.md`, and stay in sync with `docs/llm/` through tests.
 - For tests, expect table-driven subtests with `t.Run`, parallelization where safe, `t.TempDir()` for filesystem work, deterministic fixtures, and assertions on observable behavior rather than implementation details. Do not request arbitrary coverage percentage changes.
 - For GitHub Actions workflows, treat unpinned actions, excessive permissions, secret exposure in logs, or unsafe pull request execution patterns as P1.
 - For `Makefile`, check that non-file targets are declared `.PHONY` and avoid adding flags that duplicate tool defaults.

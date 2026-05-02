@@ -197,6 +197,70 @@ func TestAllCommandsHaveLongDescription(t *testing.T) {
 	})
 }
 
+func TestRunnableCommandsHaveExamples(t *testing.T) {
+	t.Parallel()
+	cmd := NewRootCmd("test")
+
+	builtins := []string{"help", "completion", "config-keys", "env-vars"}
+
+	walkCommands(cmd, func(c *cobra.Command) {
+		t.Run(c.CommandPath(), func(t *testing.T) {
+			t.Parallel()
+			if slices.Contains(builtins, c.Name()) || !c.Runnable() {
+				return
+			}
+			if c.Example == "" {
+				t.Fatalf("command %q has empty Example; runnable commands need copy-paste guidance", c.CommandPath())
+			}
+			if !strings.Contains(c.Example, "volumeleaders-agent ") {
+				t.Fatalf("command %q Example should include the binary name, got %q", c.CommandPath(), c.Example)
+			}
+		})
+	})
+}
+
+func TestWorkflowRecoveryGuidanceIsDiscoverable(t *testing.T) {
+	t.Parallel()
+	cmd := NewRootCmd("volumeleaders-agent")
+
+	for _, section := range []string{"RECOVERY PLAYBOOK", "COMMAND SEQUENCES", "Authentication failed", "Date validation failed", "Pagination validation failed"} {
+		if !strings.Contains(cmd.Long, section) {
+			t.Fatalf("root Long description missing %q", section)
+		}
+	}
+
+	commands := map[string][]string{
+		"volumeleaders-agent trade list":           {"PREREQUISITES:", "RECOVERY:", "NEXT STEPS:"},
+		"volumeleaders-agent trade levels":         {"PREREQUISITES:", "RECOVERY:", "NEXT STEPS:"},
+		"volumeleaders-agent trade level-touches":  {"PREREQUISITES:", "RECOVERY:", "NEXT STEPS:"},
+		"volumeleaders-agent volume institutional": {"PREREQUISITES:", "RECOVERY:", "NEXT STEPS:"},
+		"volumeleaders-agent market earnings":      {"PREREQUISITES:", "RECOVERY:", "NEXT STEPS:"},
+	}
+	walkCommands(cmd, func(c *cobra.Command) {
+		sections, ok := commands[c.CommandPath()]
+		if !ok {
+			return
+		}
+		delete(commands, c.CommandPath())
+		t.Run(c.CommandPath(), func(t *testing.T) {
+			t.Parallel()
+			for _, section := range sections {
+				if !strings.Contains(c.Long, section) {
+					t.Fatalf("command %q Long description missing %q", c.CommandPath(), section)
+				}
+			}
+		})
+	})
+	if len(commands) > 0 {
+		missing := make([]string, 0, len(commands))
+		for commandPath := range commands {
+			missing = append(missing, commandPath)
+		}
+		slices.Sort(missing)
+		t.Fatalf("workflow recovery guidance expectations did not match commands: %v", missing)
+	}
+}
+
 func TestNoAliasConflictsWithinParentScope(t *testing.T) {
 	t.Parallel()
 	cmd := NewRootCmd("test")

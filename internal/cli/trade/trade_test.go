@@ -2,6 +2,7 @@ package trade
 
 import (
 	"context"
+	"io"
 	"maps"
 	"net/http"
 	"net/http/httptest"
@@ -149,8 +150,10 @@ func TestTradeListAcceptsMaximumLength(t *testing.T) {
 
 	var gotLength string
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		body := make([]byte, r.ContentLength)
-		_, _ = r.Body.Read(body)
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			t.Errorf("failed to read request body: %v", err)
+		}
 		params, _ := url.ParseQuery(string(body))
 		gotLength = params.Get("length")
 		_, _ = w.Write([]byte(testutil.DataTablesJSON(`[]`)))
@@ -201,8 +204,10 @@ func TestTradeLevelTouchesAcceptsMaximumTradeLevelCount(t *testing.T) {
 
 	var got url.Values
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		body := make([]byte, r.ContentLength)
-		_, _ = r.Body.Read(body)
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			t.Errorf("failed to read request body: %v", err)
+		}
 		got, _ = url.ParseQuery(string(body))
 		_, _ = w.Write([]byte(testutil.DataTablesJSON(`[]`)))
 	}))

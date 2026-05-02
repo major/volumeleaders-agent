@@ -265,7 +265,11 @@ func TestAlertCreateWithTickers(t *testing.T) {
 	// tickers are specified but ticker-group is left at the default.
 	var capturedBody []byte
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		capturedBody, _ = io.ReadAll(r.Body)
+		var err error
+		capturedBody, err = io.ReadAll(r.Body)
+		if err != nil {
+			t.Errorf("failed to read request body: %v", err)
+		}
 		w.WriteHeader(http.StatusOK)
 	}))
 	t.Cleanup(server.Close)

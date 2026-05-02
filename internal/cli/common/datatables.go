@@ -70,7 +70,7 @@ func RunPaginatedCommand[T any](ctx context.Context, vlClient *client.Client, w 
 		}
 		var page []T
 		if err := json.Unmarshal(resp.Data, &page); err != nil {
-			break
+			return fmt.Errorf("unmarshal %s page: %w", label, err)
 		}
 		if len(page) == 0 {
 			break

@@ -3,7 +3,6 @@ package trade
 import (
 	"context"
 	"fmt"
-	"log/slog"
 	"maps"
 	"strings"
 
@@ -118,12 +117,11 @@ func applyExplicitFlags(cmd *cobra.Command, filters map[string]string) {
 func fetchWatchlistFilters(ctx context.Context, name string) (map[string]string, error) {
 	vlClient, err := common.NewCommandClient(ctx)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("create client: %w", err)
 	}
 	request := common.NewDataTablesRequest(datatables.WatchlistConfigColumns, common.DataTableOptions{Start: 0, Length: -1, OrderCol: 1, OrderDir: "asc"})
 	var configs []models.WatchListConfig
 	if err := vlClient.PostDataTables(ctx, "/WatchListConfigs/GetWatchLists", request.Encode(), &configs); err != nil {
-		slog.Error("failed to fetch watchlists", "error", err)
 		return nil, fmt.Errorf("fetch watchlists: %w", err)
 	}
 	var match *models.WatchListConfig

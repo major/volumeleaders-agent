@@ -218,7 +218,7 @@ func newTradeLevelsCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:        "levels [ticker]",
 		Short:      "Query significant price levels for a ticker",
-		Long:       "Query significant price levels for a ticker, showing historical support and resistance zones identified by institutional trade clustering. Accepts a ticker as positional argument or via --ticker flag. Do not add cobra.MaximumNArgs(1) here; SingleTickerValue in RunE provides the validation with a better error message.",
+		Long:       "Query significant price levels for a ticker, showing historical support and resistance zones identified by institutional trade clustering. Accepts a ticker as positional argument or via --ticker flag. Outputs compact JSON by default.",
 		Example:    "volumeleaders-agent trade levels AAPL",
 		Args:       cobra.ArbitraryArgs,
 		SuggestFor: []string{"level", "lvels"},

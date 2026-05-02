@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 
 	"github.com/major/volumeleaders-agent/internal/cli/common"
 	"github.com/major/volumeleaders-agent/internal/cli/testutil"
@@ -226,6 +227,32 @@ func TestNoAliasConflictsWithinParentScope(t *testing.T) {
 	})
 }
 
+func TestNoShortFlagConflictsWithinCommand(t *testing.T) {
+	t.Parallel()
+	cmd := NewRootCmd("test")
+
+	walkCommands(cmd, func(c *cobra.Command) {
+		t.Run(c.CommandPath(), func(t *testing.T) {
+			t.Parallel()
+			seen := make(map[string]string) // shorthand -> owning flag
+			check := func(flags *pflag.FlagSet) {
+				flags.VisitAll(func(flag *pflag.Flag) {
+					if flag.Shorthand == "" {
+						return
+					}
+					if owner, ok := seen[flag.Shorthand]; ok {
+						t.Fatalf("command %q has duplicate shorthand -%s on --%s and --%s", c.CommandPath(), flag.Shorthand, owner, flag.Name)
+					}
+					seen[flag.Shorthand] = flag.Name
+				})
+			}
+
+			check(c.LocalFlags())
+			check(c.InheritedFlags())
+		})
+	})
+}
+
 func TestNoArgsCommandsRejectPositionalArgs(t *testing.T) {
 	t.Parallel()
 
@@ -377,6 +404,130 @@ func TestJSONSchemaSubcommandProducesValidJSON(t *testing.T) {
 		if _, exists := props[flag]; !exists {
 			t.Errorf("trade list --jsonschema missing expected flag %q", flag)
 		}
+	}
+}
+
+func TestJSONSchemaSubcommandIncludesFlagUsabilityMetadata(t *testing.T) {
+	t.Parallel()
+	binary := buildBinary(t)
+
+	out, err := exec.Command(binary, "trade", "list", "--jsonschema").CombinedOutput()
+	if err != nil {
+		t.Fatalf("trade list --jsonschema failed: %v\nOutput: %s", err, out)
+	}
+
+	var schema map[string]any
+	if jsonErr := json.Unmarshal(out, &schema); jsonErr != nil {
+		t.Fatalf("output is not valid JSON object: %v\nOutput: %s", jsonErr, out)
+	}
+
+	props, ok := schema["properties"].(map[string]any)
+	if !ok {
+		t.Fatal("schema missing 'properties' key")
+	}
+
+	groupedFlags := map[string]string{
+		"tickers":    "Input",
+		"start-date": "Dates",
+		"min-volume": "Ranges",
+		"conditions": "Filters",
+		"premarket":  "Sessions",
+		"length":     "Pagination",
+		"format":     "Output",
+	}
+	for flag, expectedGroup := range groupedFlags {
+		t.Run("group "+flag, func(t *testing.T) {
+			t.Parallel()
+			flagSchema, ok := props[flag].(map[string]any)
+			if !ok {
+				t.Fatalf("flag %q schema is not an object", flag)
+			}
+			group, ok := flagSchema["x-structcli-group"].(string)
+			if !ok {
+				t.Fatalf("flag %q missing x-structcli-group", flag)
+			}
+			if group != expectedGroup {
+				t.Fatalf("flag %q group = %q, want %q", flag, group, expectedGroup)
+			}
+		})
+	}
+
+	shortFlags := map[string]string{
+		"tickers":    "t",
+		"start-date": "s",
+		"end-date":   "e",
+		"days":       "d",
+		"length":     "l",
+		"format":     "f",
+	}
+	for flag, expectedShort := range shortFlags {
+		t.Run("short "+flag, func(t *testing.T) {
+			t.Parallel()
+			flagSchema, ok := props[flag].(map[string]any)
+			if !ok {
+				t.Fatalf("flag %q schema is not an object", flag)
+			}
+			short, ok := flagSchema["x-structcli-shorthand"].(string)
+			if !ok {
+				t.Fatalf("flag %q missing x-structcli-shorthand", flag)
+			}
+			if short != expectedShort {
+				t.Fatalf("flag %q shorthand = %q, want %q", flag, short, expectedShort)
+			}
+		})
+	}
+
+	groups, ok := schema["x-structcli-groups"].(map[string]any)
+	if !ok {
+		t.Fatal("schema missing top-level x-structcli-groups map")
+	}
+	for _, expectedGroup := range []string{"Dates", "Filters", "Input", "Output", "Pagination", "Ranges", "Sessions"} {
+		if _, ok := groups[expectedGroup]; !ok {
+			t.Fatalf("schema groups missing %q: %v", expectedGroup, groups)
+		}
+	}
+}
+
+func TestHelpOutputDisplaysFlagGroups(t *testing.T) {
+	t.Parallel()
+	binary := buildBinary(t)
+
+	tests := []struct {
+		name           string
+		args           []string
+		expectedGroups []string
+	}{
+		{
+			name:           "trade list help",
+			args:           []string{"trade", "list", "--help"},
+			expectedGroups: []string{"Dates Flags:", "Filters Flags:", "Input Flags:", "Output Flags:", "Pagination Flags:", "Ranges Flags:", "Sessions Flags:"},
+		},
+		{
+			name:           "alert create help",
+			args:           []string{"alert", "create", "--help"},
+			expectedGroups: []string{"After-Hours Filters Flags:", "Basic Flags:", "Closing Filters Flags:", "Cluster Filters Flags:", "Total Filters Flags:", "Trade Filters Flags:"},
+		},
+		{
+			name:           "watchlist create help",
+			args:           []string{"watchlist", "create", "--help"},
+			expectedGroups: []string{"Basic Flags:", "Filters Flags:", "Print Types Flags:", "Ranges Flags:", "RSI Flags:", "Sessions Flags:", "Venues Flags:"},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			out, err := exec.Command(binary, tc.args...).CombinedOutput()
+			if err != nil {
+				t.Fatalf("%v failed: %v\nOutput: %s", tc.args, err, out)
+			}
+			helpText := string(out)
+			for _, expected := range tc.expectedGroups {
+				if !strings.Contains(helpText, expected) {
+					t.Fatalf("help output missing %q\nOutput: %s", expected, helpText)
+				}
+			}
+		})
 	}
 }
 

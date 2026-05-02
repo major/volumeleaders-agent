@@ -1,107 +1,121 @@
-package common
+package common_test
 
 import (
 	"testing"
 
-	"github.com/spf13/cobra"
+	"github.com/major/volumeleaders-agent/internal/cli"
 )
 
-func TestAddDateRangeFlags(t *testing.T) {
-	cmd := &cobra.Command{}
-	AddDateRangeFlags(cmd)
-
-	assertFlag(t, cmd, "start-date", "string", "")
-	assertFlag(t, cmd, "end-date", "string", "")
-	assertFlag(t, cmd, "days", "int", "0")
+// flagSpec describes the expected name, type, and default value for a CLI flag
+// registered via structcli.Bind struct tags.
+type flagSpec struct {
+	name     string
+	typeName string
+	defValue string
 }
 
-func TestAddOptionalDateRangeFlags(t *testing.T) {
-	cmd := &cobra.Command{}
-	AddOptionalDateRangeFlags(cmd)
-
-	assertFlag(t, cmd, "start-date", "string", "")
-	assertFlag(t, cmd, "end-date", "string", "")
-	assertFlag(t, cmd, "days", "int", "0")
-}
-
-func TestAddVolumeRangeFlags(t *testing.T) {
-	cmd := &cobra.Command{}
-	AddVolumeRangeFlags(cmd)
-
-	assertFlag(t, cmd, "min-volume", "int", "0")
-	assertFlag(t, cmd, "max-volume", "int", "2000000000")
-}
-
-func TestAddPriceRangeFlags(t *testing.T) {
-	cmd := &cobra.Command{}
-	AddPriceRangeFlags(cmd)
-
-	assertFlag(t, cmd, "min-price", "float64", "0")
-	assertFlag(t, cmd, "max-price", "float64", "100000")
-}
-
-func TestAddDollarRangeFlags(t *testing.T) {
-	cmd := &cobra.Command{}
-	AddDollarRangeFlags(cmd, 250000)
-
-	assertFlag(t, cmd, "min-dollars", "float64", "250000")
-	assertFlag(t, cmd, "max-dollars", "float64", "30000000000")
-}
-
-func TestAddPaginationFlags(t *testing.T) {
-	cmd := &cobra.Command{}
-	AddPaginationFlags(cmd, 100, 1, "asc")
-
-	assertFlag(t, cmd, "start", "int", "0")
-	assertFlag(t, cmd, "length", "int", "100")
-	assertFlag(t, cmd, "order-col", "int", "1")
-	assertFlag(t, cmd, "order-dir", "string", "asc")
-}
-
-func TestAddOutputFormatFlags(t *testing.T) {
-	cmd := &cobra.Command{}
-	AddOutputFormatFlags(cmd)
-
-	assertFlag(t, cmd, "format", "string", "json")
-}
-
-func TestAddTickersFlag(t *testing.T) {
-	cmd := &cobra.Command{}
-	AddTickersFlag(cmd)
-
-	assertFlag(t, cmd, "tickers", "string", "")
-	assertFlagMissing(t, cmd, "symbol")
-	assertFlagMissing(t, cmd, "symbols")
-}
-
-func TestAddTickerFlag(t *testing.T) {
-	cmd := &cobra.Command{}
-	AddTickerFlag(cmd)
-
-	assertFlag(t, cmd, "ticker", "string", "")
-	assertFlagMissing(t, cmd, "symbol")
-	assertFlagMissing(t, cmd, "symbols")
-}
-
-func assertFlag(t *testing.T, cmd *cobra.Command, name, flagType, defaultValue string) {
+// assertFlags verifies that every flag in specs exists on the command found at
+// cmdPath and has the expected type and default value.
+func assertFlags(t *testing.T, cmdPath []string, specs []flagSpec) {
 	t.Helper()
+	rootCmd := cli.NewRootCmd("test")
+	cmd, _, err := rootCmd.Find(cmdPath)
+	if err != nil {
+		t.Fatalf("find %v: %v", cmdPath, err)
+	}
 
-	flag := cmd.Flags().Lookup(name)
-	if flag == nil {
-		t.Fatalf("expected flag %q to be registered", name)
-	}
-	if got := flag.Value.Type(); got != flagType {
-		t.Fatalf("expected flag %q type %q, got %q", name, flagType, got)
-	}
-	if flag.DefValue != defaultValue {
-		t.Fatalf("expected flag %q default %q, got %q", name, defaultValue, flag.DefValue)
+	for _, tt := range specs {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			f := cmd.Flags().Lookup(tt.name)
+			if f == nil {
+				t.Fatalf("flag --%s not registered", tt.name)
+			}
+			if f.Value.Type() != tt.typeName {
+				t.Errorf("flag --%s type = %q, want %q", tt.name, f.Value.Type(), tt.typeName)
+			}
+			if f.DefValue != tt.defValue {
+				t.Errorf("flag --%s default = %q, want %q", tt.name, f.DefValue, tt.defValue)
+			}
+		})
 	}
 }
 
-func assertFlagMissing(t *testing.T, cmd *cobra.Command, name string) {
-	t.Helper()
+// TestVolumeInstitutionalFlagRegistration verifies that struct-tag-based flag
+// registration on the volume institutional command produces the expected flags
+// with correct types and defaults from volumeOptions{Length: 100, OrderCol: 1,
+// OrderDir: "asc"}.
+func TestVolumeInstitutionalFlagRegistration(t *testing.T) {
+	t.Parallel()
+	assertFlags(t, []string{"volume", "institutional"}, []flagSpec{
+		{"date", "string", ""},
+		{"tickers", "string", ""},
+		{"format", "string", "json"},
+		{"start", "int", "0"},
+		{"length", "int", "100"},
+		{"order-col", "int", "1"},
+		{"order-dir", "string", "asc"},
+	})
+}
 
-	if flag := cmd.Flags().Lookup(name); flag != nil {
-		t.Fatalf("expected flag %q to be absent", name)
-	}
+// TestVolumeAHInstitutionalFlagRegistration verifies ah-institutional shares
+// the same flag set and defaults as institutional.
+func TestVolumeAHInstitutionalFlagRegistration(t *testing.T) {
+	t.Parallel()
+	assertFlags(t, []string{"volume", "ah-institutional"}, []flagSpec{
+		{"date", "string", ""},
+		{"tickers", "string", ""},
+		{"format", "string", "json"},
+		{"start", "int", "0"},
+		{"length", "int", "100"},
+		{"order-col", "int", "1"},
+		{"order-dir", "string", "asc"},
+	})
+}
+
+// TestVolumeTotalFlagRegistration verifies the total subcommand shares the same
+// flag set and defaults.
+func TestVolumeTotalFlagRegistration(t *testing.T) {
+	t.Parallel()
+	assertFlags(t, []string{"volume", "total"}, []flagSpec{
+		{"date", "string", ""},
+		{"tickers", "string", ""},
+		{"format", "string", "json"},
+		{"start", "int", "0"},
+		{"length", "int", "100"},
+		{"order-col", "int", "1"},
+		{"order-dir", "string", "asc"},
+	})
+}
+
+// TestMarketEarningsFlagRegistration verifies that struct-tag-based flag
+// registration on market earnings produces the expected flags from
+// earningsOptions{}.
+func TestMarketEarningsFlagRegistration(t *testing.T) {
+	t.Parallel()
+	assertFlags(t, []string{"market", "earnings"}, []flagSpec{
+		{"start-date", "string", ""},
+		{"end-date", "string", ""},
+		{"days", "int", "0"},
+		{"format", "string", "json"},
+		{"fields", "string", ""},
+	})
+}
+
+// TestAlertCreateFlagRegistration verifies a representative sample of flags on
+// alert create, including defaults set in the constructor (TickerGroup,
+// TradeConditions, ClosingTradeConditions).
+func TestAlertCreateFlagRegistration(t *testing.T) {
+	t.Parallel()
+	assertFlags(t, []string{"alert", "create"}, []flagSpec{
+		{"name", "string", ""},
+		{"ticker-group", "string", "AllTickers"},
+		{"tickers", "string", ""},
+		{"trade-conditions", "string", "0"},
+		{"closing-trade-conditions", "string", "0"},
+		{"dark-pool", "bool", "false"},
+		{"sweep", "bool", "false"},
+		{"trade-rank-lte", "int", "0"},
+		{"trade-dollars-gte", "int", "0"},
+	})
 }

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log/slog"
 
+	"github.com/leodido/structcli"
 	"github.com/spf13/cobra"
 
 	"github.com/major/volumeleaders-agent/internal/cli/common"
@@ -19,6 +20,20 @@ var marketEarningsDefaultFields = []string{
 	"TradeCount",
 	"TradeClusterCount",
 	"TradeClusterBombCount",
+}
+
+// earningsOptions holds flags for the "market earnings" subcommand.
+type earningsOptions struct {
+	StartDate string `flag:"start-date" flagdescr:"Start date YYYY-MM-DD (required unless --days is set)"`
+	EndDate   string `flag:"end-date" flagdescr:"End date YYYY-MM-DD (required unless --days is set)"`
+	Days      int    `flag:"days" flagdescr:"Look back this many days from --end-date or today"`
+	Format    string `flag:"format" flagdescr:"Output format: json, csv, or tsv" default:"json"`
+	Fields    string `flag:"fields" flagdescr:"Comma-separated fields to include (use 'all' for every field)"`
+}
+
+// exhaustionOptions holds flags for the "market exhaustion" subcommand.
+type exhaustionOptions struct {
+	Date string `flag:"date" flagdescr:"Date YYYY-MM-DD (empty for current day)"`
 }
 
 // NewMarketCommand returns the "market" command group with all subcommands.
@@ -68,6 +83,7 @@ func newSnapshotsCmd() *cobra.Command {
 
 // newEarningsCmd returns the "earnings" subcommand.
 func newEarningsCmd() *cobra.Command {
+	opts := &earningsOptions{}
 	cmd := &cobra.Command{
 		Use:        "earnings",
 		Short:      "Query earnings calendar within a date range",
@@ -81,15 +97,12 @@ func newEarningsCmd() *cobra.Command {
 				return err
 			}
 
-			fieldsValue, _ := cmd.Flags().GetString("fields")
-			fields, err := common.OutputFields[models.Earnings](fieldsValue, marketEarningsDefaultFields)
+			fields, err := common.OutputFields[models.Earnings](opts.Fields, marketEarningsDefaultFields)
 			if err != nil {
 				return err
 			}
 
-			format, _ := cmd.Flags().GetString("format")
-
-			opts := common.DataTableOptions{
+			dtOpts := common.DataTableOptions{
 				Start:    0,
 				Length:   -1,
 				OrderCol: 0,
@@ -100,17 +113,18 @@ func newEarningsCmd() *cobra.Command {
 					"EndDate":   endDate,
 				},
 			}
-			return common.RunDataTablesCommand[models.Earnings](cmd, "/Earnings/GetEarnings", datatables.EarningsColumns, opts, format, "query earnings")
+			return common.RunDataTablesCommand[models.Earnings](cmd, "/Earnings/GetEarnings", datatables.EarningsColumns, dtOpts, opts.Format, "query earnings")
 		},
 	}
-	common.AddDateRangeFlags(cmd)
-	common.AddOutputFormatFlags(cmd)
-	cmd.Flags().String("fields", "", "Comma-separated fields to include (use 'all' for every field)")
+	if err := structcli.Bind(cmd, opts); err != nil {
+		panic(fmt.Sprintf("structcli.Bind earnings options: %v", err))
+	}
 	return cmd
 }
 
 // newExhaustionCmd returns the "exhaustion" subcommand.
 func newExhaustionCmd() *cobra.Command {
+	opts := &exhaustionOptions{}
 	cmd := &cobra.Command{
 		Use:        "exhaustion",
 		Short:      "Query exhaustion scores for a date",
@@ -120,14 +134,13 @@ func newExhaustionCmd() *cobra.Command {
 		SuggestFor: []string{"exhaust", "exhastion"},
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			ctx := cmd.Context()
-			date, _ := cmd.Flags().GetString("date")
 
 			vlClient, err := common.NewCommandClient(ctx)
 			if err != nil {
 				return err
 			}
 
-			payload := map[string]string{"Date": date}
+			payload := map[string]string{"Date": opts.Date}
 			var score models.ExhaustionScore
 			if err := vlClient.PostJSON(ctx, "/ExecutiveSummary/GetExhaustionScores", payload, &score); err != nil {
 				slog.Error("failed to query exhaustion scores", "error", err)
@@ -137,7 +150,9 @@ func newExhaustionCmd() *cobra.Command {
 			return common.PrintJSON(cmd.OutOrStdout(), ctx, summarizeMarketExhaustion(score))
 		},
 	}
-	cmd.Flags().String("date", "", "Date YYYY-MM-DD (empty for current day)")
+	if err := structcli.Bind(cmd, opts); err != nil {
+		panic(fmt.Sprintf("structcli.Bind exhaustion options: %v", err))
+	}
 	return cmd
 }
 

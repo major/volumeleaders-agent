@@ -5,8 +5,10 @@ import (
 	"log/slog"
 	"maps"
 	"sort"
+	"strconv"
 	"strings"
 
+	"github.com/leodido/structcli"
 	"github.com/spf13/cobra"
 
 	"github.com/major/volumeleaders-agent/internal/cli/common"
@@ -57,6 +59,160 @@ type tradeLevelOptions struct {
 	minDollars, maxDollars     float64
 }
 
+type tradeDateRangeFlags struct {
+	StartDate string `flag:"start-date" flagdescr:"Start date YYYY-MM-DD (required unless --days is set)"`
+	EndDate   string `flag:"end-date" flagdescr:"End date YYYY-MM-DD (required unless --days is set)"`
+	Days      int    `flag:"days" flagdescr:"Look back this many days from --end-date or today"`
+}
+
+type tradeOptionalDateRangeFlags struct {
+	StartDate string `flag:"start-date" flagdescr:"Start date YYYY-MM-DD (default: auto)"`
+	EndDate   string `flag:"end-date" flagdescr:"End date YYYY-MM-DD (default: today)"`
+	Days      int    `flag:"days" flagdescr:"Look back this many days from --end-date or today"`
+}
+
+type tradeRangeFlags struct {
+	MinVolume  int     `flag:"min-volume" flagdescr:"Minimum volume"`
+	MaxVolume  int     `flag:"max-volume" flagdescr:"Maximum volume"`
+	MinPrice   float64 `flag:"min-price" flagdescr:"Minimum price"`
+	MaxPrice   float64 `flag:"max-price" flagdescr:"Maximum price"`
+	MinDollars float64 `flag:"min-dollars" flagdescr:"Minimum dollar value"`
+	MaxDollars float64 `flag:"max-dollars" flagdescr:"Maximum dollar value"`
+}
+
+type tradeVolumeDollarRangeFlags struct {
+	MinVolume  int     `flag:"min-volume" flagdescr:"Minimum volume"`
+	MaxVolume  int     `flag:"max-volume" flagdescr:"Maximum volume"`
+	MinDollars float64 `flag:"min-dollars" flagdescr:"Minimum dollar value"`
+	MaxDollars float64 `flag:"max-dollars" flagdescr:"Maximum dollar value"`
+}
+
+type tradeFilterFlags struct {
+	Conditions   int `flag:"conditions" flagdescr:"Trade conditions filter"`
+	VCD          int `flag:"vcd" flagdescr:"VCD filter"`
+	SecurityType int `flag:"security-type" flagdescr:"Security type key"`
+	RelativeSize int `flag:"relative-size" flagdescr:"Relative size threshold"`
+	DarkPools    int `flag:"dark-pools" flagdescr:"Dark pool filter"`
+	Sweeps       int `flag:"sweeps" flagdescr:"Sweep filter"`
+	LatePrints   int `flag:"late-prints" flagdescr:"Late print filter"`
+	SigPrints    int `flag:"sig-prints" flagdescr:"Signature print filter"`
+	EvenShared   int `flag:"even-shared" flagdescr:"Even shared filter"`
+	TradeRank    int `flag:"trade-rank" flagdescr:"Trade rank filter"`
+	RankSnapshot int `flag:"rank-snapshot" flagdescr:"Trade rank snapshot filter"`
+	MarketCap    int `flag:"market-cap" flagdescr:"Market cap filter"`
+	Premarket    int `flag:"premarket" flagdescr:"Include premarket"`
+	RTH          int `flag:"rth" flagdescr:"Include regular trading hours"`
+	AH           int `flag:"ah" flagdescr:"Include after hours"`
+	Opening      int `flag:"opening" flagdescr:"Include opening trades"`
+	Closing      int `flag:"closing" flagdescr:"Include closing trades"`
+	Phantom      int `flag:"phantom" flagdescr:"Include phantom prints"`
+	Offsetting   int `flag:"offsetting" flagdescr:"Include offsetting trades"`
+}
+
+type tradePaginationFlags struct {
+	Start    int    `flag:"start" flagdescr:"DataTables start offset"`
+	Length   int    `flag:"length" flagdescr:"Number of results"`
+	OrderCol int    `flag:"order-col" flagdescr:"Order column index"`
+	OrderDir string `flag:"order-dir" flagdescr:"Order direction"`
+}
+
+type tradeFormatFlag struct {
+	Format string `flag:"format" flagdescr:"Output format: json, csv, or tsv"`
+}
+
+type tradeTickersFlag struct {
+	Tickers string `flag:"tickers" flagdescr:"Comma-separated ticker symbols"`
+}
+
+type tradeTickerFlag struct {
+	Ticker string `flag:"ticker" flagdescr:"Ticker symbol"`
+}
+
+type tradeListOptions struct {
+	tradeTickersFlag
+	tradeOptionalDateRangeFlags
+	tradeRangeFlags
+	tradeFilterFlags
+	Sector    string `flag:"sector" flagdescr:"Sector/Industry filter"`
+	Preset    string `flag:"preset" flagdescr:"Apply a built-in filter preset (see: trade presets)"`
+	Watchlist string `flag:"watchlist" flagdescr:"Apply filters from a saved watchlist by name"`
+	Fields    string `flag:"fields" flagdescr:"Comma-separated trade fields to include in output"`
+	Summary   bool   `flag:"summary" flagdescr:"Return aggregate metrics instead of individual trades"`
+	GroupBy   string `flag:"group-by" flagdescr:"Summary grouping (requires --summary): ticker, day, or ticker,day"`
+	tradeFormatFlag
+	tradePaginationFlags
+}
+
+type tradeSentimentOptions struct {
+	tradeDateRangeFlags
+	tradeRangeFlags
+	tradeFilterFlags
+	tradeFormatFlag
+}
+
+type tradeClustersOptions struct {
+	tradeTickersFlag
+	tradeDateRangeFlags
+	tradeRangeFlags
+	VCD              int    `flag:"vcd" flagdescr:"VCD filter"`
+	SecurityType     int    `flag:"security-type" flagdescr:"Security type key"`
+	RelativeSize     int    `flag:"relative-size" flagdescr:"Relative size threshold"`
+	TradeClusterRank int    `flag:"trade-cluster-rank" flagdescr:"Trade cluster rank filter"`
+	Sector           string `flag:"sector" flagdescr:"Sector/Industry filter"`
+	Fields           string `flag:"fields" flagdescr:"Comma-separated TradeCluster fields to include in output, or 'all' for every field"`
+	tradeFormatFlag
+	tradePaginationFlags
+}
+
+type tradeClusterBombsOptions struct {
+	tradeTickersFlag
+	tradeDateRangeFlags
+	tradeVolumeDollarRangeFlags
+	VCD                  int    `flag:"vcd" flagdescr:"VCD filter"`
+	SecurityType         int    `flag:"security-type" flagdescr:"Security type key"`
+	RelativeSize         int    `flag:"relative-size" flagdescr:"Relative size threshold"`
+	TradeClusterBombRank int    `flag:"trade-cluster-bomb-rank" flagdescr:"Trade cluster bomb rank filter"`
+	Sector               string `flag:"sector" flagdescr:"Sector/Industry filter"`
+	tradeFormatFlag
+	tradePaginationFlags
+}
+
+type tradeLevelsOptions struct {
+	tradeTickerFlag
+	tradeOptionalDateRangeFlags
+	tradeRangeFlags
+	VCD             int    `flag:"vcd" flagdescr:"VCD filter"`
+	RelativeSize    int    `flag:"relative-size" flagdescr:"Relative size threshold"`
+	TradeLevelRank  int    `flag:"trade-level-rank" flagdescr:"Trade level rank filter"`
+	TradeLevelCount int    `flag:"trade-level-count" flagdescr:"Number of price levels to return (1-50)"`
+	Fields          string `flag:"fields" flagdescr:"Comma-separated TradeLevel fields to include in output, or 'all' for every field"`
+	tradeFormatFlag
+}
+
+type tradeLevelTouchesOptions struct {
+	tradeTickerFlag
+	tradeDateRangeFlags
+	tradeRangeFlags
+	VCD             int `flag:"vcd" flagdescr:"VCD filter"`
+	RelativeSize    int `flag:"relative-size" flagdescr:"Relative size threshold"`
+	TradeLevelRank  int `flag:"trade-level-rank" flagdescr:"Trade level rank filter"`
+	TradeLevelCount int `flag:"trade-level-count" flagdescr:"Number of price levels to include (1-50)"`
+	tradeFormatFlag
+	tradePaginationFlags
+}
+
+type tradeAlertsOptions struct {
+	Date string `flag:"date" flagdescr:"Date YYYY-MM-DD"`
+	tradeFormatFlag
+	tradePaginationFlags
+}
+
+type tradeClusterAlertsOptions struct {
+	Date string `flag:"date" flagdescr:"Date YYYY-MM-DD"`
+	tradeFormatFlag
+	tradePaginationFlags
+}
+
 // NewCmd returns the "trade" command group with all subcommands.
 func NewCmd() *cobra.Command {
 	cmd := &cobra.Command{
@@ -85,10 +241,48 @@ func NewCmd() *cobra.Command {
 func NewTradeCommand() *cobra.Command { return NewCmd() }
 
 func newTradeListCommand() *cobra.Command {
+	opts := &tradeListOptions{}
+	presetTradeFilterDefaults(&opts.tradeFilterFlags, 97)
+	presetTradeRangeDefaults(&opts.tradeRangeFlags, 500000)
+	presetTradePaginationDefaults(&opts.tradePaginationFlags, defaultTradeRequestLength, 1)
+	opts.Format = "json"
+	opts.GroupBy = "ticker"
 	cmd := &cobra.Command{
 		Use:   "list [tickers...]",
 		Short: "Query institutional trades",
-		Long:  "Query individual institutional trades from VolumeLeaders, filterable by ticker, date range, dollar amounts, volume, trade conditions, session type, and trade rank. Supports built-in filter presets (--preset) and watchlist-based filtering (--watchlist). Outputs compact JSON or CSV/TSV with --format; use --summary for aggregate metrics grouped by ticker or day.",
+		Long: `Query individual institutional trades from VolumeLeaders, filterable by ticker, date range, dollar amounts, volume, trade conditions, session type, and trade rank. Supports built-in filter presets (--preset) and watchlist-based filtering (--watchlist). Outputs compact JSON or CSV/TSV with --format; use --summary for aggregate metrics grouped by ticker or day.
+
+Date defaults: 365-day lookback when tickers are provided, today-only without tickers. Preset and watchlist filters do not supply dates. Filter precedence is preset baseline, then watchlist merge, then explicit CLI flags override both.
+
+Default JSON is compact and omits repetitive/internal fields. Use --fields FIELD1,FIELD2, CSV/TSV, or --fields all where supported when raw API fields are needed. --summary returns aggregate JSON with valid --group-by values of ticker, day, or ticker,day; do not combine summary mode with --fields or non-JSON formats.
+
+KEY METRICS
+
+Field                      Meaning
+-------------------------  ---------------------------------------------------------------
+CumulativeDistribution     Volume percentile, 0 to 1, higher means more accumulation
+DollarsMultiplier          Trade dollars relative to average block size
+TradeRank                  VL significance rank now, lower is stronger
+TradeRankSnapshot          VL significance rank at print time, lower is stronger
+TradeClusterRank           Rank for cluster significance, lower is stronger
+TradeClusterBombRank       Rank for burst significance, lower is stronger
+TradeLevelRank             Rank for level significance, lower is stronger
+RelativeSize               Trade size vs normal activity
+PercentDailyVolume         Trade volume as percent of average daily volume
+VCD                        Volume Confirmation Distribution score
+FrequencyLast30TD          Similar-magnitude trade frequency over last 30 trading days
+FrequencyLast90TD          Similar-magnitude trade frequency over last 90 trading days
+FrequencyLast1CY           Similar-magnitude trade frequency over last calendar year
+RSIHour                    Hourly RSI at time of trade
+RSIDay                     Daily RSI at time of trade
+DarkPool                   Boolean: trade printed on a dark pool
+Sweep                      Boolean: trade was a sweep order
+LatePrint                  Boolean: trade was a late print
+SignaturePrint             Boolean: trade matched a signature print pattern
+PhantomPrint               Boolean: trade was a phantom print
+InsideBar                  Boolean: bar was an inside bar
+
+Shared trade filters include volume, price, dollars, conditions, VCD, relative size, security type, market cap, trade rank, dark pools, sweeps, late prints, signature prints, even-share prints, and session/event toggles.`,
 		Example: `volumeleaders-agent trade list AAPL MSFT
 volumeleaders-agent trade list --tickers AAPL,MSFT
 volumeleaders-agent trade list --tickers NVDA --dark-pools 1 --min-dollars 1000000
@@ -98,210 +292,269 @@ volumeleaders-agent trade list --watchlist "Magnificent 7" --start-date 2025-04-
 		Args:       cobra.ArbitraryArgs,
 		Aliases:    []string{"ls"},
 		SuggestFor: []string{"lst", "lis"},
-		RunE:       runTradeList,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			return runTradeList(cmd, opts)
+		},
 	}
-	common.AddOptionalDateRangeFlags(cmd)
-	addTradeRangeFlags(cmd, 500000)
-	common.AddTickersFlag(cmd)
-	addTradeFilterFlags(cmd, 97)
-	cmd.Flags().String("sector", "", "Sector/Industry filter")
-	cmd.Flags().String("preset", "", "Apply a built-in filter preset (see: trade presets)")
-	cmd.Flags().String("watchlist", "", "Apply filters from a saved watchlist by name")
-	cmd.Flags().String("fields", "", "Comma-separated trade fields to include in output")
-	cmd.Flags().Bool("summary", false, "Return aggregate metrics instead of individual trades")
-	cmd.Flags().String("group-by", "ticker", "Summary grouping (requires --summary): ticker, day, or ticker,day")
-	common.AddOutputFormatFlags(cmd)
-	common.AddPaginationFlags(cmd, defaultTradeRequestLength, 1, "desc")
+	if err := structcli.Bind(cmd, opts); err != nil {
+		panic(fmt.Sprintf("structcli.Bind list: %v", err))
+	}
+	setTradeRangeFlagDefValues(cmd, opts.MinDollars)
 	return cmd
 }
 
 func newTradeSentimentCommand() *cobra.Command {
+	opts := &tradeSentimentOptions{}
+	presetTradeFilterDefaults(&opts.tradeFilterFlags, 97)
+	presetTradeRangeDefaults(&opts.tradeRangeFlags, 5000000)
+	opts.Format = "json"
 	cmd := &cobra.Command{
 		Use:        "sentiment",
 		Short:      "Summarize leveraged ETF bull/bear flow by day",
-		Long:       "Summarize leveraged ETF bull and bear flow by trading day, showing aggregate institutional dollar volume on the bull and bear side. Requires --start-date and --end-date (or --days). Outputs one record per day with bull and bear totals.",
+		Long: `Summarize leveraged ETF bull and bear flow by trading day, showing aggregate institutional dollar volume on the bull and bear side. Requires --start-date and --end-date (or --days). Outputs one record per day with bull and bear totals.
+
+This command always queries the combined leveraged ETF sector filter SectorIndustry=X B, classifies bull and bear ETFs locally, and cannot be constrained by ticker or sector flags. Non-standard defaults include --min-dollars 5000000 and --vcd 97; shared --relative-size 5 still applies.
+
+Ratio is bull dollars divided by bear dollars and is null when bear flow is zero. Treat the output as leveraged ETF proxy flow, not signed buy/sell flow for the broader market.`,
 		Example:    "volumeleaders-agent trade sentiment --start-date 2025-04-21 --end-date 2025-04-25",
 		Args:       cobra.NoArgs,
 		SuggestFor: []string{"sentment", "sentimnt"},
-		RunE:       runTradeSentiment,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			return runTradeSentiment(cmd, opts)
+		},
 	}
-	common.AddDateRangeFlags(cmd)
-	addTradeRangeFlags(cmd, 5000000)
-	addTradeFilterFlags(cmd, 97)
-	common.AddOutputFormatFlags(cmd)
+	if err := structcli.Bind(cmd, opts); err != nil {
+		panic(fmt.Sprintf("structcli.Bind sentiment: %v", err))
+	}
+	setTradeRangeFlagDefValues(cmd, opts.MinDollars)
 	return cmd
 }
 
 func newTradeClustersCommand() *cobra.Command {
+	opts := &tradeClustersOptions{}
+	presetTradeRangeDefaults(&opts.tradeRangeFlags, 10000000)
+	presetTradePaginationDefaults(&opts.tradePaginationFlags, 1000, 1)
+	opts.SecurityType = -1
+	opts.RelativeSize = 5
+	opts.TradeClusterRank = -1
+	opts.Format = "json"
 	cmd := &cobra.Command{
 		Use:        "clusters [tickers...]",
 		Short:      "Query aggregated trade clusters",
-		Long:       "Query aggregated trade clusters, which group multiple trades in a short window into a single cluster record. Filterable by ticker, date range, dollar amounts, sector, and trade cluster rank. Outputs compact JSON or CSV/TSV with --format.",
+		Long: `Query aggregated trade clusters, which group multiple trades in a short window into a single cluster record. Filterable by ticker, date range, dollar amounts, sector, and trade cluster rank. Outputs compact JSON or CSV/TSV with --format.
+
+Use clusters when the question is about price-level concentration, not single prints. This command uses larger default retrieval and dollar thresholds than ordinary trade list. Use trade cluster-bombs instead when looking for sudden aggressive bursts tightly grouped in time and price.`,
 		Example:    "volumeleaders-agent trade clusters AAPL --days 7",
 		Args:       cobra.ArbitraryArgs,
 		SuggestFor: []string{"cluster", "clsters"},
-		RunE:       runTradeClusters,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			return runTradeClusters(cmd, opts)
+		},
 	}
-	common.AddDateRangeFlags(cmd)
-	addTradeRangeFlags(cmd, 10000000)
-	common.AddTickersFlag(cmd)
-	cmd.Flags().Int("vcd", 0, "VCD filter")
-	cmd.Flags().Int("security-type", -1, "Security type key")
-	cmd.Flags().Int("relative-size", 5, "Relative size threshold")
-	cmd.Flags().Int("trade-cluster-rank", -1, "Trade cluster rank filter")
-	cmd.Flags().String("sector", "", "Sector/Industry filter")
-	cmd.Flags().String("fields", "", "Comma-separated TradeCluster fields to include in output, or 'all' for every field")
-	common.AddOutputFormatFlags(cmd)
-	common.AddPaginationFlags(cmd, 1000, 1, "desc")
+	if err := structcli.Bind(cmd, opts); err != nil {
+		panic(fmt.Sprintf("structcli.Bind clusters: %v", err))
+	}
+	setTradeRangeFlagDefValues(cmd, opts.MinDollars)
 	return cmd
 }
 
 func newTradeClusterBombsCommand() *cobra.Command {
+	opts := &tradeClusterBombsOptions{}
+	presetTradeVolumeDollarRangeDefaults(&opts.tradeVolumeDollarRangeFlags, 0)
+	presetTradePaginationDefaults(&opts.tradePaginationFlags, 100, 1)
+	opts.TradeClusterBombRank = -1
+	opts.Format = "json"
 	cmd := &cobra.Command{
 		Use:        "cluster-bombs [tickers...]",
 		Short:      "Query trade cluster bombs",
-		Long:       "Query trade cluster bombs, which are extreme-magnitude trade clusters that exceed normal institutional activity thresholds. Filterable by ticker, date range, dollar amounts, sector, and cluster bomb rank. Outputs compact JSON by default.",
+		Long: `Query trade cluster bombs, which are extreme-magnitude trade clusters that exceed normal institutional activity thresholds. Filterable by ticker, date range, dollar amounts, sector, and cluster bomb rank. Outputs compact JSON by default.
+
+Cluster bombs find sudden aggressive bursts tightly grouped in time and price, with different defaults and rank fields than trade clusters. Use this command when looking for extreme concentration events, not general price-level clustering.`,
 		Example:    "volumeleaders-agent trade cluster-bombs TSLA --days 3",
 		Args:       cobra.ArbitraryArgs,
 		SuggestFor: []string{"clusterbombs", "cluster-bomb"},
-		RunE:       runTradeClusterBombs,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			return runTradeClusterBombs(cmd, opts)
+		},
 	}
-	common.AddDateRangeFlags(cmd)
-	common.AddVolumeRangeFlags(cmd)
-	common.AddDollarRangeFlags(cmd, 0)
-	common.AddTickersFlag(cmd)
-	cmd.Flags().Int("vcd", 0, "VCD filter")
-	cmd.Flags().Int("security-type", 0, "Security type key")
-	cmd.Flags().Int("relative-size", 0, "Relative size threshold")
-	cmd.Flags().Int("trade-cluster-bomb-rank", -1, "Trade cluster bomb rank filter")
-	cmd.Flags().String("sector", "", "Sector/Industry filter")
-	common.AddOutputFormatFlags(cmd)
-	common.AddPaginationFlags(cmd, 100, 1, "desc")
+	if err := structcli.Bind(cmd, opts); err != nil {
+		panic(fmt.Sprintf("structcli.Bind cluster-bombs: %v", err))
+	}
+	setTradeVolumeDollarFlagDefValues(cmd, opts.MinDollars)
 	return cmd
 }
 
 func newTradeAlertsCommand() *cobra.Command {
+	opts := &tradeAlertsOptions{}
+	presetTradePaginationDefaults(&opts.tradePaginationFlags, 100, 1)
+	opts.Format = "json"
 	cmd := &cobra.Command{
 		Use:        "alerts",
 		Short:      "Query trade alerts for a date",
-		Long:       "Query trade alerts fired on a specific date based on saved alert configurations. Requires --date. Returns alert records matching your configured filters. Outputs compact JSON or CSV/TSV with --format.",
+		Long: `Query trade alerts fired on a specific date based on saved alert configurations. Requires --date. Returns alert records matching your configured filters. Outputs compact JSON or CSV/TSV with --format.
+
+Alert configs trigger when trades match thresholds. Threshold names follow the pattern CategoryMetricLTE or CategoryMetricGTE where LTE is maximum rank and GTE is minimum value. Use alert configs to see your configured thresholds.`,
 		Example:    "volumeleaders-agent trade alerts --date 2025-01-15",
 		Args:       cobra.NoArgs,
 		SuggestFor: []string{"alert", "alrts"},
-		RunE:       runTradeAlerts,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			return runTradeAlerts(cmd, opts)
+		},
 	}
-	cmd.Flags().String("date", "", "Date YYYY-MM-DD")
+	if err := structcli.Bind(cmd, opts); err != nil {
+		panic(fmt.Sprintf("structcli.Bind alerts: %v", err))
+	}
 	_ = cmd.MarkFlagRequired("date")
-	common.AddOutputFormatFlags(cmd)
-	common.AddPaginationFlags(cmd, 100, 1, "desc")
 	return cmd
 }
 
 func newTradeClusterAlertsCommand() *cobra.Command {
+	opts := &tradeClusterAlertsOptions{}
+	presetTradePaginationDefaults(&opts.tradePaginationFlags, 100, 1)
+	opts.Format = "json"
 	cmd := &cobra.Command{
 		Use:        "cluster-alerts",
 		Short:      "Query trade cluster alerts for a date",
-		Long:       "Query trade cluster alerts fired on a specific date based on saved alert configurations that target cluster activity. Requires --date. Returns cluster alert records matching your configured filters.",
+		Long: `Query trade cluster alerts fired on a specific date based on saved alert configurations that target cluster activity. Requires --date. Returns cluster alert records matching your configured filters.
+
+Cluster alert rows use the full cluster-shaped model rather than the compact default from trade clusters. Use trade alerts for individual trade alert rows and this command for cluster-level alert rows.`,
 		Example:    "volumeleaders-agent trade cluster-alerts --date 2025-01-15",
 		Args:       cobra.NoArgs,
 		SuggestFor: []string{"clusteralerts", "cluster-alert"},
-		RunE:       runTradeClusterAlerts,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			return runTradeClusterAlerts(cmd, opts)
+		},
 	}
-	cmd.Flags().String("date", "", "Date YYYY-MM-DD")
+	if err := structcli.Bind(cmd, opts); err != nil {
+		panic(fmt.Sprintf("structcli.Bind cluster-alerts: %v", err))
+	}
 	_ = cmd.MarkFlagRequired("date")
-	common.AddOutputFormatFlags(cmd)
-	common.AddPaginationFlags(cmd, 100, 1, "desc")
 	return cmd
 }
 
 func newTradeLevelsCommand() *cobra.Command {
+	opts := &tradeLevelsOptions{}
+	presetTradeRangeDefaults(&opts.tradeRangeFlags, 500000)
+	opts.TradeLevelRank = -1
+	opts.TradeLevelCount = 10
+	opts.Format = "json"
 	cmd := &cobra.Command{
 		Use:        "levels [ticker]",
 		Short:      "Query significant price levels for a ticker",
-		Long:       "Query significant price levels for a ticker, showing historical support and resistance zones identified by institutional trade clustering. Accepts a ticker as positional argument or via --ticker flag. Outputs compact JSON by default.",
+		Long: `Query significant price levels for a ticker, showing historical support and resistance zones identified by institutional trade clustering. Accepts a ticker as positional argument or via --ticker flag. Outputs compact JSON by default.
+
+Defaults to a 1-year lookback when dates are omitted. Uses non-standard --relative-size 0 and caps level count from 1 to 50 via --trade-level-count. Default JSON is compact and omits repetitive ticker metadata and the verbose Dates list; use --fields all or CSV/TSV when raw fields are needed.`,
 		Example:    "volumeleaders-agent trade levels AAPL",
 		Args:       cobra.ArbitraryArgs,
 		SuggestFor: []string{"level", "lvels"},
-		RunE:       runTradeLevels,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			return runTradeLevels(cmd, opts)
+		},
 	}
-	common.AddOptionalDateRangeFlags(cmd)
-	addTradeRangeFlags(cmd, 500000)
-	common.AddTickerFlag(cmd)
-	cmd.Flags().Int("vcd", 0, "VCD filter")
-	cmd.Flags().Int("relative-size", 0, "Relative size threshold")
-	cmd.Flags().Int("trade-level-rank", -1, "Trade level rank filter")
-	cmd.Flags().Int("trade-level-count", 10, "Number of price levels to return (1-50)")
-	cmd.Flags().String("fields", "", "Comma-separated TradeLevel fields to include in output, or 'all' for every field")
-	common.AddOutputFormatFlags(cmd)
+	if err := structcli.Bind(cmd, opts); err != nil {
+		panic(fmt.Sprintf("structcli.Bind levels: %v", err))
+	}
+	setTradeRangeFlagDefValues(cmd, opts.MinDollars)
 	return cmd
 }
 
 func newTradeLevelTouchesCommand() *cobra.Command {
+	opts := &tradeLevelTouchesOptions{}
+	presetTradeRangeDefaults(&opts.tradeRangeFlags, 500000)
+	presetTradePaginationDefaults(&opts.tradePaginationFlags, maxTradeLevelRequestLength, 0)
+	opts.TradeLevelRank = 10
+	opts.TradeLevelCount = maxTradeLevelRequestLength
+	opts.Format = "json"
 	cmd := &cobra.Command{
 		Use:        "level-touches [ticker]",
 		Short:      "Query trade events at notable price levels",
-		Long:       "Query institutional trade events that occurred at notable price levels for a ticker, showing how the market interacted with key support and resistance zones. Accepts a ticker as positional argument or via --ticker flag. Requires --start-date and --end-date (or --days).",
+		Long: `Query institutional trade events that occurred at notable price levels for a ticker, showing how the market interacted with key support and resistance zones. Accepts a ticker as positional argument or via --ticker flag. Requires --start-date and --end-date (or --days).
+
+Defaults to --length 50 and rejects --length -1, --length 0, and values above 50. Use trade levels first to identify significant price zones, then use this command to find events where price revisited those levels.`,
 		Example:    "volumeleaders-agent trade level-touches AAPL --days 14",
 		Args:       cobra.ArbitraryArgs,
 		SuggestFor: []string{"leveltouches", "level-touch"},
-		RunE:       runTradeLevelTouches,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			return runTradeLevelTouches(cmd, opts)
+		},
 	}
-	common.AddDateRangeFlags(cmd)
-	addTradeRangeFlags(cmd, 500000)
-	common.AddTickerFlag(cmd)
-	cmd.Flags().Int("vcd", 0, "VCD filter")
-	cmd.Flags().Int("relative-size", 0, "Relative size threshold")
-	cmd.Flags().Int("trade-level-rank", 10, "Trade level rank filter")
-	cmd.Flags().Int("trade-level-count", maxTradeLevelRequestLength, "Number of price levels to include (1-50)")
-	common.AddOutputFormatFlags(cmd)
-	common.AddPaginationFlags(cmd, maxTradeLevelRequestLength, 0, "desc")
+	if err := structcli.Bind(cmd, opts); err != nil {
+		panic(fmt.Sprintf("structcli.Bind level-touches: %v", err))
+	}
+	setTradeRangeFlagDefValues(cmd, opts.MinDollars)
 	return cmd
 }
 
-func addTradeRangeFlags(cmd *cobra.Command, minDollarsDefault float64) {
-	common.AddVolumeRangeFlags(cmd)
-	common.AddPriceRangeFlags(cmd)
-	common.AddDollarRangeFlags(cmd, minDollarsDefault)
+func presetTradeRangeDefaults(opts *tradeRangeFlags, minDollarsDefault float64) {
+	opts.MaxVolume = 2000000000
+	opts.MaxPrice = 100000
+	opts.MinDollars = minDollarsDefault
+	opts.MaxDollars = 30000000000
 }
 
-func addTradeFilterFlags(cmd *cobra.Command, vcdDefault int) {
-	cmd.Flags().Int("conditions", -1, "Trade conditions filter")
-	cmd.Flags().Int("vcd", vcdDefault, "VCD filter")
-	cmd.Flags().Int("security-type", -1, "Security type key")
-	cmd.Flags().Int("relative-size", 5, "Relative size threshold")
-	cmd.Flags().Int("dark-pools", -1, "Dark pool filter")
-	cmd.Flags().Int("sweeps", -1, "Sweep filter")
-	cmd.Flags().Int("late-prints", -1, "Late print filter")
-	cmd.Flags().Int("sig-prints", -1, "Signature print filter")
-	cmd.Flags().Int("even-shared", -1, "Even shared filter")
-	cmd.Flags().Int("trade-rank", -1, "Trade rank filter")
-	cmd.Flags().Int("rank-snapshot", -1, "Trade rank snapshot filter")
-	cmd.Flags().Int("market-cap", 0, "Market cap filter")
-	cmd.Flags().Int("premarket", 1, "Include premarket")
-	cmd.Flags().Int("rth", 1, "Include regular trading hours")
-	cmd.Flags().Int("ah", 1, "Include after hours")
-	cmd.Flags().Int("opening", 1, "Include opening trades")
-	cmd.Flags().Int("closing", 1, "Include closing trades")
-	cmd.Flags().Int("phantom", 1, "Include phantom prints")
-	cmd.Flags().Int("offsetting", 1, "Include offsetting trades")
+func presetTradeVolumeDollarRangeDefaults(opts *tradeVolumeDollarRangeFlags, minDollarsDefault float64) {
+	opts.MaxVolume = 2000000000
+	opts.MinDollars = minDollarsDefault
+	opts.MaxDollars = 30000000000
 }
 
-func runTradeList(cmd *cobra.Command, _ []string) error {
-	presetName, _ := cmd.Flags().GetString("preset")
-	watchlistName, _ := cmd.Flags().GetString("watchlist")
+func presetTradeFilterDefaults(opts *tradeFilterFlags, vcdDefault int) {
+	opts.Conditions = -1
+	opts.VCD = vcdDefault
+	opts.SecurityType = -1
+	opts.RelativeSize = 5
+	opts.DarkPools = -1
+	opts.Sweeps = -1
+	opts.LatePrints = -1
+	opts.SigPrints = -1
+	opts.EvenShared = -1
+	opts.TradeRank = -1
+	opts.RankSnapshot = -1
+	opts.Premarket = 1
+	opts.RTH = 1
+	opts.AH = 1
+	opts.Opening = 1
+	opts.Closing = 1
+	opts.Phantom = 1
+	opts.Offsetting = 1
+}
+
+func presetTradePaginationDefaults(opts *tradePaginationFlags, length, orderCol int) {
+	opts.Length = length
+	opts.OrderCol = orderCol
+	opts.OrderDir = "desc"
+}
+
+func setTradeRangeFlagDefValues(cmd *cobra.Command, minDollarsDefault float64) {
+	setFloatFlagDefValue(cmd, "min-price", 0)
+	setFloatFlagDefValue(cmd, "max-price", 100000)
+	setTradeVolumeDollarFlagDefValues(cmd, minDollarsDefault)
+}
+
+func setTradeVolumeDollarFlagDefValues(cmd *cobra.Command, minDollarsDefault float64) {
+	setFloatFlagDefValue(cmd, "min-dollars", minDollarsDefault)
+	setFloatFlagDefValue(cmd, "max-dollars", 30000000000)
+}
+
+func setFloatFlagDefValue(cmd *cobra.Command, name string, value float64) {
+	if flag := cmd.Flags().Lookup(name); flag != nil {
+		flag.DefValue = strconv.FormatFloat(value, 'f', -1, 64)
+	}
+}
+
+func runTradeList(cmd *cobra.Command, opts *tradeListOptions) error {
+	presetName := opts.Preset
+	watchlistName := opts.Watchlist
 	tickers := common.MultiTickerValue(cmd)
-	fieldsValue, _ := cmd.Flags().GetString("fields")
-	fields, err := common.ParseJSONFieldList[models.Trade](fieldsValue)
+	fields, err := common.ParseJSONFieldList[models.Trade](opts.Fields)
 	if err != nil {
 		return fmt.Errorf("parsing fields flag: %w", err)
 	}
-	formatValue, _ := cmd.Flags().GetString("format")
-	format, err := common.ParseOutputFormat(formatValue)
+	format, err := common.ParseOutputFormat(opts.Format)
 	if err != nil {
 		return err
 	}
-	length, _ := cmd.Flags().GetInt("length")
-	if err := validateTradeRequestLength(length); err != nil {
+	if err := validateTradeRequestLength(opts.Length); err != nil {
 		return err
 	}
 
@@ -314,7 +567,7 @@ func runTradeList(cmd *cobra.Command, _ []string) error {
 		return err
 	}
 
-	filters := buildTradeFilters(tradesOptionsFromFlags(cmd, tickers, startDate, endDate))
+	filters := buildTradeFilters(tradesOptionsFromListOptions(opts, tickers, startDate, endDate))
 	if presetName != "" || watchlistName != "" {
 		if presetName != "" {
 			preset, err := findPreset(presetName)
@@ -338,42 +591,31 @@ func runTradeList(cmd *cobra.Command, _ []string) error {
 	filters["StartDate"] = startDate
 	filters["EndDate"] = endDate
 
-	start, _ := cmd.Flags().GetInt("start")
-	orderCol, _ := cmd.Flags().GetInt("order-col")
-	orderDir, _ := cmd.Flags().GetString("order-dir")
-	opts := common.DataTableOptions{Start: start, Length: length, OrderCol: orderCol, OrderDir: orderDir, Filters: filters, Fields: fields}
-	summary, _ := cmd.Flags().GetBool("summary")
-	if !summary && cmd.Flags().Changed("group-by") {
+	dtOpts := common.DataTableOptions{Start: opts.Start, Length: opts.Length, OrderCol: opts.OrderCol, OrderDir: opts.OrderDir, Filters: filters, Fields: fields}
+	if !opts.Summary && cmd.Flags().Changed("group-by") {
 		return fmt.Errorf("--group-by only works with --summary")
 	}
-	if summary {
+	if opts.Summary {
 		if len(fields) > 0 {
 			return fmt.Errorf("--fields cannot be used with --summary")
 		}
 		if format != common.OutputFormatJSON {
 			return fmt.Errorf("--format cannot be used with --summary")
 		}
-		groupBy, _ := cmd.Flags().GetString("group-by")
-		return runTradeSummary(cmd, opts, groupBy, startDate, endDate)
+		return runTradeSummary(cmd, dtOpts, opts.GroupBy, startDate, endDate)
 	}
 	if format == common.OutputFormatJSON && len(fields) == 0 {
-		return runTradeListRows(cmd, opts)
+		return runTradeListRows(cmd, dtOpts)
 	}
-	return common.RunDataTablesCommand[models.Trade](cmd, "/Trades/GetTrades", datatables.TradeColumns, opts, formatValue, "query trades")
+	return common.RunDataTablesCommand[models.Trade](cmd, "/Trades/GetTrades", datatables.TradeColumns, dtOpts, opts.Format, "query trades")
 }
 
-func tradesOptionsFromFlags(cmd *cobra.Command, tickers, startDate, endDate string) *tradesOptions {
-	return &tradesOptions{
-		tickers: tickers, startDate: startDate, endDate: endDate,
-		minVolume: getInt(cmd, "min-volume"), maxVolume: getInt(cmd, "max-volume"),
-		minPrice: getFloat(cmd, "min-price"), maxPrice: getFloat(cmd, "max-price"),
-		minDollars: getFloat(cmd, "min-dollars"), maxDollars: getFloat(cmd, "max-dollars"),
-		conditions: getInt(cmd, "conditions"), vcd: getInt(cmd, "vcd"), securityType: getInt(cmd, "security-type"), relativeSize: getInt(cmd, "relative-size"),
-		darkPools: getInt(cmd, "dark-pools"), sweeps: getInt(cmd, "sweeps"), latePrints: getInt(cmd, "late-prints"), sigPrints: getInt(cmd, "sig-prints"),
-		evenShared: getInt(cmd, "even-shared"), tradeRank: getInt(cmd, "trade-rank"), rankSnapshot: getInt(cmd, "rank-snapshot"), marketCap: getInt(cmd, "market-cap"),
-		premarket: getInt(cmd, "premarket"), rth: getInt(cmd, "rth"), ah: getInt(cmd, "ah"), opening: getInt(cmd, "opening"), closing: getInt(cmd, "closing"),
-		phantom: getInt(cmd, "phantom"), offsetting: getInt(cmd, "offsetting"), sector: getString(cmd, "sector"),
-	}
+func tradesOptionsFromListOptions(opts *tradeListOptions, tickers, startDate, endDate string) *tradesOptions {
+	return &tradesOptions{tickers: tickers, startDate: startDate, endDate: endDate, minVolume: opts.MinVolume, maxVolume: opts.MaxVolume, minPrice: opts.MinPrice, maxPrice: opts.MaxPrice, minDollars: opts.MinDollars, maxDollars: opts.MaxDollars, conditions: opts.Conditions, vcd: opts.VCD, securityType: opts.SecurityType, relativeSize: opts.RelativeSize, darkPools: opts.DarkPools, sweeps: opts.Sweeps, latePrints: opts.LatePrints, sigPrints: opts.SigPrints, evenShared: opts.EvenShared, tradeRank: opts.TradeRank, rankSnapshot: opts.RankSnapshot, marketCap: opts.MarketCap, premarket: opts.Premarket, rth: opts.RTH, ah: opts.AH, opening: opts.Opening, closing: opts.Closing, phantom: opts.Phantom, offsetting: opts.Offsetting, sector: opts.Sector}
+}
+
+func tradesOptionsFromSentimentOptions(opts *tradeSentimentOptions, startDate, endDate string) *tradesOptions {
+	return &tradesOptions{startDate: startDate, endDate: endDate, minVolume: opts.MinVolume, maxVolume: opts.MaxVolume, minPrice: opts.MinPrice, maxPrice: opts.MaxPrice, minDollars: opts.MinDollars, maxDollars: opts.MaxDollars, conditions: opts.Conditions, vcd: opts.VCD, securityType: opts.SecurityType, relativeSize: opts.RelativeSize, darkPools: opts.DarkPools, sweeps: opts.Sweeps, latePrints: opts.LatePrints, sigPrints: opts.SigPrints, evenShared: opts.EvenShared, tradeRank: opts.TradeRank, rankSnapshot: opts.RankSnapshot, marketCap: opts.MarketCap, premarket: opts.Premarket, rth: opts.RTH, ah: opts.AH, opening: opts.Opening, closing: opts.Closing, phantom: opts.Phantom, offsetting: opts.Offsetting}
 }
 
 func validateTradeRequestLength(length int) error {
@@ -552,9 +794,8 @@ func tradeTickerDayKey(trade *models.Trade) string {
 	return tradeTickerKey(trade) + "|" + tradeDayKey(trade)
 }
 
-func runTradeSentiment(cmd *cobra.Command, _ []string) error {
-	formatValue, _ := cmd.Flags().GetString("format")
-	format, err := common.ParseOutputFormat(formatValue)
+func runTradeSentiment(cmd *cobra.Command, opts *tradeSentimentOptions) error {
+	format, err := common.ParseOutputFormat(opts.Format)
 	if err != nil {
 		return err
 	}
@@ -562,9 +803,9 @@ func runTradeSentiment(cmd *cobra.Command, _ []string) error {
 	if err != nil {
 		return err
 	}
-	opts := tradesOptionsFromFlags(cmd, "", startDate, endDate)
-	opts.sector = "X B"
-	filters := buildTradeFilters(opts)
+	tradeOpts := tradesOptionsFromSentimentOptions(opts, startDate, endDate)
+	tradeOpts.sector = "X B"
+	filters := buildTradeFilters(tradeOpts)
 	vlClient, err := common.NewCommandClient(cmd.Context())
 	if err != nil {
 		return err
@@ -598,37 +839,36 @@ func tradeSentimentTotalsRow(totals *models.TradeSentimentTotals) models.TradeSe
 	return models.TradeSentimentRow{Date: "total", BearTrades: totals.Bear.Trades, BearDollars: totals.Bear.Dollars, BearTopTickers: strings.Join(totals.Bear.TopTickers, ";"), BullTrades: totals.Bull.Trades, BullDollars: totals.Bull.Dollars, BullTopTickers: strings.Join(totals.Bull.TopTickers, ";"), Ratio: totals.Ratio, Signal: totals.Signal}
 }
 
-func runTradeClusters(cmd *cobra.Command, _ []string) error {
+func runTradeClusters(cmd *cobra.Command, opts *tradeClustersOptions) error {
 	startDate, endDate, err := common.RequiredDateRange(cmd)
 	if err != nil {
 		return err
 	}
-	fields, err := common.OutputFields[models.TradeCluster](getString(cmd, "fields"), tradeClusterDefaultFields)
+	fields, err := common.OutputFields[models.TradeCluster](opts.Fields, tradeClusterDefaultFields)
 	if err != nil {
 		return fmt.Errorf("parsing fields flag: %w", err)
 	}
-	return common.RunDataTablesCommand[models.TradeCluster](cmd, "/TradeClusters/GetTradeClusters", datatables.TradeClusterColumns, common.DataTableOptions{Start: getInt(cmd, "start"), Length: getInt(cmd, "length"), OrderCol: getInt(cmd, "order-col"), OrderDir: getString(cmd, "order-dir"), Fields: fields, Filters: map[string]string{"Tickers": common.MultiTickerValue(cmd), "StartDate": startDate, "EndDate": endDate, "MinVolume": common.IntStr(getInt(cmd, "min-volume")), "MaxVolume": common.IntStr(getInt(cmd, "max-volume")), "MinPrice": common.FormatFloat(getFloat(cmd, "min-price")), "MaxPrice": common.FormatFloat(getFloat(cmd, "max-price")), "MinDollars": common.FormatFloat(getFloat(cmd, "min-dollars")), "MaxDollars": common.FormatFloat(getFloat(cmd, "max-dollars")), "VCD": common.IntStr(getInt(cmd, "vcd")), "SecurityTypeKey": common.IntStr(getInt(cmd, "security-type")), "RelativeSize": common.IntStr(getInt(cmd, "relative-size")), "TradeClusterRank": common.IntStr(getInt(cmd, "trade-cluster-rank")), "SectorIndustry": getString(cmd, "sector")}}, getString(cmd, "format"), "query trade clusters")
+	return common.RunDataTablesCommand[models.TradeCluster](cmd, "/TradeClusters/GetTradeClusters", datatables.TradeClusterColumns, common.DataTableOptions{Start: opts.Start, Length: opts.Length, OrderCol: opts.OrderCol, OrderDir: opts.OrderDir, Fields: fields, Filters: map[string]string{"Tickers": common.MultiTickerValue(cmd), "StartDate": startDate, "EndDate": endDate, "MinVolume": common.IntStr(opts.MinVolume), "MaxVolume": common.IntStr(opts.MaxVolume), "MinPrice": common.FormatFloat(opts.MinPrice), "MaxPrice": common.FormatFloat(opts.MaxPrice), "MinDollars": common.FormatFloat(opts.MinDollars), "MaxDollars": common.FormatFloat(opts.MaxDollars), "VCD": common.IntStr(opts.VCD), "SecurityTypeKey": common.IntStr(opts.SecurityType), "RelativeSize": common.IntStr(opts.RelativeSize), "TradeClusterRank": common.IntStr(opts.TradeClusterRank), "SectorIndustry": opts.Sector}}, opts.Format, "query trade clusters")
 }
 
-func runTradeClusterBombs(cmd *cobra.Command, _ []string) error {
+func runTradeClusterBombs(cmd *cobra.Command, opts *tradeClusterBombsOptions) error {
 	startDate, endDate, err := common.RequiredDateRange(cmd)
 	if err != nil {
 		return err
 	}
-	return common.RunDataTablesCommand[models.TradeClusterBomb](cmd, "/TradeClusterBombs/GetTradeClusterBombs", datatables.TradeClusterBombColumns, common.DataTableOptions{Start: getInt(cmd, "start"), Length: getInt(cmd, "length"), OrderCol: getInt(cmd, "order-col"), OrderDir: getString(cmd, "order-dir"), Filters: map[string]string{"Tickers": common.MultiTickerValue(cmd), "StartDate": startDate, "EndDate": endDate, "MinVolume": common.IntStr(getInt(cmd, "min-volume")), "MaxVolume": common.IntStr(getInt(cmd, "max-volume")), "MinDollars": common.FormatFloat(getFloat(cmd, "min-dollars")), "MaxDollars": common.FormatFloat(getFloat(cmd, "max-dollars")), "VCD": common.IntStr(getInt(cmd, "vcd")), "SecurityTypeKey": common.IntStr(getInt(cmd, "security-type")), "RelativeSize": common.IntStr(getInt(cmd, "relative-size")), "TradeClusterBombRank": common.IntStr(getInt(cmd, "trade-cluster-bomb-rank")), "SectorIndustry": getString(cmd, "sector")}}, getString(cmd, "format"), "query trade cluster bombs")
+	return common.RunDataTablesCommand[models.TradeClusterBomb](cmd, "/TradeClusterBombs/GetTradeClusterBombs", datatables.TradeClusterBombColumns, common.DataTableOptions{Start: opts.Start, Length: opts.Length, OrderCol: opts.OrderCol, OrderDir: opts.OrderDir, Filters: map[string]string{"Tickers": common.MultiTickerValue(cmd), "StartDate": startDate, "EndDate": endDate, "MinVolume": common.IntStr(opts.MinVolume), "MaxVolume": common.IntStr(opts.MaxVolume), "MinDollars": common.FormatFloat(opts.MinDollars), "MaxDollars": common.FormatFloat(opts.MaxDollars), "VCD": common.IntStr(opts.VCD), "SecurityTypeKey": common.IntStr(opts.SecurityType), "RelativeSize": common.IntStr(opts.RelativeSize), "TradeClusterBombRank": common.IntStr(opts.TradeClusterBombRank), "SectorIndustry": opts.Sector}}, opts.Format, "query trade cluster bombs")
 }
 
-func runTradeAlerts(cmd *cobra.Command, _ []string) error {
-	return common.RunDataTablesCommand[models.TradeAlert](cmd, "/TradeAlerts/GetTradeAlerts", datatables.TradeColumns, common.DataTableOptions{Start: getInt(cmd, "start"), Length: getInt(cmd, "length"), OrderCol: getInt(cmd, "order-col"), OrderDir: getString(cmd, "order-dir"), Filters: map[string]string{"Date": getString(cmd, "date")}}, getString(cmd, "format"), "query trade alerts")
+func runTradeAlerts(cmd *cobra.Command, opts *tradeAlertsOptions) error {
+	return common.RunDataTablesCommand[models.TradeAlert](cmd, "/TradeAlerts/GetTradeAlerts", datatables.TradeColumns, common.DataTableOptions{Start: opts.Start, Length: opts.Length, OrderCol: opts.OrderCol, OrderDir: opts.OrderDir, Filters: map[string]string{"Date": opts.Date}}, opts.Format, "query trade alerts")
 }
 
-func runTradeClusterAlerts(cmd *cobra.Command, _ []string) error {
-	return common.RunDataTablesCommand[models.TradeClusterAlert](cmd, "/TradeClusterAlerts/GetTradeClusterAlerts", datatables.TradeClusterColumns, common.DataTableOptions{Start: getInt(cmd, "start"), Length: getInt(cmd, "length"), OrderCol: getInt(cmd, "order-col"), OrderDir: getString(cmd, "order-dir"), Filters: map[string]string{"Date": getString(cmd, "date")}}, getString(cmd, "format"), "query trade cluster alerts")
+func runTradeClusterAlerts(cmd *cobra.Command, opts *tradeClusterAlertsOptions) error {
+	return common.RunDataTablesCommand[models.TradeClusterAlert](cmd, "/TradeClusterAlerts/GetTradeClusterAlerts", datatables.TradeClusterColumns, common.DataTableOptions{Start: opts.Start, Length: opts.Length, OrderCol: opts.OrderCol, OrderDir: opts.OrderDir, Filters: map[string]string{"Date": opts.Date}}, opts.Format, "query trade cluster alerts")
 }
 
-func runTradeLevels(cmd *cobra.Command, _ []string) error {
-	formatValue := getString(cmd, "format")
-	format, err := common.ParseOutputFormat(formatValue)
+func runTradeLevels(cmd *cobra.Command, opts *tradeLevelsOptions) error {
+	format, err := common.ParseOutputFormat(opts.Format)
 	if err != nil {
 		return err
 	}
@@ -636,7 +876,7 @@ func runTradeLevels(cmd *cobra.Command, _ []string) error {
 	if err != nil {
 		return err
 	}
-	fields, err := common.OutputFields[models.TradeLevel](getString(cmd, "fields"), nil)
+	fields, err := common.OutputFields[models.TradeLevel](opts.Fields, nil)
 	if err != nil {
 		return fmt.Errorf("parsing fields flag: %w", err)
 	}
@@ -644,11 +884,11 @@ func runTradeLevels(cmd *cobra.Command, _ []string) error {
 	if err != nil {
 		return err
 	}
-	opts := tradeLevelOptionsFromFlags(cmd, ticker, startDate, endDate)
-	if err := validateTradeLevelCount(opts.tradeLevelCount); err != nil {
+	levelOpts := tradeLevelOptionsFromLevelsOptions(opts, ticker, startDate, endDate)
+	if err := validateTradeLevelCount(levelOpts.tradeLevelCount); err != nil {
 		return err
 	}
-	dataOpts := common.DataTableOptions{Start: 0, Length: opts.tradeLevelCount, OrderCol: 1, OrderDir: "desc", Filters: buildTradeLevelFilters(opts), Fields: fields}
+	dataOpts := common.DataTableOptions{Start: 0, Length: levelOpts.tradeLevelCount, OrderCol: 1, OrderDir: "desc", Filters: buildTradeLevelFilters(levelOpts), Fields: fields}
 	if format == common.OutputFormatJSON && len(fields) == 0 {
 		levels, err := fetchTradeLevels(cmd, dataOpts)
 		if err != nil {
@@ -656,11 +896,11 @@ func runTradeLevels(cmd *cobra.Command, _ []string) error {
 		}
 		return common.PrintJSON(cmd.OutOrStdout(), cmd.Context(), models.NewTradeLevelRows(levels))
 	}
-	return common.RunDataTablesSingleRequestCommand[models.TradeLevel](cmd, "/TradeLevels/GetTradeLevels", datatables.TradeLevelColumns, dataOpts, formatValue, "query trade levels")
+	return common.RunDataTablesSingleRequestCommand[models.TradeLevel](cmd, "/TradeLevels/GetTradeLevels", datatables.TradeLevelColumns, dataOpts, opts.Format, "query trade levels")
 }
 
-func tradeLevelOptionsFromFlags(cmd *cobra.Command, ticker, startDate, endDate string) *tradeLevelOptions {
-	return &tradeLevelOptions{ticker: ticker, startDate: startDate, endDate: endDate, minVolume: getInt(cmd, "min-volume"), maxVolume: getInt(cmd, "max-volume"), minPrice: getFloat(cmd, "min-price"), maxPrice: getFloat(cmd, "max-price"), minDollars: getFloat(cmd, "min-dollars"), maxDollars: getFloat(cmd, "max-dollars"), vcd: getInt(cmd, "vcd"), relativeSize: getInt(cmd, "relative-size"), tradeLevelRank: getInt(cmd, "trade-level-rank"), tradeLevelCount: getInt(cmd, "trade-level-count")}
+func tradeLevelOptionsFromLevelsOptions(opts *tradeLevelsOptions, ticker, startDate, endDate string) *tradeLevelOptions {
+	return &tradeLevelOptions{ticker: ticker, startDate: startDate, endDate: endDate, minVolume: opts.MinVolume, maxVolume: opts.MaxVolume, minPrice: opts.MinPrice, maxPrice: opts.MaxPrice, minDollars: opts.MinDollars, maxDollars: opts.MaxDollars, vcd: opts.VCD, relativeSize: opts.RelativeSize, tradeLevelRank: opts.TradeLevelRank, tradeLevelCount: opts.TradeLevelCount}
 }
 
 func fetchTradeLevels(cmd *cobra.Command, opts common.DataTableOptions) ([]models.TradeLevel, error) {
@@ -678,22 +918,22 @@ func fetchTradeLevels(cmd *cobra.Command, opts common.DataTableOptions) ([]model
 	return result, nil
 }
 
-func runTradeLevelTouches(cmd *cobra.Command, _ []string) error {
+func runTradeLevelTouches(cmd *cobra.Command, opts *tradeLevelTouchesOptions) error {
 	startDate, endDate, err := common.RequiredDateRange(cmd)
 	if err != nil {
 		return err
 	}
-	if err := validateTradeLevelTouchesLength(getInt(cmd, "length")); err != nil {
+	if err := validateTradeLevelTouchesLength(opts.Length); err != nil {
 		return err
 	}
-	if err := validateTradeLevelCount(getInt(cmd, "trade-level-count")); err != nil {
+	if err := validateTradeLevelCount(opts.TradeLevelCount); err != nil {
 		return err
 	}
 	ticker, err := common.SingleTickerValue(cmd)
 	if err != nil {
 		return err
 	}
-	return common.RunDataTablesCommand[models.TradeLevelTouch](cmd, "/TradeLevelTouches/GetTradeLevelTouches", datatables.TradeLevelTouchColumns, common.DataTableOptions{Start: getInt(cmd, "start"), Length: getInt(cmd, "length"), OrderCol: getInt(cmd, "order-col"), OrderDir: getString(cmd, "order-dir"), Filters: map[string]string{"Tickers": ticker, "StartDate": startDate, "EndDate": endDate, "MinVolume": common.IntStr(getInt(cmd, "min-volume")), "MaxVolume": common.IntStr(getInt(cmd, "max-volume")), "MinPrice": common.FormatFloat(getFloat(cmd, "min-price")), "MaxPrice": common.FormatFloat(getFloat(cmd, "max-price")), "MinDollars": common.FormatFloat(getFloat(cmd, "min-dollars")), "MaxDollars": common.FormatFloat(getFloat(cmd, "max-dollars")), "VCD": common.IntStr(getInt(cmd, "vcd")), "RelativeSize": common.IntStr(getInt(cmd, "relative-size")), "TradeLevelRank": common.IntStr(getInt(cmd, "trade-level-rank")), "Levels": common.IntStr(getInt(cmd, "trade-level-count"))}}, getString(cmd, "format"), "query trade level touches")
+	return common.RunDataTablesCommand[models.TradeLevelTouch](cmd, "/TradeLevelTouches/GetTradeLevelTouches", datatables.TradeLevelTouchColumns, common.DataTableOptions{Start: opts.Start, Length: opts.Length, OrderCol: opts.OrderCol, OrderDir: opts.OrderDir, Filters: map[string]string{"Tickers": ticker, "StartDate": startDate, "EndDate": endDate, "MinVolume": common.IntStr(opts.MinVolume), "MaxVolume": common.IntStr(opts.MaxVolume), "MinPrice": common.FormatFloat(opts.MinPrice), "MaxPrice": common.FormatFloat(opts.MaxPrice), "MinDollars": common.FormatFloat(opts.MinDollars), "MaxDollars": common.FormatFloat(opts.MaxDollars), "VCD": common.IntStr(opts.VCD), "RelativeSize": common.IntStr(opts.RelativeSize), "TradeLevelRank": common.IntStr(opts.TradeLevelRank), "Levels": common.IntStr(opts.TradeLevelCount)}}, opts.Format, "query trade level touches")
 }
 
 func fetchTradeSentimentTrades(cmd *cobra.Command, vlClient *client.Client, opts common.DataTableOptions) ([]models.Trade, error) {

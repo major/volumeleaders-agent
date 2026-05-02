@@ -5,12 +5,69 @@ import (
 	"log/slog"
 	"strconv"
 
+	"github.com/leodido/structcli"
 	"github.com/spf13/cobra"
 
 	"github.com/major/volumeleaders-agent/internal/cli/common"
 	"github.com/major/volumeleaders-agent/internal/datatables"
 	"github.com/major/volumeleaders-agent/internal/models"
 )
+
+// alertConfigsOptions holds flags for the "alert configs" subcommand.
+type alertConfigsOptions struct {
+	Format string `flag:"format" default:"json" flagdescr:"Output format: json, csv, or tsv"`
+	Fields string `flag:"fields" flagdescr:"Comma-separated fields to include (use 'all' for every field)"`
+}
+
+// alertDeleteOptions holds flags for the "alert delete" subcommand.
+type alertDeleteOptions struct {
+	Key int `flag:"key" flagrequired:"true" flagdescr:"Alert config key to delete"`
+}
+
+// alertConfigFlags holds the shared flag set for alert create/edit commands.
+type alertConfigFlags struct {
+	Name                   string `flag:"name" flagdescr:"Alert name (max 50 chars)"`
+	TickerGroup            string `flag:"ticker-group" flagdescr:"Ticker group (AllTickers or SelectedTickers)"`
+	Tickers                string `flag:"tickers" flagdescr:"Comma-separated ticker symbols (max 500, used with SelectedTickers)"`
+	TradeRankLTE           int    `flag:"trade-rank-lte" flagdescr:"Trade rank <= (0=N/A, 1/3/5/10/25/50/100)"`
+	TradeVCDGTE            int    `flag:"trade-vcd-gte" flagdescr:"Trade VCD >= (0=N/A, 99/100)"`
+	TradeMultGTE           int    `flag:"trade-mult-gte" flagdescr:"Trade multiplier >= (0=N/A, 5/10/25/50/100)"`
+	TradeVolumeGTE         int    `flag:"trade-volume-gte" flagdescr:"Trade volume >= (0=N/A, 1000000/2000000/5000000/10000000)"`
+	TradeDollarsGTE        int    `flag:"trade-dollars-gte" flagdescr:"Trade dollars >= (0=N/A, 1000000/10000000/...)"`
+	TradeConditions        string `flag:"trade-conditions" flagdescr:"Trade conditions (0=N/A, OBH/OBD/OSH/OSD combos)"`
+	DarkPool               bool   `flag:"dark-pool" flagdescr:"Dark pool filter"`
+	Sweep                  bool   `flag:"sweep" flagdescr:"Sweep filter"`
+	ClosingTradeRankLTE    int    `flag:"closing-trade-rank-lte" flagdescr:"Closing trade rank <="`
+	ClosingTradeVCDGTE     int    `flag:"closing-trade-vcd-gte" flagdescr:"Closing trade VCD >= (0/97/98/99/100)"`
+	ClosingTradeMultGTE    int    `flag:"closing-trade-mult-gte" flagdescr:"Closing trade multiplier >="`
+	ClosingTradeVolumeGTE  int    `flag:"closing-trade-volume-gte" flagdescr:"Closing trade volume >="`
+	ClosingTradeDollarsGTE int    `flag:"closing-trade-dollars-gte" flagdescr:"Closing trade dollars >="`
+	ClosingTradeConditions string `flag:"closing-trade-conditions" flagdescr:"Closing trade conditions"`
+	ClusterRankLTE         int    `flag:"cluster-rank-lte" flagdescr:"Trade cluster rank <="`
+	ClusterVCDGTE          int    `flag:"cluster-vcd-gte" flagdescr:"Trade cluster VCD >= (0/97/98/99/100)"`
+	ClusterMultGTE         int    `flag:"cluster-mult-gte" flagdescr:"Trade cluster multiplier >="`
+	ClusterVolumeGTE       int    `flag:"cluster-volume-gte" flagdescr:"Trade cluster volume >="`
+	ClusterDollarsGTE      int    `flag:"cluster-dollars-gte" flagdescr:"Trade cluster dollars >="`
+	TotalRankLTE           int    `flag:"total-rank-lte" flagdescr:"Total rank <= (0/1/3/10/25/50/100)"`
+	TotalVolumeGTE         int    `flag:"total-volume-gte" flagdescr:"Total volume >="`
+	TotalDollarsGTE        int    `flag:"total-dollars-gte" flagdescr:"Total dollars >="`
+	AHRankLTE              int    `flag:"ah-rank-lte" flagdescr:"After-hours rank <="`
+	AHVolumeGTE            int    `flag:"ah-volume-gte" flagdescr:"After-hours volume >="`
+	AHDollarsGTE           int    `flag:"ah-dollars-gte" flagdescr:"After-hours dollars >="`
+	OffsettingPrint        bool   `flag:"offsetting-print" flagdescr:"Offsetting print filter"`
+	PhantomPrint           bool   `flag:"phantom-print" flagdescr:"Phantom print filter"`
+}
+
+// alertCreateOptions holds flags for the "alert create" subcommand.
+type alertCreateOptions struct {
+	alertConfigFlags
+}
+
+// alertEditOptions holds flags for the "alert edit" subcommand.
+type alertEditOptions struct {
+	Key int `flag:"key" flagrequired:"true" flagdescr:"Alert config key to edit"`
+	alertConfigFlags
+}
 
 // alertConfigDefaultFields defines the default field subset for configs output.
 var alertConfigDefaultFields = []string{
@@ -45,6 +102,7 @@ func NewAlertCommand() *cobra.Command {
 
 // newConfigsCmd returns the "configs" subcommand.
 func newConfigsCmd() *cobra.Command {
+	opts := &alertConfigsOptions{}
 	cmd := &cobra.Command{
 		Use:        "configs",
 		Short:      "List saved alert configurations",
@@ -54,14 +112,12 @@ func newConfigsCmd() *cobra.Command {
 		Aliases:    []string{"ls"},
 		SuggestFor: []string{"config", "cfg"},
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			fieldsValue, _ := cmd.Flags().GetString("fields")
-			fields, err := common.OutputFields[models.AlertConfig](fieldsValue, alertConfigDefaultFields)
+			fields, err := common.OutputFields[models.AlertConfig](opts.Fields, alertConfigDefaultFields)
 			if err != nil {
 				return err
 			}
-			format, _ := cmd.Flags().GetString("format")
 
-			opts := common.DataTableOptions{
+			dtOpts := common.DataTableOptions{
 				Start:    0,
 				Length:   -1,
 				OrderCol: 1,
@@ -71,16 +127,18 @@ func newConfigsCmd() *cobra.Command {
 			return common.RunDataTablesCommand[models.AlertConfig](cmd,
 				"/AlertConfigs/GetAlertConfigs",
 				datatables.AlertConfigColumns,
-				opts, format, "query alert configs")
+				dtOpts, opts.Format, "query alert configs")
 		},
 	}
-	common.AddOutputFormatFlags(cmd)
-	cmd.Flags().String("fields", "", "Comma-separated fields to include (use 'all' for every field)")
+	if err := structcli.Bind(cmd, opts); err != nil {
+		panic(fmt.Sprintf("structcli.Bind configs: %v", err))
+	}
 	return cmd
 }
 
 // newDeleteCmd returns the "delete" subcommand.
 func newDeleteCmd() *cobra.Command {
+	opts := &alertDeleteOptions{}
 	cmd := &cobra.Command{
 		Use:        "delete",
 		Short:      "Delete an alert configuration",
@@ -90,7 +148,6 @@ func newDeleteCmd() *cobra.Command {
 		Aliases:    []string{"rm"},
 		SuggestFor: []string{"del", "remove"},
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			key, _ := cmd.Flags().GetInt("key")
 			ctx := cmd.Context()
 
 			vlClient, err := common.NewCommandClient(ctx)
@@ -98,7 +155,7 @@ func newDeleteCmd() *cobra.Command {
 				return err
 			}
 
-			payload := map[string]int{"AlertConfigKey": key}
+			payload := map[string]int{"AlertConfigKey": opts.Key}
 			var result any
 			if err := vlClient.PostJSON(ctx, "/AlertConfigs/DeleteAlertConfig", payload, &result); err != nil {
 				slog.Error("failed to delete alert config", "error", err)
@@ -108,13 +165,18 @@ func newDeleteCmd() *cobra.Command {
 			return common.PrintJSON(cmd.OutOrStdout(), ctx, result)
 		},
 	}
-	cmd.Flags().Int("key", 0, "Alert config key to delete")
-	_ = cmd.MarkFlagRequired("key")
+	if err := structcli.Bind(cmd, opts); err != nil {
+		panic(fmt.Sprintf("structcli.Bind delete: %v", err))
+	}
 	return cmd
 }
 
 // newCreateCmd returns the "create" subcommand.
 func newCreateCmd() *cobra.Command {
+	opts := &alertCreateOptions{}
+	opts.TickerGroup = "AllTickers"
+	opts.TradeConditions = "0"
+	opts.ClosingTradeConditions = "0"
 	cmd := &cobra.Command{
 		Use:   "create",
 		Short: "Create a new alert configuration",
@@ -125,16 +187,22 @@ volumeleaders-agent alert create --name "Dark pool sweeps" --sweep --dark-pool -
 		Aliases:    []string{"new"},
 		SuggestFor: []string{"crate", "creat"},
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			return runAlertCreateEdit(cmd, 0)
+			return runAlertCreateEdit(cmd, &opts.alertConfigFlags, 0)
 		},
 	}
-	addAlertConfigFlags(cmd)
+	if err := structcli.Bind(cmd, opts); err != nil {
+		panic(fmt.Sprintf("structcli.Bind create: %v", err))
+	}
 	_ = cmd.MarkFlagRequired("name")
 	return cmd
 }
 
 // newEditCmd returns the "edit" subcommand.
 func newEditCmd() *cobra.Command {
+	opts := &alertEditOptions{}
+	opts.TickerGroup = "AllTickers"
+	opts.TradeConditions = "0"
+	opts.ClosingTradeConditions = "0"
 	cmd := &cobra.Command{
 		Use:        "edit",
 		Short:      "Edit an existing alert configuration",
@@ -143,140 +211,69 @@ func newEditCmd() *cobra.Command {
 		Args:       cobra.NoArgs,
 		SuggestFor: []string{"edt", "modify"},
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			key, _ := cmd.Flags().GetInt("key")
-			return runAlertCreateEdit(cmd, key)
+			return runAlertCreateEdit(cmd, &opts.alertConfigFlags, opts.Key)
 		},
 	}
-	cmd.Flags().Int("key", 0, "Alert config key to edit")
-	_ = cmd.MarkFlagRequired("key")
-	addAlertConfigFlags(cmd)
+	if err := structcli.Bind(cmd, opts); err != nil {
+		panic(fmt.Sprintf("structcli.Bind edit: %v", err))
+	}
 	return cmd
 }
 
-// addAlertConfigFlags registers the shared flags for alert create/edit commands.
-func addAlertConfigFlags(cmd *cobra.Command) {
-	cmd.Flags().String("name", "", "Alert name (max 50 chars)")
-	cmd.Flags().String("ticker-group", "AllTickers", "Ticker group (AllTickers or SelectedTickers)")
-	cmd.Flags().String("tickers", "", "Comma-separated ticker symbols (max 500, used with SelectedTickers)")
-	// Trade thresholds
-	cmd.Flags().Int("trade-rank-lte", 0, "Trade rank <= (0=N/A, 1/3/5/10/25/50/100)")
-	cmd.Flags().Int("trade-vcd-gte", 0, "Trade VCD >= (0=N/A, 99/100)")
-	cmd.Flags().Int("trade-mult-gte", 0, "Trade multiplier >= (0=N/A, 5/10/25/50/100)")
-	cmd.Flags().Int("trade-volume-gte", 0, "Trade volume >= (0=N/A, 1000000/2000000/5000000/10000000)")
-	cmd.Flags().Int("trade-dollars-gte", 0, "Trade dollars >= (0=N/A, 1000000/10000000/...)")
-	cmd.Flags().String("trade-conditions", "0", "Trade conditions (0=N/A, OBH/OBD/OSH/OSD combos)")
-	cmd.Flags().Bool("dark-pool", false, "Dark pool filter")
-	cmd.Flags().Bool("sweep", false, "Sweep filter")
-	// Closing trade thresholds
-	cmd.Flags().Int("closing-trade-rank-lte", 0, "Closing trade rank <=")
-	cmd.Flags().Int("closing-trade-vcd-gte", 0, "Closing trade VCD >= (0/97/98/99/100)")
-	cmd.Flags().Int("closing-trade-mult-gte", 0, "Closing trade multiplier >=")
-	cmd.Flags().Int("closing-trade-volume-gte", 0, "Closing trade volume >=")
-	cmd.Flags().Int("closing-trade-dollars-gte", 0, "Closing trade dollars >=")
-	cmd.Flags().String("closing-trade-conditions", "0", "Closing trade conditions")
-	// Trade cluster thresholds
-	cmd.Flags().Int("cluster-rank-lte", 0, "Trade cluster rank <=")
-	cmd.Flags().Int("cluster-vcd-gte", 0, "Trade cluster VCD >= (0/97/98/99/100)")
-	cmd.Flags().Int("cluster-mult-gte", 0, "Trade cluster multiplier >=")
-	cmd.Flags().Int("cluster-volume-gte", 0, "Trade cluster volume >=")
-	cmd.Flags().Int("cluster-dollars-gte", 0, "Trade cluster dollars >=")
-	// Cumulative institutional totals
-	cmd.Flags().Int("total-rank-lte", 0, "Total rank <= (0/1/3/10/25/50/100)")
-	cmd.Flags().Int("total-volume-gte", 0, "Total volume >=")
-	cmd.Flags().Int("total-dollars-gte", 0, "Total dollars >=")
-	// After-hours cumulative
-	cmd.Flags().Int("ah-rank-lte", 0, "After-hours rank <=")
-	cmd.Flags().Int("ah-volume-gte", 0, "After-hours volume >=")
-	cmd.Flags().Int("ah-dollars-gte", 0, "After-hours dollars >=")
-	// Special conditions
-	cmd.Flags().Bool("offsetting-print", false, "Offsetting print filter")
-	cmd.Flags().Bool("phantom-print", false, "Phantom print filter")
-}
-
-// buildAlertConfigFields maps CLI flag values to form field names for the
+// buildAlertConfigFields maps struct field values to form field names for the
 // multipart POST request.
-func buildAlertConfigFields(cmd *cobra.Command, key int) map[string]string {
+func buildAlertConfigFields(opts *alertConfigFlags, key int) map[string]string {
 	// Auto-select SelectedTickers when tickers are specified but ticker-group
 	// was left at the default.
-	tickerGroup, _ := cmd.Flags().GetString("ticker-group")
-	tickers, _ := cmd.Flags().GetString("tickers")
-	if tickerGroup == "AllTickers" && tickers != "" {
+	tickerGroup := opts.TickerGroup
+	if tickerGroup == "AllTickers" && opts.Tickers != "" {
 		tickerGroup = "SelectedTickers"
 	}
 
-	name, _ := cmd.Flags().GetString("name")
-	tradeRankLTE, _ := cmd.Flags().GetInt("trade-rank-lte")
-	tradeVCDGTE, _ := cmd.Flags().GetInt("trade-vcd-gte")
-	tradeMultGTE, _ := cmd.Flags().GetInt("trade-mult-gte")
-	tradeVolumeGTE, _ := cmd.Flags().GetInt("trade-volume-gte")
-	tradeDollarsGTE, _ := cmd.Flags().GetInt("trade-dollars-gte")
-	tradeConditions, _ := cmd.Flags().GetString("trade-conditions")
-	darkPool, _ := cmd.Flags().GetBool("dark-pool")
-	sweep, _ := cmd.Flags().GetBool("sweep")
-	closingTradeRankLTE, _ := cmd.Flags().GetInt("closing-trade-rank-lte")
-	closingTradeVCDGTE, _ := cmd.Flags().GetInt("closing-trade-vcd-gte")
-	closingTradeMultGTE, _ := cmd.Flags().GetInt("closing-trade-mult-gte")
-	closingTradeVolumeGTE, _ := cmd.Flags().GetInt("closing-trade-volume-gte")
-	closingTradeDollarsGTE, _ := cmd.Flags().GetInt("closing-trade-dollars-gte")
-	closingTradeConditions, _ := cmd.Flags().GetString("closing-trade-conditions")
-	clusterRankLTE, _ := cmd.Flags().GetInt("cluster-rank-lte")
-	clusterVCDGTE, _ := cmd.Flags().GetInt("cluster-vcd-gte")
-	clusterMultGTE, _ := cmd.Flags().GetInt("cluster-mult-gte")
-	clusterVolumeGTE, _ := cmd.Flags().GetInt("cluster-volume-gte")
-	clusterDollarsGTE, _ := cmd.Flags().GetInt("cluster-dollars-gte")
-	totalRankLTE, _ := cmd.Flags().GetInt("total-rank-lte")
-	totalVolumeGTE, _ := cmd.Flags().GetInt("total-volume-gte")
-	totalDollarsGTE, _ := cmd.Flags().GetInt("total-dollars-gte")
-	ahRankLTE, _ := cmd.Flags().GetInt("ah-rank-lte")
-	ahVolumeGTE, _ := cmd.Flags().GetInt("ah-volume-gte")
-	ahDollarsGTE, _ := cmd.Flags().GetInt("ah-dollars-gte")
-	offsettingPrint, _ := cmd.Flags().GetBool("offsetting-print")
-	phantomPrint, _ := cmd.Flags().GetBool("phantom-print")
-
 	return map[string]string{
 		"AlertConfigKey":         strconv.Itoa(key),
-		"Name":                   name,
+		"Name":                   opts.Name,
 		"TickerGroup":            tickerGroup,
-		"Tickers":                tickers,
-		"TradeRankLTE":           strconv.Itoa(tradeRankLTE),
-		"TradeVCDGTE":            strconv.Itoa(tradeVCDGTE),
-		"TradeMultGTE":           strconv.Itoa(tradeMultGTE),
-		"TradeVolumeGTE":         strconv.Itoa(tradeVolumeGTE),
-		"TradeDollarsGTE":        strconv.Itoa(tradeDollarsGTE),
-		"TradeConditions":        tradeConditions,
-		"DarkPool":               strconv.FormatBool(darkPool),
-		"Sweep":                  strconv.FormatBool(sweep),
-		"ClosingTradeRankLTE":    strconv.Itoa(closingTradeRankLTE),
-		"ClosingTradeVCDGTE":     strconv.Itoa(closingTradeVCDGTE),
-		"ClosingTradeMultGTE":    strconv.Itoa(closingTradeMultGTE),
-		"ClosingTradeVolumeGTE":  strconv.Itoa(closingTradeVolumeGTE),
-		"ClosingTradeDollarsGTE": strconv.Itoa(closingTradeDollarsGTE),
-		"ClosingTradeConditions": closingTradeConditions,
-		"TradeClusterRankLTE":    strconv.Itoa(clusterRankLTE),
-		"TradeClusterVCDGTE":     strconv.Itoa(clusterVCDGTE),
-		"TradeClusterMultGTE":    strconv.Itoa(clusterMultGTE),
-		"TradeClusterVolumeGTE":  strconv.Itoa(clusterVolumeGTE),
-		"TradeClusterDollarsGTE": strconv.Itoa(clusterDollarsGTE),
-		"TotalRankLTE":           strconv.Itoa(totalRankLTE),
-		"TotalVolumeGTE":         strconv.Itoa(totalVolumeGTE),
-		"TotalDollarsGTE":        strconv.Itoa(totalDollarsGTE),
-		"AHRankLTE":              strconv.Itoa(ahRankLTE),
-		"AHVolumeGTE":            strconv.Itoa(ahVolumeGTE),
-		"AHDollarsGTE":           strconv.Itoa(ahDollarsGTE),
-		"OffsettingPrint":        strconv.FormatBool(offsettingPrint),
-		"PhantomPrint":           strconv.FormatBool(phantomPrint),
+		"Tickers":                opts.Tickers,
+		"TradeRankLTE":           strconv.Itoa(opts.TradeRankLTE),
+		"TradeVCDGTE":            strconv.Itoa(opts.TradeVCDGTE),
+		"TradeMultGTE":           strconv.Itoa(opts.TradeMultGTE),
+		"TradeVolumeGTE":         strconv.Itoa(opts.TradeVolumeGTE),
+		"TradeDollarsGTE":        strconv.Itoa(opts.TradeDollarsGTE),
+		"TradeConditions":        opts.TradeConditions,
+		"DarkPool":               strconv.FormatBool(opts.DarkPool),
+		"Sweep":                  strconv.FormatBool(opts.Sweep),
+		"ClosingTradeRankLTE":    strconv.Itoa(opts.ClosingTradeRankLTE),
+		"ClosingTradeVCDGTE":     strconv.Itoa(opts.ClosingTradeVCDGTE),
+		"ClosingTradeMultGTE":    strconv.Itoa(opts.ClosingTradeMultGTE),
+		"ClosingTradeVolumeGTE":  strconv.Itoa(opts.ClosingTradeVolumeGTE),
+		"ClosingTradeDollarsGTE": strconv.Itoa(opts.ClosingTradeDollarsGTE),
+		"ClosingTradeConditions": opts.ClosingTradeConditions,
+		"TradeClusterRankLTE":    strconv.Itoa(opts.ClusterRankLTE),
+		"TradeClusterVCDGTE":     strconv.Itoa(opts.ClusterVCDGTE),
+		"TradeClusterMultGTE":    strconv.Itoa(opts.ClusterMultGTE),
+		"TradeClusterVolumeGTE":  strconv.Itoa(opts.ClusterVolumeGTE),
+		"TradeClusterDollarsGTE": strconv.Itoa(opts.ClusterDollarsGTE),
+		"TotalRankLTE":           strconv.Itoa(opts.TotalRankLTE),
+		"TotalVolumeGTE":         strconv.Itoa(opts.TotalVolumeGTE),
+		"TotalDollarsGTE":        strconv.Itoa(opts.TotalDollarsGTE),
+		"AHRankLTE":              strconv.Itoa(opts.AHRankLTE),
+		"AHVolumeGTE":            strconv.Itoa(opts.AHVolumeGTE),
+		"AHDollarsGTE":           strconv.Itoa(opts.AHDollarsGTE),
+		"OffsettingPrint":        strconv.FormatBool(opts.OffsettingPrint),
+		"PhantomPrint":           strconv.FormatBool(opts.PhantomPrint),
 	}
 }
 
 // runAlertCreateEdit is the shared handler for create and edit subcommands.
-func runAlertCreateEdit(cmd *cobra.Command, key int) error {
+func runAlertCreateEdit(cmd *cobra.Command, opts *alertConfigFlags, key int) error {
 	ctx := cmd.Context()
 	vlClient, err := common.NewCommandClient(ctx)
 	if err != nil {
 		return err
 	}
 
-	fields := buildAlertConfigFields(cmd, key)
+	fields := buildAlertConfigFields(opts, key)
 	if err := vlClient.PostMultipart(ctx, "/AlertConfig", fields); err != nil {
 		slog.Error("failed to save alert config", "error", err)
 		return fmt.Errorf("save alert config: %w", err)

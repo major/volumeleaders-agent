@@ -6,6 +6,7 @@ import (
 	"maps"
 	"strings"
 
+	"github.com/leodido/structcli"
 	"github.com/spf13/cobra"
 
 	"github.com/major/volumeleaders-agent/internal/cli/common"
@@ -17,6 +18,14 @@ type tradePreset struct {
 	name    string
 	group   string
 	filters map[string]string
+}
+
+type tradePresetsOptions struct {
+	Format string `flag:"format" flagdescr:"Output format: json, csv, or tsv"`
+}
+
+type tradePresetTickersOptions struct {
+	Preset string `flag:"preset" flagdescr:"Preset name (case-insensitive)"`
 }
 
 var tradePresets = buildPresets()
@@ -199,6 +208,7 @@ func watchlistConfigToFilters(cfg *models.WatchListConfig) map[string]string {
 }
 
 func newTradePresetTickersCommand() *cobra.Command {
+	opts := &tradePresetTickersOptions{}
 	cmd := &cobra.Command{
 		Use:        "preset-tickers",
 		Short:      "Extract ticker symbols from a preset",
@@ -206,15 +216,19 @@ func newTradePresetTickersCommand() *cobra.Command {
 		Example:    "volumeleaders-agent trade preset-tickers --preset NAME",
 		Args:       cobra.NoArgs,
 		SuggestFor: []string{"presettickers", "preset-ticker"},
-		RunE:       runTradePresetTickers,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			return runTradePresetTickers(cmd, opts)
+		},
 	}
-	cmd.Flags().String("preset", "", "Preset name (case-insensitive)")
+	if err := structcli.Bind(cmd, opts); err != nil {
+		panic(fmt.Sprintf("structcli.Bind preset-tickers: %v", err))
+	}
 	_ = cmd.MarkFlagRequired("preset")
 	return cmd
 }
 
-func runTradePresetTickers(cmd *cobra.Command, _ []string) error {
-	p, err := findPreset(getString(cmd, "preset"))
+func runTradePresetTickers(cmd *cobra.Command, opts *tradePresetTickersOptions) error {
+	p, err := findPreset(opts.Preset)
 	if err != nil {
 		return err
 	}
@@ -248,6 +262,7 @@ func splitTickers(tickers string) []string {
 }
 
 func newTradePresetsCommand() *cobra.Command {
+	opts := &tradePresetsOptions{Format: "json"}
 	cmd := &cobra.Command{
 		Use:        "presets",
 		Short:      "List available trade filter presets",
@@ -255,14 +270,18 @@ func newTradePresetsCommand() *cobra.Command {
 		Example:    "volumeleaders-agent trade presets",
 		Args:       cobra.NoArgs,
 		SuggestFor: []string{"preset", "prsets"},
-		RunE:       runTradePresets,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			return runTradePresets(cmd, opts)
+		},
 	}
-	common.AddOutputFormatFlags(cmd)
+	if err := structcli.Bind(cmd, opts); err != nil {
+		panic(fmt.Sprintf("structcli.Bind presets: %v", err))
+	}
 	return cmd
 }
 
-func runTradePresets(cmd *cobra.Command, _ []string) error {
-	format, err := common.ParseOutputFormat(getString(cmd, "format"))
+func runTradePresets(cmd *cobra.Command, opts *tradePresetsOptions) error {
+	format, err := common.ParseOutputFormat(opts.Format)
 	if err != nil {
 		return err
 	}

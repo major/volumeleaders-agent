@@ -1,12 +1,26 @@
 package volume
 
 import (
+	"fmt"
+
+	"github.com/leodido/structcli"
 	"github.com/spf13/cobra"
 
 	"github.com/major/volumeleaders-agent/internal/cli/common"
 	"github.com/major/volumeleaders-agent/internal/datatables"
 	"github.com/major/volumeleaders-agent/internal/models"
 )
+
+// volumeOptions holds flags shared by all volume subcommands.
+type volumeOptions struct {
+	Date     string `flag:"date" flagdescr:"Date YYYY-MM-DD" flagrequired:"true"`
+	Tickers  string `flag:"tickers" flagdescr:"Comma-separated ticker symbols"`
+	Format   string `flag:"format" default:"json" flagdescr:"Output format: json, csv, or tsv"`
+	Start    int    `flag:"start" flagdescr:"DataTables start offset"`
+	Length   int    `flag:"length" flagdescr:"Number of results"`
+	OrderCol int    `flag:"order-col" flagdescr:"Order column index"`
+	OrderDir string `flag:"order-dir" flagdescr:"Order direction"`
+}
 
 // NewVolumeCommand returns the "volume" command group with all subcommands.
 func NewVolumeCommand() *cobra.Command {
@@ -27,6 +41,7 @@ func NewVolumeCommand() *cobra.Command {
 
 // newInstitutionalCmd returns the "institutional" subcommand.
 func newInstitutionalCmd() *cobra.Command {
+	opts := volumeOptions{Length: 100, OrderCol: 1, OrderDir: "asc"}
 	cmd := &cobra.Command{
 		Use:       "institutional [tickers...]",
 		Short:     "Query institutional volume leaderboard",
@@ -35,17 +50,20 @@ func newInstitutionalCmd() *cobra.Command {
 		Args:      cobra.ArbitraryArgs,
 		SuggestFor: []string{"inst", "insitutional"},
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			return runVolume(cmd,
+			return runVolume(cmd, &opts,
 				"/InstitutionalVolume/GetInstitutionalVolume",
 				datatables.InstitutionalVolumeColumns)
 		},
 	}
-	addVolumeFlags(cmd)
+	if err := structcli.Bind(cmd, &opts); err != nil {
+		panic(fmt.Sprintf("structcli.Bind institutional: %v", err))
+	}
 	return cmd
 }
 
 // newAHInstitutionalCmd returns the "ah-institutional" subcommand.
 func newAHInstitutionalCmd() *cobra.Command {
+	opts := volumeOptions{Length: 100, OrderCol: 1, OrderDir: "asc"}
 	cmd := &cobra.Command{
 		Use:       "ah-institutional [tickers...]",
 		Short:     "Query after-hours institutional volume leaderboard",
@@ -54,17 +72,20 @@ func newAHInstitutionalCmd() *cobra.Command {
 		Args:      cobra.ArbitraryArgs,
 		SuggestFor: []string{"ah", "afterhours"},
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			return runVolume(cmd,
+			return runVolume(cmd, &opts,
 				"/AHInstitutionalVolume/GetAHInstitutionalVolume",
 				datatables.InstitutionalVolumeColumns)
 		},
 	}
-	addVolumeFlags(cmd)
+	if err := structcli.Bind(cmd, &opts); err != nil {
+		panic(fmt.Sprintf("structcli.Bind ah-institutional: %v", err))
+	}
 	return cmd
 }
 
 // newTotalCmd returns the "total" subcommand.
 func newTotalCmd() *cobra.Command {
+	opts := volumeOptions{Length: 100, OrderCol: 1, OrderDir: "asc"}
 	cmd := &cobra.Command{
 		Use:       "total [tickers...]",
 		Short:     "Query total volume leaderboard",
@@ -73,43 +94,30 @@ func newTotalCmd() *cobra.Command {
 		Args:      cobra.ArbitraryArgs,
 		SuggestFor: []string{"totl", "all"},
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			return runVolume(cmd,
+			return runVolume(cmd, &opts,
 				"/TotalVolume/GetTotalVolume",
 				datatables.TotalVolumeColumns)
 		},
 	}
-	addVolumeFlags(cmd)
+	if err := structcli.Bind(cmd, &opts); err != nil {
+		panic(fmt.Sprintf("structcli.Bind total: %v", err))
+	}
 	return cmd
 }
 
-// addVolumeFlags registers the shared flag set used by all volume subcommands.
-func addVolumeFlags(cmd *cobra.Command) {
-	cmd.Flags().String("date", "", "Date YYYY-MM-DD")
-	_ = cmd.MarkFlagRequired("date")
-	common.AddTickersFlag(cmd)
-	common.AddOutputFormatFlags(cmd)
-	common.AddPaginationFlags(cmd, 100, 1, "asc")
-}
-
 // runVolume is the shared handler for all volume subcommands.
-func runVolume(cmd *cobra.Command, path string, columns []string) error {
-	date, _ := cmd.Flags().GetString("date")
+func runVolume(cmd *cobra.Command, opts *volumeOptions, path string, columns []string) error {
 	tickers := common.MultiTickerValue(cmd)
-	start, _ := cmd.Flags().GetInt("start")
-	length, _ := cmd.Flags().GetInt("length")
-	orderCol, _ := cmd.Flags().GetInt("order-col")
-	orderDir, _ := cmd.Flags().GetString("order-dir")
-	format, _ := cmd.Flags().GetString("format")
 
-	opts := common.DataTableOptions{
-		Start:    start,
-		Length:   length,
-		OrderCol: orderCol,
-		OrderDir: orderDir,
+	dtOpts := common.DataTableOptions{
+		Start:    opts.Start,
+		Length:   opts.Length,
+		OrderCol: opts.OrderCol,
+		OrderDir: opts.OrderDir,
 		Filters: map[string]string{
-			"Date":    date,
+			"Date":    opts.Date,
 			"Tickers": tickers,
 		},
 	}
-	return common.RunDataTablesCommand[models.Trade](cmd, path, columns, opts, format, "query volume data")
+	return common.RunDataTablesCommand[models.Trade](cmd, path, columns, dtOpts, opts.Format, "query volume data")
 }

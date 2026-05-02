@@ -5,9 +5,9 @@ Response models for VolumeLeaders API data.
 ## Review guidelines
 
 - Verify JSON tags match VolumeLeaders response fields exactly, including capitalization and unusual API names.
-- Treat model changes that silently drop data needed by commands, summaries, CSV/TSV output, or skills documentation as P1.
+- Treat model changes that silently drop data needed by commands, summaries, or CSV/TSV output as P1.
 - Check whether new nullable or optional fields need pointer types, zero-value handling, or explicit formatting behavior.
-- Verify model changes are reflected in command field selection, summaries, tests, schema output where applicable, and `skills/volumeleaders-agent/SKILL.md` when user-visible behavior or semantic guidance changes.
+- Verify model changes are reflected in command field selection, summaries, tests, and `--jsonschema=tree` output where applicable. Update relevant command Long descriptions when user-visible behavior or semantic guidance changes.
 - Do not request style-only changes that `gofmt`, `go vet`, or `golangci-lint` already enforce.
 
 ## Maintenance notes

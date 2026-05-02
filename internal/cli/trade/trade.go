@@ -93,7 +93,7 @@ volumeleaders-agent trade list --watchlist "Magnificent 7" --start-date 2025-04-
 	common.AddOptionalDateRangeFlags(cmd)
 	addTradeRangeFlags(cmd, 500000)
 	common.AddTickersFlag(cmd)
-	addTradeFilterFlags(cmd, 0)
+	addTradeFilterFlags(cmd, 97)
 	cmd.Flags().String("sector", "", "Sector/Industry filter")
 	cmd.Flags().String("preset", "", "Apply a built-in filter preset (see: trade presets)")
 	cmd.Flags().String("watchlist", "", "Apply filters from a saved watchlist by name")

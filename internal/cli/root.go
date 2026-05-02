@@ -27,8 +27,8 @@ type rootOptions struct {
 func NewRootCmd(version string) *cobra.Command {
 	opts := &rootOptions{}
 	cmd := &cobra.Command{
-		Use:              "volumeleaders-agent",
-		Short:            "CLI tool for querying VolumeLeaders institutional trade data",
+		Use:   "volumeleaders-agent",
+		Short: "CLI tool for querying VolumeLeaders institutional trade data",
 		Long: `volumeleaders-agent queries institutional trade data from VolumeLeaders. Use it for trades, volume leaderboards, market data, alerts, and watchlists.
 
 Auth: reads browser cookies automatically. If auth fails with exit code 2 and "Authentication required: VolumeLeaders session has expired.", log in at https://www.volumeleaders.com in your browser, then retry.
@@ -113,7 +113,12 @@ Performance: use explicit dates and tickers when possible. Start narrow, then ex
 // WithJSONSchema uses cobra.OnInitialize (process-global) which races in
 // parallel tests.
 func SetupCLI(cmd *cobra.Command) {
-	if err := structcli.Setup(cmd, structcli.WithJSONSchema(), structcli.WithFlagErrors()); err != nil {
+	if err := structcli.Setup(
+		cmd,
+		structcli.WithAppName("volumeleaders-agent"),
+		structcli.WithJSONSchema(),
+		structcli.WithFlagErrors(),
+	); err != nil {
 		panic(fmt.Sprintf("structcli.Setup: %v", err))
 	}
 }

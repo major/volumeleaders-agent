@@ -100,8 +100,8 @@ func TestRootHasCommandGroups(t *testing.T) {
 	cmd := NewRootCmd("test")
 
 	groups := cmd.Groups()
-	if len(groups) != 5 {
-		t.Fatalf("expected 5 command groups, got %d", len(groups))
+	if len(groups) != 6 {
+		t.Fatalf("expected 6 command groups, got %d", len(groups))
 	}
 
 	expectedGroups := []struct {
@@ -112,6 +112,7 @@ func TestRootHasCommandGroups(t *testing.T) {
 		{"market"},
 		{"alerts"},
 		{"watchlists"},
+		{"reference"},
 	}
 	for _, tt := range expectedGroups {
 		t.Run(tt.id, func(t *testing.T) {
@@ -137,7 +138,7 @@ func TestAllTopLevelCommandsHaveGroupID(t *testing.T) {
 	t.Parallel()
 	cmd := NewRootCmd("test")
 
-	validGroups := []string{"trading", "volume", "market", "alerts", "watchlists"}
+	validGroups := []string{"trading", "volume", "market", "alerts", "watchlists", "reference"}
 	builtins := []string{"help", "completion"}
 
 	for _, sub := range cmd.Commands() {
@@ -486,6 +487,150 @@ func TestJSONSchemaSubcommandIncludesFlagUsabilityMetadata(t *testing.T) {
 			t.Fatalf("schema groups missing %q: %v", expectedGroup, groups)
 		}
 	}
+}
+
+func TestOutputSchemaTreeProducesCommandContracts(t *testing.T) {
+	t.Parallel()
+	binary := buildBinary(t)
+
+	out, err := exec.Command(binary, "outputschema").CombinedOutput()
+	if err != nil {
+		t.Fatalf("outputschema failed: %v\nOutput: %s", err, out)
+	}
+
+	var contracts []map[string]any
+	if jsonErr := json.Unmarshal(out, &contracts); jsonErr != nil {
+		t.Fatalf("outputschema output is not valid JSON array: %v\nOutput: %s", jsonErr, out)
+	}
+	if len(contracts) != 26 {
+		t.Fatalf("expected 26 output contracts, got %d", len(contracts))
+	}
+
+	byCommand := make(map[string]map[string]any, len(contracts))
+	for _, contract := range contracts {
+		command, ok := contract["command"].(string)
+		if !ok || command == "" {
+			t.Fatalf("contract missing command string: %v", contract)
+		}
+		byCommand[command] = contract
+	}
+	for _, command := range []string{"trade list", "market exhaustion", "alert configs", "watchlist create"} {
+		if _, ok := byCommand[command]; !ok {
+			t.Fatalf("missing output contract for %q", command)
+		}
+	}
+}
+
+func TestOutputSchemaSubcommandDescribesVariantsAndFields(t *testing.T) {
+	t.Parallel()
+	binary := buildBinary(t)
+
+	out, err := exec.Command(binary, "outputschema", "trade", "list").CombinedOutput()
+	if err != nil {
+		t.Fatalf("outputschema trade list failed: %v\nOutput: %s", err, out)
+	}
+
+	var contract map[string]any
+	if jsonErr := json.Unmarshal(out, &contract); jsonErr != nil {
+		t.Fatalf("outputschema trade list is not valid JSON object: %v\nOutput: %s", jsonErr, out)
+	}
+	if got := contract["command"]; got != "trade list" {
+		t.Fatalf("command = %v, want trade list", got)
+	}
+
+	schema := nestedMap(t, contract, "schema")
+	if got := schema["type"]; got != "array" {
+		t.Fatalf("schema.type = %v, want array", got)
+	}
+	items := nestedMap(t, schema, "items")
+	if got := items["model"]; got != "TradeListRow" {
+		t.Fatalf("schema.items.model = %v, want TradeListRow", got)
+	}
+	properties := nestedMap(t, items, "properties")
+	for _, field := range []string{"Ticker", "Dollars", "DarkPool"} {
+		if _, ok := properties[field]; !ok {
+			t.Fatalf("TradeListRow schema missing field %q", field)
+		}
+	}
+
+	variants, ok := contract["variants"].([]any)
+	if !ok {
+		t.Fatalf("contract variants missing or wrong type: %v", contract["variants"])
+	}
+	variantModels := make(map[string]bool)
+	for _, raw := range variants {
+		variant, ok := raw.(map[string]any)
+		if !ok {
+			t.Fatalf("variant is not an object: %v", raw)
+		}
+		variantSchema := nestedMap(t, variant, "schema")
+		model := schemaModel(variantSchema)
+		variantModels[model] = true
+	}
+	for _, model := range []string{"Trade", "TradeSummary"} {
+		if !variantModels[model] {
+			t.Fatalf("trade list contract missing variant model %q; got %v", model, variantModels)
+		}
+	}
+}
+
+func TestOutputSchemaMarketExhaustionProperties(t *testing.T) {
+	t.Parallel()
+	binary := buildBinary(t)
+
+	out, err := exec.Command(binary, "outputschema", "market", "exhaustion").CombinedOutput()
+	if err != nil {
+		t.Fatalf("outputschema market exhaustion failed: %v\nOutput: %s", err, out)
+	}
+
+	var contract map[string]any
+	if jsonErr := json.Unmarshal(out, &contract); jsonErr != nil {
+		t.Fatalf("outputschema market exhaustion is not valid JSON object: %v\nOutput: %s", jsonErr, out)
+	}
+	schema := nestedMap(t, contract, "schema")
+	if got := schema["model"]; got != "MarketExhaustion" {
+		t.Fatalf("model = %v, want MarketExhaustion", got)
+	}
+	properties := nestedMap(t, schema, "properties")
+	for _, field := range []string{"date_key", "rank", "rank_30d", "rank_90d", "rank_365d"} {
+		fieldSchema := nestedMap(t, properties, field)
+		if got := fieldSchema["type"]; got != "integer" {
+			t.Fatalf("field %q type = %v, want integer", field, got)
+		}
+	}
+}
+
+func TestOutputSchemaUnknownCommandFails(t *testing.T) {
+	t.Parallel()
+	binary := buildBinary(t)
+
+	cmd := exec.Command(binary, "outputschema", "bogus")
+	err := cmd.Run()
+	var exitErr *exec.ExitError
+	if !errors.As(err, &exitErr) {
+		t.Fatalf("expected exit error, got: %v", err)
+	}
+}
+
+func nestedMap(t *testing.T, parent map[string]any, key string) map[string]any {
+	t.Helper()
+	child, ok := parent[key].(map[string]any)
+	if !ok {
+		t.Fatalf("%q missing or not an object: %v", key, parent[key])
+	}
+	return child
+}
+
+func schemaModel(schema map[string]any) string {
+	if model, ok := schema["model"].(string); ok {
+		return model
+	}
+	items, ok := schema["items"].(map[string]any)
+	if !ok {
+		return ""
+	}
+	model, _ := items["model"].(string)
+	return model
 }
 
 func TestHelpOutputDisplaysFlagGroups(t *testing.T) {

@@ -34,7 +34,7 @@ func NewRootCmd(version string) *cobra.Command {
 
 Auth: reads browser cookies automatically. If auth fails with exit code 2 and "Authentication required: VolumeLeaders session has expired.", log in at https://www.volumeleaders.com in your browser, then retry.
 
-Output: compact JSON to stdout by default. Use --pretty before the command group for indented JSON. Use --jsonschema on any command for machine-readable JSON Schema output, or --jsonschema=tree on the root for the full CLI tree. Errors and logs go to stderr.
+Output: compact JSON to stdout by default. Use --pretty before the command group for indented JSON. Use --jsonschema on any command for machine-readable input JSON Schema output, or --jsonschema=tree on the root for the full CLI tree. Use outputschema for machine-readable stdout contracts. Errors and logs go to stderr.
 
 COMMAND CHOOSER
 
@@ -75,7 +75,7 @@ Toggle filters: -1 means all/unfiltered, 0 means exclude, 1 means include/only.
 
 Tickers: --tickers is comma-separated, --ticker is single-symbol. Commands that take tickers generally accept positional tickers too, for example: trade list XLE XLK. Trade and volume ticker filters also accept --symbol and --symbols aliases.
 
-Output formats: list-style commands may support --format json/csv/tsv. CSV/TSV include headers, booleans render as true/false, null or missing values render as empty cells. Nested summaries and single-object commands are JSON-only unless the schema shows a format flag.
+Output formats: list-style commands may support --format json/csv/tsv. CSV/TSV include headers, booleans render as true/false, null or missing values render as empty cells. Nested summaries and single-object commands are JSON-only unless the input schema shows a format flag. Use outputschema to inspect the success stdout shape for each command.
 
 Performance: use explicit dates and tickers when possible. Start narrow, then expand. VolumeLeaders endpoints can be expensive and some trade retrieval endpoints are intentionally capped.`,
 		Version:          version,
@@ -95,6 +95,7 @@ Performance: use explicit dates and tickers when possible. Start narrow, then ex
 		&cobra.Group{ID: "market", Title: "Market Commands:"},
 		&cobra.Group{ID: "alerts", Title: "Alert Commands:"},
 		&cobra.Group{ID: "watchlists", Title: "Watchlist Commands:"},
+		&cobra.Group{ID: "reference", Title: "Reference Commands:"},
 	)
 	cmd.AddCommand(
 		trade.NewCmd(),
@@ -102,6 +103,7 @@ Performance: use explicit dates and tickers when possible. Start narrow, then ex
 		market.NewMarketCommand(),
 		alert.NewAlertCommand(),
 		watchlist.NewCmd(),
+		newOutputSchemaCmd(),
 	)
 	if err := structcli.Bind(cmd, opts); err != nil {
 		panic(fmt.Sprintf("structcli.Bind root options: %v", err))

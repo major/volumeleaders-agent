@@ -1,6 +1,7 @@
 package trade
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"maps"
@@ -201,6 +202,30 @@ type tradeLevelTouchesOptions struct {
 	tradePaginationFlags
 }
 
+func (opts *tradeListOptions) Validate(_ context.Context) []error {
+	if err := validateTradeRequestLength(opts.Length); err != nil {
+		return []error{err}
+	}
+	return nil
+}
+
+func (opts *tradeLevelsOptions) Validate(_ context.Context) []error {
+	if err := validateTradeLevelCount(opts.TradeLevelCount); err != nil {
+		return []error{err}
+	}
+	return nil
+}
+
+func (opts *tradeLevelTouchesOptions) Validate(_ context.Context) []error {
+	if err := validateTradeLevelTouchesLength(opts.Length); err != nil {
+		return []error{err}
+	}
+	if err := validateTradeLevelCount(opts.TradeLevelCount); err != nil {
+		return []error{err}
+	}
+	return nil
+}
+
 type tradeAlertsOptions struct {
 	Date string `flag:"date" flagdescr:"Date YYYY-MM-DD"`
 	tradeFormatFlag
@@ -309,8 +334,8 @@ func newTradeSentimentCommand() *cobra.Command {
 	presetTradeRangeDefaults(&opts.tradeRangeFlags, 5000000)
 	opts.Format = "json"
 	cmd := &cobra.Command{
-		Use:        "sentiment",
-		Short:      "Summarize leveraged ETF bull/bear flow by day",
+		Use:   "sentiment",
+		Short: "Summarize leveraged ETF bull/bear flow by day",
 		Long: `Summarize leveraged ETF bull and bear flow by trading day, showing aggregate institutional dollar volume on the bull and bear side. Requires --start-date and --end-date (or --days). Outputs one record per day with bull and bear totals.
 
 This command always queries the combined leveraged ETF sector filter SectorIndustry=X B, classifies bull and bear ETFs locally, and cannot be constrained by ticker or sector flags. Non-standard defaults include --min-dollars 5000000 and --vcd 97; shared --relative-size 5 still applies.
@@ -339,8 +364,8 @@ func newTradeClustersCommand() *cobra.Command {
 	opts.TradeClusterRank = -1
 	opts.Format = "json"
 	cmd := &cobra.Command{
-		Use:        "clusters [tickers...]",
-		Short:      "Query aggregated trade clusters",
+		Use:   "clusters [tickers...]",
+		Short: "Query aggregated trade clusters",
 		Long: `Query aggregated trade clusters, which group multiple trades in a short window into a single cluster record. Filterable by ticker, date range, dollar amounts, sector, and trade cluster rank. Outputs compact JSON or CSV/TSV with --format.
 
 Use clusters when the question is about price-level concentration, not single prints. This command uses larger default retrieval and dollar thresholds than ordinary trade list. Use trade cluster-bombs instead when looking for sudden aggressive bursts tightly grouped in time and price.`,
@@ -365,8 +390,8 @@ func newTradeClusterBombsCommand() *cobra.Command {
 	opts.TradeClusterBombRank = -1
 	opts.Format = "json"
 	cmd := &cobra.Command{
-		Use:        "cluster-bombs [tickers...]",
-		Short:      "Query trade cluster bombs",
+		Use:   "cluster-bombs [tickers...]",
+		Short: "Query trade cluster bombs",
 		Long: `Query trade cluster bombs, which are extreme-magnitude trade clusters that exceed normal institutional activity thresholds. Filterable by ticker, date range, dollar amounts, sector, and cluster bomb rank. Outputs compact JSON by default.
 
 Cluster bombs find sudden aggressive bursts tightly grouped in time and price, with different defaults and rank fields than trade clusters. Use this command when looking for extreme concentration events, not general price-level clustering.`,
@@ -389,8 +414,8 @@ func newTradeAlertsCommand() *cobra.Command {
 	presetTradePaginationDefaults(&opts.tradePaginationFlags, 100, 1)
 	opts.Format = "json"
 	cmd := &cobra.Command{
-		Use:        "alerts",
-		Short:      "Query trade alerts for a date",
+		Use:   "alerts",
+		Short: "Query trade alerts for a date",
 		Long: `Query trade alerts fired on a specific date based on saved alert configurations. Requires --date. Returns alert records matching your configured filters. Outputs compact JSON or CSV/TSV with --format.
 
 Alert configs trigger when trades match thresholds. Threshold names follow the pattern CategoryMetricLTE or CategoryMetricGTE where LTE is maximum rank and GTE is minimum value. Use alert configs to see your configured thresholds.`,
@@ -413,8 +438,8 @@ func newTradeClusterAlertsCommand() *cobra.Command {
 	presetTradePaginationDefaults(&opts.tradePaginationFlags, 100, 1)
 	opts.Format = "json"
 	cmd := &cobra.Command{
-		Use:        "cluster-alerts",
-		Short:      "Query trade cluster alerts for a date",
+		Use:   "cluster-alerts",
+		Short: "Query trade cluster alerts for a date",
 		Long: `Query trade cluster alerts fired on a specific date based on saved alert configurations that target cluster activity. Requires --date. Returns cluster alert records matching your configured filters.
 
 Cluster alert rows use the full cluster-shaped model rather than the compact default from trade clusters. Use trade alerts for individual trade alert rows and this command for cluster-level alert rows.`,
@@ -439,8 +464,8 @@ func newTradeLevelsCommand() *cobra.Command {
 	opts.TradeLevelCount = 10
 	opts.Format = "json"
 	cmd := &cobra.Command{
-		Use:        "levels [ticker]",
-		Short:      "Query significant price levels for a ticker",
+		Use:   "levels [ticker]",
+		Short: "Query significant price levels for a ticker",
 		Long: `Query significant price levels for a ticker, showing historical support and resistance zones identified by institutional trade clustering. Accepts a ticker as positional argument or via --ticker flag. Outputs compact JSON by default.
 
 Defaults to a 1-year lookback when dates are omitted. Uses non-standard --relative-size 0 and caps level count from 1 to 50 via --trade-level-count. Default JSON is compact and omits repetitive ticker metadata and the verbose Dates list; use --fields all or CSV/TSV when raw fields are needed.`,
@@ -466,8 +491,8 @@ func newTradeLevelTouchesCommand() *cobra.Command {
 	opts.TradeLevelCount = maxTradeLevelRequestLength
 	opts.Format = "json"
 	cmd := &cobra.Command{
-		Use:        "level-touches [ticker]",
-		Short:      "Query trade events at notable price levels",
+		Use:   "level-touches [ticker]",
+		Short: "Query trade events at notable price levels",
 		Long: `Query institutional trade events that occurred at notable price levels for a ticker, showing how the market interacted with key support and resistance zones. Accepts a ticker as positional argument or via --ticker flag. Requires --start-date and --end-date (or --days).
 
 Defaults to --length 50 and rejects --length -1, --length 0, and values above 50. Use trade levels first to identify significant price zones, then use this command to find events where price revisited those levels.`,
@@ -552,9 +577,6 @@ func runTradeList(cmd *cobra.Command, opts *tradeListOptions) error {
 	}
 	format, err := common.ParseOutputFormat(opts.Format)
 	if err != nil {
-		return err
-	}
-	if err := validateTradeRequestLength(opts.Length); err != nil {
 		return err
 	}
 
@@ -885,9 +907,6 @@ func runTradeLevels(cmd *cobra.Command, opts *tradeLevelsOptions) error {
 		return err
 	}
 	levelOpts := tradeLevelOptionsFromLevelsOptions(opts, ticker, startDate, endDate)
-	if err := validateTradeLevelCount(levelOpts.tradeLevelCount); err != nil {
-		return err
-	}
 	dataOpts := common.DataTableOptions{Start: 0, Length: levelOpts.tradeLevelCount, OrderCol: 1, OrderDir: "desc", Filters: buildTradeLevelFilters(levelOpts), Fields: fields}
 	if format == common.OutputFormatJSON && len(fields) == 0 {
 		levels, err := fetchTradeLevels(cmd, dataOpts)
@@ -921,12 +940,6 @@ func fetchTradeLevels(cmd *cobra.Command, opts common.DataTableOptions) ([]model
 func runTradeLevelTouches(cmd *cobra.Command, opts *tradeLevelTouchesOptions) error {
 	startDate, endDate, err := common.RequiredDateRange(cmd)
 	if err != nil {
-		return err
-	}
-	if err := validateTradeLevelTouchesLength(opts.Length); err != nil {
-		return err
-	}
-	if err := validateTradeLevelCount(opts.TradeLevelCount); err != nil {
 		return err
 	}
 	ticker, err := common.SingleTickerValue(cmd)

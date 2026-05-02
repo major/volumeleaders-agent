@@ -28,8 +28,9 @@ var alertConfigDefaultFields = []string{
 // NewAlertCommand returns the "alert" command group with all subcommands.
 func NewAlertCommand() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "alert",
-		Short: "Alert configuration commands",
+		Use:      "alert",
+		Short:    "Alert configuration commands",
+		GroupID:  "alerts",
 	}
 	cmd.AddCommand(
 		newConfigsCmd(),

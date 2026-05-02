@@ -16,8 +16,9 @@ import (
 // NewCmd returns the "watchlist" command group with all subcommands.
 func NewCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "watchlist",
-		Short: "Watch list commands",
+		Use:      "watchlist",
+		Short:    "Watch list commands",
+		GroupID:  "watchlists",
 	}
 	cmd.AddCommand(
 		newConfigsCmd(),

@@ -59,7 +59,7 @@ type tradeLevelOptions struct {
 
 // NewCmd returns the "trade" command group with all subcommands.
 func NewCmd() *cobra.Command {
-	cmd := &cobra.Command{Use: "trade", Short: "Trade-related commands"}
+	cmd := &cobra.Command{Use: "trade", Short: "Trade-related commands", GroupID: "trading"}
 	cmd.AddCommand(
 		newTradeListCommand(),
 		newTradeSentimentCommand(),

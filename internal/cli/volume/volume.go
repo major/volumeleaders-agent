@@ -11,8 +11,9 @@ import (
 // NewVolumeCommand returns the "volume" command group with all subcommands.
 func NewVolumeCommand() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "volume",
-		Short: "Volume leaderboard commands",
+		Use:      "volume",
+		Short:    "Volume leaderboard commands",
+		GroupID:  "volume",
 	}
 	cmd.AddCommand(
 		newInstitutionalCmd(),

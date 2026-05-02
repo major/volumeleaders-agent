@@ -24,8 +24,9 @@ var marketEarningsDefaultFields = []string{
 // NewMarketCommand returns the "market" command group with all subcommands.
 func NewMarketCommand() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "market",
-		Short: "Market-wide data commands",
+		Use:      "market",
+		Short:    "Market-wide data commands",
+		GroupID:  "market",
 	}
 	cmd.AddCommand(
 		newSnapshotsCmd(),

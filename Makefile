@@ -1,4 +1,4 @@
-.PHONY: build test lint clean install release docs
+.PHONY: build test lint clean install release
 
 build:
 	go build -o volumeleaders-agent ./cmd/volumeleaders-agent
@@ -16,9 +16,6 @@ clean:
 
 install:
 	go install ./cmd/volumeleaders-agent
-
-docs:
-	go run ./cmd/gendocs ./docs/cli/
 
 release:
 ifndef VERSION

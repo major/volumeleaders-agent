@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/leodido/structcli"
 	"github.com/spf13/cobra"
 
 	"github.com/major/volumeleaders-agent/internal/cli/common"
@@ -74,6 +75,6 @@ func ExecuteCommand(t *testing.T, cmd *cobra.Command, ctx context.Context, args 
 	cmd.SetErr(&errBuf)
 	cmd.SetArgs(args)
 	cmd.SetContext(ctx)
-	err = cmd.Execute()
+	_, err = structcli.ExecuteC(cmd)
 	return outBuf.String(), errBuf.String(), err
 }

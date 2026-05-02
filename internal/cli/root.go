@@ -2,9 +2,11 @@ package cli
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"os"
 
+	"github.com/leodido/structcli"
 	"github.com/spf13/cobra"
 
 	"github.com/major/volumeleaders-agent/internal/cli/alert"
@@ -15,8 +17,15 @@ import (
 	"github.com/major/volumeleaders-agent/internal/cli/watchlist"
 )
 
+// rootOptions holds flags bound to the root command via structcli.Bind.
+// The bind pipeline populates these fields before PersistentPreRunE fires.
+type rootOptions struct {
+	Pretty bool `flag:"pretty" flagdescr:"Pretty-print JSON output with indentation"`
+}
+
 // NewRootCmd returns the root cobra command for volumeleaders-agent.
 func NewRootCmd(version string) *cobra.Command {
+	opts := &rootOptions{}
 	cmd := &cobra.Command{
 		Use:              "volumeleaders-agent",
 		Short:            "CLI tool for querying VolumeLeaders institutional trade data",
@@ -27,13 +36,11 @@ func NewRootCmd(version string) *cobra.Command {
 		TraverseChildren: true,
 		Args:             cobra.NoArgs,
 		PersistentPreRunE: func(cmd *cobra.Command, _ []string) error {
-			prettyFlag, _ := cmd.Flags().GetBool("pretty")
 			slog.SetDefault(slog.New(slog.NewTextHandler(os.Stderr, nil)))
-			cmd.SetContext(context.WithValue(cmd.Context(), common.PrettyJSONKey, prettyFlag))
+			cmd.SetContext(context.WithValue(cmd.Context(), common.PrettyJSONKey, opts.Pretty))
 			return nil
 		},
 	}
-	cmd.PersistentFlags().Bool("pretty", false, "Pretty-print JSON output with indentation")
 	cmd.AddGroup(
 		&cobra.Group{ID: "trading", Title: "Trading Commands:"},
 		&cobra.Group{ID: "volume", Title: "Volume Commands:"},
@@ -48,5 +55,18 @@ func NewRootCmd(version string) *cobra.Command {
 		alert.NewAlertCommand(),
 		watchlist.NewCmd(),
 	)
+	if err := structcli.Bind(cmd, opts); err != nil {
+		panic(fmt.Sprintf("structcli.Bind root options: %v", err))
+	}
 	return cmd
+}
+
+// SetupCLI configures structcli features (JSON schema, structured flag errors)
+// on the root command. Called from main after NewRootCmd; separated because
+// WithJSONSchema uses cobra.OnInitialize (process-global) which races in
+// parallel tests.
+func SetupCLI(cmd *cobra.Command) {
+	if err := structcli.Setup(cmd, structcli.WithJSONSchema(), structcli.WithFlagErrors()); err != nil {
+		panic(fmt.Sprintf("structcli.Setup: %v", err))
+	}
 }

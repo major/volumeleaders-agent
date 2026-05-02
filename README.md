@@ -34,7 +34,7 @@ volumeleaders-agent trade list --tickers NVDA --start-date 2025-01-01 --end-date
 volumeleaders-agent --pretty market exhaustion
 ```
 
-Commands emit compact JSON to stdout by default. Use `--pretty` for indented output. Errors go to stderr. The `schema` command is the exception: it always emits raw indented JSON for machine-readable CLI introspection.
+Commands emit compact JSON to stdout by default. Use `--pretty` for indented output. Errors go to stderr. Use `--jsonschema=tree` on the root command for a machine-readable JSON Schema of the full CLI.
 
 ## Commands
 
@@ -45,9 +45,8 @@ Commands emit compact JSON to stdout by default. Use `--pretty` for indented out
 | `market` | Market-wide snapshots, earnings calendar, exhaustion scores |
 | `alert` | Saved alert configurations |
 | `watchlist` | Saved watchlists and their tickers |
-| `schema` | JSON schema of all commands and flags |
 
-Use `volumeleaders-agent schema` for the machine-readable command and flag reference. See [skills/volumeleaders-agent/SKILL.md](skills/volumeleaders-agent/SKILL.md) for schema-first agent guidance, filter conventions, workflows, and domain gotchas.
+Use `volumeleaders-agent --jsonschema=tree` for the machine-readable JSON Schema of all commands and flags. Run `volumeleaders-agent --help` for embedded domain knowledge, filter conventions, workflows, and domain gotchas.
 
 ## Build
 

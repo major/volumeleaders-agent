@@ -552,6 +552,117 @@ func TestJSONSchemaSubcommandIncludesFlagUsabilityMetadata(t *testing.T) {
 	}
 }
 
+func TestMCPToolsListExposesLeafCommands(t *testing.T) {
+	t.Parallel()
+	binary := buildBinary(t)
+
+	cmd := exec.Command(binary, "--mcp")
+	cmd.Stdin = strings.NewReader(`{"jsonrpc":"2.0","id":1,"method":"tools/list"}` + "\n")
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("--mcp tools/list failed: %v\nOutput: %s", err, out)
+	}
+
+	var response struct {
+		Result struct {
+			Tools []struct {
+				Name        string         `json:"name"`
+				Description string         `json:"description"`
+				InputSchema map[string]any `json:"inputSchema"`
+			} `json:"tools"`
+		} `json:"result"`
+		Error *struct {
+			Message string `json:"message"`
+		} `json:"error"`
+	}
+	if jsonErr := json.Unmarshal(out, &response); jsonErr != nil {
+		t.Fatalf("MCP response is not valid JSON: %v\nOutput: %s", jsonErr, out)
+	}
+	if response.Error != nil {
+		t.Fatalf("MCP tools/list returned error: %s\nOutput: %s", response.Error.Message, out)
+	}
+
+	toolSchemas := make(map[string]map[string]any, len(response.Result.Tools))
+	for _, tool := range response.Result.Tools {
+		if tool.Description == "" {
+			t.Fatalf("tool %q has empty description", tool.Name)
+		}
+		toolSchemas[tool.Name] = tool.InputSchema
+	}
+
+	for _, expected := range []string{"trade-list", "trade-sentiment", "volume-institutional", "market-snapshots", "watchlist-configs"} {
+		if _, ok := toolSchemas[expected]; !ok {
+			t.Fatalf("MCP tools/list missing %q; got %v", expected, mapsKeys(toolSchemas))
+		}
+	}
+	for _, parent := range []string{"trade", "volume", "market", "alert", "watchlist"} {
+		if _, ok := toolSchemas[parent]; ok {
+			t.Fatalf("MCP tools/list exposed non-leaf parent command %q", parent)
+		}
+	}
+	for _, completionTool := range []string{"completion-bash", "completion-fish", "completion-powershell", "completion-zsh"} {
+		if _, ok := toolSchemas[completionTool]; ok {
+			t.Fatalf("MCP tools/list exposed shell completion tool %q", completionTool)
+		}
+	}
+
+	tradeListSchema := toolSchemas["trade-list"]
+	props, ok := tradeListSchema["properties"].(map[string]any)
+	if !ok {
+		t.Fatalf("trade-list inputSchema missing properties: %v", tradeListSchema)
+	}
+	for _, expectedFlag := range []string{"tickers", "days", "format", "length"} {
+		if _, ok := props[expectedFlag]; !ok {
+			t.Fatalf("trade-list inputSchema missing flag %q", expectedFlag)
+		}
+	}
+}
+
+func TestMCPToolsCallReportsStructuredValidationError(t *testing.T) {
+	t.Parallel()
+	binary := buildBinary(t)
+
+	cmd := exec.Command(binary, "--mcp")
+	cmd.Stdin = strings.NewReader(`{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"volume-institutional","arguments":{"format":"json"}}}` + "\n")
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("--mcp tools/call failed: %v\nOutput: %s", err, out)
+	}
+
+	var response struct {
+		Result struct {
+			Content []struct {
+				Text string `json:"text"`
+			} `json:"content"`
+			IsError bool `json:"isError"`
+		} `json:"result"`
+		Error *struct {
+			Message string `json:"message"`
+		} `json:"error"`
+	}
+	if jsonErr := json.Unmarshal(out, &response); jsonErr != nil {
+		t.Fatalf("MCP response is not valid JSON: %v\nOutput: %s", jsonErr, out)
+	}
+	if response.Error != nil {
+		t.Fatalf("MCP tools/call returned protocol error: %s\nOutput: %s", response.Error.Message, out)
+	}
+	if !response.Result.IsError {
+		t.Fatalf("expected tool call to return IsError=true; output: %s", out)
+	}
+	if len(response.Result.Content) == 0 || !strings.Contains(response.Result.Content[0].Text, "required flag") {
+		t.Fatalf("expected structured required flag error, got: %s", out)
+	}
+}
+
+func mapsKeys[V any](items map[string]V) []string {
+	keys := make([]string, 0, len(items))
+	for key := range items {
+		keys = append(keys, key)
+	}
+	slices.Sort(keys)
+	return keys
+}
+
 func TestHelpOutputDisplaysFlagGroups(t *testing.T) {
 	t.Parallel()
 	binary := buildBinary(t)

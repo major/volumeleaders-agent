@@ -8,6 +8,7 @@ import (
 
 	"github.com/leodido/structcli"
 	"github.com/leodido/structcli/helptopics"
+	structclimcp "github.com/leodido/structcli/mcp"
 	"github.com/spf13/cobra"
 
 	"github.com/major/volumeleaders-agent/internal/cli/alert"
@@ -34,7 +35,7 @@ func NewRootCmd(version string) *cobra.Command {
 
 Auth: reads browser cookies automatically. If auth fails with exit code 2 and "Authentication required: VolumeLeaders session has expired.", log in at https://www.volumeleaders.com in your browser, then retry.
 
-Output: compact JSON to stdout by default. Use --pretty before the command group for indented JSON. Use --jsonschema on any command for machine-readable JSON Schema output, or --jsonschema=tree on the root for the full CLI tree. Errors and logs go to stderr.
+Output: compact JSON to stdout by default. Use --pretty before the command group for indented JSON. Use --jsonschema on any command for machine-readable JSON Schema output, --jsonschema=tree on the root for the full CLI tree, or --mcp on the root to serve leaf commands as MCP tools over stdio. Errors and logs go to stderr.
 
 COMMAND CHOOSER
 
@@ -129,10 +130,9 @@ Watchlist workflow: watchlist configs to find keys and names, watchlist tickers 
 	return cmd
 }
 
-// SetupCLI configures structcli features (JSON schema, structured flag errors)
-// on the root command. Called from main after NewRootCmd; separated because
-// WithJSONSchema uses cobra.OnInitialize (process-global) which races in
-// parallel tests.
+// SetupCLI configures structcli features on the root command. Called from main
+// after NewRootCmd; separated because WithJSONSchema uses cobra.OnInitialize
+// (process-global) which races in parallel tests.
 func SetupCLI(cmd *cobra.Command) {
 	if err := structcli.Setup(
 		cmd,
@@ -140,6 +140,16 @@ func SetupCLI(cmd *cobra.Command) {
 		structcli.WithJSONSchema(),
 		structcli.WithHelpTopics(helptopics.Options{ReferenceSection: true}),
 		structcli.WithFlagErrors(),
+		structcli.WithMCP(structclimcp.Options{
+			Name:    "volumeleaders-agent",
+			Version: cmd.Version,
+			Exclude: []string{
+				"completion-bash",
+				"completion-fish",
+				"completion-powershell",
+				"completion-zsh",
+			},
+		}),
 	); err != nil {
 		panic(fmt.Sprintf("structcli.Setup: %v", err))
 	}

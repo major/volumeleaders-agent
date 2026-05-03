@@ -2,7 +2,8 @@ package main
 
 import (
 	"flag"
-	"log"
+	"log/slog"
+	"os"
 
 	"github.com/major/volumeleaders-agent/internal/discovery"
 )
@@ -13,6 +14,8 @@ func main() {
 	flag.Parse()
 
 	if err := discovery.Generate(*outputDir, *version); err != nil {
-		log.Fatal(err)
+		logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
+		logger.Error("failed to generate discovery files", "error", err)
+		os.Exit(1)
 	}
 }

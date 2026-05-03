@@ -1,4 +1,4 @@
-.PHONY: build test lint clean install generate-discovery release
+.PHONY: build test lint clean install generate-discovery smoke release
 
 build:
 	go build -o volumeleaders-agent ./cmd/volumeleaders-agent
@@ -19,6 +19,9 @@ install:
 
 generate-discovery:
 	go run ./cmd/generate-discovery
+
+smoke: build
+	go run ./cmd/smoke-test
 
 release:
 ifndef VERSION

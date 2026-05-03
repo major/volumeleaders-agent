@@ -1,6 +1,6 @@
 # volumeleaders-agent
 
-https://github.com/major/volumeleaders-agent/cmd/volumeleaders-agent
+https://github.com/major/volumeleaders-agent
 
 > volumeleaders-agent queries institutional trade data from VolumeLeaders. Use it for trades, volume leaderboards, market data, alerts, and watchlists.
 
@@ -76,7 +76,7 @@ Watchlist workflow: watchlist configs to find keys and names, watchlist tickers 
 - [volumeleaders-agent alert configs](#volumeleaders-agent-alert-configs): List all saved alert configurations with their keys, names, ticker filters, trade conditions, and notification settings. Outputs compact JSON or CSV/TSV with --format. Use --fields to select specific output fields.
 - [volumeleaders-agent alert create](#volumeleaders-agent-alert-create): Create a new alert configuration with a name and filter settings for institutional trade activity. Requires --name. Specify filters such as trade rank, dollar thresholds, dark pool and sweep conditions, and ticker scope. Returns a success response with the new configuration key.
 - [volumeleaders-agent alert delete](#volumeleaders-agent-alert-delete): Remove a saved alert configuration by its numeric key. Requires --key with the alert config key (visible in configs output). The deletion is permanent and cannot be undone.
-- [volumeleaders-agent alert edit](#volumeleaders-agent-alert-edit): Modify an existing alert configuration identified by its numeric key. Requires --key with the alert config key. Specify only the fields you want to change; unspecified fields retain their current values.
+- [volumeleaders-agent alert edit](#volumeleaders-agent-alert-edit): Modify an existing alert configuration identified by its numeric key. Requires --key with the alert config key. Specify the fields you want to set; unspecified fields are replaced with their default values.
 - [volumeleaders-agent market earnings](#volumeleaders-agent-market-earnings): Query the earnings calendar for a date range, showing tickers with earnings dates and associated trade activity counts. Requires --start-date and --end-date (or --days). Outputs compact JSON or CSV/TSV with --format. PREREQUISITES: provide a date range with --days or explicit start and end dates. RECOVERY: if date validation fails, use --days N for the fastest retry or provide both --start-date and --end-date. NEXT STEPS: run trade list for tickers near earnings, then market exhaustion for broader reversal context.
 - [volumeleaders-agent market exhaustion](#volumeleaders-agent-market-exhaustion): Query exhaustion scores that indicate overbought or oversold market conditions based on institutional trade clustering patterns. Omit --date to query the current trading day. Outputs compact JSON with rank metrics at different lookback periods.
 - [volumeleaders-agent market snapshots](#volumeleaders-agent-market-snapshots): Retrieve current price snapshot data for all symbols tracked by VolumeLeaders, returning the latest available price and volume data. No date filtering is available; always returns the most recent data. Outputs compact JSON by default.
@@ -164,7 +164,7 @@ Ratio is bull dollars divided by bear dollars and is null when bear flow is zero
 - [volumeleaders-agent watchlist configs](#volumeleaders-agent-watchlist-configs): List all saved watchlist configurations with their keys and names. Outputs compact JSON or CSV/TSV with --format. Each row shows the watchlist key and name; use the tickers subcommand to view symbols in a specific watchlist.
 - [volumeleaders-agent watchlist create](#volumeleaders-agent-watchlist-create): Create a new watchlist configuration with a name and optional filter settings such as minimum volume, price range, sector, and trade conditions. Requires --name. Use --tickers to specify an explicit ticker list or leave unset for a filter-based watchlist.
 - [volumeleaders-agent watchlist delete](#volumeleaders-agent-watchlist-delete): Remove a saved watchlist configuration by its numeric key. Requires --key with the watchlist key (visible in configs output). The deletion is permanent and removes the watchlist and all its tickers.
-- [volumeleaders-agent watchlist edit](#volumeleaders-agent-watchlist-edit): Modify an existing watchlist configuration identified by its numeric key. Requires --key with the watchlist key. Specify only the fields you want to change; unspecified fields retain their current values.
+- [volumeleaders-agent watchlist edit](#volumeleaders-agent-watchlist-edit): Modify an existing watchlist configuration identified by its numeric key. Requires --key with the watchlist key. Specify the fields you want to set; unspecified fields are replaced with their default values.
 - [volumeleaders-agent watchlist tickers](#volumeleaders-agent-watchlist-tickers): Query the ticker symbols belonging to a specific watchlist identified by --watchlist-key. Returns all tickers in the watchlist with their metadata. Outputs compact JSON or CSV/TSV with --format.
 
 ## volumeleaders-agent alert configs
@@ -223,7 +223,7 @@ Remove a saved alert configuration by its numeric key. Requires --key with the a
 
 ## volumeleaders-agent alert edit
 
-Modify an existing alert configuration identified by its numeric key. Requires --key with the alert config key. Specify only the fields you want to change; unspecified fields retain their current values.
+Modify an existing alert configuration identified by its numeric key. Requires --key with the alert config key. Specify the fields you want to set; unspecified fields are replaced with their default values.
 
 ### Flags
 
@@ -688,7 +688,7 @@ Remove a saved watchlist configuration by its numeric key. Requires --key with t
 
 ## volumeleaders-agent watchlist edit
 
-Modify an existing watchlist configuration identified by its numeric key. Requires --key with the watchlist key. Specify only the fields you want to change; unspecified fields retain their current values.
+Modify an existing watchlist configuration identified by its numeric key. Requires --key with the watchlist key. Specify the fields you want to set; unspecified fields are replaced with their default values.
 
 ### Flags
 

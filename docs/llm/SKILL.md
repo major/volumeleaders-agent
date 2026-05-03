@@ -2,16 +2,10 @@
 name: volumeleaders-agent
 description: |
   volumeleaders-agent queries institutional trade data from VolumeLeaders. Use it for trades, volume leaderboards, market data, alerts, and watchlists.
-  
+
   Auth: reads browser cookies automatically. If auth fails with exit code 2 and "Authentication required: VolumeLeaders session has expired.", log in at https://www.volumeleaders.com in your browser, then retry.
-  
+
   Output: compact JSON to stdout by default. Use --pretty before the command group for indented JSON. Use --jsonschema on any command for machine-readable input JSON Schema output, --jsonschema=tree on the root for the full CLI tree, outputschema for machine-readable stdout contracts, or --mcp on the root to serve leaf commands as MCP tools over stdio. Errors and logs go to stderr.
-  
-  COMMAND CHOOSER
-  
-  Goal                                          Start with                              Notes
-  --------------------------------------------  --------------------------------------  -----------------------------------------------
-  Find individual institutional pr...
 metadata:
   author: major
   version: dev
@@ -104,7 +98,7 @@ volumeleaders-agent alert delete --key 42
 
 #### `volumeleaders-agent alert edit`
 
-Modify an existing alert configuration identified by its numeric key. Requires --key with the alert config key. Specify only the fields you want to change; unspecified fields retain their current values.
+Modify an existing alert configuration identified by its numeric key. Requires --key with the alert config key. Specify the fields you want to set; unspecified fields are replaced with their default values.
 
 **Flags:**
 
@@ -748,7 +742,7 @@ volumeleaders-agent watchlist delete --key 1
 
 #### `volumeleaders-agent watchlist edit`
 
-Modify an existing watchlist configuration identified by its numeric key. Requires --key with the watchlist key. Specify only the fields you want to change; unspecified fields retain their current values.
+Modify an existing watchlist configuration identified by its numeric key. Requires --key with the watchlist key. Specify the fields you want to set; unspecified fields are replaced with their default values.
 
 **Flags:**
 

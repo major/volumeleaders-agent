@@ -49,6 +49,22 @@ Commands emit compact JSON to stdout by default. Use `--pretty` for indented out
 
 Use `volumeleaders-agent --jsonschema=tree` for the machine-readable JSON Schema of all commands and flags. Use `volumeleaders-agent outputschema trade list` for the stdout contract of a specific command, including formats, fields, and conditional variants. Use `volumeleaders-agent --mcp` to expose the same leaf-command surface to MCP clients over stdio. Run `volumeleaders-agent --help` for embedded domain knowledge, filter conventions, recovery steps, workflows, and domain gotchas.
 
+## Local smoke tests
+
+Run local smoke tests against the live VolumeLeaders API with your browser session:
+
+```bash
+make smoke
+```
+
+The smoke harness builds `./volumeleaders-agent`, discovers commands with `--jsonschema=tree`, verifies every discovered command has an explicit fixture, and checks that each command returns valid JSON. It is intentionally local-only and is not part of `make test` or GitHub Actions because it needs live network access and browser authentication.
+
+By default, `make smoke` runs read-only commands and smoke-owned mutation checks. Mutating checks create alert and watchlist records with `smoke-*` names, resolve the keys for those exact records, then attempt to delete them before exiting. Use read-only mode when you want to avoid mutations entirely:
+
+```bash
+go run ./cmd/smoke-test --mode read-only
+```
+
 ## LLM discovery files
 
 The `docs/llm/` directory contains generated `AGENTS.md`, `SKILL.md`, and `llms.txt` files built from the Cobra and structcli command tree. Refresh them after command, flag, default, or example changes:
@@ -65,6 +81,7 @@ make test       # Run tests
 make lint       # Run golangci-lint
 make install    # Install to $GOPATH/bin
 make generate-discovery # Refresh docs/llm discovery files
+make smoke      # Run local live smoke tests
 ```
 
 ## License

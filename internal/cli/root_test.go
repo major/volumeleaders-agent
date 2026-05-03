@@ -617,93 +617,6 @@ func TestJSONSchemaSubcommandIncludesFlagUsabilityMetadata(t *testing.T) {
 	}
 }
 
-func TestJSONSchemaIncludesDiscreteValueEnums(t *testing.T) {
-	t.Parallel()
-	binary := buildBinary(t)
-
-	tests := []struct {
-		name string
-		args []string
-		flag string
-		want []string
-	}{
-		{
-			name: "trade list tri-state filter",
-			args: []string{"trade", "list", "--jsonschema"},
-			flag: "dark-pools",
-			want: []string{"-1", "0", "1"},
-		},
-		{
-			name: "trade list session filter",
-			args: []string{"trade", "list", "--jsonschema"},
-			flag: "premarket",
-			want: []string{"-1", "0", "1"},
-		},
-		{
-			name: "alert create ticker group",
-			args: []string{"alert", "create", "--jsonschema"},
-			flag: "ticker-group",
-			want: []string{"AllTickers", "SelectedTickers"},
-		},
-		{
-			name: "watchlist create security type",
-			args: []string{"watchlist", "create", "--jsonschema"},
-			flag: "security-type",
-			want: []string{"-1", "1", "26", "4"},
-		},
-		{
-			name: "watchlist create relative size",
-			args: []string{"watchlist", "create", "--jsonschema"},
-			flag: "min-relative-size",
-			want: []string{"0", "5", "10", "25", "50", "100"},
-		},
-		{
-			name: "watchlist create RSI toggle",
-			args: []string{"watchlist", "create", "--jsonschema"},
-			flag: "rsi-overbought-daily",
-			want: []string{"-1", "0", "1"},
-		},
-	}
-
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
-			schema := commandJSONSchema(t, binary, tc.args...)
-			props := schemaProperties(t, schema)
-			flagSchema, ok := props[tc.flag].(map[string]any)
-			if !ok {
-				t.Fatalf("flag %q schema is not an object", tc.flag)
-			}
-
-			got := schemaEnumValues(t, flagSchema)
-			if !slices.Equal(got, sortedStrings(tc.want)) {
-				t.Fatalf("flag %q enum = %v, want %v", tc.flag, got, sortedStrings(tc.want))
-			}
-		})
-	}
-}
-
-func schemaEnumValues(t *testing.T, flagSchema map[string]any) []string {
-	t.Helper()
-	rawEnum, ok := flagSchema["enum"].([]any)
-	if !ok {
-		t.Fatalf("schema missing enum: %v", flagSchema)
-	}
-
-	values := make([]string, 0, len(rawEnum))
-	for _, rawValue := range rawEnum {
-		values = append(values, fmt.Sprint(rawValue))
-	}
-	slices.Sort(values)
-	return values
-}
-
-func sortedStrings(values []string) []string {
-	clone := slices.Clone(values)
-	slices.Sort(clone)
-	return clone
-}
-
 func TestJSONSchemaEnumValuesPresent(t *testing.T) {
 	t.Parallel()
 	binary := buildBinary(t)
@@ -890,6 +803,93 @@ func TestJSONSchemaRepresentativeFlagsHaveDescriptions(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestJSONSchemaIncludesDiscreteValueEnums(t *testing.T) {
+	t.Parallel()
+	binary := buildBinary(t)
+
+	tests := []struct {
+		name string
+		args []string
+		flag string
+		want []string
+	}{
+		{
+			name: "trade list tri-state filter",
+			args: []string{"trade", "list", "--jsonschema"},
+			flag: "dark-pools",
+			want: []string{"-1", "0", "1"},
+		},
+		{
+			name: "trade list session filter",
+			args: []string{"trade", "list", "--jsonschema"},
+			flag: "premarket",
+			want: []string{"-1", "0", "1"},
+		},
+		{
+			name: "alert create ticker group",
+			args: []string{"alert", "create", "--jsonschema"},
+			flag: "ticker-group",
+			want: []string{"AllTickers", "SelectedTickers"},
+		},
+		{
+			name: "watchlist create security type",
+			args: []string{"watchlist", "create", "--jsonschema"},
+			flag: "security-type",
+			want: []string{"-1", "1", "26", "4"},
+		},
+		{
+			name: "watchlist create relative size",
+			args: []string{"watchlist", "create", "--jsonschema"},
+			flag: "min-relative-size",
+			want: []string{"0", "5", "10", "25", "50", "100"},
+		},
+		{
+			name: "watchlist create RSI toggle",
+			args: []string{"watchlist", "create", "--jsonschema"},
+			flag: "rsi-overbought-daily",
+			want: []string{"-1", "0", "1"},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			schema := commandJSONSchema(t, binary, tc.args...)
+			props := schemaProperties(t, schema)
+			flagSchema, ok := props[tc.flag].(map[string]any)
+			if !ok {
+				t.Fatalf("flag %q schema is not an object", tc.flag)
+			}
+
+			got := schemaEnumValues(t, flagSchema)
+			if !slices.Equal(got, sortedStrings(tc.want)) {
+				t.Fatalf("flag %q enum = %v, want %v", tc.flag, got, sortedStrings(tc.want))
+			}
+		})
+	}
+}
+
+func schemaEnumValues(t *testing.T, flagSchema map[string]any) []string {
+	t.Helper()
+	rawEnum, ok := flagSchema["enum"].([]any)
+	if !ok {
+		t.Fatalf("schema missing enum: %v", flagSchema)
+	}
+
+	values := make([]string, 0, len(rawEnum))
+	for _, rawValue := range rawEnum {
+		values = append(values, fmt.Sprint(rawValue))
+	}
+	slices.Sort(values)
+	return values
+}
+
+func sortedStrings(values []string) []string {
+	clone := slices.Clone(values)
+	slices.Sort(clone)
+	return clone
 }
 
 func TestOutputSchemaTreeProducesCommandContracts(t *testing.T) {
@@ -1272,7 +1272,6 @@ func TestStructuredErrorExitCodes(t *testing.T) {
 		})
 	}
 }
-
 func isDomainLeafCommand(cmd *cobra.Command) bool {
 	if !cmd.Runnable() || len(cmd.Commands()) > 0 {
 		return false
@@ -1347,9 +1346,11 @@ func schemaProperty(t *testing.T, props map[string]any, flag string) map[string]
 
 func assertStringSet(t *testing.T, got, want []string) {
 	t.Helper()
-	slices.Sort(got)
-	slices.Sort(want)
-	if !slices.Equal(got, want) {
-		t.Fatalf("values = %v, want %v", got, want)
+	gotCopy := slices.Clone(got)
+	wantCopy := slices.Clone(want)
+	slices.Sort(gotCopy)
+	slices.Sort(wantCopy)
+	if !slices.Equal(gotCopy, wantCopy) {
+		t.Fatalf("values = %v, want %v", gotCopy, wantCopy)
 	}
 }

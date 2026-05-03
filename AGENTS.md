@@ -21,6 +21,7 @@ Command documentation mapping:
 
 ```text
 cmd/volumeleaders-agent/main.go    Entry point
+cmd/smoke-test/main.go             Local-only live smoke test harness
 internal/auth/                     Browser cookie + XSRF token extraction
 internal/client/                   HTTP client (DataTables + JSON requests)
 internal/cli/                      CLI command definitions, MCP surface, output contracts, and generated discovery metadata
@@ -38,6 +39,7 @@ make test       # Run tests
 make lint       # Run linters
 make install    # Install to $GOPATH/bin
 make generate-discovery # Refresh docs/llm discovery files
+make smoke      # Run local live smoke tests against the built binary
 ```
 
 ## Conventions
@@ -47,6 +49,7 @@ make generate-discovery # Refresh docs/llm discovery files
 - Boolean/toggle filters use integers: `-1` = all/unfiltered, `0` = exclude, `1` = include/only.
 - Pagination uses `--start` (offset) and `--length` (count). `--length -1` means all results except for capped trade retrieval endpoints. `trade list`, including `--summary`, defaults to `--length 10` and only allows `--length` values from 1 to 50 because the VolumeLeaders backend cannot safely retrieve more than 50 individual trades per request. `trade levels` caps `--trade-level-count` at 50, and `trade level-touches` only allows `--length` values from 1 to 50.
 - The binary name is `volumeleaders-agent`.
+- `make smoke` is a local-only live test harness, not part of CI. It builds `./volumeleaders-agent`, discovers command coverage from `--jsonschema=tree`, validates stdout JSON, and may create/update/delete smoke-owned alert and watchlist records named with a `smoke-*` prefix. Smoke mutations must only target keys created during the same smoke run, and cleanup must be attempted even after failures.
 - structcli environment-variable and config-file features are intentionally out of scope for this project. Do not add or recommend `flagenv`, `flagenv:"only"`, `structcli.WithConfig`, `--config`, YAML/JSON/TOML config loading, or environment-variable driven CLI defaults unless this guidance is explicitly changed later.
 
 ## Review guidelines

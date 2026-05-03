@@ -40,7 +40,7 @@ func RunDataTablesSingleRequestCommand[T any](cmd *cobra.Command, path string, c
 	request := NewDataTablesRequest(columns, opts)
 	var result []T
 	if err := vlClient.PostDataTables(ctx, path, request.Encode(), &result); err != nil {
-		slog.Error("failed to"+label, "error", err)
+		slog.Error("failed to "+label, "error", err)
 		return fmt.Errorf("%s: %w", label, err)
 	}
 	return PrintDataTablesResult(cmd.OutOrStdout(), ctx, result, opts.Fields, format)

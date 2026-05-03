@@ -211,24 +211,24 @@ type tradeLevelTouchesOptions struct {
 }
 
 func (opts *tradeListOptions) Validate(_ context.Context) []error {
-	if err := validateTradeRequestLength(opts.Length); err != nil {
+	if err := validateRange(opts.Length, maxTradeRequestLength, "length", "trade retrieval"); err != nil {
 		return []error{err}
 	}
 	return nil
 }
 
 func (opts *tradeLevelsOptions) Validate(_ context.Context) []error {
-	if err := validateTradeLevelCount(opts.TradeLevelCount); err != nil {
+	if err := validateRange(opts.TradeLevelCount, maxTradeLevelRequestLength, "trade-level-count", "trade level retrieval"); err != nil {
 		return []error{err}
 	}
 	return nil
 }
 
 func (opts *tradeLevelTouchesOptions) Validate(_ context.Context) []error {
-	if err := validateTradeLevelTouchesLength(opts.Length); err != nil {
+	if err := validateRange(opts.Length, maxTradeLevelRequestLength, "length", "trade level touch retrieval"); err != nil {
 		return []error{err}
 	}
-	if err := validateTradeLevelCount(opts.TradeLevelCount); err != nil {
+	if err := validateRange(opts.TradeLevelCount, maxTradeLevelRequestLength, "trade-level-count", "trade level retrieval"); err != nil {
 		return []error{err}
 	}
 	return nil
@@ -610,7 +610,7 @@ func runTradeList(cmd *cobra.Command, opts *tradeListOptions) error {
 	if tickers != "" {
 		lookbackDays = tradeListTickerLookbackDays
 	}
-	startDate, endDate, err := common.OptionalDateRange(cmd, lookbackDays)
+	startDate, endDate, err := common.ResolveDateRange(cmd, lookbackDays, false)
 	if err != nil {
 		return err
 	}
@@ -666,26 +666,7 @@ func tradesOptionsFromSentimentOptions(opts *tradeSentimentOptions, startDate, e
 	return &tradesOptions{startDate: startDate, endDate: endDate, minVolume: opts.MinVolume, maxVolume: opts.MaxVolume, minPrice: opts.MinPrice, maxPrice: opts.MaxPrice, minDollars: opts.MinDollars, maxDollars: opts.MaxDollars, conditions: opts.Conditions, vcd: opts.VCD, securityType: opts.SecurityType, relativeSize: opts.RelativeSize, darkPools: opts.DarkPools.Int(), sweeps: opts.Sweeps.Int(), latePrints: opts.LatePrints.Int(), sigPrints: opts.SigPrints.Int(), evenShared: opts.EvenShared.Int(), tradeRank: opts.TradeRank, rankSnapshot: opts.RankSnapshot, marketCap: opts.MarketCap, premarket: opts.Premarket.Int(), rth: opts.RTH.Int(), ah: opts.AH.Int(), opening: opts.Opening.Int(), closing: opts.Closing.Int(), phantom: opts.Phantom.Int(), offsetting: opts.Offsetting.Int()}
 }
 
-func validateTradeRequestLength(length int) error {
-	if length < 1 || length > maxTradeRequestLength {
-		return fmt.Errorf("--length must be between 1 and %d for trade retrieval", maxTradeRequestLength)
-	}
-	return nil
-}
 
-func validateTradeLevelCount(count int) error {
-	if count < 1 || count > maxTradeLevelRequestLength {
-		return fmt.Errorf("--trade-level-count must be between 1 and %d for trade level retrieval", maxTradeLevelRequestLength)
-	}
-	return nil
-}
-
-func validateTradeLevelTouchesLength(length int) error {
-	if length < 1 || length > maxTradeLevelRequestLength {
-		return fmt.Errorf("--length must be between 1 and %d for trade level touch retrieval", maxTradeLevelRequestLength)
-	}
-	return nil
-}
 
 func runTradeListRows(cmd *cobra.Command, opts common.DataTableOptions) error {
 	ctx := cmd.Context()
@@ -847,7 +828,7 @@ func runTradeSentiment(cmd *cobra.Command, opts *tradeSentimentOptions) error {
 	if err != nil {
 		return err
 	}
-	startDate, endDate, err := common.RequiredDateRange(cmd)
+	startDate, endDate, err := common.ResolveDateRange(cmd, 0, true)
 	if err != nil {
 		return err
 	}
@@ -888,7 +869,7 @@ func tradeSentimentTotalsRow(totals *models.TradeSentimentTotals) models.TradeSe
 }
 
 func runTradeClusters(cmd *cobra.Command, opts *tradeClustersOptions) error {
-	startDate, endDate, err := common.RequiredDateRange(cmd)
+	startDate, endDate, err := common.ResolveDateRange(cmd, 0, true)
 	if err != nil {
 		return err
 	}
@@ -900,7 +881,7 @@ func runTradeClusters(cmd *cobra.Command, opts *tradeClustersOptions) error {
 }
 
 func runTradeClusterBombs(cmd *cobra.Command, opts *tradeClusterBombsOptions) error {
-	startDate, endDate, err := common.RequiredDateRange(cmd)
+	startDate, endDate, err := common.ResolveDateRange(cmd, 0, true)
 	if err != nil {
 		return err
 	}
@@ -920,13 +901,9 @@ func runTradeLevels(cmd *cobra.Command, opts *tradeLevelsOptions) error {
 	if err != nil {
 		return err
 	}
-	startDate, endDate, err := common.OptionalDateRange(cmd, 365)
+	startDate, endDate, err := common.ResolveDateRange(cmd, 365, false)
 	if err != nil {
 		return err
-	}
-	fields, err := common.OutputFields[models.TradeLevel](opts.Fields, nil)
-	if err != nil {
-		return fmt.Errorf("parsing fields flag: %w", err)
 	}
 	ticker, err := common.SingleTickerValue(cmd)
 	if err != nil {
@@ -964,7 +941,7 @@ func fetchTradeLevels(cmd *cobra.Command, opts common.DataTableOptions) ([]model
 }
 
 func runTradeLevelTouches(cmd *cobra.Command, opts *tradeLevelTouchesOptions) error {
-	startDate, endDate, err := common.RequiredDateRange(cmd)
+	startDate, endDate, err := common.ResolveDateRange(cmd, 0, true)
 	if err != nil {
 		return err
 	}

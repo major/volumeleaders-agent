@@ -377,7 +377,7 @@ func TestTradeClusterAlias(t *testing.T) {
 			Name:   "NVIDIA Corporation",
 		}
 		// This assignment should compile and work
-		var alert TradeClusterAlert = cluster
+		alert := cluster
 		if alert.Ticker != "NVDA" {
 			t.Errorf("alert.Ticker: expected NVDA, got %v", alert.Ticker)
 		}

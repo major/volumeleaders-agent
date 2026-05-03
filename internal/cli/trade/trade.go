@@ -97,25 +97,25 @@ type tradeVolumeDollarRangeFlags struct {
 }
 
 type tradeFilterFlags struct {
-	Conditions   int `flag:"conditions" flaggroup:"Filters" flagdescr:"Trade conditions filter"`
-	VCD          int `flag:"vcd" flaggroup:"Filters" flagdescr:"VCD filter"`
-	SecurityType int `flag:"security-type" flaggroup:"Filters" flagdescr:"Security type key"`
-	RelativeSize int `flag:"relative-size" flaggroup:"Filters" flagdescr:"Relative size threshold"`
-	DarkPools    int `flag:"dark-pools" flaggroup:"Filters" flagdescr:"Dark pool filter"`
-	Sweeps       int `flag:"sweeps" flaggroup:"Filters" flagdescr:"Sweep filter"`
-	LatePrints   int `flag:"late-prints" flaggroup:"Filters" flagdescr:"Late print filter"`
-	SigPrints    int `flag:"sig-prints" flaggroup:"Filters" flagdescr:"Signature print filter"`
-	EvenShared   int `flag:"even-shared" flaggroup:"Filters" flagdescr:"Even shared filter"`
-	TradeRank    int `flag:"trade-rank" flaggroup:"Filters" flagdescr:"Trade rank filter"`
-	RankSnapshot int `flag:"rank-snapshot" flaggroup:"Filters" flagdescr:"Trade rank snapshot filter"`
-	MarketCap    int `flag:"market-cap" flaggroup:"Filters" flagdescr:"Market cap filter"`
-	Premarket    int `flag:"premarket" flaggroup:"Sessions" flagdescr:"Include premarket"`
-	RTH          int `flag:"rth" flaggroup:"Sessions" flagdescr:"Include regular trading hours"`
-	AH           int `flag:"ah" flaggroup:"Sessions" flagdescr:"Include after hours"`
-	Opening      int `flag:"opening" flaggroup:"Sessions" flagdescr:"Include opening trades"`
-	Closing      int `flag:"closing" flaggroup:"Sessions" flagdescr:"Include closing trades"`
-	Phantom      int `flag:"phantom" flaggroup:"Sessions" flagdescr:"Include phantom prints"`
-	Offsetting   int `flag:"offsetting" flaggroup:"Sessions" flagdescr:"Include offsetting trades"`
+	Conditions   int                   `flag:"conditions" flaggroup:"Filters" flagdescr:"Trade conditions filter"`
+	VCD          int                   `flag:"vcd" flaggroup:"Filters" flagdescr:"VCD filter"`
+	SecurityType int                   `flag:"security-type" flaggroup:"Filters" flagdescr:"Security type key"`
+	RelativeSize int                   `flag:"relative-size" flaggroup:"Filters" flagdescr:"Relative size threshold"`
+	DarkPools    common.TriStateFilter `flag:"dark-pools" flaggroup:"Filters" flagdescr:"Dark pool filter (-1=all, 0=exclude, 1=only)"`
+	Sweeps       common.TriStateFilter `flag:"sweeps" flaggroup:"Filters" flagdescr:"Sweep filter (-1=all, 0=exclude, 1=only)"`
+	LatePrints   common.TriStateFilter `flag:"late-prints" flaggroup:"Filters" flagdescr:"Late print filter (-1=all, 0=exclude, 1=only)"`
+	SigPrints    common.TriStateFilter `flag:"sig-prints" flaggroup:"Filters" flagdescr:"Signature print filter (-1=all, 0=exclude, 1=only)"`
+	EvenShared   common.TriStateFilter `flag:"even-shared" flaggroup:"Filters" flagdescr:"Even shared filter (-1=all, 0=exclude, 1=only)"`
+	TradeRank    int                   `flag:"trade-rank" flaggroup:"Filters" flagdescr:"Trade rank filter"`
+	RankSnapshot int                   `flag:"rank-snapshot" flaggroup:"Filters" flagdescr:"Trade rank snapshot filter"`
+	MarketCap    int                   `flag:"market-cap" flaggroup:"Filters" flagdescr:"Market cap filter"`
+	Premarket    common.TriStateFilter `flag:"premarket" flaggroup:"Sessions" flagdescr:"Premarket session filter (-1=all, 0=exclude, 1=include)"`
+	RTH          common.TriStateFilter `flag:"rth" flaggroup:"Sessions" flagdescr:"Regular trading hours filter (-1=all, 0=exclude, 1=include)"`
+	AH           common.TriStateFilter `flag:"ah" flaggroup:"Sessions" flagdescr:"After-hours session filter (-1=all, 0=exclude, 1=include)"`
+	Opening      common.TriStateFilter `flag:"opening" flaggroup:"Sessions" flagdescr:"Opening trade filter (-1=all, 0=exclude, 1=include)"`
+	Closing      common.TriStateFilter `flag:"closing" flaggroup:"Sessions" flagdescr:"Closing trade filter (-1=all, 0=exclude, 1=include)"`
+	Phantom      common.TriStateFilter `flag:"phantom" flaggroup:"Sessions" flagdescr:"Phantom print filter (-1=all, 0=exclude, 1=include)"`
+	Offsetting   common.TriStateFilter `flag:"offsetting" flaggroup:"Sessions" flagdescr:"Offsetting trade filter (-1=all, 0=exclude, 1=include)"`
 }
 
 type tradePaginationFlags struct {
@@ -554,20 +554,20 @@ func presetTradeFilterDefaults(opts *tradeFilterFlags, vcdDefault int) {
 	opts.VCD = vcdDefault
 	opts.SecurityType = -1
 	opts.RelativeSize = 5
-	opts.DarkPools = -1
-	opts.Sweeps = -1
-	opts.LatePrints = -1
-	opts.SigPrints = -1
-	opts.EvenShared = -1
+	opts.DarkPools = common.TriStateAll
+	opts.Sweeps = common.TriStateAll
+	opts.LatePrints = common.TriStateAll
+	opts.SigPrints = common.TriStateAll
+	opts.EvenShared = common.TriStateAll
 	opts.TradeRank = -1
 	opts.RankSnapshot = -1
-	opts.Premarket = 1
-	opts.RTH = 1
-	opts.AH = 1
-	opts.Opening = 1
-	opts.Closing = 1
-	opts.Phantom = 1
-	opts.Offsetting = 1
+	opts.Premarket = common.TriStateOnly
+	opts.RTH = common.TriStateOnly
+	opts.AH = common.TriStateOnly
+	opts.Opening = common.TriStateOnly
+	opts.Closing = common.TriStateOnly
+	opts.Phantom = common.TriStateOnly
+	opts.Offsetting = common.TriStateOnly
 }
 
 func presetTradePaginationDefaults(opts *tradePaginationFlags, length, orderCol int) {
@@ -659,11 +659,11 @@ func runTradeList(cmd *cobra.Command, opts *tradeListOptions) error {
 }
 
 func tradesOptionsFromListOptions(opts *tradeListOptions, tickers, startDate, endDate string) *tradesOptions {
-	return &tradesOptions{tickers: tickers, startDate: startDate, endDate: endDate, minVolume: opts.MinVolume, maxVolume: opts.MaxVolume, minPrice: opts.MinPrice, maxPrice: opts.MaxPrice, minDollars: opts.MinDollars, maxDollars: opts.MaxDollars, conditions: opts.Conditions, vcd: opts.VCD, securityType: opts.SecurityType, relativeSize: opts.RelativeSize, darkPools: opts.DarkPools, sweeps: opts.Sweeps, latePrints: opts.LatePrints, sigPrints: opts.SigPrints, evenShared: opts.EvenShared, tradeRank: opts.TradeRank, rankSnapshot: opts.RankSnapshot, marketCap: opts.MarketCap, premarket: opts.Premarket, rth: opts.RTH, ah: opts.AH, opening: opts.Opening, closing: opts.Closing, phantom: opts.Phantom, offsetting: opts.Offsetting, sector: opts.Sector}
+	return &tradesOptions{tickers: tickers, startDate: startDate, endDate: endDate, minVolume: opts.MinVolume, maxVolume: opts.MaxVolume, minPrice: opts.MinPrice, maxPrice: opts.MaxPrice, minDollars: opts.MinDollars, maxDollars: opts.MaxDollars, conditions: opts.Conditions, vcd: opts.VCD, securityType: opts.SecurityType, relativeSize: opts.RelativeSize, darkPools: opts.DarkPools.Int(), sweeps: opts.Sweeps.Int(), latePrints: opts.LatePrints.Int(), sigPrints: opts.SigPrints.Int(), evenShared: opts.EvenShared.Int(), tradeRank: opts.TradeRank, rankSnapshot: opts.RankSnapshot, marketCap: opts.MarketCap, premarket: opts.Premarket.Int(), rth: opts.RTH.Int(), ah: opts.AH.Int(), opening: opts.Opening.Int(), closing: opts.Closing.Int(), phantom: opts.Phantom.Int(), offsetting: opts.Offsetting.Int(), sector: opts.Sector}
 }
 
 func tradesOptionsFromSentimentOptions(opts *tradeSentimentOptions, startDate, endDate string) *tradesOptions {
-	return &tradesOptions{startDate: startDate, endDate: endDate, minVolume: opts.MinVolume, maxVolume: opts.MaxVolume, minPrice: opts.MinPrice, maxPrice: opts.MaxPrice, minDollars: opts.MinDollars, maxDollars: opts.MaxDollars, conditions: opts.Conditions, vcd: opts.VCD, securityType: opts.SecurityType, relativeSize: opts.RelativeSize, darkPools: opts.DarkPools, sweeps: opts.Sweeps, latePrints: opts.LatePrints, sigPrints: opts.SigPrints, evenShared: opts.EvenShared, tradeRank: opts.TradeRank, rankSnapshot: opts.RankSnapshot, marketCap: opts.MarketCap, premarket: opts.Premarket, rth: opts.RTH, ah: opts.AH, opening: opts.Opening, closing: opts.Closing, phantom: opts.Phantom, offsetting: opts.Offsetting}
+	return &tradesOptions{startDate: startDate, endDate: endDate, minVolume: opts.MinVolume, maxVolume: opts.MaxVolume, minPrice: opts.MinPrice, maxPrice: opts.MaxPrice, minDollars: opts.MinDollars, maxDollars: opts.MaxDollars, conditions: opts.Conditions, vcd: opts.VCD, securityType: opts.SecurityType, relativeSize: opts.RelativeSize, darkPools: opts.DarkPools.Int(), sweeps: opts.Sweeps.Int(), latePrints: opts.LatePrints.Int(), sigPrints: opts.SigPrints.Int(), evenShared: opts.EvenShared.Int(), tradeRank: opts.TradeRank, rankSnapshot: opts.RankSnapshot, marketCap: opts.MarketCap, premarket: opts.Premarket.Int(), rth: opts.RTH.Int(), ah: opts.AH.Int(), opening: opts.Opening.Int(), closing: opts.Closing.Int(), phantom: opts.Phantom.Int(), offsetting: opts.Offsetting.Int()}
 }
 
 func validateTradeRequestLength(length int) error {

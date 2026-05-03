@@ -423,6 +423,7 @@ func TestCreateDefaultIntFlags(t *testing.T) {
 		want  string
 	}{
 		{"SecurityTypeKey", "-1"},
+		{"MinRelativeSizeSelected", "0"},
 		{"MaxTradeRankSelected", "-1"},
 		{"RSIOverboughtDailySelected", "-1"},
 		{"RSIOverboughtHourlySelected", "-1"},
@@ -522,6 +523,9 @@ func TestBuildWatchlistConfigFields(t *testing.T) {
 	}
 	if fields["Name"] != "Test" {
 		t.Errorf("Name = %q, want %q", fields["Name"], "Test")
+	}
+	if fields["MinRelativeSizeSelected"] != "0" {
+		t.Errorf("MinRelativeSizeSelected = %q, want %q", fields["MinRelativeSizeSelected"], "0")
 	}
 }
 

@@ -97,6 +97,20 @@ func TestBuildTradeFiltersPreservesAPIKeys(t *testing.T) {
 	}
 }
 
+func TestPresetTradeFilterDefaultsPreserveTriStateValues(t *testing.T) {
+	t.Parallel()
+
+	var opts tradeFilterFlags
+	presetTradeFilterDefaults(&opts, 97)
+
+	if got := opts.DarkPools.Int(); got != -1 {
+		t.Errorf("DarkPools default = %d, want -1", got)
+	}
+	if got := opts.Premarket.Int(); got != 1 {
+		t.Errorf("Premarket default = %d, want 1", got)
+	}
+}
+
 func TestBuildTradeLevelFiltersUseObservedLevelKeys(t *testing.T) {
 	t.Parallel()
 

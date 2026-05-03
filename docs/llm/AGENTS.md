@@ -207,7 +207,7 @@ Ratio is bull dollars divided by bear dollars and is null when bear flow is zero
 | `--offsetting-print` | bool | false | Offsetting print filter |
 | `--phantom-print` | bool | false | Phantom print filter |
 | `--sweep` | bool | false | Sweep filter |
-| `--ticker-group` | string | AllTickers | Ticker group (AllTickers or SelectedTickers) |
+| `--ticker-group` | string | AllTickers | Ticker group: AllTickers or SelectedTickers (AllTickers, SelectedTickers) |
 | `--tickers` | string | - | Comma-separated ticker symbols (max 500, used with SelectedTickers) |
 | `--total-dollars-gte` | int | 0 | Total dollars >= |
 | `--total-rank-lte` | int | 0 | Total rank <= (0/1/3/10/25/50/100) |
@@ -249,7 +249,7 @@ Ratio is bull dollars divided by bear dollars and is null when bear flow is zero
 | `--offsetting-print` | bool | false | Offsetting print filter |
 | `--phantom-print` | bool | false | Phantom print filter |
 | `--sweep` | bool | false | Sweep filter |
-| `--ticker-group` | string | AllTickers | Ticker group (AllTickers or SelectedTickers) |
+| `--ticker-group` | string | AllTickers | Ticker group: AllTickers or SelectedTickers (AllTickers, SelectedTickers) |
 | `--tickers` | string | - | Comma-separated ticker symbols (max 500, used with SelectedTickers) |
 | `--total-dollars-gte` | int | 0 | Total dollars >= |
 | `--total-rank-lte` | int | 0 | Total rank <= (0/1/3/10/25/50/100) |
@@ -397,17 +397,17 @@ Ratio is bull dollars divided by bear dollars and is null when bear flow is zero
 
 | Flag | Type | Default | Description |
 |------|------|---------|-------------|
-| `--ah` | int | 1 | Include after hours |
-| `--closing` | int | 1 | Include closing trades |
+| `--ah` | string | 1 | After-hours session filter (-1=all, 0=exclude, 1=include) (-1, 0, 1) |
+| `--closing` | string | 1 | Closing trade filter (-1=all, 0=exclude, 1=include) (-1, 0, 1) |
 | `--conditions` | int | -1 | Trade conditions filter |
-| `--dark-pools` | int | -1 | Dark pool filter |
+| `--dark-pools` | string | -1 | Dark pool filter (-1=all, 0=exclude, 1=only) (-1, 0, 1) |
 | `--days` | int | 0 | Look back this many days from --end-date or today |
 | `--end-date` | string | - | End date YYYY-MM-DD (default: today) |
-| `--even-shared` | int | -1 | Even shared filter |
+| `--even-shared` | string | -1 | Even shared filter (-1=all, 0=exclude, 1=only) (-1, 0, 1) |
 | `--fields` | string | - | Comma-separated trade fields to include in output |
 | `--format` | string | json | Output format: json, csv, or tsv (csv, json, tsv) |
 | `--group-by` | string | ticker | Summary grouping (requires --summary): ticker, day, or ticker,day (day, ticker, ticker,day) |
-| `--late-prints` | int | -1 | Late print filter |
+| `--late-prints` | string | -1 | Late print filter (-1=all, 0=exclude, 1=only) (-1, 0, 1) |
 | `--length` | int | 10 | Number of results |
 | `--market-cap` | int | 0 | Market cap filter |
 | `--max-dollars` | float64 | 30000000000 | Maximum dollar value |
@@ -416,23 +416,23 @@ Ratio is bull dollars divided by bear dollars and is null when bear flow is zero
 | `--min-dollars` | float64 | 500000 | Minimum dollar value |
 | `--min-price` | float64 | 0 | Minimum price |
 | `--min-volume` | int | 0 | Minimum volume |
-| `--offsetting` | int | 1 | Include offsetting trades |
-| `--opening` | int | 1 | Include opening trades |
+| `--offsetting` | string | 1 | Offsetting trade filter (-1=all, 0=exclude, 1=include) (-1, 0, 1) |
+| `--opening` | string | 1 | Opening trade filter (-1=all, 0=exclude, 1=include) (-1, 0, 1) |
 | `--order-col` | int | 1 | Order column index |
 | `--order-dir` | string | desc | Order direction (asc, desc) |
-| `--phantom` | int | 1 | Include phantom prints |
-| `--premarket` | int | 1 | Include premarket |
+| `--phantom` | string | 1 | Phantom print filter (-1=all, 0=exclude, 1=include) (-1, 0, 1) |
+| `--premarket` | string | 1 | Premarket session filter (-1=all, 0=exclude, 1=include) (-1, 0, 1) |
 | `--preset` | string | - | Apply a built-in filter preset (see: trade presets) |
 | `--rank-snapshot` | int | -1 | Trade rank snapshot filter |
 | `--relative-size` | int | 5 | Relative size threshold |
-| `--rth` | int | 1 | Include regular trading hours |
+| `--rth` | string | 1 | Regular trading hours filter (-1=all, 0=exclude, 1=include) (-1, 0, 1) |
 | `--sector` | string | - | Sector/Industry filter |
 | `--security-type` | int | -1 | Security type key |
-| `--sig-prints` | int | -1 | Signature print filter |
+| `--sig-prints` | string | -1 | Signature print filter (-1=all, 0=exclude, 1=only) (-1, 0, 1) |
 | `--start` | int | 0 | DataTables start offset |
 | `--start-date` | string | - | Start date YYYY-MM-DD (default: auto) |
 | `--summary` | bool | false | Return aggregate metrics instead of individual trades |
-| `--sweeps` | int | -1 | Sweep filter |
+| `--sweeps` | string | -1 | Sweep filter (-1=all, 0=exclude, 1=only) (-1, 0, 1) |
 | `--tickers` | string | - | Comma-separated ticker symbols |
 | `--trade-rank` | int | -1 | Trade rank filter |
 | `--vcd` | int | 97 | VCD filter |
@@ -454,15 +454,15 @@ Ratio is bull dollars divided by bear dollars and is null when bear flow is zero
 
 | Flag | Type | Default | Description |
 |------|------|---------|-------------|
-| `--ah` | int | 1 | Include after hours |
-| `--closing` | int | 1 | Include closing trades |
+| `--ah` | string | 1 | After-hours session filter (-1=all, 0=exclude, 1=include) (-1, 0, 1) |
+| `--closing` | string | 1 | Closing trade filter (-1=all, 0=exclude, 1=include) (-1, 0, 1) |
 | `--conditions` | int | -1 | Trade conditions filter |
-| `--dark-pools` | int | -1 | Dark pool filter |
+| `--dark-pools` | string | -1 | Dark pool filter (-1=all, 0=exclude, 1=only) (-1, 0, 1) |
 | `--days` | int | 0 | Look back this many days from --end-date or today |
 | `--end-date` | string | - | End date YYYY-MM-DD (required unless --days is set) |
-| `--even-shared` | int | -1 | Even shared filter |
+| `--even-shared` | string | -1 | Even shared filter (-1=all, 0=exclude, 1=only) (-1, 0, 1) |
 | `--format` | string | json | Output format: json, csv, or tsv (csv, json, tsv) |
-| `--late-prints` | int | -1 | Late print filter |
+| `--late-prints` | string | -1 | Late print filter (-1=all, 0=exclude, 1=only) (-1, 0, 1) |
 | `--market-cap` | int | 0 | Market cap filter |
 | `--max-dollars` | float64 | 30000000000 | Maximum dollar value |
 | `--max-price` | float64 | 100000 | Maximum price |
@@ -470,17 +470,17 @@ Ratio is bull dollars divided by bear dollars and is null when bear flow is zero
 | `--min-dollars` | float64 | 5000000 | Minimum dollar value |
 | `--min-price` | float64 | 0 | Minimum price |
 | `--min-volume` | int | 0 | Minimum volume |
-| `--offsetting` | int | 1 | Include offsetting trades |
-| `--opening` | int | 1 | Include opening trades |
-| `--phantom` | int | 1 | Include phantom prints |
-| `--premarket` | int | 1 | Include premarket |
+| `--offsetting` | string | 1 | Offsetting trade filter (-1=all, 0=exclude, 1=include) (-1, 0, 1) |
+| `--opening` | string | 1 | Opening trade filter (-1=all, 0=exclude, 1=include) (-1, 0, 1) |
+| `--phantom` | string | 1 | Phantom print filter (-1=all, 0=exclude, 1=include) (-1, 0, 1) |
+| `--premarket` | string | 1 | Premarket session filter (-1=all, 0=exclude, 1=include) (-1, 0, 1) |
 | `--rank-snapshot` | int | -1 | Trade rank snapshot filter |
 | `--relative-size` | int | 5 | Relative size threshold |
-| `--rth` | int | 1 | Include regular trading hours |
+| `--rth` | string | 1 | Regular trading hours filter (-1=all, 0=exclude, 1=include) (-1, 0, 1) |
 | `--security-type` | int | -1 | Security type key |
-| `--sig-prints` | int | -1 | Signature print filter |
+| `--sig-prints` | string | -1 | Signature print filter (-1=all, 0=exclude, 1=only) (-1, 0, 1) |
 | `--start-date` | string | - | Start date YYYY-MM-DD (required unless --days is set) |
-| `--sweeps` | int | -1 | Sweep filter |
+| `--sweeps` | string | -1 | Sweep filter (-1=all, 0=exclude, 1=only) (-1, 0, 1) |
 | `--trade-rank` | int | -1 | Trade rank filter |
 | `--vcd` | int | 97 | VCD filter |
 
@@ -545,11 +545,11 @@ Ratio is bull dollars divided by bear dollars and is null when bear flow is zero
 | `--lit-exchanges` | bool | true | Include lit exchange trades |
 | `--max-dollars` | float64 | 3e+10 | Maximum dollars filter |
 | `--max-price` | float64 | 100000 | Maximum price filter |
-| `--max-trade-rank` | int | -1 | Maximum trade rank (-1=all, 1/3/5/10/25/50/100) |
+| `--max-trade-rank` | string | -1 | Maximum trade rank (-1=all, 1/3/5/10/25/50/100) (-1, 1, 10, 100, 25, 3, 5, 50) |
 | `--max-volume` | int | 2000000000 | Maximum volume filter |
 | `--min-dollars` | float64 | 0 | Minimum dollars filter |
 | `--min-price` | float64 | 0 | Minimum price filter |
-| `--min-relative-size` | int | 0 | Minimum relative size (0/5/10/25/50/100) |
+| `--min-relative-size` | string | 0 | Minimum relative size (0/5/10/25/50/100) (0, 10, 100, 25, 5, 50) |
 | `--min-vcd` | float64 | 0 | Minimum VCD percentile (0-100) |
 | `--min-volume` | int | 0 | Minimum volume filter |
 | `--name` | string | - | Watch list name |
@@ -558,13 +558,13 @@ Ratio is bull dollars divided by bear dollars and is null when bear flow is zero
 | `--opening-trades` | bool | true | Include opening trades |
 | `--phantom-trades` | bool | true | Include phantom trades |
 | `--premarket-trades` | bool | true | Include premarket trades |
-| `--rsi-overbought-daily` | int | -1 | RSI overbought daily (1=yes, 0=no, -1=ignore) |
-| `--rsi-overbought-hourly` | int | -1 | RSI overbought hourly (1=yes, 0=no, -1=ignore) |
-| `--rsi-oversold-daily` | int | -1 | RSI oversold daily (1=yes, 0=no, -1=ignore) |
-| `--rsi-oversold-hourly` | int | -1 | RSI oversold hourly (1=yes, 0=no, -1=ignore) |
+| `--rsi-overbought-daily` | string | -1 | RSI overbought daily (-1=ignore, 0=no, 1=yes) (-1, 0, 1) |
+| `--rsi-overbought-hourly` | string | -1 | RSI overbought hourly (-1=ignore, 0=no, 1=yes) (-1, 0, 1) |
+| `--rsi-oversold-daily` | string | -1 | RSI oversold daily (-1=ignore, 0=no, 1=yes) (-1, 0, 1) |
+| `--rsi-oversold-hourly` | string | -1 | RSI oversold hourly (-1=ignore, 0=no, 1=yes) (-1, 0, 1) |
 | `--rth-trades` | bool | true | Include regular trading hours trades |
 | `--sector-industry` | string | - | Sector/industry filter (max 100 chars) |
-| `--security-type` | int | -1 | Security type (-1=all, 1=stocks, 26=ETFs, 4=REITs) |
+| `--security-type` | string | -1 | Security type (-1=all, 1=stocks, 26=ETFs, 4=REITs) (-1, 1, 26, 4) |
 | `--signature-prints` | bool | true | Include signature prints |
 | `--sweeps` | bool | true | Include sweep trades |
 | `--tickers` | string | - | Comma-separated ticker symbols (max 500) |
@@ -589,11 +589,11 @@ Ratio is bull dollars divided by bear dollars and is null when bear flow is zero
 | `--lit-exchanges` | bool | true | Include lit exchange trades |
 | `--max-dollars` | float64 | 3e+10 | Maximum dollars filter |
 | `--max-price` | float64 | 100000 | Maximum price filter |
-| `--max-trade-rank` | int | -1 | Maximum trade rank (-1=all, 1/3/5/10/25/50/100) |
+| `--max-trade-rank` | string | -1 | Maximum trade rank (-1=all, 1/3/5/10/25/50/100) (-1, 1, 10, 100, 25, 3, 5, 50) |
 | `--max-volume` | int | 2000000000 | Maximum volume filter |
 | `--min-dollars` | float64 | 0 | Minimum dollars filter |
 | `--min-price` | float64 | 0 | Minimum price filter |
-| `--min-relative-size` | int | 0 | Minimum relative size (0/5/10/25/50/100) |
+| `--min-relative-size` | string | 0 | Minimum relative size (0/5/10/25/50/100) (0, 10, 100, 25, 5, 50) |
 | `--min-vcd` | float64 | 0 | Minimum VCD percentile (0-100) |
 | `--min-volume` | int | 0 | Minimum volume filter |
 | `--name` | string | - | Watch list name |
@@ -602,13 +602,13 @@ Ratio is bull dollars divided by bear dollars and is null when bear flow is zero
 | `--opening-trades` | bool | true | Include opening trades |
 | `--phantom-trades` | bool | true | Include phantom trades |
 | `--premarket-trades` | bool | true | Include premarket trades |
-| `--rsi-overbought-daily` | int | -1 | RSI overbought daily (1=yes, 0=no, -1=ignore) |
-| `--rsi-overbought-hourly` | int | -1 | RSI overbought hourly (1=yes, 0=no, -1=ignore) |
-| `--rsi-oversold-daily` | int | -1 | RSI oversold daily (1=yes, 0=no, -1=ignore) |
-| `--rsi-oversold-hourly` | int | -1 | RSI oversold hourly (1=yes, 0=no, -1=ignore) |
+| `--rsi-overbought-daily` | string | -1 | RSI overbought daily (-1=ignore, 0=no, 1=yes) (-1, 0, 1) |
+| `--rsi-overbought-hourly` | string | -1 | RSI overbought hourly (-1=ignore, 0=no, 1=yes) (-1, 0, 1) |
+| `--rsi-oversold-daily` | string | -1 | RSI oversold daily (-1=ignore, 0=no, 1=yes) (-1, 0, 1) |
+| `--rsi-oversold-hourly` | string | -1 | RSI oversold hourly (-1=ignore, 0=no, 1=yes) (-1, 0, 1) |
 | `--rth-trades` | bool | true | Include regular trading hours trades |
 | `--sector-industry` | string | - | Sector/industry filter (max 100 chars) |
-| `--security-type` | int | -1 | Security type (-1=all, 1=stocks, 26=ETFs, 4=REITs) |
+| `--security-type` | string | -1 | Security type (-1=all, 1=stocks, 26=ETFs, 4=REITs) (-1, 1, 26, 4) |
 | `--signature-prints` | bool | true | Include signature prints |
 | `--sweeps` | bool | true | Include sweep trades |
 | `--tickers` | string | - | Comma-separated ticker symbols (max 500) |

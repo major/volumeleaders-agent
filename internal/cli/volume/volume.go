@@ -1,9 +1,6 @@
 package volume
 
 import (
-	"fmt"
-
-	"github.com/leodido/structcli"
 	"github.com/spf13/cobra"
 
 	"github.com/major/volumeleaders-agent/internal/cli/common"
@@ -55,9 +52,7 @@ func newInstitutionalCmd() *cobra.Command {
 				datatables.InstitutionalVolumeColumns)
 		},
 	}
-	if err := structcli.Bind(cmd, &opts); err != nil {
-		panic(fmt.Sprintf("structcli.Bind institutional: %v", err))
-	}
+	common.BindOrPanic(cmd, &opts, "institutional")
 	return cmd
 }
 
@@ -77,9 +72,7 @@ func newAHInstitutionalCmd() *cobra.Command {
 				datatables.InstitutionalVolumeColumns)
 		},
 	}
-	if err := structcli.Bind(cmd, &opts); err != nil {
-		panic(fmt.Sprintf("structcli.Bind ah-institutional: %v", err))
-	}
+	common.BindOrPanic(cmd, &opts, "ah-institutional")
 	return cmd
 }
 
@@ -99,9 +92,7 @@ func newTotalCmd() *cobra.Command {
 				datatables.TotalVolumeColumns)
 		},
 	}
-	if err := structcli.Bind(cmd, &opts); err != nil {
-		panic(fmt.Sprintf("structcli.Bind total: %v", err))
-	}
+	common.BindOrPanic(cmd, &opts, "total")
 	return cmd
 }
 

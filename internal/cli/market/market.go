@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/leodido/structcli"
 	"github.com/spf13/cobra"
 
 	"github.com/major/volumeleaders-agent/internal/cli/common"
@@ -92,7 +91,7 @@ func newEarningsCmd() *cobra.Command {
 		Long:       "Query the earnings calendar for a date range, showing tickers with earnings dates and associated trade activity counts. Requires --start-date and --end-date (or --days). Outputs compact JSON or CSV/TSV with --format. PREREQUISITES: provide a date range with --days or explicit start and end dates. RECOVERY: if date validation fails, use --days N for the fastest retry or provide both --start-date and --end-date. NEXT STEPS: run trade list for tickers near earnings, then market exhaustion for broader reversal context.",
 		SuggestFor: []string{"earning", "earings"},
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			startDate, endDate, err := common.RequiredDateRange(cmd)
+			startDate, endDate, err := common.ResolveDateRange(cmd, 0, true)
 			if err != nil {
 				return err
 			}
@@ -116,9 +115,7 @@ func newEarningsCmd() *cobra.Command {
 			return common.RunDataTablesCommand[models.Earnings](cmd, "/Earnings/GetEarnings", datatables.EarningsColumns, dtOpts, opts.Format, "query earnings")
 		},
 	}
-	if err := structcli.Bind(cmd, opts); err != nil {
-		panic(fmt.Sprintf("structcli.Bind earnings options: %v", err))
-	}
+	common.BindOrPanic(cmd, opts, "earnings options")
 	return cmd
 }
 
@@ -150,9 +147,7 @@ func newExhaustionCmd() *cobra.Command {
 			return common.PrintJSON(cmd.OutOrStdout(), ctx, summarizeMarketExhaustion(score))
 		},
 	}
-	if err := structcli.Bind(cmd, opts); err != nil {
-		panic(fmt.Sprintf("structcli.Bind exhaustion options: %v", err))
-	}
+	common.BindOrPanic(cmd, opts, "exhaustion options")
 	return cmd
 }
 

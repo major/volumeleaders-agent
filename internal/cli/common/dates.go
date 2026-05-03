@@ -11,24 +11,6 @@ import (
 // Tests replace it to control the current time.
 var TimeNow = time.Now
 
-// DefaultDates returns start and end dates for a query, applying defaults when
-// the user did not explicitly set them.
-func DefaultDates(cmd *cobra.Command, lookbackDays int) (startDate, endDate string) {
-	startDate, endDate, _ = ResolveDateRange(cmd, lookbackDays, false)
-	return startDate, endDate
-}
-
-// RequiredDateRange resolves date flags for commands that need an explicit
-// range unless --days supplies it.
-func RequiredDateRange(cmd *cobra.Command) (startDate, endDate string, err error) {
-	return ResolveDateRange(cmd, 0, true)
-}
-
-// OptionalDateRange resolves date flags for commands that can use defaults.
-func OptionalDateRange(cmd *cobra.Command, lookbackDays int) (startDate, endDate string, err error) {
-	return ResolveDateRange(cmd, lookbackDays, false)
-}
-
 // ResolveDateRange applies VolumeLeaders date flag semantics.
 func ResolveDateRange(cmd *cobra.Command, lookbackDays int, required bool) (startDate, endDate string, err error) {
 	now := TimeNow()

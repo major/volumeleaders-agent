@@ -332,12 +332,10 @@ volumeleaders-agent trade list --watchlist "Magnificent 7" --start-date 2025-04-
 		Aliases:    []string{"ls"},
 		SuggestFor: []string{"lst", "lis"},
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			return runTradeList(cmd, opts)
-		},
-	}
-	if err := structcli.Bind(cmd, opts); err != nil {
-		panic(fmt.Sprintf("structcli.Bind list: %v", err))
-	}
+		return runTradeList(cmd, opts)
+	},
+}
+	common.BindOrPanic(cmd, opts, "list")
 	setTradeRangeFlagDefValues(cmd, opts.MinDollars)
 	return cmd
 }
@@ -359,12 +357,10 @@ Ratio is bull dollars divided by bear dollars and is null when bear flow is zero
 		Args:       cobra.NoArgs,
 		SuggestFor: []string{"sentment", "sentimnt"},
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			return runTradeSentiment(cmd, opts)
-		},
-	}
-	if err := structcli.Bind(cmd, opts); err != nil {
-		panic(fmt.Sprintf("structcli.Bind sentiment: %v", err))
-	}
+		return runTradeSentiment(cmd, opts)
+	},
+}
+	common.BindOrPanic(cmd, opts, "sentiment")
 	setTradeRangeFlagDefValues(cmd, opts.MinDollars)
 	return cmd
 }
@@ -387,12 +383,10 @@ Use clusters when the question is about price-level concentration, not single pr
 		Args:       cobra.ArbitraryArgs,
 		SuggestFor: []string{"cluster", "clsters"},
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			return runTradeClusters(cmd, opts)
-		},
-	}
-	if err := structcli.Bind(cmd, opts); err != nil {
-		panic(fmt.Sprintf("structcli.Bind clusters: %v", err))
-	}
+		return runTradeClusters(cmd, opts)
+	},
+}
+	common.BindOrPanic(cmd, opts, "clusters")
 	setTradeRangeFlagDefValues(cmd, opts.MinDollars)
 	return cmd
 }
@@ -413,12 +407,10 @@ Cluster bombs find sudden aggressive bursts tightly grouped in time and price, w
 		Args:       cobra.ArbitraryArgs,
 		SuggestFor: []string{"clusterbombs", "cluster-bomb"},
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			return runTradeClusterBombs(cmd, opts)
-		},
-	}
-	if err := structcli.Bind(cmd, opts); err != nil {
-		panic(fmt.Sprintf("structcli.Bind cluster-bombs: %v", err))
-	}
+		return runTradeClusterBombs(cmd, opts)
+	},
+}
+	common.BindOrPanic(cmd, opts, "cluster-bombs")
 	setTradeVolumeDollarFlagDefValues(cmd, opts.MinDollars)
 	return cmd
 }
@@ -437,12 +429,10 @@ Alert configs trigger when trades match thresholds. Threshold names follow the p
 		Args:       cobra.NoArgs,
 		SuggestFor: []string{"alert", "alrts"},
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			return runTradeAlerts(cmd, opts)
-		},
-	}
-	if err := structcli.Bind(cmd, opts); err != nil {
-		panic(fmt.Sprintf("structcli.Bind alerts: %v", err))
-	}
+		return runTradeAlerts(cmd, opts)
+	},
+}
+	common.BindOrPanic(cmd, opts, "alerts")
 	_ = cmd.MarkFlagRequired("date")
 	return cmd
 }
@@ -461,12 +451,10 @@ Cluster alert rows use the full cluster-shaped model rather than the compact def
 		Args:       cobra.NoArgs,
 		SuggestFor: []string{"clusteralerts", "cluster-alert"},
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			return runTradeClusterAlerts(cmd, opts)
-		},
-	}
-	if err := structcli.Bind(cmd, opts); err != nil {
-		panic(fmt.Sprintf("structcli.Bind cluster-alerts: %v", err))
-	}
+		return runTradeClusterAlerts(cmd, opts)
+	},
+}
+	common.BindOrPanic(cmd, opts, "cluster-alerts")
 	_ = cmd.MarkFlagRequired("date")
 	return cmd
 }
@@ -493,12 +481,10 @@ NEXT STEPS: Use trade level-touches with the same ticker and date range to find 
 		Args:       cobra.ArbitraryArgs,
 		SuggestFor: []string{"level", "lvels"},
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			return runTradeLevels(cmd, opts)
-		},
-	}
-	if err := structcli.Bind(cmd, opts); err != nil {
-		panic(fmt.Sprintf("structcli.Bind levels: %v", err))
-	}
+		return runTradeLevels(cmd, opts)
+	},
+}
+	common.BindOrPanic(cmd, opts, "levels")
 	setTradeRangeFlagDefValues(cmd, opts.MinDollars)
 	return cmd
 }
@@ -526,12 +512,10 @@ NEXT STEPS: Compare touched levels with fresh trade list output to see whether r
 		Args:       cobra.ArbitraryArgs,
 		SuggestFor: []string{"leveltouches", "level-touch"},
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			return runTradeLevelTouches(cmd, opts)
-		},
-	}
-	if err := structcli.Bind(cmd, opts); err != nil {
-		panic(fmt.Sprintf("structcli.Bind level-touches: %v", err))
-	}
+		return runTradeLevelTouches(cmd, opts)
+	},
+}
+	common.BindOrPanic(cmd, opts, "level-touches")
 	setTradeRangeFlagDefValues(cmd, opts.MinDollars)
 	return cmd
 }

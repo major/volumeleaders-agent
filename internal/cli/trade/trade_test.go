@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/major/volumeleaders-agent/internal/cli/testutil"
+	"github.com/major/volumeleaders-agent/internal/models"
 )
 
 func TestNewCmdRegistersTenRunESubcommands(t *testing.T) {
@@ -252,4 +253,271 @@ func TestExecuteTradeCommandWithoutServerDoesNotPanic(t *testing.T) {
 	cmd := newTradePresetsCommand()
 	_, _, err := testutil.ExecuteCommand(t, cmd, context.Background())
 	testutil.AssertErrContains(t, err, "")
+}
+
+func floatPtr(f float64) *float64 {
+	return &f
+}
+
+func TestTradeSentimentRatio(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name        string
+		bullDollars float64
+		bearDollars float64
+		want        *float64
+	}{
+		{
+			name:        "bearDollars zero returns nil",
+			bullDollars: 100,
+			bearDollars: 0,
+			want:        nil,
+		},
+		{
+			name:        "bullDollars 100 bearDollars 50 returns 2.0",
+			bullDollars: 100,
+			bearDollars: 50,
+			want:        floatPtr(2.0),
+		},
+		{
+			name:        "bullDollars 0 bearDollars 100 returns 0.0",
+			bullDollars: 0,
+			bearDollars: 100,
+			want:        floatPtr(0.0),
+		},
+		{
+			name:        "bullDollars 50 bearDollars 100 returns 0.5",
+			bullDollars: 50,
+			bearDollars: 100,
+			want:        floatPtr(0.5),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			got := tradeSentimentRatio(tt.bullDollars, tt.bearDollars)
+			if tt.want == nil {
+				if got != nil {
+					t.Fatalf("tradeSentimentRatio(%v, %v) = %v, want nil", tt.bullDollars, tt.bearDollars, got)
+				}
+				return
+			}
+			if got == nil {
+				t.Fatalf("tradeSentimentRatio(%v, %v) = nil, want %v", tt.bullDollars, tt.bearDollars, *tt.want)
+			}
+			if *got != *tt.want {
+				t.Fatalf("tradeSentimentRatio(%v, %v) = %v, want %v", tt.bullDollars, tt.bearDollars, *got, *tt.want)
+			}
+		})
+	}
+}
+
+func TestTradeSentimentSignal(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name        string
+		ratio       *float64
+		bullDollars float64
+		bearDollars float64
+		want        models.TradeSentimentSignal
+	}{
+		{
+			name:        "nil ratio with bullDollars > 0 returns ExtremeBull",
+			ratio:       nil,
+			bullDollars: 100,
+			bearDollars: 0,
+			want:        models.TradeSentimentExtremeBull,
+		},
+		{
+			name:        "nil ratio with bearDollars > 0 returns ExtremeBear",
+			ratio:       nil,
+			bullDollars: 0,
+			bearDollars: 100,
+			want:        models.TradeSentimentExtremeBear,
+		},
+		{
+			name:        "nil ratio with both zero returns Neutral",
+			ratio:       nil,
+			bullDollars: 0,
+			bearDollars: 0,
+			want:        models.TradeSentimentNeutral,
+		},
+		{
+			name:        "ratio 0.1 (< 0.2) returns ExtremeBear",
+			ratio:       floatPtr(0.1),
+			bullDollars: 0,
+			bearDollars: 0,
+			want:        models.TradeSentimentExtremeBear,
+		},
+		{
+			name:        "ratio 0.2 (boundary, >= 0.2, < 0.5) returns ModerateBear",
+			ratio:       floatPtr(0.2),
+			bullDollars: 0,
+			bearDollars: 0,
+			want:        models.TradeSentimentModerateBear,
+		},
+		{
+			name:        "ratio 0.3 (>= 0.2, < 0.5) returns ModerateBear",
+			ratio:       floatPtr(0.3),
+			bullDollars: 0,
+			bearDollars: 0,
+			want:        models.TradeSentimentModerateBear,
+		},
+		{
+			name:        "ratio 0.5 (boundary, >= 0.5, <= 2.0) returns Neutral",
+			ratio:       floatPtr(0.5),
+			bullDollars: 0,
+			bearDollars: 0,
+			want:        models.TradeSentimentNeutral,
+		},
+		{
+			name:        "ratio 1.0 (>= 0.5, <= 2.0) returns Neutral",
+			ratio:       floatPtr(1.0),
+			bullDollars: 0,
+			bearDollars: 0,
+			want:        models.TradeSentimentNeutral,
+		},
+		{
+			name:        "ratio 2.0 (boundary, >= 0.5, <= 2.0) returns Neutral",
+			ratio:       floatPtr(2.0),
+			bullDollars: 0,
+			bearDollars: 0,
+			want:        models.TradeSentimentNeutral,
+		},
+		{
+			name:        "ratio 3.0 (> 2.0, <= 5.0) returns ModerateBull",
+			ratio:       floatPtr(3.0),
+			bullDollars: 0,
+			bearDollars: 0,
+			want:        models.TradeSentimentModerateBull,
+		},
+		{
+			name:        "ratio 5.0 (boundary, > 2.0, <= 5.0) returns ModerateBull",
+			ratio:       floatPtr(5.0),
+			bullDollars: 0,
+			bearDollars: 0,
+			want:        models.TradeSentimentModerateBull,
+		},
+		{
+			name:        "ratio 6.0 (> 5.0) returns ExtremeBull",
+			ratio:       floatPtr(6.0),
+			bullDollars: 0,
+			bearDollars: 0,
+			want:        models.TradeSentimentExtremeBull,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			got := tradeSentimentSignal(tt.ratio, tt.bullDollars, tt.bearDollars)
+			if got != tt.want {
+				t.Fatalf("tradeSentimentSignal(%v, %v, %v) = %q, want %q", tt.ratio, tt.bullDollars, tt.bearDollars, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestLeveragedETFDirection(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name   string
+		ticker string
+		want   string
+	}{
+		{
+			name:   "SQQQ is bear",
+			ticker: "SQQQ",
+			want:   "bear",
+		},
+		{
+			name:   "SPXS is bear",
+			ticker: "SPXS",
+			want:   "bear",
+		},
+		{
+			name:   "SPXU is bear",
+			ticker: "SPXU",
+			want:   "bear",
+		},
+		{
+			name:   "SDOW is bear",
+			ticker: "SDOW",
+			want:   "bear",
+		},
+		{
+			name:   "TZA is bear",
+			ticker: "TZA",
+			want:   "bear",
+		},
+		{
+			name:   "TQQQ is bull",
+			ticker: "TQQQ",
+			want:   "bull",
+		},
+		{
+			name:   "SPXL is bull",
+			ticker: "SPXL",
+			want:   "bull",
+		},
+		{
+			name:   "SSO is bull",
+			ticker: "SSO",
+			want:   "bull",
+		},
+		{
+			name:   "QLD is bull",
+			ticker: "QLD",
+			want:   "bull",
+		},
+		{
+			name:   "AAPL is unknown",
+			ticker: "AAPL",
+			want:   "",
+		},
+		{
+			name:   "sqqq lowercase is bear",
+			ticker: "sqqq",
+			want:   "bear",
+		},
+		{
+			name:   "tqqq lowercase is bull",
+			ticker: "tqqq",
+			want:   "bull",
+		},
+		{
+			name:   "SQQQ with leading space is bear",
+			ticker: " SQQQ",
+			want:   "bear",
+		},
+		{
+			name:   "SQQQ with trailing space is bear",
+			ticker: "SQQQ ",
+			want:   "bear",
+		},
+		{
+			name:   "SQQQ with both spaces is bear",
+			ticker: " SQQQ ",
+			want:   "bear",
+		},
+		{
+			name:   "empty string is unknown",
+			ticker: "",
+			want:   "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			got := leveragedETFDirection(tt.ticker)
+			if got != tt.want {
+				t.Fatalf("leveragedETFDirection(%q) = %q, want %q", tt.ticker, got, tt.want)
+			}
+		})
+	}
 }

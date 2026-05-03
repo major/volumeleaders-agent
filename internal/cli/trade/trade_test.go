@@ -7,7 +7,9 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"slices"
 	"testing"
+	"time"
 
 	"github.com/major/volumeleaders-agent/internal/cli/testutil"
 	"github.com/major/volumeleaders-agent/internal/models"
@@ -519,5 +521,218 @@ func TestLeveragedETFDirection(t *testing.T) {
 				t.Fatalf("leveragedETFDirection(%q) = %q, want %q", tt.ticker, got, tt.want)
 			}
 		})
+	}
+}
+
+func TestSummarizeTrades(t *testing.T) {
+	t.Parallel()
+
+	jan15 := models.AspNetDate{Time: time.Date(2024, 1, 15, 0, 0, 0, 0, time.UTC), Valid: true}
+	jan16 := models.AspNetDate{Time: time.Date(2024, 1, 16, 0, 0, 0, 0, time.UTC), Valid: true}
+
+	tests := []struct {
+		name             string
+		trades           []models.Trade
+		group            tradeSummaryGroup
+		startDate        string
+		endDate          string
+		wantTotalTrades  int
+		wantTotalDollars float64
+		wantByTicker     map[string]models.TradeGroupSummary
+		wantByDay        map[string]models.TradeGroupSummary
+		wantByTickerDay  map[string]models.TradeGroupSummary
+	}{
+		{
+			name:             "empty trade slice returns zero totals and empty ticker map",
+			group:            tradeSummaryGroupTicker,
+			startDate:        "2024-01-01",
+			endDate:          "2024-01-31",
+			wantTotalTrades:  0,
+			wantTotalDollars: 0,
+			wantByTicker:     map[string]models.TradeGroupSummary{},
+		},
+		{
+			name:             "single trade grouped by ticker",
+			trades:           []models.Trade{summaryTrade("AAPL", jan15, 100, 2, true, false, 0.75)},
+			group:            tradeSummaryGroupTicker,
+			startDate:        "2024-01-15",
+			endDate:          "2024-01-15",
+			wantTotalTrades:  1,
+			wantTotalDollars: 100,
+			wantByTicker: map[string]models.TradeGroupSummary{
+				"AAPL": {Trades: 1, Dollars: 100, AvgDollarsMultiplier: 2, PctDarkPool: 100, PctSweep: 0, AvgCumulativeDistribution: 0.75},
+			},
+		},
+		{
+			name:             "single trade grouped by day",
+			trades:           []models.Trade{summaryTrade("AAPL", jan15, 100, 2, true, false, 0.75)},
+			group:            tradeSummaryGroupDay,
+			startDate:        "2024-01-15",
+			endDate:          "2024-01-15",
+			wantTotalTrades:  1,
+			wantTotalDollars: 100,
+			wantByDay: map[string]models.TradeGroupSummary{
+				"2024-01-15": {Trades: 1, Dollars: 100, AvgDollarsMultiplier: 2, PctDarkPool: 100, PctSweep: 0, AvgCumulativeDistribution: 0.75},
+			},
+		},
+		{
+			name:             "single trade grouped by ticker and day",
+			trades:           []models.Trade{summaryTrade("AAPL", jan15, 100, 2, true, false, 0.75)},
+			group:            tradeSummaryGroupTickerDay,
+			startDate:        "2024-01-15",
+			endDate:          "2024-01-15",
+			wantTotalTrades:  1,
+			wantTotalDollars: 100,
+			wantByTickerDay: map[string]models.TradeGroupSummary{
+				"AAPL|2024-01-15": {Trades: 1, Dollars: 100, AvgDollarsMultiplier: 2, PctDarkPool: 100, PctSweep: 0, AvgCumulativeDistribution: 0.75},
+			},
+		},
+		{
+			name: "multiple trades same ticker aggregate across days",
+			trades: []models.Trade{
+				summaryTrade("AAPL", jan15, 100, 2, true, false, 0.75),
+				summaryTrade("AAPL", jan16, 300, 4, false, true, 0.25),
+			},
+			group:            tradeSummaryGroupTicker,
+			startDate:        "2024-01-15",
+			endDate:          "2024-01-16",
+			wantTotalTrades:  2,
+			wantTotalDollars: 400,
+			wantByTicker: map[string]models.TradeGroupSummary{
+				"AAPL": {Trades: 2, Dollars: 400, AvgDollarsMultiplier: 3, PctDarkPool: 50, PctSweep: 50, AvgCumulativeDistribution: 0.5},
+			},
+		},
+		{
+			name:             "invalid date groups under unknown day key",
+			trades:           []models.Trade{summaryTrade("AAPL", models.AspNetDate{}, 100, 2, true, false, 0.75)},
+			group:            tradeSummaryGroupDay,
+			startDate:        "2024-01-15",
+			endDate:          "2024-01-15",
+			wantTotalTrades:  1,
+			wantTotalDollars: 100,
+			wantByDay: map[string]models.TradeGroupSummary{
+				"unknown": {Trades: 1, Dollars: 100, AvgDollarsMultiplier: 2, PctDarkPool: 100, PctSweep: 0, AvgCumulativeDistribution: 0.75},
+			},
+		},
+		{
+			name:             "date range is copied from parameters",
+			trades:           []models.Trade{summaryTrade("AAPL", jan15, 100, 2, true, false, 0.75)},
+			group:            tradeSummaryGroupTicker,
+			startDate:        "2024-01-01",
+			endDate:          "2024-01-31",
+			wantTotalTrades:  1,
+			wantTotalDollars: 100,
+			wantByTicker: map[string]models.TradeGroupSummary{
+				"AAPL": {Trades: 1, Dollars: 100, AvgDollarsMultiplier: 2, PctDarkPool: 100, PctSweep: 0, AvgCumulativeDistribution: 0.75},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			got := summarizeTrades(tt.trades, tt.group, tt.startDate, tt.endDate)
+			if got.TotalTrades != tt.wantTotalTrades {
+				t.Fatalf("TotalTrades = %d, want %d", got.TotalTrades, tt.wantTotalTrades)
+			}
+			if got.TotalDollars != tt.wantTotalDollars {
+				t.Fatalf("TotalDollars = %v, want %v", got.TotalDollars, tt.wantTotalDollars)
+			}
+			if got.DateRange.Start != tt.startDate || got.DateRange.End != tt.endDate {
+				t.Fatalf("DateRange = {%q %q}, want {%q %q}", got.DateRange.Start, got.DateRange.End, tt.startDate, tt.endDate)
+			}
+			assertTradeGroupSummaries(t, got.ByTicker, tt.wantByTicker)
+			assertTradeGroupSummaries(t, got.ByDay, tt.wantByDay)
+			assertTradeGroupSummaries(t, got.ByTickerDay, tt.wantByTickerDay)
+		})
+	}
+}
+
+func TestTopTradeSentimentTickers(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name          string
+		tickerDollars map[string]float64
+		limit         int
+		want          []string
+	}{
+		{
+			name:          "empty map returns empty slice",
+			tickerDollars: map[string]float64{},
+			limit:         3,
+			want:          []string{},
+		},
+		{
+			name:          "single ticker returns that ticker",
+			tickerDollars: map[string]float64{"TQQQ": 100},
+			limit:         3,
+			want:          []string{"TQQQ"},
+		},
+		{
+			name:          "multiple tickers sort by dollars descending",
+			tickerDollars: map[string]float64{"SPXL": 200, "TQQQ": 300, "SSO": 100},
+			limit:         3,
+			want:          []string{"TQQQ", "SPXL", "SSO"},
+		},
+		{
+			name:          "same dollars sort by ticker ascending",
+			tickerDollars: map[string]float64{"TQQQ": 100, "SPXL": 100, "SSO": 100},
+			limit:         3,
+			want:          []string{"SPXL", "SSO", "TQQQ"},
+		},
+		{
+			name:          "limit two returns top two tickers",
+			tickerDollars: map[string]float64{"SPXL": 200, "TQQQ": 300, "SSO": 100},
+			limit:         2,
+			want:          []string{"TQQQ", "SPXL"},
+		},
+		{
+			name:          "limit zero returns empty slice",
+			tickerDollars: map[string]float64{"TQQQ": 100},
+			limit:         0,
+			want:          []string{},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			got := topTradeSentimentTickers(tt.tickerDollars, tt.limit)
+			if !slices.Equal(got, tt.want) {
+				t.Fatalf("topTradeSentimentTickers(%v, %d) = %v, want %v", tt.tickerDollars, tt.limit, got, tt.want)
+			}
+		})
+	}
+}
+
+func summaryTrade(ticker string, date models.AspNetDate, dollars, dollarsMultiplier float64, darkPool, sweep bool, cumulativeDistribution float64) models.Trade {
+	return models.Trade{
+		Ticker:                 ticker,
+		Date:                   date,
+		Dollars:                dollars,
+		DollarsMultiplier:      dollarsMultiplier,
+		DarkPool:               models.FlexBool(darkPool),
+		Sweep:                  models.FlexBool(sweep),
+		CumulativeDistribution: cumulativeDistribution,
+	}
+}
+
+func assertTradeGroupSummaries(t *testing.T, got, want map[string]models.TradeGroupSummary) {
+	t.Helper()
+
+	if len(got) != len(want) {
+		t.Fatalf("group count = %d, want %d; got %#v", len(got), len(want), got)
+	}
+	for key, wantSummary := range want {
+		gotSummary, ok := got[key]
+		if !ok {
+			t.Fatalf("group %q missing from %#v", key, got)
+		}
+		if gotSummary != wantSummary {
+			t.Fatalf("group %q = %#v, want %#v", key, gotSummary, wantSummary)
+		}
 	}
 }

@@ -34,7 +34,7 @@ volumeleaders-agent trade list --tickers NVDA --start-date 2025-01-01 --end-date
 volumeleaders-agent --pretty market exhaustion
 ```
 
-Commands emit compact JSON to stdout by default. Use `--pretty` for indented output. Errors go to stderr. Use `--jsonschema=tree` on the root command for a machine-readable JSON Schema of the full CLI, or `--mcp` to serve leaf commands as MCP tools over stdio for trusted local LLM clients.
+Commands emit compact JSON to stdout by default. Use `--pretty` for indented output. Errors go to stderr. Use `--jsonschema=tree` on the root command for a machine-readable JSON Schema of commands and flags, `volumeleaders-agent outputschema` for machine-readable stdout contracts, or `--mcp` to serve leaf commands as MCP tools over stdio for trusted local LLM clients.
 
 ## Commands
 
@@ -45,8 +45,9 @@ Commands emit compact JSON to stdout by default. Use `--pretty` for indented out
 | `market` | Market-wide snapshots, earnings calendar, exhaustion scores |
 | `alert` | Saved alert configurations |
 | `watchlist` | Saved watchlists and their tickers |
+| `outputschema` | Machine-readable success output contracts |
 
-Use `volumeleaders-agent --jsonschema=tree` for the machine-readable JSON Schema of all commands and flags. Use `volumeleaders-agent --mcp` to expose the same leaf-command surface to MCP clients over stdio. Run `volumeleaders-agent --help` for embedded domain knowledge, filter conventions, workflows, and domain gotchas.
+Use `volumeleaders-agent --jsonschema=tree` for the machine-readable JSON Schema of all commands and flags. Use `volumeleaders-agent outputschema trade list` for the stdout contract of a specific command, including formats, fields, and conditional variants. Use `volumeleaders-agent --mcp` to expose the same leaf-command surface to MCP clients over stdio. Run `volumeleaders-agent --help` for embedded domain knowledge, filter conventions, workflows, and domain gotchas.
 
 ## Build
 

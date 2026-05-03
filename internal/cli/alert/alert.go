@@ -144,9 +144,7 @@ func newConfigsCmd() *cobra.Command {
 				dtOpts, opts.Format, "query alert configs")
 		},
 	}
-	if err := structcli.Bind(cmd, opts); err != nil {
-		panic(fmt.Sprintf("structcli.Bind configs: %v", err))
-	}
+	common.BindOrPanic(cmd, opts, "configs")
 	return cmd
 }
 
@@ -179,9 +177,7 @@ func newDeleteCmd() *cobra.Command {
 			return common.PrintJSON(cmd.OutOrStdout(), ctx, result)
 		},
 	}
-	if err := structcli.Bind(cmd, opts); err != nil {
-		panic(fmt.Sprintf("structcli.Bind delete: %v", err))
-	}
+	common.BindOrPanic(cmd, opts, "delete")
 	return cmd
 }
 
@@ -204,9 +200,7 @@ volumeleaders-agent alert create --name "Dark pool sweeps" --sweep --dark-pool -
 			return runAlertCreateEdit(cmd, &opts.alertConfigFlags, 0)
 		},
 	}
-	if err := structcli.Bind(cmd, opts); err != nil {
-		panic(fmt.Sprintf("structcli.Bind create: %v", err))
-	}
+	common.BindOrPanic(cmd, opts, "create")
 	_ = cmd.MarkFlagRequired("name")
 	return cmd
 }
@@ -228,9 +222,7 @@ func newEditCmd() *cobra.Command {
 			return runAlertCreateEdit(cmd, &opts.alertConfigFlags, opts.Key)
 		},
 	}
-	if err := structcli.Bind(cmd, opts); err != nil {
-		panic(fmt.Sprintf("structcli.Bind edit: %v", err))
-	}
+	common.BindOrPanic(cmd, opts, "edit")
 	return cmd
 }
 

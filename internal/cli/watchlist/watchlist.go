@@ -219,9 +219,7 @@ func newConfigsCmd() *cobra.Command {
 			)
 		},
 	}
-	if err := structcli.Bind(cmd, opts); err != nil {
-		panic(fmt.Sprintf("structcli.Bind configs: %v", err))
-	}
+	common.BindOrPanic(cmd, opts, "configs")
 	return cmd
 }
 
@@ -256,9 +254,7 @@ func newTickersCmd() *cobra.Command {
 			)
 		},
 	}
-	if err := structcli.Bind(cmd, opts); err != nil {
-		panic(fmt.Sprintf("structcli.Bind tickers: %v", err))
-	}
+	common.BindOrPanic(cmd, opts, "tickers")
 	return cmd
 }
 
@@ -288,12 +284,10 @@ func newDeleteCmd() *cobra.Command {
 				return fmt.Errorf("delete watchlist: %w", err)
 			}
 
-			return common.PrintJSON(cmd.OutOrStdout(), ctx, result)
-		},
-	}
-	if err := structcli.Bind(cmd, opts); err != nil {
-		panic(fmt.Sprintf("structcli.Bind delete: %v", err))
-	}
+		return common.PrintJSON(cmd.OutOrStdout(), ctx, result)
+	},
+}
+	common.BindOrPanic(cmd, opts, "delete")
 	return cmd
 }
 
@@ -325,12 +319,10 @@ func newAddTickerCmd() *cobra.Command {
 				return fmt.Errorf("add ticker to watchlist: %w", err)
 			}
 
-			return common.PrintJSON(cmd.OutOrStdout(), ctx, result)
-		},
-	}
-	if err := structcli.Bind(cmd, opts); err != nil {
-		panic(fmt.Sprintf("structcli.Bind add-ticker: %v", err))
-	}
+		return common.PrintJSON(cmd.OutOrStdout(), ctx, result)
+	},
+}
+	common.BindOrPanic(cmd, opts, "add-ticker")
 	return cmd
 }
 
@@ -351,9 +343,7 @@ volumeleaders-agent watchlist create --name "Large caps" --security-type 1 --min
 			return runCreateEdit(cmd, &opts.watchlistConfigFlags, 0)
 		},
 	}
-	if err := structcli.Bind(cmd, opts); err != nil {
-		panic(fmt.Sprintf("structcli.Bind create: %v", err))
-	}
+	common.BindOrPanic(cmd, opts, "create")
 	_ = cmd.MarkFlagRequired("name")
 	return cmd
 }
@@ -373,9 +363,7 @@ func newEditCmd() *cobra.Command {
 			return runCreateEdit(cmd, &opts.watchlistConfigFlags, opts.Key)
 		},
 	}
-	if err := structcli.Bind(cmd, opts); err != nil {
-		panic(fmt.Sprintf("structcli.Bind edit: %v", err))
-	}
+	common.BindOrPanic(cmd, opts, "edit")
 	return cmd
 }
 

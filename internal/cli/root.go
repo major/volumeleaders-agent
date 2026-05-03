@@ -126,9 +126,7 @@ Watchlist workflow: watchlist configs to find keys and names, watchlist tickers 
 		watchlist.NewCmd(),
 		newOutputSchemaCmd(),
 	)
-	if err := structcli.Bind(cmd, opts); err != nil {
-		panic(fmt.Sprintf("structcli.Bind root options: %v", err))
-	}
+	common.BindOrPanic(cmd, opts, "root options")
 	return cmd
 }
 

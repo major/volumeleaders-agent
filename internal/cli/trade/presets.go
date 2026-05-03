@@ -6,7 +6,6 @@ import (
 	"maps"
 	"strings"
 
-	"github.com/leodido/structcli"
 	"github.com/spf13/cobra"
 
 	"github.com/major/volumeleaders-agent/internal/cli/common"
@@ -226,9 +225,7 @@ func newTradePresetTickersCommand() *cobra.Command {
 			return runTradePresetTickers(cmd, opts)
 		},
 	}
-	if err := structcli.Bind(cmd, opts); err != nil {
-		panic(fmt.Sprintf("structcli.Bind preset-tickers: %v", err))
-	}
+	common.BindOrPanic(cmd, opts, "preset-tickers")
 	_ = cmd.MarkFlagRequired("preset")
 	return cmd
 }
@@ -280,9 +277,7 @@ func newTradePresetsCommand() *cobra.Command {
 			return runTradePresets(cmd, opts)
 		},
 	}
-	if err := structcli.Bind(cmd, opts); err != nil {
-		panic(fmt.Sprintf("structcli.Bind presets: %v", err))
-	}
+	common.BindOrPanic(cmd, opts, "presets")
 	return cmd
 }
 

@@ -42,33 +42,6 @@ func TestResolveDateRangeBranches(t *testing.T) {
 	}
 }
 
-func TestDefaultDates(t *testing.T) {
-	frozen := time.Date(2025, 6, 15, 12, 0, 0, 0, time.UTC)
-	origTimeNow := TimeNow
-	TimeNow = func() time.Time { return frozen }
-	t.Cleanup(func() { TimeNow = origTimeNow })
-	tests := []struct {
-		name         string
-		flags        map[string]string
-		lookbackDays int
-		wantStart    string
-		wantEnd      string
-	}{
-		{name: "both dates explicit", flags: map[string]string{"start-date": "2025-01-01", "end-date": "2025-03-01"}, lookbackDays: 90, wantStart: "2025-01-01", wantEnd: "2025-03-01"},
-		{name: "today-only default", lookbackDays: 0, wantStart: "2025-06-15", wantEnd: "2025-06-15"},
-		{name: "only start-date explicit", flags: map[string]string{"start-date": "2025-01-01"}, lookbackDays: 90, wantStart: "2025-01-01", wantEnd: "2025-06-15"},
-		{name: "only end-date explicit", flags: map[string]string{"end-date": "2025-03-01"}, lookbackDays: 90, wantStart: "2025-03-17", wantEnd: "2025-03-01"},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			gotStart, gotEnd := DefaultDates(dateTestCommand(t, tt.flags), tt.lookbackDays)
-			if gotStart != tt.wantStart || gotEnd != tt.wantEnd {
-				t.Fatalf("DefaultDates() = %q, %q; want %q, %q", gotStart, gotEnd, tt.wantStart, tt.wantEnd)
-			}
-		})
-	}
-}
-
 func TestResolveDateRangeErrors(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -81,7 +54,7 @@ func TestResolveDateRangeErrors(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, _, err := RequiredDateRange(dateTestCommand(t, tt.flags))
+			_, _, err := ResolveDateRange(dateTestCommand(t, tt.flags), 0, true)
 			assertErrContains(t, err, tt.wantErr)
 		})
 	}

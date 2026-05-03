@@ -100,8 +100,8 @@ func TestRootHasCommandGroups(t *testing.T) {
 	cmd := NewRootCmd("test")
 
 	groups := cmd.Groups()
-	if len(groups) != 5 {
-		t.Fatalf("expected 5 command groups, got %d", len(groups))
+	if len(groups) != 6 {
+		t.Fatalf("expected 6 command groups, got %d", len(groups))
 	}
 
 	expectedGroups := []struct {
@@ -112,6 +112,7 @@ func TestRootHasCommandGroups(t *testing.T) {
 		{"market"},
 		{"alerts"},
 		{"watchlists"},
+		{"reference"},
 	}
 	for _, tt := range expectedGroups {
 		t.Run(tt.id, func(t *testing.T) {
@@ -137,7 +138,7 @@ func TestAllTopLevelCommandsHaveGroupID(t *testing.T) {
 	t.Parallel()
 	cmd := NewRootCmd("test")
 
-	validGroups := []string{"trading", "volume", "market", "alerts", "watchlists"}
+	validGroups := []string{"trading", "volume", "market", "alerts", "watchlists", "reference"}
 	builtins := []string{"help", "completion"}
 
 	for _, sub := range cmd.Commands() {
@@ -761,6 +762,261 @@ func TestJSONSchemaRepresentativeFlagsHaveDescriptions(t *testing.T) {
 	}
 }
 
+func TestOutputSchemaTreeProducesCommandContracts(t *testing.T) {
+	t.Parallel()
+	binary := buildBinary(t)
+
+	out, err := exec.Command(binary, "outputschema").CombinedOutput()
+	if err != nil {
+		t.Fatalf("outputschema failed: %v\nOutput: %s", err, out)
+	}
+
+	var contracts []map[string]any
+	if jsonErr := json.Unmarshal(out, &contracts); jsonErr != nil {
+		t.Fatalf("outputschema output is not valid JSON array: %v\nOutput: %s", jsonErr, out)
+	}
+	if len(contracts) != 26 {
+		t.Fatalf("expected 26 output contracts, got %d", len(contracts))
+	}
+
+	byCommand := make(map[string]map[string]any, len(contracts))
+	for _, contract := range contracts {
+		command, ok := contract["command"].(string)
+		if !ok || command == "" {
+			t.Fatalf("contract missing command string: %v", contract)
+		}
+		byCommand[command] = contract
+	}
+	for _, command := range []string{"trade list", "market exhaustion", "alert configs", "watchlist create"} {
+		if _, ok := byCommand[command]; !ok {
+			t.Fatalf("missing output contract for %q", command)
+		}
+	}
+}
+
+func TestOutputSchemaSubcommandDescribesVariantsAndFields(t *testing.T) {
+	t.Parallel()
+	binary := buildBinary(t)
+
+	out, err := exec.Command(binary, "outputschema", "trade", "list").CombinedOutput()
+	if err != nil {
+		t.Fatalf("outputschema trade list failed: %v\nOutput: %s", err, out)
+	}
+
+	var contract map[string]any
+	if jsonErr := json.Unmarshal(out, &contract); jsonErr != nil {
+		t.Fatalf("outputschema trade list is not valid JSON object: %v\nOutput: %s", jsonErr, out)
+	}
+	if got := contract["command"]; got != "trade list" {
+		t.Fatalf("command = %v, want trade list", got)
+	}
+
+	schema := nestedMap(t, contract, "schema")
+	if got := schema["type"]; got != "array" {
+		t.Fatalf("schema.type = %v, want array", got)
+	}
+	items := nestedMap(t, schema, "items")
+	if got := items["model"]; got != "TradeListRow" {
+		t.Fatalf("schema.items.model = %v, want TradeListRow", got)
+	}
+	properties := nestedMap(t, items, "properties")
+	for _, field := range []string{"Ticker", "Dollars", "DarkPool"} {
+		if _, ok := properties[field]; !ok {
+			t.Fatalf("TradeListRow schema missing field %q", field)
+		}
+	}
+
+	variants, ok := contract["variants"].([]any)
+	if !ok {
+		t.Fatalf("contract variants missing or wrong type: %v", contract["variants"])
+	}
+	variantModels := make(map[string]bool)
+	for _, raw := range variants {
+		variant, ok := raw.(map[string]any)
+		if !ok {
+			t.Fatalf("variant is not an object: %v", raw)
+		}
+		variantSchema := nestedMap(t, variant, "schema")
+		model := schemaModel(variantSchema)
+		variantModels[model] = true
+	}
+	for _, model := range []string{"Trade", "TradeSummary"} {
+		if !variantModels[model] {
+			t.Fatalf("trade list contract missing variant model %q; got %v", model, variantModels)
+		}
+	}
+}
+
+func TestOutputSchemaMarketExhaustionProperties(t *testing.T) {
+	t.Parallel()
+	binary := buildBinary(t)
+
+	out, err := exec.Command(binary, "outputschema", "market", "exhaustion").CombinedOutput()
+	if err != nil {
+		t.Fatalf("outputschema market exhaustion failed: %v\nOutput: %s", err, out)
+	}
+
+	var contract map[string]any
+	if jsonErr := json.Unmarshal(out, &contract); jsonErr != nil {
+		t.Fatalf("outputschema market exhaustion is not valid JSON object: %v\nOutput: %s", jsonErr, out)
+	}
+	schema := nestedMap(t, contract, "schema")
+	if got := schema["model"]; got != "MarketExhaustion" {
+		t.Fatalf("model = %v, want MarketExhaustion", got)
+	}
+	properties := nestedMap(t, schema, "properties")
+	for _, field := range []string{"date_key", "rank", "rank_30d", "rank_90d", "rank_365d"} {
+		fieldSchema := nestedMap(t, properties, field)
+		if got := fieldSchema["type"]; got != "integer" {
+			t.Fatalf("field %q type = %v, want integer", field, got)
+		}
+	}
+}
+
+func TestOutputSchemaUnknownCommandFails(t *testing.T) {
+	t.Parallel()
+	binary := buildBinary(t)
+
+	cmd := exec.Command(binary, "outputschema", "bogus")
+	err := cmd.Run()
+	var exitErr *exec.ExitError
+	if !errors.As(err, &exitErr) {
+		t.Fatalf("expected exit error, got: %v", err)
+	}
+}
+
+func nestedMap(t *testing.T, parent map[string]any, key string) map[string]any {
+	t.Helper()
+	child, ok := parent[key].(map[string]any)
+	if !ok {
+		t.Fatalf("%q missing or not an object: %v", key, parent[key])
+	}
+	return child
+}
+
+func schemaModel(schema map[string]any) string {
+	if model, ok := schema["model"].(string); ok {
+		return model
+	}
+	items, ok := schema["items"].(map[string]any)
+	if !ok {
+		return ""
+	}
+	model, _ := items["model"].(string)
+	return model
+}
+
+func TestMCPToolsListExposesLeafCommands(t *testing.T) {
+	t.Parallel()
+	binary := buildBinary(t)
+
+	cmd := exec.Command(binary, "--mcp")
+	cmd.Stdin = strings.NewReader(`{"jsonrpc":"2.0","id":1,"method":"tools/list"}` + "\n")
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("--mcp tools/list failed: %v\nOutput: %s", err, out)
+	}
+
+	var response struct {
+		Result struct {
+			Tools []struct {
+				Name        string         `json:"name"`
+				Description string         `json:"description"`
+				InputSchema map[string]any `json:"inputSchema"`
+			} `json:"tools"`
+		} `json:"result"`
+		Error *struct {
+			Message string `json:"message"`
+		} `json:"error"`
+	}
+	if jsonErr := json.Unmarshal(out, &response); jsonErr != nil {
+		t.Fatalf("MCP response is not valid JSON: %v\nOutput: %s", jsonErr, out)
+	}
+	if response.Error != nil {
+		t.Fatalf("MCP tools/list returned error: %s\nOutput: %s", response.Error.Message, out)
+	}
+
+	toolSchemas := make(map[string]map[string]any, len(response.Result.Tools))
+	for _, tool := range response.Result.Tools {
+		if tool.Description == "" {
+			t.Fatalf("tool %q has empty description", tool.Name)
+		}
+		toolSchemas[tool.Name] = tool.InputSchema
+	}
+
+	for _, expected := range []string{"trade-list", "trade-sentiment", "volume-institutional", "market-snapshots", "watchlist-configs"} {
+		if _, ok := toolSchemas[expected]; !ok {
+			t.Fatalf("MCP tools/list missing %q; got %v", expected, mapsKeys(toolSchemas))
+		}
+	}
+	for _, parent := range []string{"trade", "volume", "market", "alert", "watchlist"} {
+		if _, ok := toolSchemas[parent]; ok {
+			t.Fatalf("MCP tools/list exposed non-leaf parent command %q", parent)
+		}
+	}
+	for _, completionTool := range []string{"completion-bash", "completion-fish", "completion-powershell", "completion-zsh"} {
+		if _, ok := toolSchemas[completionTool]; ok {
+			t.Fatalf("MCP tools/list exposed shell completion tool %q", completionTool)
+		}
+	}
+
+	tradeListSchema := toolSchemas["trade-list"]
+	props, ok := tradeListSchema["properties"].(map[string]any)
+	if !ok {
+		t.Fatalf("trade-list inputSchema missing properties: %v", tradeListSchema)
+	}
+	for _, expectedFlag := range []string{"tickers", "days", "format", "length"} {
+		if _, ok := props[expectedFlag]; !ok {
+			t.Fatalf("trade-list inputSchema missing flag %q", expectedFlag)
+		}
+	}
+}
+
+func TestMCPToolsCallReportsStructuredValidationError(t *testing.T) {
+	t.Parallel()
+	binary := buildBinary(t)
+
+	cmd := exec.Command(binary, "--mcp")
+	cmd.Stdin = strings.NewReader(`{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"volume-institutional","arguments":{"format":"json"}}}` + "\n")
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("--mcp tools/call failed: %v\nOutput: %s", err, out)
+	}
+
+	var response struct {
+		Result struct {
+			Content []struct {
+				Text string `json:"text"`
+			} `json:"content"`
+			IsError bool `json:"isError"`
+		} `json:"result"`
+		Error *struct {
+			Message string `json:"message"`
+		} `json:"error"`
+	}
+	if jsonErr := json.Unmarshal(out, &response); jsonErr != nil {
+		t.Fatalf("MCP response is not valid JSON: %v\nOutput: %s", jsonErr, out)
+	}
+	if response.Error != nil {
+		t.Fatalf("MCP tools/call returned protocol error: %s\nOutput: %s", response.Error.Message, out)
+	}
+	if !response.Result.IsError {
+		t.Fatalf("expected tool call to return IsError=true; output: %s", out)
+	}
+	if len(response.Result.Content) == 0 || !strings.Contains(response.Result.Content[0].Text, "required flag") {
+		t.Fatalf("expected structured required flag error, got: %s", out)
+	}
+}
+
+func mapsKeys[V any](items map[string]V) []string {
+	keys := make([]string, 0, len(items))
+	for key := range items {
+		keys = append(keys, key)
+	}
+	slices.Sort(keys)
+	return keys
+}
+
 func TestHelpOutputDisplaysFlagGroups(t *testing.T) {
 	t.Parallel()
 	binary := buildBinary(t)
@@ -891,7 +1147,7 @@ func isDomainLeafCommand(cmd *cobra.Command) bool {
 	if !cmd.Runnable() || len(cmd.Commands()) > 0 {
 		return false
 	}
-	for _, name := range []string{"help", "completion", "bash", "fish", "powershell", "zsh", "config-keys", "env-vars"} {
+	for _, name := range []string{"help", "completion", "bash", "fish", "powershell", "zsh", "config-keys", "env-vars", "outputschema"} {
 		if cmd.Name() == name {
 			return false
 		}

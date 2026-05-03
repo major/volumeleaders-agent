@@ -376,8 +376,9 @@ func TestTradeClusterAlias(t *testing.T) {
 			Sector: "Technology",
 			Name:   "NVIDIA Corporation",
 		}
-		// This assignment should compile and work
-		alert := cluster
+		// Explicit type annotation proves TradeClusterAlert is a type alias for TradeCluster.
+		// The redundant type is intentional: it verifies the alias relationship at compile time.
+		var alert TradeClusterAlert = cluster //nolint:staticcheck // explicit type proves alias relationship at compile time
 		if alert.Ticker != "NVDA" {
 			t.Errorf("alert.Ticker: expected NVDA, got %v", alert.Ticker)
 		}

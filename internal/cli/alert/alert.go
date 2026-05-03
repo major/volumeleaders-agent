@@ -236,11 +236,11 @@ func newEditCmd() *cobra.Command {
 
 // buildAlertConfigFields maps struct field values to form field names for the
 // multipart POST request.
-func buildAlertConfigFields(opts *alertConfigFlags, key int) map[string]string {
+func buildAlertConfigFields(opts *alertConfigFlags, key int, tickerGroupChanged bool) map[string]string {
 	// Auto-select SelectedTickers when tickers are specified but ticker-group
-	// was left at the default.
+	// was left at the default and not explicitly provided by the caller.
 	tickerGroup := opts.TickerGroup
-	if tickerGroup == alertTickerGroupAll && opts.Tickers != "" {
+	if !tickerGroupChanged && tickerGroup == alertTickerGroupAll && opts.Tickers != "" {
 		tickerGroup = alertTickerGroupSelected
 	}
 
@@ -287,7 +287,7 @@ func runAlertCreateEdit(cmd *cobra.Command, opts *alertConfigFlags, key int) err
 		return err
 	}
 
-	fields := buildAlertConfigFields(opts, key)
+	fields := buildAlertConfigFields(opts, key, cmd.Flags().Changed("ticker-group"))
 	if err := vlClient.PostMultipart(ctx, "/AlertConfig", fields); err != nil {
 		slog.Error("failed to save alert config", "error", err)
 		return fmt.Errorf("save alert config: %w", err)

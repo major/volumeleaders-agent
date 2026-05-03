@@ -109,13 +109,13 @@ type tradeFilterFlags struct {
 	TradeRank    int                   `flag:"trade-rank" flaggroup:"Filters" flagdescr:"Trade rank filter"`
 	RankSnapshot int                   `flag:"rank-snapshot" flaggroup:"Filters" flagdescr:"Trade rank snapshot filter"`
 	MarketCap    int                   `flag:"market-cap" flaggroup:"Filters" flagdescr:"Market cap filter"`
-	Premarket    common.TriStateFilter `flag:"premarket" flaggroup:"Sessions" flagdescr:"Premarket session filter (-1=all, 0=exclude, 1=only)"`
-	RTH          common.TriStateFilter `flag:"rth" flaggroup:"Sessions" flagdescr:"Regular trading hours filter (-1=all, 0=exclude, 1=only)"`
-	AH           common.TriStateFilter `flag:"ah" flaggroup:"Sessions" flagdescr:"After-hours session filter (-1=all, 0=exclude, 1=only)"`
-	Opening      common.TriStateFilter `flag:"opening" flaggroup:"Sessions" flagdescr:"Opening trade filter (-1=all, 0=exclude, 1=only)"`
-	Closing      common.TriStateFilter `flag:"closing" flaggroup:"Sessions" flagdescr:"Closing trade filter (-1=all, 0=exclude, 1=only)"`
-	Phantom      common.TriStateFilter `flag:"phantom" flaggroup:"Sessions" flagdescr:"Phantom print filter (-1=all, 0=exclude, 1=only)"`
-	Offsetting   common.TriStateFilter `flag:"offsetting" flaggroup:"Sessions" flagdescr:"Offsetting trade filter (-1=all, 0=exclude, 1=only)"`
+	Premarket    common.TriStateFilter `flag:"premarket" flaggroup:"Sessions" flagdescr:"Premarket session filter (-1=all, 0=exclude, 1=include)"`
+	RTH          common.TriStateFilter `flag:"rth" flaggroup:"Sessions" flagdescr:"Regular trading hours filter (-1=all, 0=exclude, 1=include)"`
+	AH           common.TriStateFilter `flag:"ah" flaggroup:"Sessions" flagdescr:"After-hours session filter (-1=all, 0=exclude, 1=include)"`
+	Opening      common.TriStateFilter `flag:"opening" flaggroup:"Sessions" flagdescr:"Opening trade filter (-1=all, 0=exclude, 1=include)"`
+	Closing      common.TriStateFilter `flag:"closing" flaggroup:"Sessions" flagdescr:"Closing trade filter (-1=all, 0=exclude, 1=include)"`
+	Phantom      common.TriStateFilter `flag:"phantom" flaggroup:"Sessions" flagdescr:"Phantom print filter (-1=all, 0=exclude, 1=include)"`
+	Offsetting   common.TriStateFilter `flag:"offsetting" flaggroup:"Sessions" flagdescr:"Offsetting trade filter (-1=all, 0=exclude, 1=include)"`
 }
 
 type tradePaginationFlags struct {

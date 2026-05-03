@@ -291,10 +291,23 @@ func TestBuildAlertConfigFieldsAutoSelectsTickerGroup(t *testing.T) {
 	fields := buildAlertConfigFields(&alertConfigFlags{
 		TickerGroup: alertTickerGroupAll,
 		Tickers:     "AAPL,MSFT",
-	}, 0)
+	}, 0, false)
 
 	if got := fields["TickerGroup"]; got != string(alertTickerGroupSelected) {
 		t.Errorf("TickerGroup = %q, want %q", got, alertTickerGroupSelected)
+	}
+}
+
+func TestBuildAlertConfigFieldsPreservesExplicitTickerGroup(t *testing.T) {
+	t.Parallel()
+
+	fields := buildAlertConfigFields(&alertConfigFlags{
+		TickerGroup: alertTickerGroupAll,
+		Tickers:     "AAPL,MSFT",
+	}, 0, true)
+
+	if got := fields["TickerGroup"]; got != string(alertTickerGroupAll) {
+		t.Errorf("TickerGroup = %q, want %q", got, alertTickerGroupAll)
 	}
 }
 

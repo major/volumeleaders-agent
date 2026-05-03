@@ -306,7 +306,7 @@ func newEditCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:        "edit",
 		Short:      "Edit an existing watch list configuration",
-		Long:       "Modify an existing watchlist configuration identified by its numeric key. Requires --key with the watchlist key. Specify only the fields you want to change; unspecified fields retain their current values.",
+		Long:       "Modify an existing watchlist configuration identified by its numeric key. Requires --key with the watchlist key. Specify the fields you want to set; unspecified fields are replaced with their default values.",
 		Example:    `volumeleaders-agent watchlist edit --key 1 --name "Updated watchlist" --tickers AAPL,MSFT`,
 		Args:       cobra.NoArgs,
 		SuggestFor: []string{"edt", "modify"},

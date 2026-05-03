@@ -1217,9 +1217,11 @@ func schemaProperty(t *testing.T, props map[string]any, flag string) map[string]
 
 func assertStringSet(t *testing.T, got, want []string) {
 	t.Helper()
-	slices.Sort(got)
-	slices.Sort(want)
-	if !slices.Equal(got, want) {
-		t.Fatalf("values = %v, want %v", got, want)
+	gotCopy := slices.Clone(got)
+	wantCopy := slices.Clone(want)
+	slices.Sort(gotCopy)
+	slices.Sort(wantCopy)
+	if !slices.Equal(gotCopy, wantCopy) {
+		t.Fatalf("values = %v, want %v", gotCopy, wantCopy)
 	}
 }

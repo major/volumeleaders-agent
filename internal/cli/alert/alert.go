@@ -206,7 +206,7 @@ func newEditCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:        "edit",
 		Short:      "Edit an existing alert configuration",
-		Long:       "Modify an existing alert configuration identified by its numeric key. Requires --key with the alert config key. Specify only the fields you want to change; unspecified fields retain their current values.",
+		Long:       "Modify an existing alert configuration identified by its numeric key. Requires --key with the alert config key. Specify the fields you want to set; unspecified fields are replaced with their default values.",
 		Example:    `volumeleaders-agent alert edit --key 42 --name "Updated alert" --trade-rank-lte 3`,
 		Args:       cobra.NoArgs,
 		SuggestFor: []string{"edt", "modify"},

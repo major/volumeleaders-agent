@@ -71,3 +71,29 @@ func TestLabelPlainFences(t *testing.T) {
 		t.Fatalf("labelPlainFences() = %q, want %q", got, want)
 	}
 }
+
+func TestNormalizeGeneratedFileRewritesLLMsURL(t *testing.T) {
+	t.Parallel()
+
+	input := "# volumeleaders-agent\n\nhttps://github.com/major/volumeleaders-agent/cmd/volumeleaders-agent\n"
+	want := "# volumeleaders-agent\n\nhttps://github.com/major/volumeleaders-agent\n"
+	if got := normalizeGeneratedFile("llms.txt", input); got != want {
+		t.Fatalf("normalizeGeneratedFile() = %q, want %q", got, want)
+	}
+}
+
+func TestNormalizeGeneratedFileReplacesSkillFrontmatterDescription(t *testing.T) {
+	t.Parallel()
+
+	input := "---\nname: volumeleaders-agent\ndescription: |\n  Find individual institutional pr...\nmetadata:\n  author: major\n---\n\n# volumeleaders-agent\n"
+	got := normalizeGeneratedFile("SKILL.md", input)
+	if bytes.Contains([]byte(got), []byte("Find individual institutional pr...")) {
+		t.Fatalf("normalizeGeneratedFile() kept truncated description: %q", got)
+	}
+	if !bytes.Contains([]byte(got), []byte("Output: compact JSON to stdout by default.")) {
+		t.Fatalf("normalizeGeneratedFile() missing replacement description: %q", got)
+	}
+	if !bytes.Contains([]byte(got), []byte("metadata:\n  author: major")) {
+		t.Fatalf("normalizeGeneratedFile() corrupted frontmatter metadata: %q", got)
+	}
+}

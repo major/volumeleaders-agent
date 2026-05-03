@@ -198,26 +198,59 @@ func TestAllCommandsHaveLongDescription(t *testing.T) {
 	})
 }
 
-func TestRunnableCommandsHaveExamples(t *testing.T) {
+func TestAllLeafCommandsHaveExamples(t *testing.T) {
 	t.Parallel()
 	cmd := NewRootCmd("test")
 
-	builtins := []string{"help", "completion", "config-keys", "env-vars"}
+	builtins := []string{"help", "completion", "bash", "fish", "powershell", "zsh", "config-keys", "env-vars"}
 
 	walkCommands(cmd, func(c *cobra.Command) {
 		t.Run(c.CommandPath(), func(t *testing.T) {
-			t.Parallel()
 			if slices.Contains(builtins, c.Name()) || !c.Runnable() {
 				return
 			}
 			if c.Example == "" {
-				t.Fatalf("command %q has empty Example; runnable commands need copy-paste guidance", c.CommandPath())
+				t.Fatalf("leaf command %q has empty Example", c.CommandPath())
 			}
 			if !strings.Contains(c.Example, "volumeleaders-agent ") {
-				t.Fatalf("command %q Example should include the binary name, got %q", c.CommandPath(), c.Example)
+				t.Fatalf("leaf command %q Example should include binary name, got %q", c.CommandPath(), c.Example)
 			}
 		})
 	})
+}
+
+func TestKnownCommandAliases(t *testing.T) {
+	t.Parallel()
+	cmd := NewRootCmd("volumeleaders-agent")
+
+	aliasesByCommand := map[string][]string{
+		"volumeleaders-agent trade list":        {"ls"},
+		"volumeleaders-agent alert configs":     {"ls"},
+		"volumeleaders-agent alert delete":      {"rm"},
+		"volumeleaders-agent alert create":      {"new"},
+		"volumeleaders-agent watchlist configs": {"ls"},
+		"volumeleaders-agent watchlist delete":  {"rm"},
+		"volumeleaders-agent watchlist create":  {"new"},
+	}
+
+	walkCommands(cmd, func(c *cobra.Command) {
+		expectedAliases, ok := aliasesByCommand[c.CommandPath()]
+		if !ok {
+			return
+		}
+		delete(aliasesByCommand, c.CommandPath())
+		t.Run(c.CommandPath(), func(t *testing.T) {
+			assertStringSet(t, c.Aliases, expectedAliases)
+		})
+	})
+	if len(aliasesByCommand) > 0 {
+		missing := make([]string, 0, len(aliasesByCommand))
+		for commandPath := range aliasesByCommand {
+			missing = append(missing, commandPath)
+		}
+		slices.Sort(missing)
+		t.Fatalf("alias expectations did not match commands: %v", missing)
+	}
 }
 
 func TestWorkflowRecoveryGuidanceIsDiscoverable(t *testing.T) {
@@ -298,7 +331,6 @@ func TestNoShortFlagConflictsWithinCommand(t *testing.T) {
 
 	walkCommands(cmd, func(c *cobra.Command) {
 		t.Run(c.CommandPath(), func(t *testing.T) {
-			t.Parallel()
 			seen := make(map[string]string) // shorthand -> owning flag
 			check := func(flags *pflag.FlagSet) {
 				flags.VisitAll(func(flag *pflag.Flag) {
@@ -445,6 +477,37 @@ func TestJSONSchemaTreeProducesValidJSON(t *testing.T) {
 	}
 }
 
+func TestJSONSchemaTreeCoversDomainLeafCommands(t *testing.T) {
+	t.Parallel()
+	binary := buildBinary(t)
+
+	schemas := jsonSchemaTree(t, binary)
+	titles := schemaTitles(schemas)
+
+	root := NewRootCmd("volumeleaders-agent")
+	expectedTitles := make([]string, 0, 26)
+	walkCommands(root, func(c *cobra.Command) {
+		if !isDomainLeafCommand(c) {
+			return
+		}
+		expectedTitles = append(expectedTitles, c.CommandPath())
+	})
+	slices.Sort(expectedTitles)
+	if len(expectedTitles) != 26 {
+		t.Fatalf("expected current command tree to have 26 domain leaf commands, got %d: %v", len(expectedTitles), expectedTitles)
+	}
+
+	missing := make([]string, 0)
+	for _, title := range expectedTitles {
+		if !titles[title] {
+			missing = append(missing, title)
+		}
+	}
+	if len(missing) > 0 {
+		t.Fatalf("--jsonschema=tree missing domain leaf command schemas: %v", missing)
+	}
+}
+
 func TestJSONSchemaSubcommandProducesValidJSON(t *testing.T) {
 	t.Parallel()
 	binary := buildBinary(t)
@@ -550,6 +613,194 @@ func TestJSONSchemaSubcommandIncludesFlagUsabilityMetadata(t *testing.T) {
 		if _, ok := groups[expectedGroup]; !ok {
 			t.Fatalf("schema groups missing %q: %v", expectedGroup, groups)
 		}
+	}
+}
+
+func TestJSONSchemaEnumValuesPresent(t *testing.T) {
+	t.Parallel()
+	binary := buildBinary(t)
+	schema := commandJSONSchema(t, binary, "trade", "list", "--jsonschema")
+	props := schemaProperties(t, schema)
+
+	tests := []struct {
+		flag string
+		want []string
+	}{
+		{flag: "format", want: []string{"csv", "json", "tsv"}},
+		{flag: "order-dir", want: []string{"asc", "desc"}},
+		{flag: "group-by", want: []string{"day", "ticker", "ticker,day"}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.flag, func(t *testing.T) {
+			t.Parallel()
+			flagSchema := schemaProperty(t, props, tt.flag)
+			enums, ok := flagSchema["enum"].([]any)
+			if !ok {
+				t.Fatalf("flag %q missing enum array: %v", tt.flag, flagSchema)
+			}
+			got := make([]string, 0, len(enums))
+			for _, enumValue := range enums {
+				value, ok := enumValue.(string)
+				if !ok {
+					t.Fatalf("flag %q enum contains non-string value %v", tt.flag, enumValue)
+				}
+				got = append(got, value)
+			}
+			assertStringSet(t, got, tt.want)
+		})
+	}
+}
+
+func TestJSONSchemaRequiredFlags(t *testing.T) {
+	t.Parallel()
+	binary := buildBinary(t)
+
+	tests := []struct {
+		name string
+		args []string
+		want []string
+	}{
+		{name: "alert delete", args: []string{"alert", "delete", "--jsonschema"}, want: []string{"key"}},
+		{name: "alert create", args: []string{"alert", "create", "--jsonschema"}, want: []string{"name"}},
+		{name: "alert edit", args: []string{"alert", "edit", "--jsonschema"}, want: []string{"key"}},
+		{name: "watchlist delete", args: []string{"watchlist", "delete", "--jsonschema"}, want: []string{"key"}},
+		{name: "watchlist add-ticker", args: []string{"watchlist", "add-ticker", "--jsonschema"}, want: []string{"ticker", "watchlist-key"}},
+		{name: "watchlist create", args: []string{"watchlist", "create", "--jsonschema"}, want: []string{"name"}},
+		{name: "watchlist edit", args: []string{"watchlist", "edit", "--jsonschema"}, want: []string{"key"}},
+		{name: "trade alerts", args: []string{"trade", "alerts", "--jsonschema"}, want: []string{"date"}},
+		{name: "trade cluster-alerts", args: []string{"trade", "cluster-alerts", "--jsonschema"}, want: []string{"date"}},
+		{name: "trade preset-tickers", args: []string{"trade", "preset-tickers", "--jsonschema"}, want: []string{"preset"}},
+		{name: "volume institutional", args: []string{"volume", "institutional", "--jsonschema"}, want: []string{"date"}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			schema := commandJSONSchema(t, binary, tt.args...)
+			requiredValues, ok := schema["required"].([]any)
+			if !ok {
+				t.Fatalf("schema for %q missing required array", tt.name)
+			}
+			got := make([]string, 0, len(requiredValues))
+			for _, value := range requiredValues {
+				required, ok := value.(string)
+				if !ok {
+					t.Fatalf("schema for %q contains non-string required value %v", tt.name, value)
+				}
+				got = append(got, required)
+			}
+			assertStringSet(t, got, tt.want)
+		})
+	}
+}
+
+func TestJSONSchemaDefaultValues(t *testing.T) {
+	t.Parallel()
+	binary := buildBinary(t)
+
+	tests := []struct {
+		name string
+		args []string
+		flag string
+		want any
+	}{
+		{name: "trade list length", args: []string{"trade", "list", "--jsonschema"}, flag: "length", want: float64(10)},
+		{name: "trade list min dollars", args: []string{"trade", "list", "--jsonschema"}, flag: "min-dollars", want: float64(500000)},
+		{name: "trade list group by", args: []string{"trade", "list", "--jsonschema"}, flag: "group-by", want: "ticker"},
+		{name: "trade clusters length", args: []string{"trade", "clusters", "--jsonschema"}, flag: "length", want: float64(1000)},
+		{name: "trade clusters min dollars", args: []string{"trade", "clusters", "--jsonschema"}, flag: "min-dollars", want: float64(10000000)},
+		{name: "trade cluster bombs length", args: []string{"trade", "cluster-bombs", "--jsonschema"}, flag: "length", want: float64(100)},
+		{name: "trade levels count", args: []string{"trade", "levels", "--jsonschema"}, flag: "trade-level-count", want: float64(10)},
+		{name: "trade level touches length", args: []string{"trade", "level-touches", "--jsonschema"}, flag: "length", want: float64(50)},
+		{name: "watchlist tickers key", args: []string{"watchlist", "tickers", "--jsonschema"}, flag: "watchlist-key", want: float64(-1)},
+		{name: "volume institutional length", args: []string{"volume", "institutional", "--jsonschema"}, flag: "length", want: float64(100)},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			schema := commandJSONSchema(t, binary, tt.args...)
+			props := schemaProperties(t, schema)
+			flagSchema := schemaProperty(t, props, tt.flag)
+			got, ok := flagSchema["default"]
+			if !ok {
+				t.Fatalf("flag %q missing default in schema: %v", tt.flag, flagSchema)
+			}
+			if got != tt.want {
+				t.Fatalf("flag %q default = %#v, want %#v", tt.flag, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestJSONSchemaFlagGroupsAcrossCommands(t *testing.T) {
+	t.Parallel()
+	binary := buildBinary(t)
+
+	tests := []struct {
+		name string
+		args []string
+		want []string
+	}{
+		{
+			name: "alert create",
+			args: []string{"alert", "create", "--jsonschema"},
+			want: []string{"After-Hours Filters", "Basic", "Closing Filters", "Cluster Filters", "Total Filters", "Trade Filters"},
+		},
+		{
+			name: "watchlist create",
+			args: []string{"watchlist", "create", "--jsonschema"},
+			want: []string{"Basic", "Filters", "Print Types", "Ranges", "RSI", "Sessions", "Venues"},
+		},
+		{
+			name: "volume institutional",
+			args: []string{"volume", "institutional", "--jsonschema"},
+			want: []string{"Dates", "Input", "Output", "Pagination"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			schema := commandJSONSchema(t, binary, tt.args...)
+			groups, ok := schema["x-structcli-groups"].(map[string]any)
+			if !ok {
+				t.Fatalf("schema for %q missing x-structcli-groups", tt.name)
+			}
+			got := make([]string, 0, len(groups))
+			for group := range groups {
+				got = append(got, group)
+			}
+			assertStringSet(t, got, tt.want)
+		})
+	}
+}
+
+func TestJSONSchemaRepresentativeFlagsHaveDescriptions(t *testing.T) {
+	t.Parallel()
+	binary := buildBinary(t)
+
+	for _, args := range [][]string{
+		{"trade", "list", "--jsonschema"},
+		{"alert", "create", "--jsonschema"},
+		{"watchlist", "create", "--jsonschema"},
+	} {
+		args := args
+		t.Run(strings.Join(args[:len(args)-1], " "), func(t *testing.T) {
+			t.Parallel()
+			schema := commandJSONSchema(t, binary, args...)
+			props := schemaProperties(t, schema)
+			for flag, value := range props {
+				flagSchema, ok := value.(map[string]any)
+				if !ok {
+					t.Fatalf("flag %q schema is not an object", flag)
+				}
+				description, ok := flagSchema["description"].(string)
+				if !ok || description == "" {
+					t.Fatalf("flag %q missing non-empty description in schema: %v", flag, flagSchema)
+				}
+			}
+		})
 	}
 }
 
@@ -931,5 +1182,86 @@ func TestStructuredErrorExitCodes(t *testing.T) {
 				t.Errorf("exit code = %d, want %d", exitErr.ExitCode(), tc.wantCode)
 			}
 		})
+	}
+}
+
+func isDomainLeafCommand(cmd *cobra.Command) bool {
+	if !cmd.Runnable() || len(cmd.Commands()) > 0 {
+		return false
+	}
+	for _, name := range []string{"help", "completion", "bash", "fish", "powershell", "zsh", "config-keys", "env-vars", "outputschema"} {
+		if cmd.Name() == name {
+			return false
+		}
+	}
+	return true
+}
+
+func jsonSchemaTree(t *testing.T, binary string) []map[string]any {
+	t.Helper()
+	out, err := exec.Command(binary, "--jsonschema=tree").CombinedOutput()
+	if err != nil {
+		t.Fatalf("--jsonschema=tree failed: %v\nOutput: %s", err, out)
+	}
+	var schemas []map[string]any
+	if jsonErr := json.Unmarshal(out, &schemas); jsonErr != nil {
+		t.Fatalf("output is not valid JSON array: %v\nOutput: %s", jsonErr, out)
+	}
+	return schemas
+}
+
+func commandJSONSchema(t *testing.T, binary string, args ...string) map[string]any {
+	t.Helper()
+	out, err := exec.Command(binary, args...).CombinedOutput()
+	if err != nil {
+		t.Fatalf("%v failed: %v\nOutput: %s", args, err, out)
+	}
+	var schema map[string]any
+	if jsonErr := json.Unmarshal(out, &schema); jsonErr != nil {
+		t.Fatalf("%v output is not valid JSON object: %v\nOutput: %s", args, jsonErr, out)
+	}
+	return schema
+}
+
+func schemaTitles(schemas []map[string]any) map[string]bool {
+	titles := make(map[string]bool, len(schemas))
+	for _, schema := range schemas {
+		title, ok := schema["title"].(string)
+		if !ok {
+			continue
+		}
+		titles[title] = true
+	}
+	return titles
+}
+
+func schemaProperties(t *testing.T, schema map[string]any) map[string]any {
+	t.Helper()
+	props, ok := schema["properties"].(map[string]any)
+	if !ok {
+		t.Fatalf("schema missing properties map: %v", schema)
+	}
+	return props
+}
+
+func schemaProperty(t *testing.T, props map[string]any, flag string) map[string]any {
+	t.Helper()
+	value, ok := props[flag]
+	if !ok {
+		t.Fatalf("schema properties missing flag %q", flag)
+	}
+	flagSchema, ok := value.(map[string]any)
+	if !ok {
+		t.Fatalf("flag %q schema is not an object: %v", flag, value)
+	}
+	return flagSchema
+}
+
+func assertStringSet(t *testing.T, got, want []string) {
+	t.Helper()
+	slices.Sort(got)
+	slices.Sort(want)
+	if !slices.Equal(got, want) {
+		t.Fatalf("values = %v, want %v", got, want)
 	}
 }

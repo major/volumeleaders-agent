@@ -5,14 +5,13 @@ description: |
   
   Auth: reads browser cookies automatically. If auth fails with exit code 2 and "Authentication required: VolumeLeaders session has expired.", log in at https://www.volumeleaders.com in your browser, then retry.
   
-  Output: compact JSON to stdout by default. Use --pretty before the command group for indented JSON. Use --jsonschema on any command for machine-readable JSON Schema output, or --jsonschema=tree on the root for the full CLI tree. Errors and logs go to stderr.
+  Output: compact JSON to stdout by default. Use --pretty before the command group for indented JSON. Use --jsonschema on any command for machine-readable JSON Schema output, --jsonschema=tree on the root for the full CLI tree, or --mcp on the root to serve leaf commands as MCP tools over stdio. Errors and logs go to stderr.
   
   COMMAND CHOOSER
   
   Goal                                          Start with                              Notes
   --------------------------------------------  --------------------------------------  -----------------------------------------------
-  Find individual institutional prints          trade list X --days N                   Use ticker filters, presets, or watchlists
-  Compare leveraged ETF bull/...
+  Find individual institutional prints          trade list X --days N                   Use ...
 metadata:
   author: major
   version: dev

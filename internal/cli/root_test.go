@@ -254,6 +254,48 @@ func TestKnownCommandAliases(t *testing.T) {
 	}
 }
 
+func TestWorkflowRecoveryGuidanceIsDiscoverable(t *testing.T) {
+	t.Parallel()
+	cmd := NewRootCmd("volumeleaders-agent")
+
+	for _, section := range []string{"RECOVERY PLAYBOOK", "COMMAND SEQUENCES", "Authentication failed", "Date validation failed", "Pagination validation failed"} {
+		if !strings.Contains(cmd.Long, section) {
+			t.Fatalf("root Long description missing %q", section)
+		}
+	}
+
+	commands := map[string][]string{
+		"volumeleaders-agent trade list":           {"PREREQUISITES:", "RECOVERY:", "NEXT STEPS:"},
+		"volumeleaders-agent trade levels":         {"PREREQUISITES:", "RECOVERY:", "NEXT STEPS:"},
+		"volumeleaders-agent trade level-touches":  {"PREREQUISITES:", "RECOVERY:", "NEXT STEPS:"},
+		"volumeleaders-agent volume institutional": {"PREREQUISITES:", "RECOVERY:", "NEXT STEPS:"},
+		"volumeleaders-agent market earnings":      {"PREREQUISITES:", "RECOVERY:", "NEXT STEPS:"},
+	}
+	walkCommands(cmd, func(c *cobra.Command) {
+		sections, ok := commands[c.CommandPath()]
+		if !ok {
+			return
+		}
+		delete(commands, c.CommandPath())
+		t.Run(c.CommandPath(), func(t *testing.T) {
+			t.Parallel()
+			for _, section := range sections {
+				if !strings.Contains(c.Long, section) {
+					t.Fatalf("command %q Long description missing %q", c.CommandPath(), section)
+				}
+			}
+		})
+	})
+	if len(commands) > 0 {
+		missing := make([]string, 0, len(commands))
+		for commandPath := range commands {
+			missing = append(missing, commandPath)
+		}
+		slices.Sort(missing)
+		t.Fatalf("workflow recovery guidance expectations did not match commands: %v", missing)
+	}
+}
+
 func TestNoAliasConflictsWithinParentScope(t *testing.T) {
 	t.Parallel()
 	cmd := NewRootCmd("test")

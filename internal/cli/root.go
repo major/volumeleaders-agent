@@ -78,7 +78,27 @@ Tickers: --tickers is comma-separated, --ticker is single-symbol. Commands that 
 
 Output formats: list-style commands may support --format json/csv/tsv. CSV/TSV include headers, booleans render as true/false, null or missing values render as empty cells. Nested summaries and single-object commands are JSON-only unless the input schema shows a format flag. Use outputschema to inspect the success stdout shape for each command.
 
-Performance: use explicit dates and tickers when possible. Start narrow, then expand. VolumeLeaders endpoints can be expensive and some trade retrieval endpoints are intentionally capped.`,
+Performance: use explicit dates and tickers when possible. Start narrow, then expand. VolumeLeaders endpoints can be expensive and some trade retrieval endpoints are intentionally capped.
+
+RECOVERY PLAYBOOK
+
+Authentication failed or exit code 2: log in at https://www.volumeleaders.com in the same browser profile, confirm the site loads, then retry the exact command. Do not paste cookies or session values into commands.
+
+Date validation failed: use YYYY-MM-DD. For required ranges, provide either --start-date D --end-date D or --days N. Do not combine --days with --start-date.
+
+Pagination validation failed: reduce --length to the documented cap. trade list, trade list --summary, and trade level-touches accept 1 to 50 rows per request. Use --start to page through more rows.
+
+Unknown flag or enum value: run the same command with --help or --jsonschema to inspect supported flags, defaults, allowed values, and required fields before retrying.
+
+Empty or too broad output: add tickers, explicit dates, min dollar filters, or a preset first. If JSON is too verbose, use --fields where supported or --format csv for list-style commands.
+
+COMMAND SEQUENCES
+
+Broad scan: volume institutional --date D, then trade list TICKER --days N, then trade levels TICKER --days N.
+
+Event context: market earnings --days N, then trade list TICKER --start-date D --end-date D, then market exhaustion --date D.
+
+Watchlist workflow: watchlist configs to find keys and names, watchlist tickers --watchlist-key K to inspect symbols, then trade list --watchlist NAME --days N.`,
 		Version:          version,
 		SilenceErrors:    true,
 		SilenceUsage:     true,

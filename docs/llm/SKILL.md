@@ -150,7 +150,7 @@ volumeleaders-agent alert edit --key 42 --name "Updated alert" --trade-rank-lte 
 
 #### `volumeleaders-agent market earnings`
 
-Query the earnings calendar for a date range, showing tickers with earnings dates and associated trade activity counts. Requires --start-date and --end-date (or --days). Outputs compact JSON or CSV/TSV with --format.
+Query the earnings calendar for a date range, showing tickers with earnings dates and associated trade activity counts. Requires --start-date and --end-date (or --days). Outputs compact JSON or CSV/TSV with --format. PREREQUISITES: provide a date range with --days or explicit start and end dates. RECOVERY: if date validation fails, use --days N for the fastest retry or provide both --start-date and --end-date. NEXT STEPS: run trade list for tickers near earnings, then market exhaustion for broader reversal context.
 
 **Flags:**
 
@@ -330,6 +330,12 @@ Query institutional trade events that occurred at notable price levels for a tic
 
 Defaults to --length 50 and rejects --length -1, --length 0, and values above 50. Use trade levels first to identify significant price zones, then use this command to find events where price revisited those levels.
 
+PREREQUISITES: Provide exactly one ticker and a date range with --start-date and --end-date or --days.
+
+RECOVERY: If --length or --trade-level-count is rejected, use 1 to 50. If dates are missing, add --days N for a quick retry.
+
+NEXT STEPS: Compare touched levels with fresh trade list output to see whether recent institutional prints confirm or reject the level.
+
 **Flags:**
 
 | Flag | Type | Default | Required | Description |
@@ -365,6 +371,12 @@ volumeleaders-agent trade level-touches AAPL --days 14
 Query significant price levels for a ticker, showing historical support and resistance zones identified by institutional trade clustering. Accepts a ticker as positional argument or via --ticker flag. Outputs compact JSON by default.
 
 Defaults to a 1-year lookback when dates are omitted. Uses non-standard --relative-size 0 and caps level count from 1 to 50 via --trade-level-count. Default JSON is compact and omits repetitive ticker metadata and the verbose Dates list; use --fields all or CSV/TSV when raw fields are needed.
+
+PREREQUISITES: Provide exactly one ticker as a positional argument or with --ticker.
+
+RECOVERY: If ticker validation fails, use one ticker only. If --trade-level-count is rejected, use a value from 1 to 50.
+
+NEXT STEPS: Use trade level-touches with the same ticker and date range to find trades that revisited these levels.
 
 **Flags:**
 
@@ -428,6 +440,12 @@ PhantomPrint               Boolean: trade was a phantom print
 InsideBar                  Boolean: bar was an inside bar
 
 Shared trade filters include volume, price, dollars, conditions, VCD, relative size, security type, market cap, trade rank, dark pools, sweeps, late prints, signature prints, even-share prints, and session/event toggles.
+
+PREREQUISITES: Browser authentication. For reproducible scans, pass explicit dates or --days plus tickers, preset, watchlist, or sector filters.
+
+RECOVERY: If --length is rejected, use 1 to 50 and page with --start. If --summary rejects --fields or --format, rerun summary as JSON without --fields. If date flags conflict, use either --days or --start-date with --end-date.
+
+NEXT STEPS: Use trade levels for support/resistance after finding a ticker, trade clusters when prints concentrate near a price, or trade sentiment for leveraged ETF bull/bear context.
 
 **Flags:**
 
@@ -589,7 +607,7 @@ volumeleaders-agent volume ah-institutional --date 2025-01-15
 
 #### `volumeleaders-agent volume institutional`
 
-Query the regular-hours institutional volume leaderboard, ranking tickers by total institutional trade volume for a given date. Accepts optional ticker positional arguments to filter results; also accepts --tickers flag. Requires --date. Outputs compact JSON or CSV/TSV with --format.
+Query the regular-hours institutional volume leaderboard, ranking tickers by total institutional trade volume for a given date. Accepts optional ticker positional arguments to filter results; also accepts --tickers flag. Requires --date. Outputs compact JSON or CSV/TSV with --format. PREREQUISITES: choose a trading date in YYYY-MM-DD format. RECOVERY: if --date is missing or invalid, retry with an explicit trading day. NEXT STEPS: run trade list for interesting tickers, then trade levels for support and resistance context.
 
 **Flags:**
 

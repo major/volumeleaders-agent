@@ -45,7 +45,7 @@ func newInstitutionalCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:        "institutional [tickers...]",
 		Short:      "Query institutional volume leaderboard",
-		Long:       "Query the regular-hours institutional volume leaderboard, ranking tickers by total institutional trade volume for a given date. Accepts optional ticker positional arguments to filter results; also accepts --tickers flag. Requires --date. Outputs compact JSON or CSV/TSV with --format.",
+		Long:       "Query the regular-hours institutional volume leaderboard, ranking tickers by total institutional trade volume for a given date. Accepts optional ticker positional arguments to filter results; also accepts --tickers flag. Requires --date. Outputs compact JSON or CSV/TSV with --format. PREREQUISITES: choose a trading date in YYYY-MM-DD format. RECOVERY: if --date is missing or invalid, retry with an explicit trading day. NEXT STEPS: run trade list for interesting tickers, then trade levels for support and resistance context.",
 		Example:    "volumeleaders-agent volume institutional AAPL MSFT --date 2025-01-15",
 		Args:       cobra.ArbitraryArgs,
 		SuggestFor: []string{"inst", "insitutional"},

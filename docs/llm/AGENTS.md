@@ -49,6 +49,26 @@ Output formats: list-style commands may support --format json/csv/tsv. CSV/TSV i
 
 Performance: use explicit dates and tickers when possible. Start narrow, then expand. VolumeLeaders endpoints can be expensive and some trade retrieval endpoints are intentionally capped.
 
+RECOVERY PLAYBOOK
+
+Authentication failed or exit code 2: log in at https://www.volumeleaders.com in the same browser profile, confirm the site loads, then retry the exact command. Do not paste cookies or session values into commands.
+
+Date validation failed: use YYYY-MM-DD. For required ranges, provide either --start-date D --end-date D or --days N. Do not combine --days with --start-date.
+
+Pagination validation failed: reduce --length to the documented cap. trade list, trade list --summary, and trade level-touches accept 1 to 50 rows per request. Use --start to page through more rows.
+
+Unknown flag or enum value: run the same command with --help or --jsonschema to inspect supported flags, defaults, allowed values, and required fields before retrying.
+
+Empty or too broad output: add tickers, explicit dates, min dollar filters, or a preset first. If JSON is too verbose, use --fields where supported or --format csv for list-style commands.
+
+COMMAND SEQUENCES
+
+Broad scan: volume institutional --date D, then trade list TICKER --days N, then trade levels TICKER --days N.
+
+Event context: market earnings --days N, then trade list TICKER --start-date D --end-date D, then market exhaustion --date D.
+
+Watchlist workflow: watchlist configs to find keys and names, watchlist tickers --watchlist-key K to inspect symbols, then trade list --watchlist NAME --days N.
+
 ## Installation
 
 ```bash
@@ -63,7 +83,7 @@ go install github.com/major/volumeleaders-agent/cmd/volumeleaders-agent@latest
 | `volumeleaders-agent alert create` | Create a new alert configuration with a name and filter settings for institutional trade activity. Requires --name. Specify filters such as trade rank, dollar thresholds, dark pool and sweep conditions, and ticker scope. Returns a success response with the new configuration key. | `--name` |
 | `volumeleaders-agent alert delete` | Remove a saved alert configuration by its numeric key. Requires --key with the alert config key (visible in configs output). The deletion is permanent and cannot be undone. | `--key` |
 | `volumeleaders-agent alert edit` | Modify an existing alert configuration identified by its numeric key. Requires --key with the alert config key. Specify only the fields you want to change; unspecified fields retain their current values. | `--key` |
-| `volumeleaders-agent market earnings` | Query the earnings calendar for a date range, showing tickers with earnings dates and associated trade activity counts. Requires --start-date and --end-date (or --days). Outputs compact JSON or CSV/TSV with --format. |  |
+| `volumeleaders-agent market earnings` | Query the earnings calendar for a date range, showing tickers with earnings dates and associated trade activity counts. Requires --start-date and --end-date (or --days). Outputs compact JSON or CSV/TSV with --format. PREREQUISITES: provide a date range with --days or explicit start and end dates. RECOVERY: if date validation fails, use --days N for the fastest retry or provide both --start-date and --end-date. NEXT STEPS: run trade list for tickers near earnings, then market exhaustion for broader reversal context. |  |
 | `volumeleaders-agent market exhaustion` | Query exhaustion scores that indicate overbought or oversold market conditions based on institutional trade clustering patterns. Omit --date to query the current trading day. Outputs compact JSON with rank metrics at different lookback periods. |  |
 | `volumeleaders-agent market snapshots` | Retrieve current price snapshot data for all symbols tracked by VolumeLeaders, returning the latest available price and volume data. No date filtering is available; always returns the most recent data. Outputs compact JSON by default. |  |
 | `volumeleaders-agent outputschema` | Print machine-readable stdout contracts for executable commands. With no arguments it returns every contract as a JSON array. Pass a command path such as trade list to return one contract. This describes success output only; structured errors are documented by structcli flag errors. |  |
@@ -81,10 +101,22 @@ Cluster bombs find sudden aggressive bursts tightly grouped in time and price, w
 Use clusters when the question is about price-level concentration, not single prints. This command uses larger default retrieval and dollar thresholds than ordinary trade list. Use trade cluster-bombs instead when looking for sudden aggressive bursts tightly grouped in time and price. |  |
 | `volumeleaders-agent trade level-touches` | Query institutional trade events that occurred at notable price levels for a ticker, showing how the market interacted with key support and resistance zones. Accepts a ticker as positional argument or via --ticker flag. Requires --start-date and --end-date (or --days).
 
-Defaults to --length 50 and rejects --length -1, --length 0, and values above 50. Use trade levels first to identify significant price zones, then use this command to find events where price revisited those levels. |  |
+Defaults to --length 50 and rejects --length -1, --length 0, and values above 50. Use trade levels first to identify significant price zones, then use this command to find events where price revisited those levels.
+
+PREREQUISITES: Provide exactly one ticker and a date range with --start-date and --end-date or --days.
+
+RECOVERY: If --length or --trade-level-count is rejected, use 1 to 50. If dates are missing, add --days N for a quick retry.
+
+NEXT STEPS: Compare touched levels with fresh trade list output to see whether recent institutional prints confirm or reject the level. |  |
 | `volumeleaders-agent trade levels` | Query significant price levels for a ticker, showing historical support and resistance zones identified by institutional trade clustering. Accepts a ticker as positional argument or via --ticker flag. Outputs compact JSON by default.
 
-Defaults to a 1-year lookback when dates are omitted. Uses non-standard --relative-size 0 and caps level count from 1 to 50 via --trade-level-count. Default JSON is compact and omits repetitive ticker metadata and the verbose Dates list; use --fields all or CSV/TSV when raw fields are needed. |  |
+Defaults to a 1-year lookback when dates are omitted. Uses non-standard --relative-size 0 and caps level count from 1 to 50 via --trade-level-count. Default JSON is compact and omits repetitive ticker metadata and the verbose Dates list; use --fields all or CSV/TSV when raw fields are needed.
+
+PREREQUISITES: Provide exactly one ticker as a positional argument or with --ticker.
+
+RECOVERY: If ticker validation fails, use one ticker only. If --trade-level-count is rejected, use a value from 1 to 50.
+
+NEXT STEPS: Use trade level-touches with the same ticker and date range to find trades that revisited these levels. |  |
 | `volumeleaders-agent trade list` | Query individual institutional trades from VolumeLeaders, filterable by ticker, date range, dollar amounts, volume, trade conditions, session type, and trade rank. Supports built-in filter presets (--preset) and watchlist-based filtering (--watchlist). Outputs compact JSON or CSV/TSV with --format; use --summary for aggregate metrics grouped by ticker or day.
 
 Date defaults: 365-day lookback when tickers are provided, today-only without tickers. Preset and watchlist filters do not supply dates. Filter precedence is preset baseline, then watchlist merge, then explicit CLI flags override both.
@@ -117,7 +149,13 @@ SignaturePrint             Boolean: trade matched a signature print pattern
 PhantomPrint               Boolean: trade was a phantom print
 InsideBar                  Boolean: bar was an inside bar
 
-Shared trade filters include volume, price, dollars, conditions, VCD, relative size, security type, market cap, trade rank, dark pools, sweeps, late prints, signature prints, even-share prints, and session/event toggles. |  |
+Shared trade filters include volume, price, dollars, conditions, VCD, relative size, security type, market cap, trade rank, dark pools, sweeps, late prints, signature prints, even-share prints, and session/event toggles.
+
+PREREQUISITES: Browser authentication. For reproducible scans, pass explicit dates or --days plus tickers, preset, watchlist, or sector filters.
+
+RECOVERY: If --length is rejected, use 1 to 50 and page with --start. If --summary rejects --fields or --format, rerun summary as JSON without --fields. If date flags conflict, use either --days or --start-date with --end-date.
+
+NEXT STEPS: Use trade levels for support/resistance after finding a ticker, trade clusters when prints concentrate near a price, or trade sentiment for leveraged ETF bull/bear context. |  |
 | `volumeleaders-agent trade preset-tickers` | Extract the ticker symbols configured in a named trade filter preset, showing whether the preset uses an explicit ticker list, a sector/industry filter, or is unfiltered. Requires --preset with the preset name (case-insensitive). Outputs JSON with the preset name, group, type, and ticker details. | `--preset` |
 | `volumeleaders-agent trade presets` | List all built-in trade filter presets with their names, groups, and filter configurations. Each preset defines a named set of filters that can be applied to trade list queries via --preset. Outputs compact JSON by default; use --format csv or tsv for tabular output. |  |
 | `volumeleaders-agent trade sentiment` | Summarize leveraged ETF bull and bear flow by trading day, showing aggregate institutional dollar volume on the bull and bear side. Requires --start-date and --end-date (or --days). Outputs one record per day with bull and bear totals.
@@ -126,7 +164,7 @@ This command always queries the combined leveraged ETF sector filter SectorIndus
 
 Ratio is bull dollars divided by bear dollars and is null when bear flow is zero. Treat the output as leveraged ETF proxy flow, not signed buy/sell flow for the broader market. |  |
 | `volumeleaders-agent volume ah-institutional` | Query the after-hours institutional volume leaderboard, ranking tickers by total institutional trade volume during after-hours sessions for a given date. Accepts optional ticker positional arguments; also accepts --tickers flag. Requires --date. | `--date` |
-| `volumeleaders-agent volume institutional` | Query the regular-hours institutional volume leaderboard, ranking tickers by total institutional trade volume for a given date. Accepts optional ticker positional arguments to filter results; also accepts --tickers flag. Requires --date. Outputs compact JSON or CSV/TSV with --format. | `--date` |
+| `volumeleaders-agent volume institutional` | Query the regular-hours institutional volume leaderboard, ranking tickers by total institutional trade volume for a given date. Accepts optional ticker positional arguments to filter results; also accepts --tickers flag. Requires --date. Outputs compact JSON or CSV/TSV with --format. PREREQUISITES: choose a trading date in YYYY-MM-DD format. RECOVERY: if --date is missing or invalid, retry with an explicit trading day. NEXT STEPS: run trade list for interesting tickers, then trade levels for support and resistance context. | `--date` |
 | `volumeleaders-agent volume total` | Query the total volume leaderboard combining all session types, ranking tickers by total institutional trade volume for a given date. Accepts optional ticker positional arguments; also accepts --tickers flag. Requires --date. | `--date` |
 | `volumeleaders-agent watchlist add-ticker` | Add a ticker symbol to an existing watchlist. Requires --watchlist-key with the watchlist key and --ticker with the symbol to add. The ticker is appended to the watchlist without affecting existing symbols. | `--ticker`, `--watchlist-key` |
 | `volumeleaders-agent watchlist configs` | List all saved watchlist configurations with their keys and names. Outputs compact JSON or CSV/TSV with --format. Each row shows the watchlist key and name; use the tickers subcommand to view symbols in a specific watchlist. |  |

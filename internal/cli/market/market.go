@@ -89,7 +89,7 @@ func newEarningsCmd() *cobra.Command {
 		Short:      "Query earnings calendar within a date range",
 		Example:    "volumeleaders-agent market earnings --days 5",
 		Args:       cobra.NoArgs,
-		Long:       "Query the earnings calendar for a date range, showing tickers with earnings dates and associated trade activity counts. Requires --start-date and --end-date (or --days). Outputs compact JSON or CSV/TSV with --format.",
+		Long:       "Query the earnings calendar for a date range, showing tickers with earnings dates and associated trade activity counts. Requires --start-date and --end-date (or --days). Outputs compact JSON or CSV/TSV with --format. PREREQUISITES: provide a date range with --days or explicit start and end dates. RECOVERY: if date validation fails, use --days N for the fastest retry or provide both --start-date and --end-date. NEXT STEPS: run trade list for tickers near earnings, then market exhaustion for broader reversal context.",
 		SuggestFor: []string{"earning", "earings"},
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			startDate, endDate, err := common.RequiredDateRange(cmd)

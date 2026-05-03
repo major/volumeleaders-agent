@@ -121,6 +121,30 @@ func TestAlertCreateFlagRegistration(t *testing.T) {
 	})
 }
 
+// TestTradeListFlagRegistration verifies representative flags on the largest
+// command surface, including defaults set by the trade list constructor.
+func TestTradeListFlagRegistration(t *testing.T) {
+	t.Parallel()
+	assertFlags(t, []string{"trade", "list"}, []flagSpec{
+		{"tickers", "string", ""},
+		{"start-date", "string", ""},
+		{"days", "int", "0"},
+		{"min-dollars", "float64", "500000"},
+		{"conditions", "int", "-1"},
+		{"dark-pools", "int", "-1"},
+		{"premarket", "int", "1"},
+		{"length", "int", "10"},
+		{"order-dir", "string", "desc"},
+		{"format", "string", "json"},
+		{"summary", "bool", "false"},
+		{"group-by", "string", "ticker"},
+		{"preset", "string", ""},
+		{"watchlist", "string", ""},
+		{"fields", "string", ""},
+		{"sector", "string", ""},
+	})
+}
+
 // TestEnumFlagValidation verifies structcli rejects invalid bounded values
 // during flag parsing, before command handlers can perform API requests.
 func TestEnumFlagValidation(t *testing.T) {

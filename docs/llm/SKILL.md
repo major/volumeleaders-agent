@@ -61,7 +61,7 @@ Create a new alert configuration with a name and filter settings for institution
 | `--offsetting-print` | bool | false | no | Offsetting print filter |
 | `--phantom-print` | bool | false | no | Phantom print filter |
 | `--sweep` | bool | false | no | Sweep filter |
-| `--ticker-group` | string | AllTickers | no | Ticker group (AllTickers or SelectedTickers) |
+| `--ticker-group` | string | AllTickers | no | Ticker group: AllTickers or SelectedTickers |
 | `--tickers` | string | - | no | Comma-separated ticker symbols (max 500, used with SelectedTickers) |
 | `--total-dollars-gte` | int | 0 | no | Total dollars >= |
 | `--total-rank-lte` | int | 0 | no | Total rank <= (0/1/3/10/25/50/100) |
@@ -124,7 +124,7 @@ Modify an existing alert configuration identified by its numeric key. Requires -
 | `--offsetting-print` | bool | false | no | Offsetting print filter |
 | `--phantom-print` | bool | false | no | Phantom print filter |
 | `--sweep` | bool | false | no | Sweep filter |
-| `--ticker-group` | string | AllTickers | no | Ticker group (AllTickers or SelectedTickers) |
+| `--ticker-group` | string | AllTickers | no | Ticker group: AllTickers or SelectedTickers |
 | `--tickers` | string | - | no | Comma-separated ticker symbols (max 500, used with SelectedTickers) |
 | `--total-dollars-gte` | int | 0 | no | Total dollars >= |
 | `--total-rank-lte` | int | 0 | no | Total rank <= (0/1/3/10/25/50/100) |
@@ -144,7 +144,7 @@ volumeleaders-agent alert edit --key 42 --name "Updated alert" --trade-rank-lte 
 
 #### `volumeleaders-agent market earnings`
 
-Query the earnings calendar for a date range, showing tickers with earnings dates and associated trade activity counts. Requires --start-date and --end-date (or --days). Outputs compact JSON or CSV/TSV with --format.
+Query the earnings calendar for a date range, showing tickers with earnings dates and associated trade activity counts. Requires --start-date and --end-date (or --days). Outputs compact JSON or CSV/TSV with --format. PREREQUISITES: provide a date range with --days or explicit start and end dates. RECOVERY: if date validation fails, use --days N for the fastest retry or provide both --start-date and --end-date. NEXT STEPS: run trade list for tickers near earnings, then market exhaustion for broader reversal context.
 
 **Flags:**
 
@@ -324,6 +324,12 @@ Query institutional trade events that occurred at notable price levels for a tic
 
 Defaults to --length 50 and rejects --length -1, --length 0, and values above 50. Use trade levels first to identify significant price zones, then use this command to find events where price revisited those levels.
 
+PREREQUISITES: Provide exactly one ticker and a date range with --start-date and --end-date or --days.
+
+RECOVERY: If --length or --trade-level-count is rejected, use 1 to 50. If dates are missing, add --days N for a quick retry.
+
+NEXT STEPS: Compare touched levels with fresh trade list output to see whether recent institutional prints confirm or reject the level.
+
 **Flags:**
 
 | Flag | Type | Default | Required | Description |
@@ -359,6 +365,12 @@ volumeleaders-agent trade level-touches AAPL --days 14
 Query significant price levels for a ticker, showing historical support and resistance zones identified by institutional trade clustering. Accepts a ticker as positional argument or via --ticker flag. Outputs compact JSON by default.
 
 Defaults to a 1-year lookback when dates are omitted. Uses non-standard --relative-size 0 and caps level count from 1 to 50 via --trade-level-count. Default JSON is compact and omits repetitive ticker metadata and the verbose Dates list; use --fields all or CSV/TSV when raw fields are needed.
+
+PREREQUISITES: Provide exactly one ticker as a positional argument or with --ticker.
+
+RECOVERY: If ticker validation fails, use one ticker only. If --trade-level-count is rejected, use a value from 1 to 50.
+
+NEXT STEPS: Use trade level-touches with the same ticker and date range to find trades that revisited these levels.
 
 **Flags:**
 
@@ -423,21 +435,27 @@ InsideBar                  Boolean: bar was an inside bar
 
 Shared trade filters include volume, price, dollars, conditions, VCD, relative size, security type, market cap, trade rank, dark pools, sweeps, late prints, signature prints, even-share prints, and session/event toggles.
 
+PREREQUISITES: Browser authentication. For reproducible scans, pass explicit dates or --days plus tickers, preset, watchlist, or sector filters.
+
+RECOVERY: If --length is rejected, use 1 to 50 and page with --start. If --summary rejects --fields or --format, rerun summary as JSON without --fields. If date flags conflict, use either --days or --start-date with --end-date.
+
+NEXT STEPS: Use trade levels for support/resistance after finding a ticker, trade clusters when prints concentrate near a price, or trade sentiment for leveraged ETF bull/bear context.
+
 **Flags:**
 
 | Flag | Type | Default | Required | Description |
 |------|------|---------|----------|-------------|
-| `--ah` | int | 1 | no | Include after hours |
-| `--closing` | int | 1 | no | Include closing trades |
+| `--ah` | string | 1 | no | After-hours session filter (-1=all, 0=exclude, 1=include) |
+| `--closing` | string | 1 | no | Closing trade filter (-1=all, 0=exclude, 1=include) |
 | `--conditions` | int | -1 | no | Trade conditions filter |
-| `--dark-pools` | int | -1 | no | Dark pool filter |
+| `--dark-pools` | string | -1 | no | Dark pool filter (-1=all, 0=exclude, 1=only) |
 | `--days` | int | 0 | no | Look back this many days from --end-date or today |
 | `--end-date` | string | - | no | End date YYYY-MM-DD (default: today) |
-| `--even-shared` | int | -1 | no | Even shared filter |
+| `--even-shared` | string | -1 | no | Even shared filter (-1=all, 0=exclude, 1=only) |
 | `--fields` | string | - | no | Comma-separated trade fields to include in output |
 | `--format` | string | json | no | Output format: json, csv, or tsv |
 | `--group-by` | string | ticker | no | Summary grouping (requires --summary): ticker, day, or ticker,day |
-| `--late-prints` | int | -1 | no | Late print filter |
+| `--late-prints` | string | -1 | no | Late print filter (-1=all, 0=exclude, 1=only) |
 | `--length` | int | 10 | no | Number of results |
 | `--market-cap` | int | 0 | no | Market cap filter |
 | `--max-dollars` | float64 | 30000000000 | no | Maximum dollar value |
@@ -446,23 +464,23 @@ Shared trade filters include volume, price, dollars, conditions, VCD, relative s
 | `--min-dollars` | float64 | 500000 | no | Minimum dollar value |
 | `--min-price` | float64 | 0 | no | Minimum price |
 | `--min-volume` | int | 0 | no | Minimum volume |
-| `--offsetting` | int | 1 | no | Include offsetting trades |
-| `--opening` | int | 1 | no | Include opening trades |
+| `--offsetting` | string | 1 | no | Offsetting trade filter (-1=all, 0=exclude, 1=include) |
+| `--opening` | string | 1 | no | Opening trade filter (-1=all, 0=exclude, 1=include) |
 | `--order-col` | int | 1 | no | Order column index |
 | `--order-dir` | string | desc | no | Order direction |
-| `--phantom` | int | 1 | no | Include phantom prints |
-| `--premarket` | int | 1 | no | Include premarket |
+| `--phantom` | string | 1 | no | Phantom print filter (-1=all, 0=exclude, 1=include) |
+| `--premarket` | string | 1 | no | Premarket session filter (-1=all, 0=exclude, 1=include) |
 | `--preset` | string | - | no | Apply a built-in filter preset (see: trade presets) |
 | `--rank-snapshot` | int | -1 | no | Trade rank snapshot filter |
 | `--relative-size` | int | 5 | no | Relative size threshold |
-| `--rth` | int | 1 | no | Include regular trading hours |
+| `--rth` | string | 1 | no | Regular trading hours filter (-1=all, 0=exclude, 1=include) |
 | `--sector` | string | - | no | Sector/Industry filter |
 | `--security-type` | int | -1 | no | Security type key |
-| `--sig-prints` | int | -1 | no | Signature print filter |
+| `--sig-prints` | string | -1 | no | Signature print filter (-1=all, 0=exclude, 1=only) |
 | `--start` | int | 0 | no | DataTables start offset |
 | `--start-date` | string | - | no | Start date YYYY-MM-DD (default: auto) |
 | `--summary` | bool | false | no | Return aggregate metrics instead of individual trades |
-| `--sweeps` | int | -1 | no | Sweep filter |
+| `--sweeps` | string | -1 | no | Sweep filter (-1=all, 0=exclude, 1=only) |
 | `--tickers` | string | - | no | Comma-separated ticker symbols |
 | `--trade-rank` | int | -1 | no | Trade rank filter |
 | `--vcd` | int | 97 | no | VCD filter |
@@ -523,15 +541,15 @@ Ratio is bull dollars divided by bear dollars and is null when bear flow is zero
 
 | Flag | Type | Default | Required | Description |
 |------|------|---------|----------|-------------|
-| `--ah` | int | 1 | no | Include after hours |
-| `--closing` | int | 1 | no | Include closing trades |
+| `--ah` | string | 1 | no | After-hours session filter (-1=all, 0=exclude, 1=include) |
+| `--closing` | string | 1 | no | Closing trade filter (-1=all, 0=exclude, 1=include) |
 | `--conditions` | int | -1 | no | Trade conditions filter |
-| `--dark-pools` | int | -1 | no | Dark pool filter |
+| `--dark-pools` | string | -1 | no | Dark pool filter (-1=all, 0=exclude, 1=only) |
 | `--days` | int | 0 | no | Look back this many days from --end-date or today |
 | `--end-date` | string | - | no | End date YYYY-MM-DD (required unless --days is set) |
-| `--even-shared` | int | -1 | no | Even shared filter |
+| `--even-shared` | string | -1 | no | Even shared filter (-1=all, 0=exclude, 1=only) |
 | `--format` | string | json | no | Output format: json, csv, or tsv |
-| `--late-prints` | int | -1 | no | Late print filter |
+| `--late-prints` | string | -1 | no | Late print filter (-1=all, 0=exclude, 1=only) |
 | `--market-cap` | int | 0 | no | Market cap filter |
 | `--max-dollars` | float64 | 30000000000 | no | Maximum dollar value |
 | `--max-price` | float64 | 100000 | no | Maximum price |
@@ -539,17 +557,17 @@ Ratio is bull dollars divided by bear dollars and is null when bear flow is zero
 | `--min-dollars` | float64 | 5000000 | no | Minimum dollar value |
 | `--min-price` | float64 | 0 | no | Minimum price |
 | `--min-volume` | int | 0 | no | Minimum volume |
-| `--offsetting` | int | 1 | no | Include offsetting trades |
-| `--opening` | int | 1 | no | Include opening trades |
-| `--phantom` | int | 1 | no | Include phantom prints |
-| `--premarket` | int | 1 | no | Include premarket |
+| `--offsetting` | string | 1 | no | Offsetting trade filter (-1=all, 0=exclude, 1=include) |
+| `--opening` | string | 1 | no | Opening trade filter (-1=all, 0=exclude, 1=include) |
+| `--phantom` | string | 1 | no | Phantom print filter (-1=all, 0=exclude, 1=include) |
+| `--premarket` | string | 1 | no | Premarket session filter (-1=all, 0=exclude, 1=include) |
 | `--rank-snapshot` | int | -1 | no | Trade rank snapshot filter |
 | `--relative-size` | int | 5 | no | Relative size threshold |
-| `--rth` | int | 1 | no | Include regular trading hours |
+| `--rth` | string | 1 | no | Regular trading hours filter (-1=all, 0=exclude, 1=include) |
 | `--security-type` | int | -1 | no | Security type key |
-| `--sig-prints` | int | -1 | no | Signature print filter |
+| `--sig-prints` | string | -1 | no | Signature print filter (-1=all, 0=exclude, 1=only) |
 | `--start-date` | string | - | no | Start date YYYY-MM-DD (required unless --days is set) |
-| `--sweeps` | int | -1 | no | Sweep filter |
+| `--sweeps` | string | -1 | no | Sweep filter (-1=all, 0=exclude, 1=only) |
 | `--trade-rank` | int | -1 | no | Trade rank filter |
 | `--vcd` | int | 97 | no | VCD filter |
 
@@ -583,7 +601,7 @@ volumeleaders-agent volume ah-institutional --date 2025-01-15
 
 #### `volumeleaders-agent volume institutional`
 
-Query the regular-hours institutional volume leaderboard, ranking tickers by total institutional trade volume for a given date. Accepts optional ticker positional arguments to filter results; also accepts --tickers flag. Requires --date. Outputs compact JSON or CSV/TSV with --format.
+Query the regular-hours institutional volume leaderboard, ranking tickers by total institutional trade volume for a given date. Accepts optional ticker positional arguments to filter results; also accepts --tickers flag. Requires --date. Outputs compact JSON or CSV/TSV with --format. PREREQUISITES: choose a trading date in YYYY-MM-DD format. RECOVERY: if --date is missing or invalid, retry with an explicit trading day. NEXT STEPS: run trade list for interesting tickers, then trade levels for support and resistance context.
 
 **Flags:**
 
@@ -674,11 +692,11 @@ Create a new watchlist configuration with a name and optional filter settings su
 | `--lit-exchanges` | bool | true | no | Include lit exchange trades |
 | `--max-dollars` | float64 | 3e+10 | no | Maximum dollars filter |
 | `--max-price` | float64 | 100000 | no | Maximum price filter |
-| `--max-trade-rank` | int | -1 | no | Maximum trade rank (-1=all, 1/3/5/10/25/50/100) |
+| `--max-trade-rank` | string | -1 | no | Maximum trade rank (-1=all, 1/3/5/10/25/50/100) |
 | `--max-volume` | int | 2000000000 | no | Maximum volume filter |
 | `--min-dollars` | float64 | 0 | no | Minimum dollars filter |
 | `--min-price` | float64 | 0 | no | Minimum price filter |
-| `--min-relative-size` | int | 0 | no | Minimum relative size (0/5/10/25/50/100) |
+| `--min-relative-size` | string | 0 | no | Minimum relative size (0/5/10/25/50/100) |
 | `--min-vcd` | float64 | 0 | no | Minimum VCD percentile (0-100) |
 | `--min-volume` | int | 0 | no | Minimum volume filter |
 | `--name` | string | - | yes | Watch list name |
@@ -687,13 +705,13 @@ Create a new watchlist configuration with a name and optional filter settings su
 | `--opening-trades` | bool | true | no | Include opening trades |
 | `--phantom-trades` | bool | true | no | Include phantom trades |
 | `--premarket-trades` | bool | true | no | Include premarket trades |
-| `--rsi-overbought-daily` | int | -1 | no | RSI overbought daily (1=yes, 0=no, -1=ignore) |
-| `--rsi-overbought-hourly` | int | -1 | no | RSI overbought hourly (1=yes, 0=no, -1=ignore) |
-| `--rsi-oversold-daily` | int | -1 | no | RSI oversold daily (1=yes, 0=no, -1=ignore) |
-| `--rsi-oversold-hourly` | int | -1 | no | RSI oversold hourly (1=yes, 0=no, -1=ignore) |
+| `--rsi-overbought-daily` | string | -1 | no | RSI overbought daily (-1=ignore, 0=no, 1=yes) |
+| `--rsi-overbought-hourly` | string | -1 | no | RSI overbought hourly (-1=ignore, 0=no, 1=yes) |
+| `--rsi-oversold-daily` | string | -1 | no | RSI oversold daily (-1=ignore, 0=no, 1=yes) |
+| `--rsi-oversold-hourly` | string | -1 | no | RSI oversold hourly (-1=ignore, 0=no, 1=yes) |
 | `--rth-trades` | bool | true | no | Include regular trading hours trades |
 | `--sector-industry` | string | - | no | Sector/industry filter (max 100 chars) |
-| `--security-type` | int | -1 | no | Security type (-1=all, 1=stocks, 26=ETFs, 4=REITs) |
+| `--security-type` | string | -1 | no | Security type (-1=all, 1=stocks, 26=ETFs, 4=REITs) |
 | `--signature-prints` | bool | true | no | Include signature prints |
 | `--sweeps` | bool | true | no | Include sweep trades |
 | `--tickers` | string | - | no | Comma-separated ticker symbols (max 500) |
@@ -739,11 +757,11 @@ Modify an existing watchlist configuration identified by its numeric key. Requir
 | `--lit-exchanges` | bool | true | no | Include lit exchange trades |
 | `--max-dollars` | float64 | 3e+10 | no | Maximum dollars filter |
 | `--max-price` | float64 | 100000 | no | Maximum price filter |
-| `--max-trade-rank` | int | -1 | no | Maximum trade rank (-1=all, 1/3/5/10/25/50/100) |
+| `--max-trade-rank` | string | -1 | no | Maximum trade rank (-1=all, 1/3/5/10/25/50/100) |
 | `--max-volume` | int | 2000000000 | no | Maximum volume filter |
 | `--min-dollars` | float64 | 0 | no | Minimum dollars filter |
 | `--min-price` | float64 | 0 | no | Minimum price filter |
-| `--min-relative-size` | int | 0 | no | Minimum relative size (0/5/10/25/50/100) |
+| `--min-relative-size` | string | 0 | no | Minimum relative size (0/5/10/25/50/100) |
 | `--min-vcd` | float64 | 0 | no | Minimum VCD percentile (0-100) |
 | `--min-volume` | int | 0 | no | Minimum volume filter |
 | `--name` | string | - | no | Watch list name |
@@ -752,13 +770,13 @@ Modify an existing watchlist configuration identified by its numeric key. Requir
 | `--opening-trades` | bool | true | no | Include opening trades |
 | `--phantom-trades` | bool | true | no | Include phantom trades |
 | `--premarket-trades` | bool | true | no | Include premarket trades |
-| `--rsi-overbought-daily` | int | -1 | no | RSI overbought daily (1=yes, 0=no, -1=ignore) |
-| `--rsi-overbought-hourly` | int | -1 | no | RSI overbought hourly (1=yes, 0=no, -1=ignore) |
-| `--rsi-oversold-daily` | int | -1 | no | RSI oversold daily (1=yes, 0=no, -1=ignore) |
-| `--rsi-oversold-hourly` | int | -1 | no | RSI oversold hourly (1=yes, 0=no, -1=ignore) |
+| `--rsi-overbought-daily` | string | -1 | no | RSI overbought daily (-1=ignore, 0=no, 1=yes) |
+| `--rsi-overbought-hourly` | string | -1 | no | RSI overbought hourly (-1=ignore, 0=no, 1=yes) |
+| `--rsi-oversold-daily` | string | -1 | no | RSI oversold daily (-1=ignore, 0=no, 1=yes) |
+| `--rsi-oversold-hourly` | string | -1 | no | RSI oversold hourly (-1=ignore, 0=no, 1=yes) |
 | `--rth-trades` | bool | true | no | Include regular trading hours trades |
 | `--sector-industry` | string | - | no | Sector/industry filter (max 100 chars) |
-| `--security-type` | int | -1 | no | Security type (-1=all, 1=stocks, 26=ETFs, 4=REITs) |
+| `--security-type` | string | -1 | no | Security type (-1=all, 1=stocks, 26=ETFs, 4=REITs) |
 | `--signature-prints` | bool | true | no | Include signature prints |
 | `--sweeps` | bool | true | no | Include sweep trades |
 | `--tickers` | string | - | no | Comma-separated ticker symbols (max 500) |

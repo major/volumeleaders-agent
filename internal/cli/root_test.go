@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os/exec"
 	"path/filepath"
 	"slices"
@@ -250,6 +251,48 @@ func TestKnownCommandAliases(t *testing.T) {
 		}
 		slices.Sort(missing)
 		t.Fatalf("alias expectations did not match commands: %v", missing)
+	}
+}
+
+func TestWorkflowRecoveryGuidanceIsDiscoverable(t *testing.T) {
+	t.Parallel()
+	cmd := NewRootCmd("volumeleaders-agent")
+
+	for _, section := range []string{"RECOVERY PLAYBOOK", "COMMAND SEQUENCES", "Authentication failed", "Date validation failed", "Pagination validation failed"} {
+		if !strings.Contains(cmd.Long, section) {
+			t.Fatalf("root Long description missing %q", section)
+		}
+	}
+
+	commands := map[string][]string{
+		"volumeleaders-agent trade list":           {"PREREQUISITES:", "RECOVERY:", "NEXT STEPS:"},
+		"volumeleaders-agent trade levels":         {"PREREQUISITES:", "RECOVERY:", "NEXT STEPS:"},
+		"volumeleaders-agent trade level-touches":  {"PREREQUISITES:", "RECOVERY:", "NEXT STEPS:"},
+		"volumeleaders-agent volume institutional": {"PREREQUISITES:", "RECOVERY:", "NEXT STEPS:"},
+		"volumeleaders-agent market earnings":      {"PREREQUISITES:", "RECOVERY:", "NEXT STEPS:"},
+	}
+	walkCommands(cmd, func(c *cobra.Command) {
+		sections, ok := commands[c.CommandPath()]
+		if !ok {
+			return
+		}
+		delete(commands, c.CommandPath())
+		t.Run(c.CommandPath(), func(t *testing.T) {
+			t.Parallel()
+			for _, section := range sections {
+				if !strings.Contains(c.Long, section) {
+					t.Fatalf("command %q Long description missing %q", c.CommandPath(), section)
+				}
+			}
+		})
+	})
+	if len(commands) > 0 {
+		missing := make([]string, 0, len(commands))
+		for commandPath := range commands {
+			missing = append(missing, commandPath)
+		}
+		slices.Sort(missing)
+		t.Fatalf("workflow recovery guidance expectations did not match commands: %v", missing)
 	}
 }
 
@@ -762,6 +805,93 @@ func TestJSONSchemaRepresentativeFlagsHaveDescriptions(t *testing.T) {
 	}
 }
 
+func TestJSONSchemaIncludesDiscreteValueEnums(t *testing.T) {
+	t.Parallel()
+	binary := buildBinary(t)
+
+	tests := []struct {
+		name string
+		args []string
+		flag string
+		want []string
+	}{
+		{
+			name: "trade list tri-state filter",
+			args: []string{"trade", "list", "--jsonschema"},
+			flag: "dark-pools",
+			want: []string{"-1", "0", "1"},
+		},
+		{
+			name: "trade list session filter",
+			args: []string{"trade", "list", "--jsonschema"},
+			flag: "premarket",
+			want: []string{"-1", "0", "1"},
+		},
+		{
+			name: "alert create ticker group",
+			args: []string{"alert", "create", "--jsonschema"},
+			flag: "ticker-group",
+			want: []string{"AllTickers", "SelectedTickers"},
+		},
+		{
+			name: "watchlist create security type",
+			args: []string{"watchlist", "create", "--jsonschema"},
+			flag: "security-type",
+			want: []string{"-1", "1", "26", "4"},
+		},
+		{
+			name: "watchlist create relative size",
+			args: []string{"watchlist", "create", "--jsonschema"},
+			flag: "min-relative-size",
+			want: []string{"0", "5", "10", "25", "50", "100"},
+		},
+		{
+			name: "watchlist create RSI toggle",
+			args: []string{"watchlist", "create", "--jsonschema"},
+			flag: "rsi-overbought-daily",
+			want: []string{"-1", "0", "1"},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			schema := commandJSONSchema(t, binary, tc.args...)
+			props := schemaProperties(t, schema)
+			flagSchema, ok := props[tc.flag].(map[string]any)
+			if !ok {
+				t.Fatalf("flag %q schema is not an object", tc.flag)
+			}
+
+			got := schemaEnumValues(t, flagSchema)
+			if !slices.Equal(got, sortedStrings(tc.want)) {
+				t.Fatalf("flag %q enum = %v, want %v", tc.flag, got, sortedStrings(tc.want))
+			}
+		})
+	}
+}
+
+func schemaEnumValues(t *testing.T, flagSchema map[string]any) []string {
+	t.Helper()
+	rawEnum, ok := flagSchema["enum"].([]any)
+	if !ok {
+		t.Fatalf("schema missing enum: %v", flagSchema)
+	}
+
+	values := make([]string, 0, len(rawEnum))
+	for _, rawValue := range rawEnum {
+		values = append(values, fmt.Sprint(rawValue))
+	}
+	slices.Sort(values)
+	return values
+}
+
+func sortedStrings(values []string) []string {
+	clone := slices.Clone(values)
+	slices.Sort(clone)
+	return clone
+}
+
 func TestOutputSchemaTreeProducesCommandContracts(t *testing.T) {
 	t.Parallel()
 	binary := buildBinary(t)
@@ -1142,7 +1272,6 @@ func TestStructuredErrorExitCodes(t *testing.T) {
 		})
 	}
 }
-
 func isDomainLeafCommand(cmd *cobra.Command) bool {
 	if !cmd.Runnable() || len(cmd.Commands()) > 0 {
 		return false

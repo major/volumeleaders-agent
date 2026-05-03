@@ -7,7 +7,7 @@ Go CLI tool for querying institutional trade data from [VolumeLeaders](https://w
 When modifying CLI commands, flags, models, or behavior:
 
 - Update `AGENTS.md` if the change affects project structure, build process, or conventions.
-- Use `volumeleaders-agent --jsonschema=tree` as the source of truth for command names, flags, aliases, defaults, and examples. Use `volumeleaders-agent outputschema` as the source of truth for success stdout contracts, formats, fields, and variants. Command Long descriptions contain embedded domain knowledge (workflows, conventions, gotchas).
+- Use `volumeleaders-agent --jsonschema=tree` as the source of truth for command names, flags, aliases, defaults, and examples. Use `volumeleaders-agent outputschema` as the source of truth for success stdout contracts, formats, fields, and variants. Command Long descriptions contain embedded domain knowledge (workflows, recovery steps, conventions, gotchas).
 - Run `make generate-discovery` when commands, flags, defaults, examples, or Long descriptions change. The generated LLM discovery files live in `docs/llm/` so they do not overwrite this hand-maintained root `AGENTS.md`.
 
 Command documentation mapping:
@@ -15,7 +15,7 @@ Command documentation mapping:
 - All command groups -> `volumeleaders-agent --jsonschema=tree` for command shape and Long descriptions for semantic guidance. Use `volumeleaders-agent --mcp` when validating the MCP tool surface exposed to LLM clients.
 - All command outputs -> `volumeleaders-agent outputschema` for success stdout contracts.
 - Generated LLM discovery files -> `make generate-discovery` writes `docs/llm/AGENTS.md`, `docs/llm/SKILL.md`, and `docs/llm/llms.txt` from structcli metadata.
-- Shared conventions, workflows, output behavior, auth guidance, and domain gotchas -> root command Long description (run `volumeleaders-agent --help`).
+- Shared conventions, workflows, recovery behavior, output behavior, auth guidance, and domain gotchas -> root command Long description (run `volumeleaders-agent --help`).
 
 ## Project Layout
 
@@ -45,6 +45,7 @@ make smoke      # Run local live smoke tests against the built binary
 ## Conventions
 
 - Commands output compact JSON to stdout by default. List-style commands may support `--format json|csv|tsv`; CSV/TSV include a header row, render booleans as `true`/`false`, and render null or missing values as empty cells. Use `--pretty` for indented JSON output. Use `outputschema` to inspect machine-readable success output contracts. Use `--mcp` on the root command to serve leaf commands as MCP tools over stdio for trusted local LLM clients. Errors go to stderr via `slog`.
+- Root help must keep the recovery playbook actionable for LLMs: auth failures, date validation, pagination caps, unknown flags/enums, and empty or broad outputs should each have a concrete retry path.
 - Dates use `YYYY-MM-DD` format on the CLI, converted internally as needed.
 - Boolean/toggle filters use integers: `-1` = all/unfiltered, `0` = exclude, `1` = include/only.
 - Pagination uses `--start` (offset) and `--length` (count). `--length -1` means all results except for capped trade retrieval endpoints. `trade list`, including `--summary`, defaults to `--length 10` and only allows `--length` values from 1 to 50 because the VolumeLeaders backend cannot safely retrieve more than 50 individual trades per request. `trade levels` caps `--trade-level-count` at 50, and `trade level-touches` only allows `--length` values from 1 to 50.

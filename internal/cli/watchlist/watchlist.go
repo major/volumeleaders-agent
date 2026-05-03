@@ -14,6 +14,64 @@ import (
 	"github.com/major/volumeleaders-agent/internal/models"
 )
 
+type watchlistSecurityType string
+type watchlistRelativeSize string
+type watchlistTradeRank string
+
+const (
+	watchlistSecurityAll    watchlistSecurityType = "-1"
+	watchlistSecurityStocks watchlistSecurityType = "1"
+	watchlistSecurityETFs   watchlistSecurityType = "26"
+	watchlistSecurityREITs  watchlistSecurityType = "4"
+)
+
+const (
+	watchlistRelativeSizeAll watchlistRelativeSize = "0"
+	watchlistRelativeSize5   watchlistRelativeSize = "5"
+	watchlistRelativeSize10  watchlistRelativeSize = "10"
+	watchlistRelativeSize25  watchlistRelativeSize = "25"
+	watchlistRelativeSize50  watchlistRelativeSize = "50"
+	watchlistRelativeSize100 watchlistRelativeSize = "100"
+)
+
+const (
+	watchlistTradeRankAll watchlistTradeRank = "-1"
+	watchlistTradeRank1   watchlistTradeRank = "1"
+	watchlistTradeRank3   watchlistTradeRank = "3"
+	watchlistTradeRank5   watchlistTradeRank = "5"
+	watchlistTradeRank10  watchlistTradeRank = "10"
+	watchlistTradeRank25  watchlistTradeRank = "25"
+	watchlistTradeRank50  watchlistTradeRank = "50"
+	watchlistTradeRank100 watchlistTradeRank = "100"
+)
+
+func init() {
+	structcli.RegisterEnum[watchlistSecurityType](map[watchlistSecurityType][]string{
+		watchlistSecurityAll:    {"-1"},
+		watchlistSecurityStocks: {"1"},
+		watchlistSecurityETFs:   {"26"},
+		watchlistSecurityREITs:  {"4"},
+	})
+	structcli.RegisterEnum[watchlistRelativeSize](map[watchlistRelativeSize][]string{
+		watchlistRelativeSizeAll: {"0"},
+		watchlistRelativeSize5:   {"5"},
+		watchlistRelativeSize10:  {"10"},
+		watchlistRelativeSize25:  {"25"},
+		watchlistRelativeSize50:  {"50"},
+		watchlistRelativeSize100: {"100"},
+	})
+	structcli.RegisterEnum[watchlistTradeRank](map[watchlistTradeRank][]string{
+		watchlistTradeRankAll: {"-1"},
+		watchlistTradeRank1:   {"1"},
+		watchlistTradeRank3:   {"3"},
+		watchlistTradeRank5:   {"5"},
+		watchlistTradeRank10:  {"10"},
+		watchlistTradeRank25:  {"25"},
+		watchlistTradeRank50:  {"50"},
+		watchlistTradeRank100: {"100"},
+	})
+}
+
 // watchlistConfigsOptions holds flags for the "watchlist configs" subcommand.
 type watchlistConfigsOptions struct {
 	Format common.OutputFormat `flag:"format" flaggroup:"Output" flagshort:"f" default:"json" flagdescr:"Output format: json, csv, or tsv"`
@@ -38,38 +96,38 @@ type watchlistAddTickerOptions struct {
 
 // watchlistConfigFlags holds the shared flag set for watchlist create/edit commands.
 type watchlistConfigFlags struct {
-	Name                string  `flag:"name" flaggroup:"Basic" flagdescr:"Watch list name"`
-	Tickers             string  `flag:"tickers" flaggroup:"Basic" flagshort:"t" flagdescr:"Comma-separated ticker symbols (max 500)"`
-	MinVolume           int     `flag:"min-volume" flaggroup:"Ranges" flagdescr:"Minimum volume filter"`
-	MaxVolume           int     `flag:"max-volume" flaggroup:"Ranges" flagdescr:"Maximum volume filter"`
-	MinDollars          float64 `flag:"min-dollars" flaggroup:"Ranges" flagdescr:"Minimum dollars filter"`
-	MaxDollars          float64 `flag:"max-dollars" flaggroup:"Ranges" flagdescr:"Maximum dollars filter"`
-	MinPrice            float64 `flag:"min-price" flaggroup:"Ranges" flagdescr:"Minimum price filter"`
-	MaxPrice            float64 `flag:"max-price" flaggroup:"Ranges" flagdescr:"Maximum price filter"`
-	MinVCD              float64 `flag:"min-vcd" flaggroup:"Filters" flagdescr:"Minimum VCD percentile (0-100)"`
-	SectorIndustry      string  `flag:"sector-industry" flaggroup:"Filters" flagdescr:"Sector/industry filter (max 100 chars)"`
-	SecurityType        int     `flag:"security-type" flaggroup:"Filters" flagdescr:"Security type (-1=all, 1=stocks, 26=ETFs, 4=REITs)"`
-	MinRelativeSize     int     `flag:"min-relative-size" flaggroup:"Filters" flagdescr:"Minimum relative size (0/5/10/25/50/100)"`
-	MaxTradeRank        int     `flag:"max-trade-rank" flaggroup:"Filters" flagdescr:"Maximum trade rank (-1=all, 1/3/5/10/25/50/100)"`
-	NormalPrints        bool    `flag:"normal-prints" flaggroup:"Print Types" flagdescr:"Include normal prints"`
-	SignaturePrints     bool    `flag:"signature-prints" flaggroup:"Print Types" flagdescr:"Include signature prints"`
-	LatePrints          bool    `flag:"late-prints" flaggroup:"Print Types" flagdescr:"Include late prints"`
-	TimelyPrints        bool    `flag:"timely-prints" flaggroup:"Print Types" flagdescr:"Include timely prints"`
-	DarkPools           bool    `flag:"dark-pools" flaggroup:"Venues" flagdescr:"Include dark pool trades"`
-	LitExchanges        bool    `flag:"lit-exchanges" flaggroup:"Venues" flagdescr:"Include lit exchange trades"`
-	Sweeps              bool    `flag:"sweeps" flaggroup:"Venues" flagdescr:"Include sweep trades"`
-	Blocks              bool    `flag:"blocks" flaggroup:"Venues" flagdescr:"Include block trades"`
-	PremarketTrades     bool    `flag:"premarket-trades" flaggroup:"Sessions" flagdescr:"Include premarket trades"`
-	RTHTrades           bool    `flag:"rth-trades" flaggroup:"Sessions" flagdescr:"Include regular trading hours trades"`
-	AHTrades            bool    `flag:"ah-trades" flaggroup:"Sessions" flagdescr:"Include after-hours trades"`
-	OpeningTrades       bool    `flag:"opening-trades" flaggroup:"Sessions" flagdescr:"Include opening trades"`
-	ClosingTrades       bool    `flag:"closing-trades" flaggroup:"Sessions" flagdescr:"Include closing trades"`
-	PhantomTrades       bool    `flag:"phantom-trades" flaggroup:"Sessions" flagdescr:"Include phantom trades"`
-	OffsettingTrades    bool    `flag:"offsetting-trades" flaggroup:"Sessions" flagdescr:"Include offsetting trades"`
-	RSIOverboughtDaily  int     `flag:"rsi-overbought-daily" flaggroup:"RSI" flagdescr:"RSI overbought daily (1=yes, 0=no, -1=ignore)"`
-	RSIOverboughtHourly int     `flag:"rsi-overbought-hourly" flaggroup:"RSI" flagdescr:"RSI overbought hourly (1=yes, 0=no, -1=ignore)"`
-	RSIOversoldDaily    int     `flag:"rsi-oversold-daily" flaggroup:"RSI" flagdescr:"RSI oversold daily (1=yes, 0=no, -1=ignore)"`
-	RSIOversoldHourly   int     `flag:"rsi-oversold-hourly" flaggroup:"RSI" flagdescr:"RSI oversold hourly (1=yes, 0=no, -1=ignore)"`
+	Name                string                `flag:"name" flaggroup:"Basic" flagdescr:"Watch list name"`
+	Tickers             string                `flag:"tickers" flaggroup:"Basic" flagshort:"t" flagdescr:"Comma-separated ticker symbols (max 500)"`
+	MinVolume           int                   `flag:"min-volume" flaggroup:"Ranges" flagdescr:"Minimum volume filter"`
+	MaxVolume           int                   `flag:"max-volume" flaggroup:"Ranges" flagdescr:"Maximum volume filter"`
+	MinDollars          float64               `flag:"min-dollars" flaggroup:"Ranges" flagdescr:"Minimum dollars filter"`
+	MaxDollars          float64               `flag:"max-dollars" flaggroup:"Ranges" flagdescr:"Maximum dollars filter"`
+	MinPrice            float64               `flag:"min-price" flaggroup:"Ranges" flagdescr:"Minimum price filter"`
+	MaxPrice            float64               `flag:"max-price" flaggroup:"Ranges" flagdescr:"Maximum price filter"`
+	MinVCD              float64               `flag:"min-vcd" flaggroup:"Filters" flagdescr:"Minimum VCD percentile (0-100)"`
+	SectorIndustry      string                `flag:"sector-industry" flaggroup:"Filters" flagdescr:"Sector/industry filter (max 100 chars)"`
+	SecurityType        watchlistSecurityType `flag:"security-type" flaggroup:"Filters" flagdescr:"Security type (-1=all, 1=stocks, 26=ETFs, 4=REITs)"`
+	MinRelativeSize     watchlistRelativeSize `flag:"min-relative-size" flaggroup:"Filters" flagdescr:"Minimum relative size (0/5/10/25/50/100)"`
+	MaxTradeRank        watchlistTradeRank    `flag:"max-trade-rank" flaggroup:"Filters" flagdescr:"Maximum trade rank (-1=all, 1/3/5/10/25/50/100)"`
+	NormalPrints        bool                  `flag:"normal-prints" flaggroup:"Print Types" flagdescr:"Include normal prints"`
+	SignaturePrints     bool                  `flag:"signature-prints" flaggroup:"Print Types" flagdescr:"Include signature prints"`
+	LatePrints          bool                  `flag:"late-prints" flaggroup:"Print Types" flagdescr:"Include late prints"`
+	TimelyPrints        bool                  `flag:"timely-prints" flaggroup:"Print Types" flagdescr:"Include timely prints"`
+	DarkPools           bool                  `flag:"dark-pools" flaggroup:"Venues" flagdescr:"Include dark pool trades"`
+	LitExchanges        bool                  `flag:"lit-exchanges" flaggroup:"Venues" flagdescr:"Include lit exchange trades"`
+	Sweeps              bool                  `flag:"sweeps" flaggroup:"Venues" flagdescr:"Include sweep trades"`
+	Blocks              bool                  `flag:"blocks" flaggroup:"Venues" flagdescr:"Include block trades"`
+	PremarketTrades     bool                  `flag:"premarket-trades" flaggroup:"Sessions" flagdescr:"Include premarket trades"`
+	RTHTrades           bool                  `flag:"rth-trades" flaggroup:"Sessions" flagdescr:"Include regular trading hours trades"`
+	AHTrades            bool                  `flag:"ah-trades" flaggroup:"Sessions" flagdescr:"Include after-hours trades"`
+	OpeningTrades       bool                  `flag:"opening-trades" flaggroup:"Sessions" flagdescr:"Include opening trades"`
+	ClosingTrades       bool                  `flag:"closing-trades" flaggroup:"Sessions" flagdescr:"Include closing trades"`
+	PhantomTrades       bool                  `flag:"phantom-trades" flaggroup:"Sessions" flagdescr:"Include phantom trades"`
+	OffsettingTrades    bool                  `flag:"offsetting-trades" flaggroup:"Sessions" flagdescr:"Include offsetting trades"`
+	RSIOverboughtDaily  common.TriStateFilter `flag:"rsi-overbought-daily" flaggroup:"RSI" flagdescr:"RSI overbought daily (-1=ignore, 0=no, 1=yes)"`
+	RSIOverboughtHourly common.TriStateFilter `flag:"rsi-overbought-hourly" flaggroup:"RSI" flagdescr:"RSI overbought hourly (-1=ignore, 0=no, 1=yes)"`
+	RSIOversoldDaily    common.TriStateFilter `flag:"rsi-oversold-daily" flaggroup:"RSI" flagdescr:"RSI oversold daily (-1=ignore, 0=no, 1=yes)"`
+	RSIOversoldHourly   common.TriStateFilter `flag:"rsi-oversold-hourly" flaggroup:"RSI" flagdescr:"RSI oversold hourly (-1=ignore, 0=no, 1=yes)"`
 }
 
 // watchlistCreateOptions holds flags for the "watchlist create" subcommand.
@@ -89,8 +147,9 @@ func presetWatchlistConfigDefaults(cfg *watchlistConfigFlags) {
 	cfg.MaxVolume = 2000000000
 	cfg.MaxDollars = 30000000000
 	cfg.MaxPrice = 100000
-	cfg.SecurityType = -1
-	cfg.MaxTradeRank = -1
+	cfg.SecurityType = watchlistSecurityAll
+	cfg.MinRelativeSize = watchlistRelativeSizeAll
+	cfg.MaxTradeRank = watchlistTradeRankAll
 	cfg.NormalPrints = true
 	cfg.SignaturePrints = true
 	cfg.LatePrints = true
@@ -106,10 +165,10 @@ func presetWatchlistConfigDefaults(cfg *watchlistConfigFlags) {
 	cfg.ClosingTrades = true
 	cfg.PhantomTrades = true
 	cfg.OffsettingTrades = true
-	cfg.RSIOverboughtDaily = -1
-	cfg.RSIOverboughtHourly = -1
-	cfg.RSIOversoldDaily = -1
-	cfg.RSIOversoldHourly = -1
+	cfg.RSIOverboughtDaily = common.TriStateAll
+	cfg.RSIOverboughtHourly = common.TriStateAll
+	cfg.RSIOversoldDaily = common.TriStateAll
+	cfg.RSIOversoldHourly = common.TriStateAll
 }
 
 // NewCmd returns the "watchlist" command group with all subcommands.
@@ -335,9 +394,9 @@ func buildWatchlistConfigFields(opts *watchlistConfigFlags, key int) map[string]
 		"MaxPrice":                    common.FormatFloat(opts.MaxPrice),
 		"MinVCD":                      common.FormatFloat(opts.MinVCD),
 		"SectorIndustry":              opts.SectorIndustry,
-		"SecurityTypeKey":             strconv.Itoa(opts.SecurityType),
-		"MinRelativeSizeSelected":     strconv.Itoa(opts.MinRelativeSize),
-		"MaxTradeRankSelected":        strconv.Itoa(opts.MaxTradeRank),
+		"SecurityTypeKey":             string(opts.SecurityType),
+		"MinRelativeSizeSelected":     string(opts.MinRelativeSize),
+		"MaxTradeRankSelected":        string(opts.MaxTradeRank),
 		"NormalPrintsSelected":        common.BoolString(opts.NormalPrints),
 		"SignaturePrintsSelected":     common.BoolString(opts.SignaturePrints),
 		"LatePrintsSelected":          common.BoolString(opts.LatePrints),
@@ -353,10 +412,10 @@ func buildWatchlistConfigFields(opts *watchlistConfigFlags, key int) map[string]
 		"ClosingTradesSelected":       common.BoolString(opts.ClosingTrades),
 		"PhantomTradesSelected":       common.BoolString(opts.PhantomTrades),
 		"OffsettingTradesSelected":    common.BoolString(opts.OffsettingTrades),
-		"RSIOverboughtDailySelected":  strconv.Itoa(opts.RSIOverboughtDaily),
-		"RSIOverboughtHourlySelected": strconv.Itoa(opts.RSIOverboughtHourly),
-		"RSIOversoldDailySelected":    strconv.Itoa(opts.RSIOversoldDaily),
-		"RSIOversoldHourlySelected":   strconv.Itoa(opts.RSIOversoldHourly),
+		"RSIOverboughtDailySelected":  string(opts.RSIOverboughtDaily),
+		"RSIOverboughtHourlySelected": string(opts.RSIOverboughtHourly),
+		"RSIOversoldDailySelected":    string(opts.RSIOversoldDaily),
+		"RSIOversoldHourlySelected":   string(opts.RSIOversoldHourly),
 	}
 }
 

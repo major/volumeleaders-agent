@@ -889,6 +889,10 @@ func runTradeLevels(cmd *cobra.Command, opts *tradeLevelsOptions) error {
 	if err != nil {
 		return err
 	}
+	fields, err := common.OutputFields[models.TradeLevel](opts.Fields, nil)
+	if err != nil {
+		return fmt.Errorf("parsing fields flag: %w", err)
+	}
 	ticker, err := common.SingleTickerValue(cmd)
 	if err != nil {
 		return err

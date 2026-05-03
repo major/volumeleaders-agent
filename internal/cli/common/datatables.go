@@ -14,12 +14,7 @@ import (
 
 // RunDataTablesCommand is the shared handler for DataTables-backed commands.
 func RunDataTablesCommand[T any](cmd *cobra.Command, path string, columns []string, opts DataTableOptions, formatValue OutputFormat, label string) error {
-	format, err := ParseOutputFormat(formatValue)
-	if err != nil {
-		return err
-	}
-	ctx := cmd.Context()
-	vlClient, err := NewCommandClient(ctx)
+	ctx, vlClient, format, err := newDataTablesSetup(cmd, formatValue)
 	if err != nil {
 		return err
 	}
@@ -38,22 +33,32 @@ func RunDataTablesCommand[T any](cmd *cobra.Command, path string, columns []stri
 // RunDataTablesSingleRequestCommand sends exactly one DataTables request, even
 // when opts.Length is -1.
 func RunDataTablesSingleRequestCommand[T any](cmd *cobra.Command, path string, columns []string, opts DataTableOptions, formatValue OutputFormat, label string) error {
-	format, err := ParseOutputFormat(formatValue)
-	if err != nil {
-		return err
-	}
-	ctx := cmd.Context()
-	vlClient, err := NewCommandClient(ctx)
+	ctx, vlClient, format, err := newDataTablesSetup(cmd, formatValue)
 	if err != nil {
 		return err
 	}
 	request := NewDataTablesRequest(columns, opts)
 	var result []T
 	if err := vlClient.PostDataTables(ctx, path, request.Encode(), &result); err != nil {
-		slog.Error("failed to "+label, "error", err)
+		slog.Error("failed to"+label, "error", err)
 		return fmt.Errorf("%s: %w", label, err)
 	}
 	return PrintDataTablesResult(cmd.OutOrStdout(), ctx, result, opts.Fields, format)
+}
+
+// newDataTablesSetup extracts the common setup for DataTables commands:
+// parsing output format, getting context, and creating an authenticated client.
+func newDataTablesSetup(cmd *cobra.Command, formatValue OutputFormat) (context.Context, *client.Client, OutputFormat, error) {
+	format, err := ParseOutputFormat(formatValue)
+	if err != nil {
+		return nil, nil, "", err
+	}
+	ctx := cmd.Context()
+	vlClient, err := NewCommandClient(ctx)
+	if err != nil {
+		return nil, nil, "", err
+	}
+	return ctx, vlClient, format, nil
 }
 
 // RunPaginatedCommand fetches all records by paginating through the DataTables

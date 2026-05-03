@@ -34,7 +34,7 @@ volumeleaders-agent trade list --tickers NVDA --start-date 2025-01-01 --end-date
 volumeleaders-agent --pretty market exhaustion
 ```
 
-Commands emit compact JSON to stdout by default. Use `--pretty` for indented output. Errors go to stderr. Use `--jsonschema=tree` on the root command for a machine-readable JSON Schema of commands and flags, `volumeleaders-agent outputschema` for machine-readable stdout contracts, or `--mcp` to serve leaf commands as MCP tools over stdio for trusted local LLM clients. Root help includes a recovery playbook for authentication, date validation, pagination, unknown flags, and broad result sets.
+Commands emit compact JSON to stdout by default. Use `--pretty` for indented output. Errors go to stderr. Use `--jsonschema=tree` on the root command for a machine-readable JSON Schema of commands and flags, `volumeleaders-agent outputschema` for machine-readable stdout contracts, or `--mcp` to serve leaf commands as MCP tools over stdio for trusted local LLM clients. Root help includes a recovery playbook for authentication, date validation, pagination, unknown flags, and broad result sets. Generated LLM discovery files live in `docs/llm/` and can be refreshed with `make generate-discovery`.
 
 ## Commands
 
@@ -49,6 +49,14 @@ Commands emit compact JSON to stdout by default. Use `--pretty` for indented out
 
 Use `volumeleaders-agent --jsonschema=tree` for the machine-readable JSON Schema of all commands and flags. Use `volumeleaders-agent outputschema trade list` for the stdout contract of a specific command, including formats, fields, and conditional variants. Use `volumeleaders-agent --mcp` to expose the same leaf-command surface to MCP clients over stdio. Run `volumeleaders-agent --help` for embedded domain knowledge, filter conventions, recovery steps, workflows, and domain gotchas.
 
+## LLM discovery files
+
+The `docs/llm/` directory contains generated `AGENTS.md`, `SKILL.md`, and `llms.txt` files built from the Cobra and structcli command tree. Refresh them after command, flag, default, or example changes:
+
+```bash
+make generate-discovery
+```
+
 ## Build
 
 ```bash
@@ -56,6 +64,7 @@ make build      # Build binary
 make test       # Run tests
 make lint       # Run golangci-lint
 make install    # Install to $GOPATH/bin
+make generate-discovery # Refresh docs/llm discovery files
 ```
 
 ## License

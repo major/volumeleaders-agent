@@ -6,7 +6,7 @@ https://github.com/major/volumeleaders-agent/cmd/volumeleaders-agent
 
 Auth: reads browser cookies automatically. If auth fails with exit code 2 and "Authentication required: VolumeLeaders session has expired.", log in at https://www.volumeleaders.com in your browser, then retry.
 
-Output: compact JSON to stdout by default. Use --pretty before the command group for indented JSON. Use --jsonschema on any command for machine-readable JSON Schema output, --jsonschema=tree on the root for the full CLI tree, or --mcp on the root to serve leaf commands as MCP tools over stdio. Errors and logs go to stderr.
+Output: compact JSON to stdout by default. Use --pretty before the command group for indented JSON. Use --jsonschema on any command for machine-readable input JSON Schema output, --jsonschema=tree on the root for the full CLI tree, outputschema for machine-readable stdout contracts, or --mcp on the root to serve leaf commands as MCP tools over stdio. Errors and logs go to stderr.
 
 COMMAND CHOOSER
 
@@ -47,7 +47,7 @@ Toggle filters: -1 means all/unfiltered, 0 means exclude, 1 means include/only.
 
 Tickers: --tickers is comma-separated, --ticker is single-symbol. Commands that take tickers generally accept positional tickers too, for example: trade list XLE XLK. Trade and volume ticker filters also accept --symbol and --symbols aliases.
 
-Output formats: list-style commands may support --format json/csv/tsv. CSV/TSV include headers, booleans render as true/false, null or missing values render as empty cells. Nested summaries and single-object commands are JSON-only unless the schema shows a format flag.
+Output formats: list-style commands may support --format json/csv/tsv. CSV/TSV include headers, booleans render as true/false, null or missing values render as empty cells. Nested summaries and single-object commands are JSON-only unless the input schema shows a format flag. Use outputschema to inspect the success stdout shape for each command.
 
 Performance: use explicit dates and tickers when possible. Start narrow, then expand. VolumeLeaders endpoints can be expensive and some trade retrieval endpoints are intentionally capped.
 
@@ -60,6 +60,7 @@ Performance: use explicit dates and tickers when possible. Start narrow, then ex
 - [volumeleaders-agent market earnings](#volumeleaders-agent-market-earnings): Query the earnings calendar for a date range, showing tickers with earnings dates and associated trade activity counts. Requires --start-date and --end-date (or --days). Outputs compact JSON or CSV/TSV with --format.
 - [volumeleaders-agent market exhaustion](#volumeleaders-agent-market-exhaustion): Query exhaustion scores that indicate overbought or oversold market conditions based on institutional trade clustering patterns. Omit --date to query the current trading day. Outputs compact JSON with rank metrics at different lookback periods.
 - [volumeleaders-agent market snapshots](#volumeleaders-agent-market-snapshots): Retrieve current price snapshot data for all symbols tracked by VolumeLeaders, returning the latest available price and volume data. No date filtering is available; always returns the most recent data. Outputs compact JSON by default.
+- [volumeleaders-agent outputschema](#volumeleaders-agent-outputschema): Print machine-readable stdout contracts for executable commands. With no arguments it returns every contract as a JSON array. Pass a command path such as trade list to return one contract. This describes success output only; structured errors are documented by structcli flag errors.
 - [volumeleaders-agent trade alerts](#volumeleaders-agent-trade-alerts): Query trade alerts fired on a specific date based on saved alert configurations. Requires --date. Returns alert records matching your configured filters. Outputs compact JSON or CSV/TSV with --format.
 
 Alert configs trigger when trades match thresholds. Threshold names follow the pattern CategoryMetricLTE or CategoryMetricGTE where LTE is maximum rank and GTE is minimum value. Use alert configs to see your configured thresholds.
@@ -243,6 +244,10 @@ Query exhaustion scores that indicate overbought or oversold market conditions b
 ## volumeleaders-agent market snapshots
 
 Retrieve current price snapshot data for all symbols tracked by VolumeLeaders, returning the latest available price and volume data. No date filtering is available; always returns the most recent data. Outputs compact JSON by default.
+
+## volumeleaders-agent outputschema
+
+Print machine-readable stdout contracts for executable commands. With no arguments it returns every contract as a JSON array. Pass a command path such as trade list to return one contract. This describes success output only; structured errors are documented by structcli flag errors.
 
 ## volumeleaders-agent trade alerts
 

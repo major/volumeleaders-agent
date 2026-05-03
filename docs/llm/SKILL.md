@@ -5,13 +5,13 @@ description: |
   
   Auth: reads browser cookies automatically. If auth fails with exit code 2 and "Authentication required: VolumeLeaders session has expired.", log in at https://www.volumeleaders.com in your browser, then retry.
   
-  Output: compact JSON to stdout by default. Use --pretty before the command group for indented JSON. Use --jsonschema on any command for machine-readable JSON Schema output, --jsonschema=tree on the root for the full CLI tree, or --mcp on the root to serve leaf commands as MCP tools over stdio. Errors and logs go to stderr.
+  Output: compact JSON to stdout by default. Use --pretty before the command group for indented JSON. Use --jsonschema on any command for machine-readable input JSON Schema output, --jsonschema=tree on the root for the full CLI tree, outputschema for machine-readable stdout contracts, or --mcp on the root to serve leaf commands as MCP tools over stdio. Errors and logs go to stderr.
   
   COMMAND CHOOSER
   
   Goal                                          Start with                              Notes
   --------------------------------------------  --------------------------------------  -----------------------------------------------
-  Find individual institutional prints          trade list X --days N                   Use ...
+  Find individual institutional pr...
 metadata:
   author: major
   version: dev
@@ -192,6 +192,17 @@ Retrieve current price snapshot data for all symbols tracked by VolumeLeaders, r
 
 ```bash
 volumeleaders-agent market snapshots
+```
+
+#### `volumeleaders-agent outputschema`
+
+Print machine-readable stdout contracts for executable commands. With no arguments it returns every contract as a JSON array. Pass a command path such as trade list to return one contract. This describes success output only; structured errors are documented by structcli flag errors.
+
+**Example:**
+
+```bash
+volumeleaders-agent outputschema
+volumeleaders-agent outputschema trade list
 ```
 
 #### `volumeleaders-agent trade alerts`
@@ -825,6 +836,13 @@ volumeleaders-agent market exhaustion --date 2025-01-15
 
 ```bash
 volumeleaders-agent market snapshots
+```
+
+#### volumeleaders-agent outputschema
+
+```bash
+volumeleaders-agent outputschema
+volumeleaders-agent outputschema trade list
 ```
 
 #### volumeleaders-agent trade alerts

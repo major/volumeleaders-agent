@@ -33,7 +33,7 @@ Fork the repo, create a branch, and open a PR against `main`.
 
 ## Code Style
 
-Follow the patterns already in the codebase. `make lint` catches most issues. When in doubt, look at how existing commands in `internal/commands/` are structured and match that style.
+Follow the patterns already in the codebase. `make lint` catches most issues. When in doubt, look at how existing commands in `internal/cli/` are structured and match that style.
 
 ## License
 

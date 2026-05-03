@@ -7,11 +7,12 @@ Go CLI tool for querying institutional trade data from [VolumeLeaders](https://w
 When modifying CLI commands, flags, models, or behavior:
 
 - Update `AGENTS.md` if the change affects project structure, build process, or conventions.
-- Use `volumeleaders-agent --jsonschema=tree` as the source of truth for command names, flags, aliases, defaults, and examples. Command Long descriptions contain embedded domain knowledge (workflows, recovery steps, conventions, gotchas).
+- Use `volumeleaders-agent --jsonschema=tree` as the source of truth for command names, flags, aliases, defaults, and examples. Use `volumeleaders-agent outputschema` as the source of truth for success stdout contracts, formats, fields, and variants. Command Long descriptions contain embedded domain knowledge (workflows, recovery steps, conventions, gotchas).
 
 Command documentation mapping:
 
 - All command groups -> `volumeleaders-agent --jsonschema=tree` for command shape and Long descriptions for semantic guidance. Use `volumeleaders-agent --mcp` when validating the MCP tool surface exposed to LLM clients.
+- All command outputs -> `volumeleaders-agent outputschema` for success stdout contracts.
 - Shared conventions, workflows, recovery behavior, output behavior, auth guidance, and domain gotchas -> root command Long description (run `volumeleaders-agent --help`).
 
 ## Project Layout
@@ -20,7 +21,7 @@ Command documentation mapping:
 cmd/volumeleaders-agent/main.go    Entry point
 internal/auth/                     Browser cookie + XSRF token extraction
 internal/client/                   HTTP client (DataTables + JSON requests)
-internal/cli/                      CLI command definitions and MCP surface
+internal/cli/                      CLI command definitions, MCP surface, and output contracts
 internal/datatables/               DataTables protocol encoding + column definitions
 internal/models/                   Response type definitions
 ```
@@ -36,7 +37,7 @@ make install    # Install to $GOPATH/bin
 
 ## Conventions
 
-- Commands output compact JSON to stdout by default. List-style commands may support `--format json|csv|tsv`; CSV/TSV include a header row, render booleans as `true`/`false`, and render null or missing values as empty cells. Use `--pretty` for indented JSON output. Use `--mcp` on the root command to serve leaf commands as MCP tools over stdio for trusted local LLM clients. Errors go to stderr via `slog`.
+- Commands output compact JSON to stdout by default. List-style commands may support `--format json|csv|tsv`; CSV/TSV include a header row, render booleans as `true`/`false`, and render null or missing values as empty cells. Use `--pretty` for indented JSON output. Use `outputschema` to inspect machine-readable success output contracts. Use `--mcp` on the root command to serve leaf commands as MCP tools over stdio for trusted local LLM clients. Errors go to stderr via `slog`.
 - Root help must keep the recovery playbook actionable for LLMs: auth failures, date validation, pagination caps, unknown flags/enums, and empty or broad outputs should each have a concrete retry path.
 - Dates use `YYYY-MM-DD` format on the CLI, converted internally as needed.
 - Boolean/toggle filters use integers: `-1` = all/unfiltered, `0` = exclude, `1` = include/only.
@@ -54,7 +55,7 @@ make install    # Install to $GOPATH/bin
 - For `internal/auth/**/*.go`, check cookie extraction, browser profile handling, and token lookup paths for credential safety, useful error messages, and graceful behavior when browsers or cookies are unavailable.
 - For `internal/client/**/*.go`, check HTTP status handling, request context propagation, response body closure, DataTables encoding, and errors that explain the endpoint or operation that failed.
 - For `internal/models/**/*.go`, verify JSON tags match VolumeLeaders response fields and that model changes do not silently drop data needed by commands, summaries, or CSV/TSV output.
-- For `internal/cli/**/*.go`, verify command behavior matches README, `volumeleaders-agent --jsonschema=tree`, and the conventions above. If commands, flags, aliases, defaults, or examples change, verify `--jsonschema=tree` output reflects the changes. If workflows, behavior, models, or output formats change, update the relevant command Long descriptions.
+- For `internal/cli/**/*.go`, verify command behavior matches README, `volumeleaders-agent --jsonschema=tree`, `volumeleaders-agent outputschema`, and the conventions above. If commands, flags, aliases, defaults, or examples change, verify `--jsonschema=tree` output reflects the changes. If workflows, behavior, models, output formats, or output fields change, update the relevant command Long descriptions and output contracts.
 - For MCP changes, verify `volumeleaders-agent --mcp` keeps JSON-RPC protocol output on stdout, does not expose shell completion or parent routing commands as tools, and never leaks cookies, XSRF tokens, session values, or other credentials in tool results or errors.
 - For tests, expect table-driven subtests with `t.Run`, parallelization where safe, `t.TempDir()` for filesystem work, deterministic fixtures, and assertions on observable behavior rather than implementation details. Do not request arbitrary coverage percentage changes.
 - For GitHub Actions workflows, treat unpinned actions, excessive permissions, secret exposure in logs, or unsafe pull request execution patterns as P1.

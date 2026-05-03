@@ -653,18 +653,11 @@ func tradesOptionsFromSentimentOptions(opts *tradeSentimentOptions, startDate, e
 
 
 func runTradeListRows(cmd *cobra.Command, opts common.DataTableOptions) error {
-	ctx := cmd.Context()
-	vlClient, err := common.NewCommandClient(ctx)
+	result, err := fetchTradeList(cmd, opts)
 	if err != nil {
 		return err
 	}
-	request := common.NewDataTablesRequest(datatables.TradeColumns, opts)
-	var result []models.Trade
-	if err := vlClient.PostDataTables(ctx, "/Trades/GetTrades", request.Encode(), &result); err != nil {
-		slog.Error("failed to query trades", "error", err)
-		return fmt.Errorf("query trades: %w", err)
-	}
-	return common.PrintJSON(cmd.OutOrStdout(), ctx, models.NewTradeListRows(result))
+	return common.PrintJSON(cmd.OutOrStdout(), cmd.Context(), models.NewTradeListRows(result))
 }
 
 func runTradeSummary(cmd *cobra.Command, opts common.DataTableOptions, groupBy tradeSummaryGroup, startDate, endDate string) error {

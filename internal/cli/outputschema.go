@@ -11,6 +11,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/major/volumeleaders-agent/internal/cli/common"
+	reportcmd "github.com/major/volumeleaders-agent/internal/cli/report"
 	"github.com/major/volumeleaders-agent/internal/models"
 )
 
@@ -108,6 +109,12 @@ func outputContractByCommand(contracts []outputContract, commandPath string) (ou
 
 func allOutputContracts() []outputContract {
 	contracts := []outputContract{
+		arrayOutputContract[reportcmd.ReportInfo]("report list", "List curated report commands and their fixed browser-preset filters.", outputFormats(), nil, nil),
+		reportTradeOutputContract("report top-100-rank", "Run the site-vetted top 100 ranked trades report."),
+		reportTradeOutputContract("report top-10-rank", "Run the site-vetted top 10 ranked trades report."),
+		reportTradeOutputContract("report dark-pool-sweeps", "Run the site-vetted dark pool sweeps report."),
+		reportTradeOutputContract("report disproportionately-large", "Run the site-vetted 5x relative size report."),
+
 		objectOutputContract[models.TradeDashboard]("trade dashboard", "Return a fast ticker dashboard with trades, clusters, levels, and cluster bombs.", []string{"json"}, []string{"Defaults to a 365-day lookback and 10 rows per section."}),
 		arrayOutputContract[models.TradeListRow]("trade list", "List individual institutional trades using a compact default row shape.", outputFormats(), nil, nil,
 			outputVariant{When: "--fields is set or --format is csv or tsv", Formats: outputFormats(), Schema: arraySchema[models.Trade](), FieldSelection: allFieldsSelection[models.Trade](nil), Notes: []string{"CSV and TSV include a header row matching the selected fields."}},
@@ -151,6 +158,13 @@ func allOutputContracts() []outputContract {
 		return strings.Compare(a.Command, b.Command)
 	})
 	return contracts
+}
+
+func reportTradeOutputContract(command, description string) outputContract {
+	return arrayOutputContract[models.TradeListRow](command, description, outputFormats(), nil, nil,
+		outputVariant{When: "--fields is set or --format is csv or tsv", Formats: outputFormats(), Schema: arraySchema[models.Trade](), FieldSelection: allFieldsSelection[models.Trade](nil), Notes: []string{"CSV and TSV include a header row matching the selected fields."}},
+		outputVariant{When: "--summary is set", Formats: []string{"json"}, Schema: objectSchema[models.TradeSummary](), Notes: []string{"--summary cannot be combined with --fields or non-JSON formats."}},
+	)
 }
 
 func outputFormats() []string {

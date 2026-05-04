@@ -486,7 +486,7 @@ func TestJSONSchemaTreeCoversDomainLeafCommands(t *testing.T) {
 	titles := schemaTitles(schemas)
 
 	root := NewRootCmd("volumeleaders-agent")
-	expectedTitles := make([]string, 0, 27)
+	expectedTitles := make([]string, 0, 32)
 	walkCommands(root, func(c *cobra.Command) {
 		if !isDomainLeafCommand(c) {
 			return
@@ -494,8 +494,8 @@ func TestJSONSchemaTreeCoversDomainLeafCommands(t *testing.T) {
 		expectedTitles = append(expectedTitles, c.CommandPath())
 	})
 	slices.Sort(expectedTitles)
-	if len(expectedTitles) != 27 {
-		t.Fatalf("expected current command tree to have 27 domain leaf commands, got %d: %v", len(expectedTitles), expectedTitles)
+	if len(expectedTitles) != 32 {
+		t.Fatalf("expected current command tree to have 32 domain leaf commands, got %d: %v", len(expectedTitles), expectedTitles)
 	}
 
 	missing := make([]string, 0)
@@ -926,8 +926,8 @@ func TestOutputSchemaTreeProducesCommandContracts(t *testing.T) {
 	if jsonErr := json.Unmarshal(out, &contracts); jsonErr != nil {
 		t.Fatalf("outputschema output is not valid JSON array: %v\nOutput: %s", jsonErr, out)
 	}
-	if len(contracts) != 27 {
-		t.Fatalf("expected 27 output contracts, got %d", len(contracts))
+	if len(contracts) != 32 {
+		t.Fatalf("expected 32 output contracts, got %d", len(contracts))
 	}
 
 	byCommand := make(map[string]map[string]any, len(contracts))
@@ -938,7 +938,7 @@ func TestOutputSchemaTreeProducesCommandContracts(t *testing.T) {
 		}
 		byCommand[command] = contract
 	}
-	for _, command := range []string{"trade list", "market exhaustion", "alert configs", "watchlist create"} {
+	for _, command := range []string{"report list", "report top-100-rank", "trade list", "market exhaustion", "alert configs", "watchlist create"} {
 		if _, ok := byCommand[command]; !ok {
 			t.Fatalf("missing output contract for %q", command)
 		}

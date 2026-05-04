@@ -14,6 +14,7 @@ import (
 	"github.com/major/volumeleaders-agent/internal/cli/alert"
 	"github.com/major/volumeleaders-agent/internal/cli/common"
 	"github.com/major/volumeleaders-agent/internal/cli/market"
+	"github.com/major/volumeleaders-agent/internal/cli/report"
 	"github.com/major/volumeleaders-agent/internal/cli/trade"
 	"github.com/major/volumeleaders-agent/internal/cli/volume"
 	"github.com/major/volumeleaders-agent/internal/cli/watchlist"
@@ -41,7 +42,12 @@ COMMAND CHOOSER
 
 Goal                                          Start with                              Notes
 --------------------------------------------  --------------------------------------  -----------------------------------------------
-Find individual institutional prints          trade list X --days N                   Use ticker filters, presets, or watchlists
+Run safe preset trade scans                   report list                             Prefer reports before raw trade filters
+Find ranked institutional prints              report top-100-rank                     Vetted browser preset, timeout-aware defaults
+Find strongest ranked prints                  report top-10-rank                      Narrower ranked-trade preset
+Find dark pool sweep activity                 report dark-pool-sweeps                 Vetted dark-pool sweep preset
+Find unusually large prints                   report disproportionately-large          5x relative size browser preset
+Find individual institutional prints          trade list X --days N                   Advanced path: use presets or tickers first
 Get comprehensive ticker overview            trade dashboard X --days N              Fast chart-style trades, clusters, levels, bombs
 Compare leveraged ETF bull/bear flow          trade sentiment --days N                Fixed leveraged ETF universe, not buy/sell flow
 Find converging price-level activity          trade clusters --days N                 Cluster conviction around similar prices
@@ -54,19 +60,20 @@ See after-hours institutional leaders         volume ah-institutional --date D  
 See total volume leaders                      volume total --date D                   Total market volume across trade types
 Get current prices                            market snapshots                        JSON object
 Find earnings with prior institutional flow   market earnings --days N                CSV/TSV supported
-Check exhaustion/reversal signals             market exhaustion --date D              Lower rank is stronger
+Check exhaustion/reversal signals             market exhaustion                       Optional --date, lower rank is stronger
 Manage alert configs                          alert configs/create/edit/delete        Edit replaces unspecified values with defaults
 Manage watchlists                             watchlist configs/create/edit/delete    Edit replaces unspecified values with defaults
 Get watchlist tickers                         watchlist tickers --watchlist-key K     Key comes from watchlist configs
 
 ANALYSIS WORKFLOW
 
-1. volume institutional --date D for top dollar movers.
-2. trade dashboard X --days N for a fast ticker overview before deeper drilling.
-3. trade list X --days N for individual prints.
-4. trade levels X --days N for support/resistance.
-5. trade clusters X --days N when prints appear concentrated around a price.
-6. market earnings --days N and market exhaustion --date D for event and reversal context.
+1. report list to choose a vetted preset report before raw filters.
+2. report top-100-rank or report disproportionately-large for the broad scan.
+3. trade dashboard X --days N for a fast ticker overview before deeper drilling.
+4. trade list --preset NAME only when report commands are not specific enough.
+5. trade levels X --days N for support/resistance.
+6. trade clusters X --days N when prints appear concentrated around a price.
+7. market earnings --days N and market exhaustion for event and reversal context.
 
 GLOBAL CONVENTIONS
 
@@ -80,7 +87,7 @@ Tickers: --tickers is comma-separated, --ticker is single-symbol. Commands that 
 
 Output formats: list-style commands may support --format json/csv/tsv. CSV/TSV include headers, booleans render as true/false, null or missing values render as empty cells. Nested summaries and single-object commands are JSON-only unless the input schema shows a format flag. Use outputschema to inspect the success stdout shape for each command.
 
-Performance: use explicit dates and tickers when possible. Start narrow, then expand. VolumeLeaders endpoints can be expensive; trade list uses a bounded chart-style request for multi-day ticker lookups and keeps the browser's 100-row page size for full-result retrieval.
+Performance: use report commands and built-in presets first. Start with one vetted report, one day, and tickers when possible, then expand. VolumeLeaders endpoints can be expensive; broad custom trade list filters are easy to overdo. report commands reject broad multi-day scans without tickers, trade list uses a bounded chart-style request for multi-day ticker lookups, and full-result retrieval keeps the browser's 100-row page size.
 
 RECOVERY PLAYBOOK
 
@@ -92,15 +99,17 @@ Pagination validation failed: reduce --length to the documented cap. trade level
 
 Unknown flag or enum value: run the same command with --help or --jsonschema to inspect supported flags, defaults, allowed values, and required fields before retrying.
 
-Empty or too broad output: add tickers, explicit dates, min dollar filters, or a preset first. If JSON is too verbose, use --fields where supported or --format csv for list-style commands.
+Empty or too broad output: use report list to pick a vetted preset report first, then add tickers or explicit dates. If JSON is too verbose, use --fields where supported or --format csv for list-style commands. Avoid hand-building raw filters unless report commands and trade list --preset cannot answer the question.
 
 COMMAND SEQUENCES
 
-Broad scan: volume institutional --date D, then trade dashboard TICKER --days N, then trade list TICKER --days N, then trade levels TICKER --days N.
+Broad scan: report top-100-rank, then report disproportionately-large, then trade dashboard TICKER --days N, then trade levels TICKER --days N.
+
+Preset workflow: report list, then report NAME for safe defaults, then trade list --preset NAME only if advanced customization is needed.
 
 Ticker drilldown: trade dashboard TICKER --days N, then trade list TICKER --days N, then trade clusters TICKER --days N.
 
-Event context: market earnings --days N, then trade list TICKER --start-date D --end-date D, then market exhaustion --date D.
+Event context: market earnings --days N, then trade list TICKER --start-date D --end-date D, then market exhaustion with optional --date.
 
 Watchlist workflow: watchlist configs to find keys and names, watchlist tickers --watchlist-key K to inspect symbols, then trade list --watchlist NAME --days N.`,
 		Version:          version,
@@ -123,6 +132,7 @@ Watchlist workflow: watchlist configs to find keys and names, watchlist tickers 
 		&cobra.Group{ID: "reference", Title: "Reference Commands:"},
 	)
 	cmd.AddCommand(
+		report.NewCmd(),
 		trade.NewCmd(),
 		volume.NewVolumeCommand(),
 		market.NewMarketCommand(),

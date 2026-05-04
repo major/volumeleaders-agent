@@ -249,7 +249,7 @@ volumeleaders-agent trade cluster-alerts --date 2025-01-15
 
 Query trade cluster bombs, which are extreme-magnitude trade clusters that exceed normal institutional activity thresholds. Filterable by ticker, date range, dollar amounts, sector, and cluster bomb rank. Outputs compact JSON by default.
 
-Cluster bombs find sudden aggressive bursts tightly grouped in time and price, with different defaults and rank fields than trade clusters. Use this command when looking for extreme concentration events, not general price-level clustering.
+Results are fetched in browser-sized 100-row pages to match VolumeLeaders' frontend behavior. Cluster bombs find sudden aggressive bursts tightly grouped in time and price, with different defaults and rank fields than trade clusters. Use this command when looking for extreme concentration events, not general price-level clustering.
 
 **Flags:**
 
@@ -258,7 +258,6 @@ Cluster bombs find sudden aggressive bursts tightly grouped in time and price, w
 | `--days` | int | 0 | no | Look back this many days from --end-date or today |
 | `--end-date` | string | - | no | End date YYYY-MM-DD (required unless --days is set) |
 | `--format` | string | json | no | Output format: json, csv, or tsv |
-| `--length` | int | 100 | no | Number of results |
 | `--max-dollars` | float64 | 30000000000 | no | Maximum dollar value |
 | `--max-volume` | int | 2000000000 | no | Maximum volume |
 | `--min-dollars` | float64 | 0 | no | Minimum dollar value |
@@ -284,7 +283,8 @@ volumeleaders-agent trade cluster-bombs TSLA --days 3
 
 Query aggregated trade clusters, which group multiple trades in a short window into a single cluster record. Filterable by ticker, date range, dollar amounts, sector, and trade cluster rank. Outputs compact JSON or CSV/TSV with --format.
 
-Use clusters when the question is about price-level concentration, not single prints. This command uses larger default retrieval and dollar thresholds than ordinary trade list. Use trade cluster-bombs instead when looking for sudden aggressive bursts tightly grouped in time and price.
+
+Results are fetched in browser-sized 100-row pages to match VolumeLeaders' frontend behavior. Use clusters when the question is about price-level concentration, not single prints. This command uses larger default dollar thresholds than ordinary trade list. Use trade cluster-bombs instead when looking for sudden aggressive bursts tightly grouped in time and price.
 
 **Flags:**
 
@@ -294,7 +294,6 @@ Use clusters when the question is about price-level concentration, not single pr
 | `--end-date` | string | - | no | End date YYYY-MM-DD (required unless --days is set) |
 | `--fields` | string | - | no | Comma-separated TradeCluster fields to include in output, or 'all' for every field |
 | `--format` | string | json | no | Output format: json, csv, or tsv |
-| `--length` | int | 1000 | no | Number of results |
 | `--max-dollars` | float64 | 30000000000 | no | Maximum dollar value |
 | `--max-price` | float64 | 100000 | no | Maximum price |
 | `--max-volume` | int | 2000000000 | no | Maximum volume |
@@ -322,11 +321,11 @@ volumeleaders-agent trade clusters AAPL --days 7
 
 Query institutional trade events that occurred at notable price levels for a ticker, showing how the market interacted with key support and resistance zones. Accepts a ticker as positional argument or via --ticker flag. Requires --start-date and --end-date (or --days).
 
-Defaults to --length 50 and rejects --length -1, --length 0, and values above 50. Use trade levels first to identify significant price zones, then use this command to find events where price revisited those levels.
+Defaults to --trade-level-rank 5 and --length 50, rejects --length -1, --length 0, and values above 50, and only allows --trade-level-count values of 5, 10, 20, or 50. Use trade levels first to identify significant price zones, then use this command to find events where price revisited those levels.
 
 PREREQUISITES: Provide exactly one ticker and a date range with --start-date and --end-date or --days.
 
-RECOVERY: If --length or --trade-level-count is rejected, use 1 to 50. If dates are missing, add --days N for a quick retry.
+RECOVERY: If --length is rejected, use 1 to 50. If --trade-level-count is rejected, use 5, 10, 20, or 50. If --trade-level-rank is rejected, use 5 or higher. If dates are missing, add --days N for a quick retry.
 
 NEXT STEPS: Compare touched levels with fresh trade list output to see whether recent institutional prints confirm or reject the level.
 
@@ -350,8 +349,8 @@ NEXT STEPS: Compare touched levels with fresh trade list output to see whether r
 | `--start` | int | 0 | no | DataTables start offset |
 | `--start-date` | string | - | no | Start date YYYY-MM-DD (required unless --days is set) |
 | `--ticker` | string | - | no | Ticker symbol |
-| `--trade-level-count` | int | 50 | no | Number of price levels to include (1-50) |
-| `--trade-level-rank` | int | 10 | no | Trade level rank filter |
+| `--trade-level-count` | int | 50 | no | Number of price levels to include (5, 10, 20, or 50) |
+| `--trade-level-rank` | int | 5 | no | Trade level rank filter |
 | `--vcd` | int | 0 | no | VCD filter |
 
 **Example:**
@@ -364,11 +363,11 @@ volumeleaders-agent trade level-touches AAPL --days 14
 
 Query significant price levels for a ticker, showing historical support and resistance zones identified by institutional trade clustering. Accepts a ticker as positional argument or via --ticker flag. Outputs compact JSON by default.
 
-Defaults to a 1-year lookback when dates are omitted. Uses non-standard --relative-size 0 and caps level count from 1 to 50 via --trade-level-count. Default JSON is compact and omits repetitive ticker metadata and the verbose Dates list; use --fields all or CSV/TSV when raw fields are needed.
+Defaults to a 365-day lookback when dates are omitted. Uses non-standard --relative-size 0 and only allows --trade-level-count values of 5, 10, 20, or 50. Default JSON is compact and omits repetitive ticker metadata and the verbose Dates list; use --fields all or CSV/TSV when raw fields are needed.
 
 PREREQUISITES: Provide exactly one ticker as a positional argument or with --ticker.
 
-RECOVERY: If ticker validation fails, use one ticker only. If --trade-level-count is rejected, use a value from 1 to 50.
+RECOVERY: If ticker validation fails, use one ticker only. If --trade-level-count is rejected, use 5, 10, 20, or 50.
 
 NEXT STEPS: Use trade level-touches with the same ticker and date range to find trades that revisited these levels.
 
@@ -389,7 +388,7 @@ NEXT STEPS: Use trade level-touches with the same ticker and date range to find 
 | `--relative-size` | int | 0 | no | Relative size threshold |
 | `--start-date` | string | - | no | Start date YYYY-MM-DD (default: auto) |
 | `--ticker` | string | - | no | Ticker symbol |
-| `--trade-level-count` | int | 10 | no | Number of price levels to return (1-50) |
+| `--trade-level-count` | int | 10 | no | Number of price levels to return (5, 10, 20, or 50) |
 | `--trade-level-rank` | int | -1 | no | Trade level rank filter |
 | `--vcd` | int | 0 | no | VCD filter |
 
@@ -437,7 +436,7 @@ Shared trade filters include volume, price, dollars, conditions, VCD, relative s
 
 PREREQUISITES: Browser authentication. For reproducible scans, pass explicit dates or --days plus tickers, preset, watchlist, or sector filters.
 
-RECOVERY: If --length is rejected, use 1 to 50 and page with --start. If --summary rejects --fields or --format, rerun summary as JSON without --fields. If date flags conflict, use either --days or --start-date with --end-date.
+RECOVERY: Results are fetched in browser-sized 100-row pages. If --summary rejects --fields or --format, rerun summary as JSON without --fields. If date flags conflict, use either --days or --start-date with --end-date.
 
 NEXT STEPS: Use trade levels for support/resistance after finding a ticker, trade clusters when prints concentrate near a price, or trade sentiment for leveraged ETF bull/bear context.
 
@@ -456,7 +455,6 @@ NEXT STEPS: Use trade levels for support/resistance after finding a ticker, trad
 | `--format` | string | json | no | Output format: json, csv, or tsv |
 | `--group-by` | string | ticker | no | Summary grouping (requires --summary): ticker, day, or ticker,day |
 | `--late-prints` | string | -1 | no | Late print filter (-1=all, 0=exclude, 1=only) |
-| `--length` | int | 10 | no | Number of results |
 | `--market-cap` | int | 0 | no | Market cap filter |
 | `--max-dollars` | float64 | 30000000000 | no | Maximum dollar value |
 | `--max-price` | float64 | 100000 | no | Maximum price |
@@ -492,7 +490,7 @@ NEXT STEPS: Use trade levels for support/resistance after finding a ticker, trad
 volumeleaders-agent trade list AAPL MSFT
 volumeleaders-agent trade list --tickers AAPL,MSFT
 volumeleaders-agent trade list --tickers NVDA --dark-pools 1 --min-dollars 1000000
-volumeleaders-agent trade list --sector Technology --relative-size 10 --length 50
+volumeleaders-agent trade list --sector Technology --relative-size 10
 volumeleaders-agent trade list --preset "Top-100 Rank" --start-date 2025-04-01 --end-date 2025-04-24
 volumeleaders-agent trade list --watchlist "Magnificent 7" --start-date 2025-04-01 --end-date 2025-04-24
 ```
@@ -899,7 +897,7 @@ volumeleaders-agent trade levels AAPL
 volumeleaders-agent trade list AAPL MSFT
 volumeleaders-agent trade list --tickers AAPL,MSFT
 volumeleaders-agent trade list --tickers NVDA --dark-pools 1 --min-dollars 1000000
-volumeleaders-agent trade list --sector Technology --relative-size 10 --length 50
+volumeleaders-agent trade list --sector Technology --relative-size 10
 volumeleaders-agent trade list --preset "Top-100 Rank" --start-date 2025-04-01 --end-date 2025-04-24
 volumeleaders-agent trade list --watchlist "Magnificent 7" --start-date 2025-04-01 --end-date 2025-04-24
 ```

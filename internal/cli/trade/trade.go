@@ -2,6 +2,7 @@ package trade
 
 import (
 	"context"
+	"fmt"
 	"strconv"
 
 	"github.com/leodido/structcli"
@@ -11,7 +12,7 @@ import (
 )
 
 const (
-	defaultTradeRequestLength   = 10
+	tradeBrowserPageLength      = 100
 	maxTradeRequestLength       = 50
 	maxTradeLevelRequestLength  = 50
 	tradeListTickerLookbackDays = 365
@@ -117,6 +118,12 @@ type tradePaginationFlags struct {
 	OrderDir common.OrderDirection `flag:"order-dir" flaggroup:"Pagination" flagdescr:"Order direction"`
 }
 
+type tradeFixedPageFlags struct {
+	Start    int                   `flag:"start" flaggroup:"Pagination" flagdescr:"DataTables start offset"`
+	OrderCol int                   `flag:"order-col" flaggroup:"Pagination" flagdescr:"Order column index"`
+	OrderDir common.OrderDirection `flag:"order-dir" flaggroup:"Pagination" flagdescr:"Order direction"`
+}
+
 type tradeFormatFlag struct {
 	Format common.OutputFormat `flag:"format" flaggroup:"Output" flagshort:"f" flagdescr:"Output format: json, csv, or tsv"`
 }
@@ -141,7 +148,7 @@ type tradeListOptions struct {
 	Summary   bool              `flag:"summary" flaggroup:"Output" flagdescr:"Return aggregate metrics instead of individual trades"`
 	GroupBy   tradeSummaryGroup `flag:"group-by" flaggroup:"Output" flagdescr:"Summary grouping (requires --summary): ticker, day, or ticker,day"`
 	tradeFormatFlag
-	tradePaginationFlags
+	tradeFixedPageFlags
 }
 
 type tradeSentimentOptions struct {
@@ -162,7 +169,7 @@ type tradeClustersOptions struct {
 	Sector           string `flag:"sector" flaggroup:"Input" flagdescr:"Sector/Industry filter"`
 	Fields           string `flag:"fields" flaggroup:"Output" flagdescr:"Comma-separated TradeCluster fields to include in output, or 'all' for every field"`
 	tradeFormatFlag
-	tradePaginationFlags
+	tradeFixedPageFlags
 }
 
 type tradeClusterBombsOptions struct {
@@ -175,7 +182,7 @@ type tradeClusterBombsOptions struct {
 	TradeClusterBombRank int    `flag:"trade-cluster-bomb-rank" flaggroup:"Filters" flagdescr:"Trade cluster bomb rank filter"`
 	Sector               string `flag:"sector" flaggroup:"Input" flagdescr:"Sector/Industry filter"`
 	tradeFormatFlag
-	tradePaginationFlags
+	tradeFixedPageFlags
 }
 
 type tradeLevelsOptions struct {
@@ -185,7 +192,7 @@ type tradeLevelsOptions struct {
 	VCD             int    `flag:"vcd" flaggroup:"Filters" flagdescr:"VCD filter"`
 	RelativeSize    int    `flag:"relative-size" flaggroup:"Filters" flagdescr:"Relative size threshold"`
 	TradeLevelRank  int    `flag:"trade-level-rank" flaggroup:"Filters" flagdescr:"Trade level rank filter"`
-	TradeLevelCount int    `flag:"trade-level-count" flaggroup:"Output" flagdescr:"Number of price levels to return (1-50)"`
+	TradeLevelCount int    `flag:"trade-level-count" flaggroup:"Output" flagdescr:"Number of price levels to return (5, 10, 20, or 50)"`
 	Fields          string `flag:"fields" flaggroup:"Output" flagdescr:"Comma-separated TradeLevel fields to include in output, or 'all' for every field"`
 	tradeFormatFlag
 }
@@ -197,20 +204,13 @@ type tradeLevelTouchesOptions struct {
 	VCD             int `flag:"vcd" flaggroup:"Filters" flagdescr:"VCD filter"`
 	RelativeSize    int `flag:"relative-size" flaggroup:"Filters" flagdescr:"Relative size threshold"`
 	TradeLevelRank  int `flag:"trade-level-rank" flaggroup:"Filters" flagdescr:"Trade level rank filter"`
-	TradeLevelCount int `flag:"trade-level-count" flaggroup:"Output" flagdescr:"Number of price levels to include (1-50)"`
+	TradeLevelCount int `flag:"trade-level-count" flaggroup:"Output" flagdescr:"Number of price levels to include (5, 10, 20, or 50)"`
 	tradeFormatFlag
 	tradePaginationFlags
 }
 
-func (opts *tradeListOptions) Validate(_ context.Context) []error {
-	if err := validateRange(opts.Length, maxTradeRequestLength, "length", "trade retrieval"); err != nil {
-		return []error{err}
-	}
-	return nil
-}
-
 func (opts *tradeLevelsOptions) Validate(_ context.Context) []error {
-	if err := validateRange(opts.TradeLevelCount, maxTradeLevelRequestLength, "trade-level-count", "trade level retrieval"); err != nil {
+	if err := validateTradeLevelCount(opts.TradeLevelCount); err != nil {
 		return []error{err}
 	}
 	return nil
@@ -220,8 +220,11 @@ func (opts *tradeLevelTouchesOptions) Validate(_ context.Context) []error {
 	if err := validateRange(opts.Length, maxTradeLevelRequestLength, "length", "trade level touch retrieval"); err != nil {
 		return []error{err}
 	}
-	if err := validateRange(opts.TradeLevelCount, maxTradeLevelRequestLength, "trade-level-count", "trade level retrieval"); err != nil {
+	if err := validateTradeLevelCount(opts.TradeLevelCount); err != nil {
 		return []error{err}
+	}
+	if opts.TradeLevelRank < 5 {
+		return []error{fmt.Errorf("--trade-level-rank must be 5 or higher for trade level touch retrieval")}
 	}
 	return nil
 }
@@ -269,7 +272,7 @@ func newTradeListCommand() *cobra.Command {
 	opts := &tradeListOptions{}
 	presetTradeFilterDefaults(&opts.tradeFilterFlags, 97)
 	presetTradeRangeDefaults(&opts.tradeRangeFlags, 500000)
-	presetTradePaginationDefaults(&opts.tradePaginationFlags, defaultTradeRequestLength, 1)
+	presetTradeFixedPageDefaults(&opts.tradeFixedPageFlags, 1)
 	opts.Format = "json"
 	opts.GroupBy = "ticker"
 	cmd := &cobra.Command{
@@ -311,22 +314,22 @@ Shared trade filters include volume, price, dollars, conditions, VCD, relative s
 
 PREREQUISITES: Browser authentication. For reproducible scans, pass explicit dates or --days plus tickers, preset, watchlist, or sector filters.
 
-RECOVERY: If --length is rejected, use 1 to 50 and page with --start. If --summary rejects --fields or --format, rerun summary as JSON without --fields. If date flags conflict, use either --days or --start-date with --end-date.
+RECOVERY: Results are fetched in browser-sized 100-row pages. If --summary rejects --fields or --format, rerun summary as JSON without --fields. If date flags conflict, use either --days or --start-date with --end-date.
 
 NEXT STEPS: Use trade levels for support/resistance after finding a ticker, trade clusters when prints concentrate near a price, or trade sentiment for leveraged ETF bull/bear context.`,
 		Example: `volumeleaders-agent trade list AAPL MSFT
 volumeleaders-agent trade list --tickers AAPL,MSFT
 volumeleaders-agent trade list --tickers NVDA --dark-pools 1 --min-dollars 1000000
-volumeleaders-agent trade list --sector Technology --relative-size 10 --length 50
+volumeleaders-agent trade list --sector Technology --relative-size 10
 volumeleaders-agent trade list --preset "Top-100 Rank" --start-date 2025-04-01 --end-date 2025-04-24
 volumeleaders-agent trade list --watchlist "Magnificent 7" --start-date 2025-04-01 --end-date 2025-04-24`,
 		Args:       cobra.ArbitraryArgs,
 		Aliases:    []string{"ls"},
 		SuggestFor: []string{"lst", "lis"},
 		RunE: func(cmd *cobra.Command, _ []string) error {
-		return runTradeList(cmd, opts)
-	},
-}
+			return runTradeList(cmd, opts)
+		},
+	}
 	common.BindOrPanic(cmd, opts, "list")
 	setTradeRangeFlagDefValues(cmd, opts.MinDollars)
 	return cmd
@@ -349,9 +352,9 @@ Ratio is bull dollars divided by bear dollars and is null when bear flow is zero
 		Args:       cobra.NoArgs,
 		SuggestFor: []string{"sentment", "sentimnt"},
 		RunE: func(cmd *cobra.Command, _ []string) error {
-		return runTradeSentiment(cmd, opts)
-	},
-}
+			return runTradeSentiment(cmd, opts)
+		},
+	}
 	common.BindOrPanic(cmd, opts, "sentiment")
 	setTradeRangeFlagDefValues(cmd, opts.MinDollars)
 	return cmd
@@ -360,7 +363,7 @@ Ratio is bull dollars divided by bear dollars and is null when bear flow is zero
 func newTradeClustersCommand() *cobra.Command {
 	opts := &tradeClustersOptions{}
 	presetTradeRangeDefaults(&opts.tradeRangeFlags, 10000000)
-	presetTradePaginationDefaults(&opts.tradePaginationFlags, 1000, 1)
+	presetTradeFixedPageDefaults(&opts.tradeFixedPageFlags, 1)
 	opts.SecurityType = -1
 	opts.RelativeSize = 5
 	opts.TradeClusterRank = -1
@@ -370,14 +373,15 @@ func newTradeClustersCommand() *cobra.Command {
 		Short: "Query aggregated trade clusters",
 		Long: `Query aggregated trade clusters, which group multiple trades in a short window into a single cluster record. Filterable by ticker, date range, dollar amounts, sector, and trade cluster rank. Outputs compact JSON or CSV/TSV with --format.
 
-Use clusters when the question is about price-level concentration, not single prints. This command uses larger default retrieval and dollar thresholds than ordinary trade list. Use trade cluster-bombs instead when looking for sudden aggressive bursts tightly grouped in time and price.`,
+
+Results are fetched in browser-sized 100-row pages to match VolumeLeaders' frontend behavior. Use clusters when the question is about price-level concentration, not single prints. This command uses larger default dollar thresholds than ordinary trade list. Use trade cluster-bombs instead when looking for sudden aggressive bursts tightly grouped in time and price.`,
 		Example:    "volumeleaders-agent trade clusters AAPL --days 7",
 		Args:       cobra.ArbitraryArgs,
 		SuggestFor: []string{"cluster", "clsters"},
 		RunE: func(cmd *cobra.Command, _ []string) error {
-		return runTradeClusters(cmd, opts)
-	},
-}
+			return runTradeClusters(cmd, opts)
+		},
+	}
 	common.BindOrPanic(cmd, opts, "clusters")
 	setTradeRangeFlagDefValues(cmd, opts.MinDollars)
 	return cmd
@@ -386,7 +390,7 @@ Use clusters when the question is about price-level concentration, not single pr
 func newTradeClusterBombsCommand() *cobra.Command {
 	opts := &tradeClusterBombsOptions{}
 	presetTradeVolumeDollarRangeDefaults(&opts.tradeVolumeDollarRangeFlags, 0)
-	presetTradePaginationDefaults(&opts.tradePaginationFlags, 100, 1)
+	presetTradeFixedPageDefaults(&opts.tradeFixedPageFlags, 1)
 	opts.TradeClusterBombRank = -1
 	opts.Format = "json"
 	cmd := &cobra.Command{
@@ -394,14 +398,14 @@ func newTradeClusterBombsCommand() *cobra.Command {
 		Short: "Query trade cluster bombs",
 		Long: `Query trade cluster bombs, which are extreme-magnitude trade clusters that exceed normal institutional activity thresholds. Filterable by ticker, date range, dollar amounts, sector, and cluster bomb rank. Outputs compact JSON by default.
 
-Cluster bombs find sudden aggressive bursts tightly grouped in time and price, with different defaults and rank fields than trade clusters. Use this command when looking for extreme concentration events, not general price-level clustering.`,
+Results are fetched in browser-sized 100-row pages to match VolumeLeaders' frontend behavior. Cluster bombs find sudden aggressive bursts tightly grouped in time and price, with different defaults and rank fields than trade clusters. Use this command when looking for extreme concentration events, not general price-level clustering.`,
 		Example:    "volumeleaders-agent trade cluster-bombs TSLA --days 3",
 		Args:       cobra.ArbitraryArgs,
 		SuggestFor: []string{"clusterbombs", "cluster-bomb"},
 		RunE: func(cmd *cobra.Command, _ []string) error {
-		return runTradeClusterBombs(cmd, opts)
-	},
-}
+			return runTradeClusterBombs(cmd, opts)
+		},
+	}
 	common.BindOrPanic(cmd, opts, "cluster-bombs")
 	setTradeVolumeDollarFlagDefValues(cmd, opts.MinDollars)
 	return cmd
@@ -421,9 +425,9 @@ Alert configs trigger when trades match thresholds. Threshold names follow the p
 		Args:       cobra.NoArgs,
 		SuggestFor: []string{"alert", "alrts"},
 		RunE: func(cmd *cobra.Command, _ []string) error {
-		return runTradeAlerts(cmd, opts)
-	},
-}
+			return runTradeAlerts(cmd, opts)
+		},
+	}
 	common.BindOrPanic(cmd, opts, "alerts")
 	_ = cmd.MarkFlagRequired("date")
 	return cmd
@@ -443,9 +447,9 @@ Cluster alert rows use the full cluster-shaped model rather than the compact def
 		Args:       cobra.NoArgs,
 		SuggestFor: []string{"clusteralerts", "cluster-alert"},
 		RunE: func(cmd *cobra.Command, _ []string) error {
-		return runTradeClusterAlerts(cmd, opts)
-	},
-}
+			return runTradeClusterAlerts(cmd, opts)
+		},
+	}
 	common.BindOrPanic(cmd, opts, "cluster-alerts")
 	_ = cmd.MarkFlagRequired("date")
 	return cmd
@@ -462,20 +466,20 @@ func newTradeLevelsCommand() *cobra.Command {
 		Short: "Query significant price levels for a ticker",
 		Long: `Query significant price levels for a ticker, showing historical support and resistance zones identified by institutional trade clustering. Accepts a ticker as positional argument or via --ticker flag. Outputs compact JSON by default.
 
-Defaults to a 1-year lookback when dates are omitted. Uses non-standard --relative-size 0 and caps level count from 1 to 50 via --trade-level-count. Default JSON is compact and omits repetitive ticker metadata and the verbose Dates list; use --fields all or CSV/TSV when raw fields are needed.
+Defaults to a 365-day lookback when dates are omitted. Uses non-standard --relative-size 0 and only allows --trade-level-count values of 5, 10, 20, or 50. Default JSON is compact and omits repetitive ticker metadata and the verbose Dates list; use --fields all or CSV/TSV when raw fields are needed.
 
 PREREQUISITES: Provide exactly one ticker as a positional argument or with --ticker.
 
-RECOVERY: If ticker validation fails, use one ticker only. If --trade-level-count is rejected, use a value from 1 to 50.
+RECOVERY: If ticker validation fails, use one ticker only. If --trade-level-count is rejected, use 5, 10, 20, or 50.
 
 NEXT STEPS: Use trade level-touches with the same ticker and date range to find trades that revisited these levels.`,
 		Example:    "volumeleaders-agent trade levels AAPL",
 		Args:       cobra.ArbitraryArgs,
 		SuggestFor: []string{"level", "lvels"},
 		RunE: func(cmd *cobra.Command, _ []string) error {
-		return runTradeLevels(cmd, opts)
-	},
-}
+			return runTradeLevels(cmd, opts)
+		},
+	}
 	common.BindOrPanic(cmd, opts, "levels")
 	setTradeRangeFlagDefValues(cmd, opts.MinDollars)
 	return cmd
@@ -485,7 +489,7 @@ func newTradeLevelTouchesCommand() *cobra.Command {
 	opts := &tradeLevelTouchesOptions{}
 	presetTradeRangeDefaults(&opts.tradeRangeFlags, 500000)
 	presetTradePaginationDefaults(&opts.tradePaginationFlags, maxTradeLevelRequestLength, 0)
-	opts.TradeLevelRank = 10
+	opts.TradeLevelRank = 5
 	opts.TradeLevelCount = maxTradeLevelRequestLength
 	opts.Format = "json"
 	cmd := &cobra.Command{
@@ -493,20 +497,20 @@ func newTradeLevelTouchesCommand() *cobra.Command {
 		Short: "Query trade events at notable price levels",
 		Long: `Query institutional trade events that occurred at notable price levels for a ticker, showing how the market interacted with key support and resistance zones. Accepts a ticker as positional argument or via --ticker flag. Requires --start-date and --end-date (or --days).
 
-Defaults to --length 50 and rejects --length -1, --length 0, and values above 50. Use trade levels first to identify significant price zones, then use this command to find events where price revisited those levels.
+Defaults to --trade-level-rank 5 and --length 50, rejects --length -1, --length 0, and values above 50, and only allows --trade-level-count values of 5, 10, 20, or 50. Use trade levels first to identify significant price zones, then use this command to find events where price revisited those levels.
 
 PREREQUISITES: Provide exactly one ticker and a date range with --start-date and --end-date or --days.
 
-RECOVERY: If --length or --trade-level-count is rejected, use 1 to 50. If dates are missing, add --days N for a quick retry.
+RECOVERY: If --length is rejected, use 1 to 50. If --trade-level-count is rejected, use 5, 10, 20, or 50. If --trade-level-rank is rejected, use 5 or higher. If dates are missing, add --days N for a quick retry.
 
 NEXT STEPS: Compare touched levels with fresh trade list output to see whether recent institutional prints confirm or reject the level.`,
 		Example:    "volumeleaders-agent trade level-touches AAPL --days 14",
 		Args:       cobra.ArbitraryArgs,
 		SuggestFor: []string{"leveltouches", "level-touch"},
 		RunE: func(cmd *cobra.Command, _ []string) error {
-		return runTradeLevelTouches(cmd, opts)
-	},
-}
+			return runTradeLevelTouches(cmd, opts)
+		},
+	}
 	common.BindOrPanic(cmd, opts, "level-touches")
 	setTradeRangeFlagDefValues(cmd, opts.MinDollars)
 	return cmd
@@ -550,6 +554,20 @@ func presetTradePaginationDefaults(opts *tradePaginationFlags, length, orderCol 
 	opts.Length = length
 	opts.OrderCol = orderCol
 	opts.OrderDir = "desc"
+}
+
+func presetTradeFixedPageDefaults(opts *tradeFixedPageFlags, orderCol int) {
+	opts.OrderCol = orderCol
+	opts.OrderDir = "desc"
+}
+
+func validateTradeLevelCount(count int) error {
+	switch count {
+	case 5, 10, 20, maxTradeLevelRequestLength:
+		return nil
+	default:
+		return fmt.Errorf("--trade-level-count must be one of 5, 10, 20, or 50 for trade level retrieval")
+	}
 }
 
 func setTradeRangeFlagDefValues(cmd *cobra.Command, minDollarsDefault float64) {

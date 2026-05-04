@@ -42,6 +42,20 @@ func assertFlags(t *testing.T, cmdPath []string, specs []flagSpec) {
 	}
 }
 
+// assertFlagAbsent verifies that a flag is NOT registered on the command at
+// cmdPath. Use this to guard against zombie flags reappearing after removal.
+func assertFlagAbsent(t *testing.T, cmdPath []string, name string) {
+	t.Helper()
+	rootCmd := cli.NewRootCmd("test")
+	cmd, _, err := rootCmd.Find(cmdPath)
+	if err != nil {
+		t.Fatalf("find %v: %v", cmdPath, err)
+	}
+	if f := cmd.Flags().Lookup(name); f != nil {
+		t.Fatalf("flag --%s should not be registered", name)
+	}
+}
+
 // TestVolumeInstitutionalFlagRegistration verifies that struct-tag-based flag
 // registration on the volume institutional command produces the expected flags
 // with correct types and defaults from volumeOptions{Length: 100, OrderCol: 1,
@@ -133,7 +147,7 @@ func TestTradeListFlagRegistration(t *testing.T) {
 		{"conditions", "int", "-1"},
 		{"dark-pools", "string", "-1"},
 		{"premarket", "string", "1"},
-		{"length", "int", "10"},
+		{"start", "int", "0"},
 		{"order-dir", "string", "desc"},
 		{"format", "string", "json"},
 		{"summary", "bool", "false"},
@@ -143,6 +157,9 @@ func TestTradeListFlagRegistration(t *testing.T) {
 		{"fields", "string", ""},
 		{"sector", "string", ""},
 	})
+	assertFlagAbsent(t, []string{"trade", "list"}, "length")
+	assertFlagAbsent(t, []string{"trade", "clusters"}, "length")
+	assertFlagAbsent(t, []string{"trade", "cluster-bombs"}, "length")
 }
 
 // TestEnumFlagValidation verifies structcli rejects invalid bounded values

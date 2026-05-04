@@ -528,7 +528,7 @@ func TestJSONSchemaSubcommandProducesValidJSON(t *testing.T) {
 		t.Fatal("schema missing 'properties' key")
 	}
 
-	expectedFlags := []string{"tickers", "start-date", "end-date", "min-dollars", "format", "length"}
+	expectedFlags := []string{"tickers", "start-date", "end-date", "min-dollars", "format", "start"}
 	for _, flag := range expectedFlags {
 		if _, exists := props[flag]; !exists {
 			t.Errorf("trade list --jsonschema missing expected flag %q", flag)
@@ -561,7 +561,7 @@ func TestJSONSchemaSubcommandIncludesFlagUsabilityMetadata(t *testing.T) {
 		"min-volume": "Ranges",
 		"conditions": "Filters",
 		"premarket":  "Sessions",
-		"length":     "Pagination",
+		"start":      "Pagination",
 		"format":     "Output",
 	}
 	for flag, expectedGroup := range groupedFlags {
@@ -586,7 +586,6 @@ func TestJSONSchemaSubcommandIncludesFlagUsabilityMetadata(t *testing.T) {
 		"start-date": "s",
 		"end-date":   "e",
 		"days":       "d",
-		"length":     "l",
 		"format":     "f",
 	}
 	for flag, expectedShort := range shortFlags {
@@ -705,14 +704,12 @@ func TestJSONSchemaDefaultValues(t *testing.T) {
 		flag string
 		want any
 	}{
-		{name: "trade list length", args: []string{"trade", "list", "--jsonschema"}, flag: "length", want: float64(10)},
 		{name: "trade list min dollars", args: []string{"trade", "list", "--jsonschema"}, flag: "min-dollars", want: float64(500000)},
 		{name: "trade list group by", args: []string{"trade", "list", "--jsonschema"}, flag: "group-by", want: "ticker"},
-		{name: "trade clusters length", args: []string{"trade", "clusters", "--jsonschema"}, flag: "length", want: float64(1000)},
 		{name: "trade clusters min dollars", args: []string{"trade", "clusters", "--jsonschema"}, flag: "min-dollars", want: float64(10000000)},
-		{name: "trade cluster bombs length", args: []string{"trade", "cluster-bombs", "--jsonschema"}, flag: "length", want: float64(100)},
 		{name: "trade levels count", args: []string{"trade", "levels", "--jsonschema"}, flag: "trade-level-count", want: float64(10)},
 		{name: "trade level touches length", args: []string{"trade", "level-touches", "--jsonschema"}, flag: "length", want: float64(50)},
+		{name: "trade level touches rank", args: []string{"trade", "level-touches", "--jsonschema"}, flag: "trade-level-rank", want: float64(5)},
 		{name: "watchlist tickers key", args: []string{"watchlist", "tickers", "--jsonschema"}, flag: "watchlist-key", want: float64(-1)},
 		{name: "volume institutional length", args: []string{"volume", "institutional", "--jsonschema"}, flag: "length", want: float64(100)},
 	}
@@ -729,6 +726,30 @@ func TestJSONSchemaDefaultValues(t *testing.T) {
 			}
 			if got != tt.want {
 				t.Fatalf("flag %q default = %#v, want %#v", tt.flag, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestTradeCommandsWithoutUserSelectableLength(t *testing.T) {
+	t.Parallel()
+	binary := buildBinary(t)
+
+	tests := []struct {
+		name string
+		args []string
+	}{
+		{name: "trade list", args: []string{"trade", "list", "--jsonschema"}},
+		{name: "trade clusters", args: []string{"trade", "clusters", "--jsonschema"}},
+		{name: "trade cluster bombs", args: []string{"trade", "cluster-bombs", "--jsonschema"}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			schema := commandJSONSchema(t, binary, tt.args...)
+			props := schemaProperties(t, schema)
+			if _, ok := props["length"]; ok {
+				t.Fatalf("schema for %q exposes length flag: %v", tt.name, props["length"])
 			}
 		})
 	}
@@ -1095,10 +1116,13 @@ func TestMCPToolsListExposesLeafCommands(t *testing.T) {
 	if !ok {
 		t.Fatalf("trade-list inputSchema missing properties: %v", tradeListSchema)
 	}
-	for _, expectedFlag := range []string{"tickers", "days", "format", "length"} {
+	for _, expectedFlag := range []string{"tickers", "days", "format", "start"} {
 		if _, ok := props[expectedFlag]; !ok {
 			t.Fatalf("trade-list inputSchema missing flag %q", expectedFlag)
 		}
+	}
+	if _, ok := props["length"]; ok {
+		t.Fatalf("trade-list inputSchema should not expose removed flag \"length\"")
 	}
 }
 

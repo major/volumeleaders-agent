@@ -80,3 +80,50 @@ func TestRequestEncodeCustomFilters(t *testing.T) {
 		}
 	}
 }
+
+func TestRequestEncodeColumnDefinitionsAndGlobalSearch(t *testing.T) {
+	t.Parallel()
+
+	request := Request{
+		ColumnDefs:       TradeChartColumns,
+		Start:            0,
+		Length:           10,
+		OrderColumnIndex: 0,
+		OrderDirection:   "DESC",
+		OrderName:        "FullTimeString24",
+		IncludeSearch:    true,
+		CustomFilters: map[string]string{
+			"Sort": "Dollars",
+		},
+	}
+
+	values, err := url.ParseQuery(request.Encode())
+	if err != nil {
+		t.Fatalf("parse encoded request: %v", err)
+	}
+
+	checks := map[string]string{
+		"length":                    "10",
+		"order[0][column]":          "0",
+		"order[0][dir]":             "DESC",
+		"order[0][name]":            "FullTimeString24",
+		"search[value]":             "",
+		"search[regex]":             "false",
+		"columns[1][data]":          "Volume",
+		"columns[1][name]":          "Sh",
+		"columns[1][searchable]":    "true",
+		"columns[1][orderable]":     "false",
+		"columns[3][data]":          "Dollars",
+		"columns[3][name]":          "$$",
+		"columns[6][data]":          "LastComparibleTradeDate",
+		"columns[6][name]":          "Last Comp",
+		"columns[6][search][value]": "",
+		"columns[6][search][regex]": "false",
+		"Sort":                      "Dollars",
+	}
+	for key, expected := range checks {
+		if got := values.Get(key); got != expected {
+			t.Errorf("%s: expected %q, got %q", key, expected, got)
+		}
+	}
+}

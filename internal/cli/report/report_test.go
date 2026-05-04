@@ -336,7 +336,10 @@ func TestRunReportSubmitsBrowserSizedPresetRequest(t *testing.T) {
 		if err != nil {
 			t.Errorf("read request body: %v", err)
 		}
-		got, _ = url.ParseQuery(string(body))
+		got, err = url.ParseQuery(string(body))
+		if err != nil {
+			t.Errorf("parse request body: %v", err)
+		}
 		_, _ = w.Write([]byte(testutil.DataTablesJSON(`[{"Ticker":"AAPL","Dollars":1000,"TradeRank":10}]`)))
 	}))
 	t.Cleanup(server.Close)

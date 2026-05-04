@@ -39,7 +39,7 @@ Commands emit compact JSON to stdout by default. Use `--pretty` for indented out
 ## Commands
 
 | Group | Purpose |
-|---|---|
+| --- | --- |
 | `trade` | Institutional trades, clusters, cluster bombs, price levels |
 | `volume` | Volume leaderboards (institutional, after-hours, total) |
 | `market` | Market-wide snapshots, earnings calendar, exhaustion scores |
@@ -65,13 +65,38 @@ By default, `make smoke` runs read-only commands and smoke-owned mutation checks
 go run ./cmd/smoke-test --mode read-only
 ```
 
-## LLM discovery files
+## Agent integration
+
+volumeleaders-agent ships generated discovery files for coding agents and LLM tools in `docs/llm/`. Use the file that matches your tool, then use live schema output from the binary as the authoritative command and flag contract.
+
+### Claude Code and other skill-aware tools
+
+Use `docs/llm/SKILL.md` when your tool supports Agent Skills, including Claude Code. It contains trigger phrases, command descriptions, flag tables, examples, and workflow guidance generated from the live Cobra and structcli command tree.
+
+For Claude Code, copy or symlink the generated skill into your local skills directory if you want it available outside this repository:
+
+```bash
+mkdir -p ~/.claude/skills/volumeleaders-agent
+ln -sf "$(pwd)/docs/llm/SKILL.md" ~/.claude/skills/volumeleaders-agent/SKILL.md
+```
+
+If you already have a custom skill at that path, review or back it up first because `ln -sf` replaces the existing file or symlink.
+
+### OpenCode and Codex
+
+OpenCode and Codex use `AGENTS.md` as project instructions. Start in the repository root so the tool can load the hand-maintained root `AGENTS.md`, then point it at `docs/llm/AGENTS.md`, `docs/llm/SKILL.md`, or `docs/llm/llms.txt` when it needs the generated command reference.
+
+The root `AGENTS.md` stays hand-written because it captures architecture, package conventions, review guidance, and safety rules that cannot be generated from the CLI tree. The `docs/llm/` files are generated artifacts.
+
+### Regenerating discovery files
 
 The `docs/llm/` directory contains generated `AGENTS.md`, `SKILL.md`, and `llms.txt` files built from the Cobra and structcli command tree. Refresh them after command, flag, default, or example changes:
 
 ```bash
 make generate-discovery
 ```
+
+Commit the regenerated files with the code change so agents see the same command surface as the binary.
 
 ## Build
 

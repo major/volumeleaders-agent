@@ -72,10 +72,52 @@ func runTradeList(cmd *cobra.Command, opts *tradeListOptions) error {
 		}
 		return runTradeSummary(cmd, dtOpts, opts.GroupBy, startDate, endDate)
 	}
+	if shouldUseLongTermTradeList(dtOpts, startDate, endDate) {
+		dtOpts = longTermTradeListOptions(cmd, dtOpts)
+		trades, err := fetchTradeList(cmd, dtOpts)
+		if err != nil {
+			return err
+		}
+		if format == common.OutputFormatJSON && len(fields) == 0 {
+			return common.PrintJSON(cmd.OutOrStdout(), cmd.Context(), models.NewTradeListRows(trades))
+		}
+		return common.PrintDataTablesResult(cmd.OutOrStdout(), cmd.Context(), trades, fields, format)
+	}
 	if format == common.OutputFormatJSON && len(fields) == 0 {
 		return runTradeListRows(cmd, dtOpts)
 	}
 	return common.RunDataTablesCommandWithPageSize[models.Trade](cmd, "/Trades/GetTrades", datatables.TradeColumns, dtOpts, opts.Format, tradeBrowserPageLength, "query trades")
+}
+
+func shouldUseLongTermTradeList(opts common.DataTableOptions, startDate, endDate string) bool {
+	return opts.Filters["Tickers"] != "" && startDate != endDate
+}
+
+func longTermTradeListOptions(cmd *cobra.Command, opts common.DataTableOptions) common.DataTableOptions {
+	filters := maps.Clone(opts.Filters)
+	filters["Sort"] = "Dollars"
+	if !cmd.Flags().Changed("vcd") {
+		filters["VCD"] = "0"
+	}
+	if !cmd.Flags().Changed("relative-size") {
+		filters["RelativeSize"] = "0"
+	}
+	deleteDefaultOnlyFilter(cmd, filters, "security-type", "SecurityTypeKey")
+	deleteDefaultOnlyFilter(cmd, filters, "even-shared", "EvenShared")
+	deleteDefaultOnlyFilter(cmd, filters, "rank-snapshot", "TradeRankSnapshot")
+	deleteDefaultOnlyFilter(cmd, filters, "market-cap", "MarketCap")
+	opts.Filters = filters
+	opts.Start = 0
+	opts.Length = tradeListLongTermLength
+	opts.OrderCol = 0
+	opts.OrderDir = common.OrderDirection("DESC")
+	return opts
+}
+
+func deleteDefaultOnlyFilter(cmd *cobra.Command, filters map[string]string, flagName, filterName string) {
+	if !cmd.Flags().Changed(flagName) {
+		delete(filters, filterName)
+	}
 }
 
 func tradesOptionsFromListOptions(opts *tradeListOptions, tickers, startDate, endDate string) *tradesOptions {
@@ -111,13 +153,24 @@ func fetchTradeList(cmd *cobra.Command, opts common.DataTableOptions) ([]models.
 	if opts.Length < 0 {
 		return common.FetchDataTablesPages[models.Trade](ctx, vlClient, "/Trades/GetTrades", datatables.TradeColumns, opts, tradeBrowserPageLength, "query trades")
 	}
-	request := common.NewDataTablesRequest(datatables.TradeColumns, opts)
+	request := newTradeListRequest(opts)
 	var result []models.Trade
 	if err := vlClient.PostDataTables(ctx, "/Trades/GetTrades", request.Encode(), &result); err != nil {
 		slog.Error("failed to query trades", "error", err)
 		return nil, fmt.Errorf("query trades: %w", err)
 	}
 	return result, nil
+}
+
+func newTradeListRequest(opts common.DataTableOptions) datatables.Request {
+	// The long-term chart path intentionally asks for 10 rows even though the
+	// observed browser HAR requested 5. The project default follows the user's
+	// preference for a slightly broader top-N result while preserving the
+	// lightweight chart request shape that avoids backend timeouts.
+	if opts.Filters["Sort"] == "Dollars" && opts.Length == tradeListLongTermLength {
+		return datatables.Request{ColumnDefs: datatables.TradeChartColumns, Start: opts.Start, Length: opts.Length, OrderColumnIndex: opts.OrderCol, OrderDirection: string(opts.OrderDir), OrderName: "FullTimeString24", IncludeSearch: true, CustomFilters: opts.Filters, Draw: 1}
+	}
+	return common.NewDataTablesRequest(datatables.TradeColumns, opts)
 }
 
 type tradeSummaryGroup string

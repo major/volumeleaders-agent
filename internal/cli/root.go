@@ -70,7 +70,7 @@ GLOBAL CONVENTIONS
 
 Dates: YYYY-MM-DD. Commands with date ranges accept either --start-date D --end-date D or --days N. --days counts backward from today unless --end-date is also set, and cannot be combined with --start-date.
 
-Pagination: --start offset, --length count, --length -1 means all rows unless a capped endpoint rejects it. trade list, trade list --summary, trade clusters, and trade cluster-bombs fetch all rows internally in browser-sized 100-row pages and do not expose --length. trade level-touches only allows 1 to 50 rows. trade levels and trade level-touches only allow --trade-level-count values of 5, 10, 20, or 50.
+Pagination: --start offset, --length count, --length -1 means all rows unless a capped endpoint rejects it. trade list does not expose --length; multi-day lookups whose effective filters include tickers return the top 10 long-period trades with VolumeLeaders' lightweight chart query shape, while trade list --summary, single-day trade scans, all-market trade scans, sector-only presets, trade clusters, and trade cluster-bombs fetch all rows internally in browser-sized 100-row pages. trade level-touches only allows 1 to 50 rows. trade levels and trade level-touches only allow --trade-level-count values of 5, 10, 20, or 50.
 
 Toggle filters: -1 means all/unfiltered, 0 means exclude, 1 means include/only.
 
@@ -78,7 +78,7 @@ Tickers: --tickers is comma-separated, --ticker is single-symbol. Commands that 
 
 Output formats: list-style commands may support --format json/csv/tsv. CSV/TSV include headers, booleans render as true/false, null or missing values render as empty cells. Nested summaries and single-object commands are JSON-only unless the input schema shows a format flag. Use outputschema to inspect the success stdout shape for each command.
 
-Performance: use explicit dates and tickers when possible. Start narrow, then expand. VolumeLeaders endpoints can be expensive, and trade retrieval endpoints intentionally match the browser's 100-row page size.
+Performance: use explicit dates and tickers when possible. Start narrow, then expand. VolumeLeaders endpoints can be expensive; trade list uses a bounded chart-style request for multi-day ticker lookups and keeps the browser's 100-row page size for full-result retrieval.
 
 RECOVERY PLAYBOOK
 

@@ -235,6 +235,192 @@ func TestTradeListSelectedFieldsFetchBrowserSizedPages(t *testing.T) {
 	}
 }
 
+func TestTradeListMultiDayWithoutTickersKeepsFullPagination(t *testing.T) {
+	t.Parallel()
+
+	var gotLengths []string
+	requestCount := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			t.Errorf("failed to read request body: %v", err)
+		}
+		params, _ := url.ParseQuery(string(body))
+		gotLengths = append(gotLengths, params.Get("length"))
+		requestCount++
+		if requestCount == 1 {
+			_, _ = w.Write([]byte(testutil.DataTablesJSONPage(minimalJSONArray(tradeBrowserPageLength), tradeBrowserPageLength+50)))
+		} else {
+			_, _ = w.Write([]byte(testutil.DataTablesJSONPage(minimalJSONArray(50), tradeBrowserPageLength+50)))
+		}
+	}))
+	t.Cleanup(server.Close)
+
+	cmd := NewCmd()
+	ctx := testutil.ContextWithTestClient(t, server.URL)
+	_, _, err := testutil.ExecuteCommand(t, cmd, ctx, "list", "--start-date", "2025-05-04", "--end-date", "2026-05-04")
+	testutil.AssertErrContains(t, err, "")
+	if !slices.Equal(gotLengths, []string{"100", "100"}) {
+		t.Fatalf("lengths = %v, want [100 100]", gotLengths)
+	}
+}
+
+func TestTradeListMultiDayPresetWithoutTickersKeepsFullPagination(t *testing.T) {
+	t.Parallel()
+
+	var gotLengths []string
+	requestCount := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			t.Errorf("failed to read request body: %v", err)
+		}
+		params, _ := url.ParseQuery(string(body))
+		gotLengths = append(gotLengths, params.Get("length"))
+		requestCount++
+		if requestCount == 1 {
+			_, _ = w.Write([]byte(testutil.DataTablesJSONPage(minimalJSONArray(tradeBrowserPageLength), tradeBrowserPageLength+50)))
+		} else {
+			_, _ = w.Write([]byte(testutil.DataTablesJSONPage(minimalJSONArray(50), tradeBrowserPageLength+50)))
+		}
+	}))
+	t.Cleanup(server.Close)
+
+	cmd := NewCmd()
+	ctx := testutil.ContextWithTestClient(t, server.URL)
+	_, _, err := testutil.ExecuteCommand(t, cmd, ctx, "list", "--preset", "Top-10 Rank", "--start-date", "2025-05-04", "--end-date", "2026-05-04")
+	testutil.AssertErrContains(t, err, "")
+	if !slices.Equal(gotLengths, []string{"100", "100"}) {
+		t.Fatalf("lengths = %v, want [100 100]", gotLengths)
+	}
+}
+
+func TestTradeListLongPeriodTickerUsesChartTopTenRequest(t *testing.T) {
+	t.Parallel()
+
+	var got url.Values
+	requestCount := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requestCount++
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			t.Errorf("failed to read request body: %v", err)
+		}
+		got, _ = url.ParseQuery(string(body))
+		_, _ = w.Write([]byte(testutil.DataTablesJSONPage(`[{"Ticker":"AAPL","Dollars":1000000}]`, 4433)))
+	}))
+	t.Cleanup(server.Close)
+
+	cmd := NewCmd()
+	ctx := testutil.ContextWithTestClient(t, server.URL)
+	_, _, err := testutil.ExecuteCommand(t, cmd, ctx, "list", "AAPL", "--start-date", "2025-05-04", "--end-date", "2026-05-04")
+	testutil.AssertErrContains(t, err, "")
+	if requestCount != 1 {
+		t.Fatalf("request count = %d, want 1", requestCount)
+	}
+
+	checks := map[string]string{
+		"start":                     "0",
+		"length":                    "10",
+		"order[0][column]":          "0",
+		"order[0][dir]":             "DESC",
+		"order[0][name]":            "FullTimeString24",
+		"search[value]":             "",
+		"search[regex]":             "false",
+		"columns[0][data]":          "FullTimeString24",
+		"columns[0][name]":          "FullTimeString24",
+		"columns[0][orderable]":     "false",
+		"columns[1][data]":          "Volume",
+		"columns[1][name]":          "Sh",
+		"columns[3][data]":          "Dollars",
+		"columns[3][name]":          "$$",
+		"columns[6][data]":          "LastComparibleTradeDate",
+		"columns[6][name]":          "Last Comp",
+		"columns[6][search][value]": "",
+		"columns[6][search][regex]": "false",
+		"Tickers":                   "AAPL",
+		"StartDate":                 "2025-05-04",
+		"EndDate":                   "2026-05-04",
+		"VCD":                       "0",
+		"RelativeSize":              "0",
+		"Sort":                      "Dollars",
+	}
+	for key, expected := range checks {
+		if value := got.Get(key); value != expected {
+			t.Errorf("%s = %q, want %q", key, value, expected)
+		}
+	}
+
+	for _, key := range []string{"SecurityTypeKey", "EvenShared", "TradeRankSnapshot", "MarketCap"} {
+		if _, ok := got[key]; ok {
+			t.Errorf("%s should be omitted from long-period chart request", key)
+		}
+	}
+}
+
+func TestTradeListLongPeriodExplicitFiltersOverrideChartDefaults(t *testing.T) {
+	t.Parallel()
+
+	var got url.Values
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			t.Errorf("failed to read request body: %v", err)
+		}
+		got, _ = url.ParseQuery(string(body))
+		_, _ = w.Write([]byte(testutil.DataTablesJSONPage(`[]`, 500)))
+	}))
+	t.Cleanup(server.Close)
+
+	cmd := NewCmd()
+	ctx := testutil.ContextWithTestClient(t, server.URL)
+	_, _, err := testutil.ExecuteCommand(t, cmd, ctx, "list", "AAPL", "--start-date", "2025-05-04", "--end-date", "2026-05-04", "--vcd", "97", "--relative-size", "5", "--security-type", "-1")
+	testutil.AssertErrContains(t, err, "")
+
+	checks := map[string]string{
+		"length":          "10",
+		"VCD":             "97",
+		"RelativeSize":    "5",
+		"SecurityTypeKey": "-1",
+		"Sort":            "Dollars",
+	}
+	for key, expected := range checks {
+		if value := got.Get(key); value != expected {
+			t.Errorf("%s = %q, want %q", key, value, expected)
+		}
+	}
+}
+
+func TestTradeListSummaryKeepsFullPaginationForLongPeriodTicker(t *testing.T) {
+	t.Parallel()
+
+	var gotLengths []string
+	requestCount := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			t.Errorf("failed to read request body: %v", err)
+		}
+		params, _ := url.ParseQuery(string(body))
+		gotLengths = append(gotLengths, params.Get("length"))
+		requestCount++
+		if requestCount == 1 {
+			_, _ = w.Write([]byte(testutil.DataTablesJSONPage(minimalJSONArray(tradeBrowserPageLength), tradeBrowserPageLength+50)))
+		} else {
+			_, _ = w.Write([]byte(testutil.DataTablesJSONPage(minimalJSONArray(50), tradeBrowserPageLength+50)))
+		}
+	}))
+	t.Cleanup(server.Close)
+
+	cmd := NewCmd()
+	ctx := testutil.ContextWithTestClient(t, server.URL)
+	_, _, err := testutil.ExecuteCommand(t, cmd, ctx, "list", "AAPL", "--start-date", "2025-05-04", "--end-date", "2026-05-04", "--summary")
+	testutil.AssertErrContains(t, err, "")
+	if !slices.Equal(gotLengths, []string{"100", "100"}) {
+		t.Fatalf("lengths = %v, want [100 100]", gotLengths)
+	}
+}
+
 func TestTradeClusterCommandsRejectUserSelectedLength(t *testing.T) {
 	t.Parallel()
 

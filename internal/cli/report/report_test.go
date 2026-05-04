@@ -127,7 +127,7 @@ func TestReportFiltersMatchObservedBrowserPresets(t *testing.T) {
 			name:    "RSI overbought",
 			filters: rsiOverboughtFilters(),
 			mustMatch: map[string]string{
-				"Conditions":      "OBD,OBH,",
+				"Conditions":      "OBD,OBH",
 				"MaxDollars":      "10000000000",
 				"RelativeSize":    "5",
 				"SignaturePrints": "0",

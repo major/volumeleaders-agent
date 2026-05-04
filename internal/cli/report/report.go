@@ -345,7 +345,7 @@ func leveragedETFFilters() map[string]string {
 }
 
 func rsiOverboughtFilters() map[string]string {
-	return map[string]string{"Conditions": "OBD,OBH,", "DarkPools": "-1", "EvenShared": "-1", "IncludeAH": "1", "IncludeClosing": "1", "IncludeOffsetting": "-1", "IncludeOpening": "1", "IncludePhantom": "-1", "IncludePremarket": "1", "IncludeRTH": "1", "LatePrints": "-1", "MarketCap": "0", "MaxDollars": "10000000000", "MaxPrice": "100000", "MaxVolume": "2000000000", "MinDollars": "500000", "MinPrice": "0", "MinVolume": "10000", "RelativeSize": "5", "SecurityTypeKey": "-1", "SignaturePrints": "0", "Sweeps": "-1", "TradeCount": "3", "TradeRank": "100", "TradeRankSnapshot": "-1", "VCD": "0"}
+	return map[string]string{"Conditions": "OBD,OBH", "DarkPools": "-1", "EvenShared": "-1", "IncludeAH": "1", "IncludeClosing": "1", "IncludeOffsetting": "-1", "IncludeOpening": "1", "IncludePhantom": "-1", "IncludePremarket": "1", "IncludeRTH": "1", "LatePrints": "-1", "MarketCap": "0", "MaxDollars": "10000000000", "MaxPrice": "100000", "MaxVolume": "2000000000", "MinDollars": "500000", "MinPrice": "0", "MinVolume": "10000", "RelativeSize": "5", "SecurityTypeKey": "-1", "SignaturePrints": "0", "Sweeps": "-1", "TradeCount": "3", "TradeRank": "100", "TradeRankSnapshot": "-1", "VCD": "0"}
 }
 
 func rsiOversoldFilters() map[string]string {

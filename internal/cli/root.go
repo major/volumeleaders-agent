@@ -60,7 +60,7 @@ See after-hours institutional leaders         volume ah-institutional --date D  
 See total volume leaders                      volume total --date D                   Total market volume across trade types
 Get current prices                            market snapshots                        JSON object
 Find earnings with prior institutional flow   market earnings --days N                CSV/TSV supported
-Check exhaustion/reversal signals             market exhaustion [--date D]            Lower rank is stronger
+Check exhaustion/reversal signals             market exhaustion                       Optional --date, lower rank is stronger
 Manage alert configs                          alert configs/create/edit/delete        Edit replaces unspecified values with defaults
 Manage watchlists                             watchlist configs/create/edit/delete    Edit replaces unspecified values with defaults
 Get watchlist tickers                         watchlist tickers --watchlist-key K     Key comes from watchlist configs
@@ -109,7 +109,7 @@ Preset workflow: report list, then report NAME for safe defaults, then trade lis
 
 Ticker drilldown: trade dashboard TICKER --days N, then trade list TICKER --days N, then trade clusters TICKER --days N.
 
-Event context: market earnings --days N, then trade list TICKER --start-date D --end-date D, then market exhaustion [--date D].
+Event context: market earnings --days N, then trade list TICKER --start-date D --end-date D, then market exhaustion with optional --date.
 
 Watchlist workflow: watchlist configs to find keys and names, watchlist tickers --watchlist-key K to inspect symbols, then trade list --watchlist NAME --days N.`,
 		Version:          version,

@@ -114,6 +114,13 @@ func allOutputContracts() []outputContract {
 		reportTradeOutputContract("report top-10-rank", "Run the site-vetted top 10 ranked trades report."),
 		reportTradeOutputContract("report dark-pool-sweeps", "Run the site-vetted dark pool sweeps report."),
 		reportTradeOutputContract("report disproportionately-large", "Run the site-vetted 5x relative size report."),
+		reportTradeOutputContract("report leveraged-etfs", "Run the site-vetted leveraged ETF ranked trades report."),
+		reportTradeOutputContract("report rsi-overbought", "Run the site-vetted RSI overbought 5x ranked trades report."),
+		reportTradeOutputContract("report rsi-oversold", "Run the site-vetted RSI oversold 5x ranked trades report."),
+		reportTradeOutputContract("report dark-pool-20x", "Run the site-vetted 20x dark-pool-only ranked trades report."),
+		reportTradeOutputContract("report top-30-rank-10x-99th", "Run the site-vetted top 30 ranked 10x 99th percentile report."),
+		reportTradeOutputContract("report phantom-trades", "Run the site-vetted phantom trades report."),
+		reportTradeOutputContract("report offsetting-trades", "Run the site-vetted offsetting trades report."),
 
 		objectOutputContract[models.TradeDashboard]("trade dashboard", "Return a fast ticker dashboard with trades, clusters, levels, and cluster bombs.", []string{"json"}, []string{"Defaults to a 365-day lookback and 10 rows per section."}),
 		arrayOutputContract[models.TradeListRow]("trade list", "List individual institutional trades using a compact default row shape.", outputFormats(), nil, nil,

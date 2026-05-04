@@ -99,6 +99,15 @@ go install github.com/major/volumeleaders-agent/cmd/volumeleaders-agent@latest
 | `volumeleaders-agent market exhaustion` | Query exhaustion scores that indicate overbought or oversold market conditions based on institutional trade clustering patterns. Omit --date to query the current trading day. Outputs compact JSON with rank metrics at different lookback periods. |  |
 | `volumeleaders-agent market snapshots` | Retrieve current price snapshot data for all symbols tracked by VolumeLeaders, returning the latest available price and volume data. No date filtering is available; always returns the most recent data. Outputs compact JSON by default. |  |
 | `volumeleaders-agent outputschema` | Print machine-readable stdout contracts for executable commands. With no arguments it returns every contract as a JSON array. Pass a command path such as trade list to return one contract. This describes success output only; structured errors are documented by structcli flag errors. |  |
+| `volumeleaders-agent report dark-pool-20x` | Run the 20x Dark Pool Only report with fixed VolumeLeaders browser-preset filters.
+
+Returns the site-vetted top 100 ranked dark-pool-only preset for trades at least twenty times average size. Use this for unusually large dark-pool prints without adding raw dark-pool filters.
+
+Reports are the recommended entry point for users and LLMs. They expose only safe overrides: tickers, dates, fields, summary grouping, and output format. Do not hand-build low-level filters unless this curated report cannot answer the question; use trade list --preset as the advanced escape hatch.
+
+Defaults to today only. Multi-day broad scans without tickers are rejected to avoid expensive requests and backend timeouts. Results are fetched in browser-sized 100-row pages and ordered by time descending.
+
+RECOVERY: If the report is too broad, add --tickers or query one day at a time. If a custom filter is truly required, run report list to inspect the vetted filters, then use trade list --preset rather than assembling raw filter flags. |  |
 | `volumeleaders-agent report dark-pool-sweeps` | Run the Dark Pool Sweeps report with fixed VolumeLeaders browser-preset filters.
 
 Returns the site-vetted dark pool sweep preset: top 100 ranked dark pool sweeps during premarket and regular trading hours, excluding after-hours, opening, closing, phantom, and signature prints.
@@ -117,7 +126,52 @@ Reports are the recommended entry point for users and LLMs. They expose only saf
 Defaults to today only. Multi-day broad scans without tickers are rejected to avoid expensive requests and backend timeouts. Results are fetched in browser-sized 100-row pages and ordered by time descending.
 
 RECOVERY: If the report is too broad, add --tickers or query one day at a time. If a custom filter is truly required, run report list to inspect the vetted filters, then use trade list --preset rather than assembling raw filter flags. |  |
+| `volumeleaders-agent report leveraged-etfs` | Run the Leveraged ETFs report with fixed VolumeLeaders browser-preset filters.
+
+Returns the site-vetted top 100 ranked leveraged ETF preset. Use this for broad ranked activity in leveraged and inverse ETF products without hand-building sector filters.
+
+Reports are the recommended entry point for users and LLMs. They expose only safe overrides: tickers, dates, fields, summary grouping, and output format. Do not hand-build low-level filters unless this curated report cannot answer the question; use trade list --preset as the advanced escape hatch.
+
+Defaults to today only. Multi-day broad scans without tickers are rejected to avoid expensive requests and backend timeouts. Results are fetched in browser-sized 100-row pages and ordered by time descending.
+
+RECOVERY: If the report is too broad, add --tickers or query one day at a time. If a custom filter is truly required, run report list to inspect the vetted filters, then use trade list --preset rather than assembling raw filter flags. |  |
 | `volumeleaders-agent report list` | List curated report commands, their source VolumeLeaders preset names, and their fixed filter configurations. Use these reports before raw trade list filters because they avoid expensive, timeout-prone filter combinations and expose only the safe override surface. |  |
+| `volumeleaders-agent report offsetting-trades` | Run the Offsetting Trades report with fixed VolumeLeaders browser-preset filters.
+
+Returns the site-vetted offsetting trades preset, excluding normal trading sessions and phantom trades. Use this when the user specifically asks for offsetting trade activity.
+
+Reports are the recommended entry point for users and LLMs. They expose only safe overrides: tickers, dates, fields, summary grouping, and output format. Do not hand-build low-level filters unless this curated report cannot answer the question; use trade list --preset as the advanced escape hatch.
+
+Defaults to today only. Multi-day broad scans without tickers are rejected to avoid expensive requests and backend timeouts. Results are fetched in browser-sized 100-row pages and ordered by time descending.
+
+RECOVERY: If the report is too broad, add --tickers or query one day at a time. If a custom filter is truly required, run report list to inspect the vetted filters, then use trade list --preset rather than assembling raw filter flags. |  |
+| `volumeleaders-agent report phantom-trades` | Run the Phantom Trades report with fixed VolumeLeaders browser-preset filters.
+
+Returns the site-vetted phantom trades preset, excluding normal trading sessions and offsetting trades. Use this when the user specifically asks for phantom print activity.
+
+Reports are the recommended entry point for users and LLMs. They expose only safe overrides: tickers, dates, fields, summary grouping, and output format. Do not hand-build low-level filters unless this curated report cannot answer the question; use trade list --preset as the advanced escape hatch.
+
+Defaults to today only. Multi-day broad scans without tickers are rejected to avoid expensive requests and backend timeouts. Results are fetched in browser-sized 100-row pages and ordered by time descending.
+
+RECOVERY: If the report is too broad, add --tickers or query one day at a time. If a custom filter is truly required, run report list to inspect the vetted filters, then use trade list --preset rather than assembling raw filter flags. |  |
+| `volumeleaders-agent report rsi-overbought` | Run the RSI Overbought report with fixed VolumeLeaders browser-preset filters.
+
+Returns the site-vetted top 100 ranked RSI overbought preset with trades at least five times average size. Use this when looking for high-rank prints in overbought names.
+
+Reports are the recommended entry point for users and LLMs. They expose only safe overrides: tickers, dates, fields, summary grouping, and output format. Do not hand-build low-level filters unless this curated report cannot answer the question; use trade list --preset as the advanced escape hatch.
+
+Defaults to today only. Multi-day broad scans without tickers are rejected to avoid expensive requests and backend timeouts. Results are fetched in browser-sized 100-row pages and ordered by time descending.
+
+RECOVERY: If the report is too broad, add --tickers or query one day at a time. If a custom filter is truly required, run report list to inspect the vetted filters, then use trade list --preset rather than assembling raw filter flags. |  |
+| `volumeleaders-agent report rsi-oversold` | Run the RSI Oversold report with fixed VolumeLeaders browser-preset filters.
+
+Returns the site-vetted top 100 ranked RSI oversold preset with trades at least five times average size. Use this when looking for high-rank prints in oversold names.
+
+Reports are the recommended entry point for users and LLMs. They expose only safe overrides: tickers, dates, fields, summary grouping, and output format. Do not hand-build low-level filters unless this curated report cannot answer the question; use trade list --preset as the advanced escape hatch.
+
+Defaults to today only. Multi-day broad scans without tickers are rejected to avoid expensive requests and backend timeouts. Results are fetched in browser-sized 100-row pages and ordered by time descending.
+
+RECOVERY: If the report is too broad, add --tickers or query one day at a time. If a custom filter is truly required, run report list to inspect the vetted filters, then use trade list --preset rather than assembling raw filter flags. |  |
 | `volumeleaders-agent report top-10-rank` | Run the Top 10 Ranked Trades report with fixed VolumeLeaders browser-preset filters.
 
 Returns the strongest ranked institutional prints using the site-vetted top 10 preset. Use this when the user asks for the highest-conviction trades without needing a broader top 100 scan.
@@ -130,6 +184,15 @@ RECOVERY: If the report is too broad, add --tickers or query one day at a time. 
 | `volumeleaders-agent report top-100-rank` | Run the Top 100 Ranked Trades report with fixed VolumeLeaders browser-preset filters.
 
 Returns the site-vetted top 100 ranked institutional trades preset. Use this before manual TradeRank filters because it preserves the browser preset shape and avoids oversized custom queries.
+
+Reports are the recommended entry point for users and LLMs. They expose only safe overrides: tickers, dates, fields, summary grouping, and output format. Do not hand-build low-level filters unless this curated report cannot answer the question; use trade list --preset as the advanced escape hatch.
+
+Defaults to today only. Multi-day broad scans without tickers are rejected to avoid expensive requests and backend timeouts. Results are fetched in browser-sized 100-row pages and ordered by time descending.
+
+RECOVERY: If the report is too broad, add --tickers or query one day at a time. If a custom filter is truly required, run report list to inspect the vetted filters, then use trade list --preset rather than assembling raw filter flags. |  |
+| `volumeleaders-agent report top-30-rank-10x-99th` | Run the Top 30 Rank, 10x Average Size, 99th Percentile report with fixed VolumeLeaders browser-preset filters.
+
+Returns the site-vetted top 30 ranked preset for trades above ten times average size and in the 99th cumulative distribution percentile. Use this when the user asks for the strongest extreme-size prints.
 
 Reports are the recommended entry point for users and LLMs. They expose only safe overrides: tickers, dates, fields, summary grouping, and output format. Do not hand-build low-level filters unless this curated report cannot answer the question; use trade list --preset as the advanced escape hatch.
 
@@ -334,6 +397,19 @@ Ratio is bull dollars divided by bear dollars and is null when bear flow is zero
 |------|------|---------|-------------|
 | `--date` | string | - | Date YYYY-MM-DD (empty for current day) |
 
+#### `volumeleaders-agent report dark-pool-20x`
+
+| Flag | Type | Default | Description |
+|------|------|---------|-------------|
+| `--days` | int | 0 | Look back this many days from --end-date or today; broad scans require a single day |
+| `--end-date` | string | - | End date YYYY-MM-DD (default: today) |
+| `--fields` | string | - | Comma-separated raw Trade fields to include, or omit for compact JSON |
+| `--format` | string | json | Output format: json, csv, or tsv (csv, json, tsv) |
+| `--group-by` | string | ticker | Summary grouping (requires --summary): ticker, day, or ticker,day (day, ticker, ticker,day) |
+| `--start-date` | string | - | Start date YYYY-MM-DD (default: today) |
+| `--summary` | bool | false | Return aggregate metrics instead of individual trades |
+| `--tickers` | string | - | Comma-separated ticker symbols; use this for multi-day report lookbacks |
+
 #### `volumeleaders-agent report dark-pool-sweeps`
 
 | Flag | Type | Default | Description |
@@ -360,11 +436,76 @@ Ratio is bull dollars divided by bear dollars and is null when bear flow is zero
 | `--summary` | bool | false | Return aggregate metrics instead of individual trades |
 | `--tickers` | string | - | Comma-separated ticker symbols; use this for multi-day report lookbacks |
 
+#### `volumeleaders-agent report leveraged-etfs`
+
+| Flag | Type | Default | Description |
+|------|------|---------|-------------|
+| `--days` | int | 0 | Look back this many days from --end-date or today; broad scans require a single day |
+| `--end-date` | string | - | End date YYYY-MM-DD (default: today) |
+| `--fields` | string | - | Comma-separated raw Trade fields to include, or omit for compact JSON |
+| `--format` | string | json | Output format: json, csv, or tsv (csv, json, tsv) |
+| `--group-by` | string | ticker | Summary grouping (requires --summary): ticker, day, or ticker,day (day, ticker, ticker,day) |
+| `--start-date` | string | - | Start date YYYY-MM-DD (default: today) |
+| `--summary` | bool | false | Return aggregate metrics instead of individual trades |
+| `--tickers` | string | - | Comma-separated ticker symbols; use this for multi-day report lookbacks |
+
 #### `volumeleaders-agent report list`
 
 | Flag | Type | Default | Description |
 |------|------|---------|-------------|
 | `--format` | string | json | Output format: json, csv, or tsv (csv, json, tsv) |
+
+#### `volumeleaders-agent report offsetting-trades`
+
+| Flag | Type | Default | Description |
+|------|------|---------|-------------|
+| `--days` | int | 0 | Look back this many days from --end-date or today; broad scans require a single day |
+| `--end-date` | string | - | End date YYYY-MM-DD (default: today) |
+| `--fields` | string | - | Comma-separated raw Trade fields to include, or omit for compact JSON |
+| `--format` | string | json | Output format: json, csv, or tsv (csv, json, tsv) |
+| `--group-by` | string | ticker | Summary grouping (requires --summary): ticker, day, or ticker,day (day, ticker, ticker,day) |
+| `--start-date` | string | - | Start date YYYY-MM-DD (default: today) |
+| `--summary` | bool | false | Return aggregate metrics instead of individual trades |
+| `--tickers` | string | - | Comma-separated ticker symbols; use this for multi-day report lookbacks |
+
+#### `volumeleaders-agent report phantom-trades`
+
+| Flag | Type | Default | Description |
+|------|------|---------|-------------|
+| `--days` | int | 0 | Look back this many days from --end-date or today; broad scans require a single day |
+| `--end-date` | string | - | End date YYYY-MM-DD (default: today) |
+| `--fields` | string | - | Comma-separated raw Trade fields to include, or omit for compact JSON |
+| `--format` | string | json | Output format: json, csv, or tsv (csv, json, tsv) |
+| `--group-by` | string | ticker | Summary grouping (requires --summary): ticker, day, or ticker,day (day, ticker, ticker,day) |
+| `--start-date` | string | - | Start date YYYY-MM-DD (default: today) |
+| `--summary` | bool | false | Return aggregate metrics instead of individual trades |
+| `--tickers` | string | - | Comma-separated ticker symbols; use this for multi-day report lookbacks |
+
+#### `volumeleaders-agent report rsi-overbought`
+
+| Flag | Type | Default | Description |
+|------|------|---------|-------------|
+| `--days` | int | 0 | Look back this many days from --end-date or today; broad scans require a single day |
+| `--end-date` | string | - | End date YYYY-MM-DD (default: today) |
+| `--fields` | string | - | Comma-separated raw Trade fields to include, or omit for compact JSON |
+| `--format` | string | json | Output format: json, csv, or tsv (csv, json, tsv) |
+| `--group-by` | string | ticker | Summary grouping (requires --summary): ticker, day, or ticker,day (day, ticker, ticker,day) |
+| `--start-date` | string | - | Start date YYYY-MM-DD (default: today) |
+| `--summary` | bool | false | Return aggregate metrics instead of individual trades |
+| `--tickers` | string | - | Comma-separated ticker symbols; use this for multi-day report lookbacks |
+
+#### `volumeleaders-agent report rsi-oversold`
+
+| Flag | Type | Default | Description |
+|------|------|---------|-------------|
+| `--days` | int | 0 | Look back this many days from --end-date or today; broad scans require a single day |
+| `--end-date` | string | - | End date YYYY-MM-DD (default: today) |
+| `--fields` | string | - | Comma-separated raw Trade fields to include, or omit for compact JSON |
+| `--format` | string | json | Output format: json, csv, or tsv (csv, json, tsv) |
+| `--group-by` | string | ticker | Summary grouping (requires --summary): ticker, day, or ticker,day (day, ticker, ticker,day) |
+| `--start-date` | string | - | Start date YYYY-MM-DD (default: today) |
+| `--summary` | bool | false | Return aggregate metrics instead of individual trades |
+| `--tickers` | string | - | Comma-separated ticker symbols; use this for multi-day report lookbacks |
 
 #### `volumeleaders-agent report top-10-rank`
 
@@ -380,6 +521,19 @@ Ratio is bull dollars divided by bear dollars and is null when bear flow is zero
 | `--tickers` | string | - | Comma-separated ticker symbols; use this for multi-day report lookbacks |
 
 #### `volumeleaders-agent report top-100-rank`
+
+| Flag | Type | Default | Description |
+|------|------|---------|-------------|
+| `--days` | int | 0 | Look back this many days from --end-date or today; broad scans require a single day |
+| `--end-date` | string | - | End date YYYY-MM-DD (default: today) |
+| `--fields` | string | - | Comma-separated raw Trade fields to include, or omit for compact JSON |
+| `--format` | string | json | Output format: json, csv, or tsv (csv, json, tsv) |
+| `--group-by` | string | ticker | Summary grouping (requires --summary): ticker, day, or ticker,day (day, ticker, ticker,day) |
+| `--start-date` | string | - | Start date YYYY-MM-DD (default: today) |
+| `--summary` | bool | false | Return aggregate metrics instead of individual trades |
+| `--tickers` | string | - | Comma-separated ticker symbols; use this for multi-day report lookbacks |
+
+#### `volumeleaders-agent report top-30-rank-10x-99th`
 
 | Flag | Type | Default | Description |
 |------|------|---------|-------------|

@@ -22,7 +22,19 @@ func TestReportDefinitionsExposeApprovedCommands(t *testing.T) {
 		uses = append(uses, definition.use)
 	}
 
-	want := []string{"top-100-rank", "top-10-rank", "dark-pool-sweeps", "disproportionately-large"}
+	want := []string{
+		"top-100-rank",
+		"top-10-rank",
+		"dark-pool-sweeps",
+		"disproportionately-large",
+		"leveraged-etfs",
+		"rsi-overbought",
+		"rsi-oversold",
+		"dark-pool-20x",
+		"top-30-rank-10x-99th",
+		"phantom-trades",
+		"offsetting-trades",
+	}
 	if !slices.Equal(uses, want) {
 		t.Fatalf("report commands = %v, want %v", uses, want)
 	}
@@ -96,6 +108,112 @@ func TestReportFiltersMatchObservedBrowserPresets(t *testing.T) {
 				"VCD":               "0",
 			},
 			mustOmit: []string{"TradeCount"},
+		},
+		{
+			name:    "leveraged ETFs",
+			filters: leveragedETFFilters(),
+			mustMatch: map[string]string{
+				"Conditions":      "IgnoreOBD,IgnoreOBH,IgnoreOSD,IgnoreOSH",
+				"MaxDollars":      "1000000000000",
+				"RelativeSize":    "0",
+				"SectorIndustry":  "X B",
+				"SignaturePrints": "-1",
+				"TradeCount":      "3",
+				"TradeRank":       "100",
+				"VCD":             "0",
+			},
+		},
+		{
+			name:    "RSI overbought",
+			filters: rsiOverboughtFilters(),
+			mustMatch: map[string]string{
+				"Conditions":      "OBD,OBH,",
+				"MaxDollars":      "10000000000",
+				"RelativeSize":    "5",
+				"SignaturePrints": "0",
+				"TradeCount":      "3",
+				"TradeRank":       "100",
+				"VCD":             "0",
+			},
+		},
+		{
+			name:    "RSI oversold",
+			filters: rsiOversoldFilters(),
+			mustMatch: map[string]string{
+				"Conditions":      "OSD,OSH",
+				"MaxDollars":      "10000000000",
+				"RelativeSize":    "5",
+				"SignaturePrints": "0",
+				"TradeCount":      "3",
+				"TradeRank":       "100",
+				"VCD":             "0",
+			},
+		},
+		{
+			name:    "20x dark pool",
+			filters: darkPool20xFilters(),
+			mustMatch: map[string]string{
+				"Conditions":      "IgnoreOBD,IgnoreOBH,IgnoreOSD,IgnoreOSH",
+				"DarkPools":       "1",
+				"MaxDollars":      "10000000000",
+				"RelativeSize":    "20",
+				"SignaturePrints": "0",
+				"TradeCount":      "3",
+				"TradeRank":       "100",
+				"VCD":             "0",
+			},
+		},
+		{
+			name:    "top 30 rank 10x 99th",
+			filters: top30Rank10x99thFilters(),
+			mustMatch: map[string]string{
+				"MaxDollars":      "10000000000",
+				"RelativeSize":    "10",
+				"SignaturePrints": "0",
+				"TradeCount":      "3",
+				"TradeRank":       "30",
+				"VCD":             "99",
+			},
+		},
+		{
+			name:    "phantom trades",
+			filters: phantomTradeFilters(),
+			mustMatch: map[string]string{
+				"DarkPools":         "1",
+				"IncludeAH":         "0",
+				"IncludeClosing":    "0",
+				"IncludeOffsetting": "0",
+				"IncludeOpening":    "0",
+				"IncludePhantom":    "1",
+				"IncludePremarket":  "0",
+				"IncludeRTH":        "0",
+				"MaxDollars":        "100000000000",
+				"MinVolume":         "0",
+				"SignaturePrints":   "0",
+				"TradeCount":        "3",
+				"TradeRank":         "-1",
+				"VCD":               "0",
+			},
+		},
+		{
+			name:    "offsetting trades",
+			filters: offsettingTradeFilters(),
+			mustMatch: map[string]string{
+				"DarkPools":         "-1",
+				"IncludeAH":         "0",
+				"IncludeClosing":    "0",
+				"IncludeOffsetting": "1",
+				"IncludeOpening":    "0",
+				"IncludePhantom":    "0",
+				"IncludePremarket":  "0",
+				"IncludeRTH":        "0",
+				"MaxDollars":        "100000000000",
+				"MinVolume":         "0",
+				"SignaturePrints":   "0",
+				"TradeCount":        "3",
+				"TradeRank":         "-1",
+				"VCD":               "0",
+			},
 		},
 	}
 

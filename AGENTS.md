@@ -8,13 +8,13 @@ When modifying CLI commands, flags, models, or behavior:
 
 - Update `AGENTS.md` if the change affects project structure, build process, or conventions.
 - Use `volumeleaders-agent --jsonschema=tree` as the source of truth for command names, flags, aliases, defaults, and examples. Use `volumeleaders-agent outputschema` as the source of truth for success stdout contracts, formats, fields, and variants. Command Long descriptions contain embedded domain knowledge (workflows, recovery steps, conventions, gotchas).
-- Run `make generate-discovery` when commands, flags, defaults, examples, or Long descriptions change. The generated LLM discovery files live in `docs/llm/` so they do not overwrite this hand-maintained root `AGENTS.md`.
+- Run `make docs` or `make generate-discovery` when commands, flags, defaults, examples, or Long descriptions change. The generated `SKILL.md` lives at the repository root for consistent tool discovery; extended generated LLM discovery files live in `docs/llm/` so they do not overwrite this hand-maintained root `AGENTS.md`.
 
 Command documentation mapping:
 
 - All command groups -> `volumeleaders-agent --jsonschema=tree` for command shape and Long descriptions for semantic guidance. Use `volumeleaders-agent --mcp` when validating the MCP tool surface exposed to LLM clients.
 - All command outputs -> `volumeleaders-agent outputschema` for success stdout contracts.
-- Generated LLM discovery files -> `make generate-discovery` writes `docs/llm/AGENTS.md`, `docs/llm/SKILL.md`, and `docs/llm/llms.txt` from structcli metadata.
+- Generated LLM discovery files -> `make docs` writes root `SKILL.md` plus `docs/llm/AGENTS.md` and `docs/llm/llms.txt` from structcli metadata.
 - Shared conventions, workflows, recovery behavior, output behavior, auth guidance, and domain gotchas -> root command Long description (run `volumeleaders-agent --help`).
 
 ## Project Layout
@@ -28,7 +28,8 @@ internal/cli/                      CLI command definitions, MCP surface, output 
 internal/discovery/                Generated LLM discovery file writer
 internal/datatables/               DataTables protocol encoding + column definitions
 internal/models/                   Response type definitions
-docs/llm/                          Generated AGENTS.md, SKILL.md, and llms.txt for LLM clients
+SKILL.md                           Generated skill file for Claude Code and skill-aware tools
+docs/llm/                          Generated AGENTS.md and llms.txt for extended LLM discovery
 ```
 
 ## Build and Test
@@ -38,7 +39,8 @@ make build      # Build binary
 make test       # Run tests
 make lint       # Run linters
 make install    # Install to $GOPATH/bin
-make generate-discovery # Refresh docs/llm discovery files
+make docs       # Refresh root SKILL.md and docs/llm discovery files
+make generate-discovery # Same as make docs
 make smoke      # Run local live smoke tests against the built binary
 ```
 

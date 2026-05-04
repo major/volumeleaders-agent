@@ -34,7 +34,7 @@ volumeleaders-agent trade list --tickers NVDA --start-date 2025-01-01 --end-date
 volumeleaders-agent --pretty market exhaustion
 ```
 
-Commands emit compact JSON to stdout by default. Use `--pretty` for indented output. Errors go to stderr. Use `--jsonschema=tree` on the root command for a machine-readable JSON Schema of commands and flags, `volumeleaders-agent outputschema` for machine-readable stdout contracts, or `--mcp` to serve leaf commands as MCP tools over stdio for trusted local LLM clients. Root help includes a recovery playbook for authentication, date validation, pagination, unknown flags, and broad result sets. Generated LLM discovery files live in `docs/llm/` and can be refreshed with `make generate-discovery`.
+Commands emit compact JSON to stdout by default. Use `--pretty` for indented output. Errors go to stderr. Use `--jsonschema=tree` on the root command for a machine-readable JSON Schema of commands and flags, `volumeleaders-agent outputschema` for machine-readable stdout contracts, or `--mcp` to serve leaf commands as MCP tools over stdio for trusted local LLM clients. Root help includes a recovery playbook for authentication, date validation, pagination, unknown flags, and broad result sets. Generated LLM discovery files can be refreshed with `make docs`.
 
 ## Commands
 
@@ -67,33 +67,33 @@ go run ./cmd/smoke-test --mode read-only
 
 ## Agent integration
 
-volumeleaders-agent ships generated discovery files for coding agents and LLM tools in `docs/llm/`. Use the file that matches your tool, then use live schema output from the binary as the authoritative command and flag contract.
+volumeleaders-agent ships a generated root `SKILL.md` for coding agents and LLM tools, with extended discovery files in `docs/llm/`. Use the file that matches your tool, then use live schema output from the binary as the authoritative command and flag contract.
 
 ### Claude Code and other skill-aware tools
 
-Use `docs/llm/SKILL.md` when your tool supports Agent Skills, including Claude Code. It contains trigger phrases, command descriptions, flag tables, examples, and workflow guidance generated from the live Cobra and structcli command tree.
+Use the checked-in root `SKILL.md` when your tool supports Agent Skills, including Claude Code. It contains trigger phrases, command descriptions, flag tables, examples, and workflow guidance generated from the live Cobra and structcli command tree.
 
 For Claude Code, copy or symlink the generated skill into your local skills directory if you want it available outside this repository:
 
 ```bash
 mkdir -p ~/.claude/skills/volumeleaders-agent
-ln -sf "$(pwd)/docs/llm/SKILL.md" ~/.claude/skills/volumeleaders-agent/SKILL.md
+ln -sf "$(pwd)/SKILL.md" ~/.claude/skills/volumeleaders-agent/SKILL.md
 ```
 
 If you already have a custom skill at that path, review or back it up first because `ln -sf` replaces the existing file or symlink.
 
 ### OpenCode and Codex
 
-OpenCode and Codex use `AGENTS.md` as project instructions. Start in the repository root so the tool can load the hand-maintained root `AGENTS.md`, then point it at `docs/llm/AGENTS.md`, `docs/llm/SKILL.md`, or `docs/llm/llms.txt` when it needs the generated command reference.
+OpenCode and Codex use `AGENTS.md` as project instructions. Start in the repository root so the tool can load the hand-maintained root `AGENTS.md`, then point it at `SKILL.md`, `docs/llm/AGENTS.md`, or `docs/llm/llms.txt` when it needs the generated command reference.
 
-The root `AGENTS.md` stays hand-written because it captures architecture, package conventions, review guidance, and safety rules that cannot be generated from the CLI tree. The `docs/llm/` files are generated artifacts.
+The root `AGENTS.md` stays hand-written because it captures architecture, package conventions, review guidance, and safety rules that cannot be generated from the CLI tree. The root `SKILL.md` and `docs/llm/` files are generated artifacts.
 
 ### Regenerating discovery files
 
-The `docs/llm/` directory contains generated `AGENTS.md`, `SKILL.md`, and `llms.txt` files built from the Cobra and structcli command tree. Refresh them after command, flag, default, or example changes:
+The root `SKILL.md` plus `docs/llm/AGENTS.md` and `docs/llm/llms.txt` are built from the Cobra and structcli command tree. Refresh them after command, flag, default, or example changes:
 
 ```bash
-make generate-discovery
+make docs
 ```
 
 Commit the regenerated files with the code change so agents see the same command surface as the binary.
@@ -105,7 +105,8 @@ make build      # Build binary
 make test       # Run tests
 make lint       # Run golangci-lint
 make install    # Install to $GOPATH/bin
-make generate-discovery # Refresh docs/llm discovery files
+make docs       # Refresh root SKILL.md and docs/llm discovery files
+make generate-discovery # Same as make docs
 make smoke      # Run local live smoke tests
 ```
 

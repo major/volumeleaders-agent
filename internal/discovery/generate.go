@@ -12,9 +12,13 @@ import (
 )
 
 const (
-	// DefaultOutputDir keeps generated agent-facing files out of the repository
-	// root so they do not overwrite the hand-maintained root AGENTS.md.
+	// DefaultOutputDir keeps extended generated agent-facing files out of the
+	// repository root so they do not overwrite the hand-maintained root AGENTS.md.
 	DefaultOutputDir = "docs/llm"
+	// DefaultSkillPath keeps the primary skill file at the repository root, which
+	// matches the sibling agent repositories and makes it easy for users and tools
+	// to discover without knowing each repo's extended documentation layout.
+	DefaultSkillPath = "SKILL.md"
 	modulePath       = "github.com/major/volumeleaders-agent/cmd/volumeleaders-agent"
 	defaultAuthor    = "major"
 	skillDescription = `  volumeleaders-agent queries institutional trade data from VolumeLeaders. Use it for trades, volume leaderboards, market data, alerts, and watchlists.
@@ -25,28 +29,59 @@ const (
 )
 
 // Generate writes the structcli discovery files for the current command tree.
-func Generate(outputDir, version string) error {
+func Generate(outputDir, skillPath, version string) error {
 	rootCmd := cli.NewRootCmd(version)
 
-	if err := generate.WriteAll(rootCmd, outputDir, generate.AllOptions{
-		ModulePath: modulePath,
-		Skill: generate.SkillOptions{
+	if err := os.MkdirAll(outputDir, 0o750); err != nil {
+		return fmt.Errorf("create discovery directory: %w", err)
+	}
+
+	if err := writeGeneratedFile(filepath.Join(outputDir, "AGENTS.md"), func() ([]byte, error) {
+		return generate.Agents(rootCmd, generate.AgentsOptions{ModulePath: modulePath})
+	}); err != nil {
+		return err
+	}
+	if err := writeGeneratedFile(skillPath, func() ([]byte, error) {
+		return generate.Skill(rootCmd, generate.SkillOptions{
 			Author:  defaultAuthor,
 			Version: version,
-		},
+		})
 	}); err != nil {
-		return fmt.Errorf("generate discovery files: %w", err)
+		return err
 	}
-	if err := normalizeGeneratedFiles(outputDir); err != nil {
+	if err := writeGeneratedFile(filepath.Join(outputDir, "llms.txt"), func() ([]byte, error) {
+		return generate.LLMsTxt(rootCmd, generate.LLMsTxtOptions{ModulePath: modulePath})
+	}); err != nil {
+		return err
+	}
+	if err := normalizeGeneratedFiles(outputDir, skillPath); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func normalizeGeneratedFiles(outputDir string) error {
-	for _, fileName := range []string{"AGENTS.md", "SKILL.md", "llms.txt"} {
-		path := filepath.Join(outputDir, fileName)
+func writeGeneratedFile(path string, generateFile func() ([]byte, error)) error {
+	contents, err := generateFile()
+	if err != nil {
+		return fmt.Errorf("generate %s: %w", filepath.Base(path), err)
+	}
+	if err := os.MkdirAll(filepath.Dir(path), 0o750); err != nil {
+		return fmt.Errorf("create parent directory for %s: %w", path, err)
+	}
+	// #nosec G703 - path is a caller-selected documentation output path.
+	if err := os.WriteFile(path, contents, 0o600); err != nil {
+		return fmt.Errorf("write generated %s: %w", filepath.Base(path), err)
+	}
+	return nil
+}
+
+func normalizeGeneratedFiles(outputDir, skillPath string) error {
+	for fileName, path := range map[string]string{
+		"AGENTS.md": filepath.Join(outputDir, "AGENTS.md"),
+		"SKILL.md":  skillPath,
+		"llms.txt":  filepath.Join(outputDir, "llms.txt"),
+	} {
 		contents, err := os.ReadFile(path)
 		if err != nil {
 			return fmt.Errorf("read generated %s: %w", fileName, err)

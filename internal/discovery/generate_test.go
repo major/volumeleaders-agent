@@ -11,16 +11,21 @@ func TestGenerateWritesDiscoveryFiles(t *testing.T) {
 	t.Parallel()
 
 	outputDir := t.TempDir()
-	if err := Generate(outputDir, "test"); err != nil {
+	skillPath := filepath.Join(outputDir, "SKILL.md")
+	if err := Generate(outputDir, skillPath, "test"); err != nil {
 		t.Fatalf("Generate() error = %v", err)
 	}
 
-	for _, fileName := range []string{"AGENTS.md", "SKILL.md", "llms.txt"} {
-		fileName := fileName
+	for fileName, path := range map[string]string{
+		"AGENTS.md": filepath.Join(outputDir, "AGENTS.md"),
+		"SKILL.md":  skillPath,
+		"llms.txt":  filepath.Join(outputDir, "llms.txt"),
+	} {
+		fileName, path := fileName, path
 		t.Run(fileName, func(t *testing.T) {
 			t.Parallel()
 
-			contents, err := os.ReadFile(filepath.Join(outputDir, fileName))
+			contents, err := os.ReadFile(path)
 			if err != nil {
 				t.Fatalf("read generated %s: %v", fileName, err)
 			}
@@ -35,28 +40,33 @@ func TestGeneratedFilesAreCurrent(t *testing.T) {
 	t.Parallel()
 
 	outputDir := t.TempDir()
-	if err := Generate(outputDir, "dev"); err != nil {
+	skillPath := filepath.Join(outputDir, "SKILL.md")
+	if err := Generate(outputDir, skillPath, "dev"); err != nil {
 		t.Fatalf("Generate() error = %v", err)
 	}
 
 	repoRoot := filepath.Clean(filepath.Join("..", ".."))
-	for _, fileName := range []string{"AGENTS.md", "SKILL.md", "llms.txt"} {
-		fileName := fileName
+	for fileName, paths := range map[string]struct{ generated, committed string }{
+		"AGENTS.md": {generated: filepath.Join(outputDir, "AGENTS.md"), committed: filepath.Join(repoRoot, DefaultOutputDir, "AGENTS.md")},
+		"SKILL.md":  {generated: skillPath, committed: filepath.Join(repoRoot, DefaultSkillPath)},
+		"llms.txt":  {generated: filepath.Join(outputDir, "llms.txt"), committed: filepath.Join(repoRoot, DefaultOutputDir, "llms.txt")},
+	} {
+		fileName, paths := fileName, paths
 		t.Run(fileName, func(t *testing.T) {
 			t.Parallel()
 
-			generated, err := os.ReadFile(filepath.Join(outputDir, fileName))
+			generated, err := os.ReadFile(paths.generated)
 			if err != nil {
 				t.Fatalf("read generated %s: %v", fileName, err)
 			}
 
-			committed, err := os.ReadFile(filepath.Join(repoRoot, DefaultOutputDir, fileName))
+			committed, err := os.ReadFile(paths.committed)
 			if err != nil {
 				t.Fatalf("read committed %s: %v", fileName, err)
 			}
 
 			if !bytes.Equal(generated, committed) {
-				t.Fatalf("%s is stale; run `make generate-discovery`", filepath.Join(DefaultOutputDir, fileName))
+				t.Fatalf("%s is stale; run `make generate-discovery`", paths.committed)
 			}
 		})
 	}

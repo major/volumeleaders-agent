@@ -138,8 +138,6 @@ func allOutputContracts() []outputContract {
 			outputVariant{When: "--fields is set", Formats: []string{"json"}, Schema: arraySchema[models.TradeLevel](), FieldSelection: allFieldsSelection[models.TradeLevel](nil)},
 		),
 		arrayOutputContract[models.TradeLevelTouch]("trade level-touches", "List revisits to institutional price levels.", outputFormats(), nil, nil),
-		objectOutputContract[models.PresetTickersInfo]("trade preset-tickers", "List ticker symbols used by one built-in trade preset.", []string{"json"}, nil),
-		arrayOutputContract[models.PresetInfo]("trade presets", "List built-in trade filter presets.", outputFormats(), nil, nil),
 
 		arrayOutputContract[models.Trade]("volume institutional", "List regular-hours institutional volume leaders.", outputFormats(), nil, nil),
 		arrayOutputContract[models.Trade]("volume ah-institutional", "List after-hours institutional volume leaders.", outputFormats(), nil, nil),

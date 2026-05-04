@@ -15,7 +15,7 @@ Find ranked institutional prints              report top-100-rank               
 Find strongest ranked prints                  report top-10-rank                      Narrower ranked-trade preset
 Find dark pool sweep activity                 report dark-pool-sweeps                 Vetted dark-pool sweep preset
 Find unusually large prints                   report disproportionately-large          5x relative size browser preset
-Find individual institutional prints          trade list X --days N                   Advanced path: use presets or tickers first
+Find individual institutional prints          trade list X --days N                   Advanced path: use reports or tickers first
 Get comprehensive ticker overview            trade dashboard X --days N              Fast chart-style trades, clusters, levels, bombs
 Compare leveraged ETF bull/bear flow          trade sentiment --days N                Fixed leveraged ETF universe, not buy/sell flow
 Find converging price-level activity          trade clusters --days N                 Cluster conviction around similar prices
@@ -55,7 +55,7 @@ Tickers: --tickers is comma-separated, --ticker is single-symbol. Commands that 
 
 Output formats: list-style commands may support --format json/csv/tsv. CSV/TSV include headers, booleans render as true/false, null or missing values render as empty cells. Nested summaries and single-object commands are JSON-only unless the input schema shows a format flag. Use outputschema to inspect the success stdout shape for each command.
 
-Performance: use report commands and built-in presets first. Start with one vetted report, one day, and tickers when possible, then expand. VolumeLeaders endpoints can be expensive; broad custom trade list filters are easy to overdo. report commands reject broad multi-day scans without tickers, trade list uses a bounded chart-style request for multi-day ticker lookups, and full-result retrieval keeps the browser's 100-row page size.
+Performance: use report commands first. Start with one vetted report, one day, and tickers when possible, then expand. VolumeLeaders endpoints can be expensive; broad custom trade list filters are easy to overdo. report commands reject broad multi-day scans without tickers, trade list uses a bounded chart-style request for multi-day ticker lookups, and full-result retrieval keeps the browser's 100-row page size.
 
 RECOVERY PLAYBOOK
 
@@ -237,7 +237,7 @@ PREREQUISITES: Provide exactly one ticker as a positional argument or with --tic
 RECOVERY: If ticker validation fails, use one ticker only. If --trade-level-count is rejected, use 5, 10, 20, or 50.
 
 NEXT STEPS: Use trade level-touches with the same ticker and date range to find trades that revisited these levels. |  |
-| `volumeleaders-agent trade list` | Query individual institutional trades from VolumeLeaders, filterable by ticker, date range, dollar amounts, volume, trade conditions, session type, and trade rank. Supports built-in filter presets (--preset) and watchlist-based filtering (--watchlist). Outputs compact JSON or CSV/TSV with --format; use --summary for aggregate metrics grouped by ticker or day.
+| `volumeleaders-agent trade list` | Query individual institutional trades from VolumeLeaders, filterable by ticker, date range, dollar amounts, volume, trade conditions, session type, and trade rank. Supports built-in filter presets (--preset) and watchlist-based filtering (--watchlist). Start with report list for curated preset-backed reports; use trade list when custom raw trade filters are needed. Outputs compact JSON or CSV/TSV with --format; use --summary for aggregate metrics grouped by ticker or day.
 
 Date defaults: 365-day lookback when tickers are provided, today-only without tickers. Preset and watchlist filters do not supply dates. Filter precedence is preset baseline, then watchlist merge, then explicit CLI flags override both.
 
@@ -276,8 +276,6 @@ PREREQUISITES: Browser authentication. For reproducible scans, pass explicit dat
 RECOVERY: Multi-day lookups whose effective filters include tickers return the top 10 long-period trades with the same lightweight chart query shape VolumeLeaders uses in the browser. Single-day scans, all-market scans, sector-only presets, and --summary still fetch all matching rows in browser-sized 100-row pages. If --summary rejects --fields or --format, rerun summary as JSON without --fields. If date flags conflict, use either --days or --start-date with --end-date.
 
 NEXT STEPS: Use trade levels for support/resistance after finding a ticker, trade clusters when prints concentrate near a price, or trade sentiment for leveraged ETF bull/bear context. |  |
-| `volumeleaders-agent trade preset-tickers` | Extract the ticker symbols configured in a named trade filter preset, showing whether the preset uses an explicit ticker list, a sector/industry filter, or is unfiltered. Requires --preset with the preset name (case-insensitive). Outputs JSON with the preset name, group, type, and ticker details. | `--preset` |
-| `volumeleaders-agent trade presets` | List all built-in trade filter presets with their names, groups, and filter configurations. Each preset defines a named set of filters that can be applied to trade list queries via --preset. Outputs compact JSON by default; use --format csv or tsv for tabular output. |  |
 | `volumeleaders-agent trade sentiment` | Summarize leveraged ETF bull and bear flow by trading day, showing aggregate institutional dollar volume on the bull and bear side. Requires --start-date and --end-date (or --days). Outputs one record per day with bull and bear totals.
 
 This command always queries the combined leveraged ETF sector filter SectorIndustry=X B, classifies bull and bear ETFs locally, and cannot be constrained by ticker or sector flags. Non-standard defaults include --min-dollars 5000000 and --vcd 97; shared --relative-size 5 still applies.
@@ -723,7 +721,7 @@ Ratio is bull dollars divided by bear dollars and is null when bear flow is zero
 | `--order-dir` | string | desc | Order direction (asc, desc) |
 | `--phantom` | string | 1 | Phantom print filter (-1=all, 0=exclude, 1=include) (-1, 0, 1) |
 | `--premarket` | string | 1 | Premarket session filter (-1=all, 0=exclude, 1=include) (-1, 0, 1) |
-| `--preset` | string | - | Apply a built-in filter preset (see: trade presets) |
+| `--preset` | string | - | Apply a built-in filter preset by name; use report list for curated preset-backed reports |
 | `--rank-snapshot` | int | -1 | Trade rank snapshot filter |
 | `--relative-size` | int | 5 | Relative size threshold |
 | `--rth` | string | 1 | Regular trading hours filter (-1=all, 0=exclude, 1=include) (-1, 0, 1) |
@@ -738,18 +736,6 @@ Ratio is bull dollars divided by bear dollars and is null when bear flow is zero
 | `--trade-rank` | int | -1 | Trade rank filter |
 | `--vcd` | int | 97 | VCD filter |
 | `--watchlist` | string | - | Apply filters from a saved watchlist by name |
-
-#### `volumeleaders-agent trade preset-tickers`
-
-| Flag | Type | Default | Description |
-|------|------|---------|-------------|
-| `--preset` | string | - | Preset name (case-insensitive) |
-
-#### `volumeleaders-agent trade presets`
-
-| Flag | Type | Default | Description |
-|------|------|---------|-------------|
-| `--format` | string | json | Output format: json, csv, or tsv (csv, json, tsv) |
 
 #### `volumeleaders-agent trade sentiment`
 

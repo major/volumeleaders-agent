@@ -14,6 +14,7 @@ import (
 const (
 	tradeBrowserPageLength      = 100
 	tradeListLongTermLength     = 10
+	tradeDashboardDefaultCount  = 10
 	maxTradeRequestLength       = 50
 	maxTradeLevelRequestLength  = 50
 	tradeListTickerLookbackDays = 365
@@ -210,6 +211,14 @@ type tradeLevelTouchesOptions struct {
 	tradePaginationFlags
 }
 
+type tradeDashboardOptions struct {
+	tradeTickerFlag
+	tradeOptionalDateRangeFlags
+	tradeRangeFlags
+	tradeFilterFlags
+	Count int `flag:"count" flaggroup:"Output" flagshort:"c" flagdescr:"Rows to return per dashboard section (5, 10, 20, or 50)"`
+}
+
 func (opts *tradeLevelsOptions) Validate(_ context.Context) []error {
 	if err := validateTradeLevelCount(opts.TradeLevelCount); err != nil {
 		return []error{err}
@@ -226,6 +235,13 @@ func (opts *tradeLevelTouchesOptions) Validate(_ context.Context) []error {
 	}
 	if opts.TradeLevelRank < 5 {
 		return []error{fmt.Errorf("--trade-level-rank must be 5 or higher for trade level touch retrieval")}
+	}
+	return nil
+}
+
+func (opts *tradeDashboardOptions) Validate(_ context.Context) []error {
+	if err := validateTradeLevelCount(opts.Count); err != nil {
+		return []error{fmt.Errorf("--count must be one of 5, 10, 20, or 50 for ticker dashboard retrieval")}
 	}
 	return nil
 }
@@ -253,6 +269,7 @@ func NewCmd() *cobra.Command {
 	}
 	cmd.AddCommand(
 		newTradeListCommand(),
+		newTradeDashboardCommand(),
 		newTradeSentimentCommand(),
 		newTradePresetsCommand(),
 		newTradePresetTickersCommand(),
@@ -268,6 +285,34 @@ func NewCmd() *cobra.Command {
 
 // NewTradeCommand returns the "trade" command group with all subcommands.
 func NewTradeCommand() *cobra.Command { return NewCmd() }
+
+func newTradeDashboardCommand() *cobra.Command {
+	opts := &tradeDashboardOptions{}
+	presetTradeFilterDefaults(&opts.tradeFilterFlags, 0)
+	presetTradeRangeDefaults(&opts.tradeRangeFlags, 500000)
+	opts.RelativeSize = 0
+	opts.Count = tradeDashboardDefaultCount
+	cmd := &cobra.Command{
+		Use:   "dashboard [ticker]",
+		Short: "Query a ticker institutional dashboard",
+		Long: `Query a fast ticker dashboard with the same chart-optimized institutional context VolumeLeaders shows in the browser. The dashboard fetches the largest trades, trade clusters, trade levels, and cluster bombs for one ticker in a single JSON object.
+
+Defaults to a 365-day lookback, 10 rows per section, --vcd 0, --relative-size 0, and the same broad trade/session filters used by the browser chart page. Use this command as the first stop when asking broad questions such as institutional levels for IGV, then drill into trade list, trade clusters, trade levels, or trade cluster-bombs when a section needs deeper pagination or CSV/TSV output.
+
+PREREQUISITES: Provide exactly one ticker as a positional argument or with --ticker. Browser authentication must be available.
+
+RECOVERY: If ticker validation fails, use one ticker only. If --count is rejected, use 5, 10, 20, or 50. If date flags conflict, use either --days or --start-date with --end-date.`,
+		Example:    "volumeleaders-agent trade dashboard IGV",
+		Args:       cobra.ArbitraryArgs,
+		SuggestFor: []string{"dash", "overview", "chart"},
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			return runTradeDashboard(cmd, opts)
+		},
+	}
+	common.BindOrPanic(cmd, opts, "dashboard")
+	setTradeRangeFlagDefValues(cmd, opts.MinDollars)
+	return cmd
+}
 
 func newTradeListCommand() *cobra.Command {
 	opts := &tradeListOptions{}

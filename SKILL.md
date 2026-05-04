@@ -317,6 +317,57 @@ Results are fetched in browser-sized 100-row pages to match VolumeLeaders' front
 volumeleaders-agent trade clusters AAPL --days 7
 ```
 
+#### `volumeleaders-agent trade dashboard`
+
+Query a fast ticker dashboard with the same chart-optimized institutional context VolumeLeaders shows in the browser. The dashboard fetches the largest trades, trade clusters, trade levels, and cluster bombs for one ticker in a single JSON object.
+
+Defaults to a 365-day lookback, 10 rows per section, --vcd 0, --relative-size 0, and the same broad trade/session filters used by the browser chart page. Use this command as the first stop when asking broad questions such as institutional levels for IGV, then drill into trade list, trade clusters, trade levels, or trade cluster-bombs when a section needs deeper pagination or CSV/TSV output.
+
+PREREQUISITES: Provide exactly one ticker as a positional argument or with --ticker. Browser authentication must be available.
+
+RECOVERY: If ticker validation fails, use one ticker only. If --count is rejected, use 5, 10, 20, or 50. If date flags conflict, use either --days or --start-date with --end-date.
+
+**Flags:**
+
+| Flag | Type | Default | Required | Description |
+|------|------|---------|----------|-------------|
+| `--ah` | string | 1 | no | After-hours session filter (-1=all, 0=exclude, 1=include) |
+| `--closing` | string | 1 | no | Closing trade filter (-1=all, 0=exclude, 1=include) |
+| `--conditions` | int | -1 | no | Trade conditions filter |
+| `--count` | int | 10 | no | Rows to return per dashboard section (5, 10, 20, or 50) |
+| `--dark-pools` | string | -1 | no | Dark pool filter (-1=all, 0=exclude, 1=only) |
+| `--days` | int | 0 | no | Look back this many days from --end-date or today |
+| `--end-date` | string | - | no | End date YYYY-MM-DD (default: today) |
+| `--even-shared` | string | -1 | no | Even shared filter (-1=all, 0=exclude, 1=only) |
+| `--late-prints` | string | -1 | no | Late print filter (-1=all, 0=exclude, 1=only) |
+| `--market-cap` | int | 0 | no | Market cap filter |
+| `--max-dollars` | float64 | 30000000000 | no | Maximum dollar value |
+| `--max-price` | float64 | 100000 | no | Maximum price |
+| `--max-volume` | int | 2000000000 | no | Maximum volume |
+| `--min-dollars` | float64 | 500000 | no | Minimum dollar value |
+| `--min-price` | float64 | 0 | no | Minimum price |
+| `--min-volume` | int | 0 | no | Minimum volume |
+| `--offsetting` | string | 1 | no | Offsetting trade filter (-1=all, 0=exclude, 1=include) |
+| `--opening` | string | 1 | no | Opening trade filter (-1=all, 0=exclude, 1=include) |
+| `--phantom` | string | 1 | no | Phantom print filter (-1=all, 0=exclude, 1=include) |
+| `--premarket` | string | 1 | no | Premarket session filter (-1=all, 0=exclude, 1=include) |
+| `--rank-snapshot` | int | -1 | no | Trade rank snapshot filter |
+| `--relative-size` | int | 0 | no | Relative size threshold |
+| `--rth` | string | 1 | no | Regular trading hours filter (-1=all, 0=exclude, 1=include) |
+| `--security-type` | int | -1 | no | Security type key |
+| `--sig-prints` | string | -1 | no | Signature print filter (-1=all, 0=exclude, 1=only) |
+| `--start-date` | string | - | no | Start date YYYY-MM-DD (default: auto) |
+| `--sweeps` | string | -1 | no | Sweep filter (-1=all, 0=exclude, 1=only) |
+| `--ticker` | string | - | no | Ticker symbol |
+| `--trade-rank` | int | -1 | no | Trade rank filter |
+| `--vcd` | int | 0 | no | VCD filter |
+
+**Example:**
+
+```bash
+volumeleaders-agent trade dashboard IGV
+```
+
 #### `volumeleaders-agent trade level-touches`
 
 Query institutional trade events that occurred at notable price levels for a ticker, showing how the market interacted with key support and resistance zones. Accepts a ticker as positional argument or via --ticker flag. Requires --start-date and --end-date (or --days).
@@ -877,6 +928,12 @@ volumeleaders-agent trade cluster-bombs TSLA --days 3
 
 ```bash
 volumeleaders-agent trade clusters AAPL --days 7
+```
+
+#### volumeleaders-agent trade dashboard
+
+```bash
+volumeleaders-agent trade dashboard IGV
 ```
 
 #### volumeleaders-agent trade level-touches

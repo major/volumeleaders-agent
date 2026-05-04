@@ -361,7 +361,6 @@ func TestNoArgsCommandsRejectPositionalArgs(t *testing.T) {
 		{"trade sentiment", []string{"trade", "sentiment", "bogus"}},
 		{"trade alerts", []string{"trade", "alerts", "--date", "2025-01-01", "bogus"}},
 		{"trade cluster-alerts", []string{"trade", "cluster-alerts", "--date", "2025-01-01", "bogus"}},
-		{"market snapshots", []string{"market", "snapshots", "bogus"}},
 		{"market earnings", []string{"market", "earnings", "bogus"}},
 		{"market exhaustion", []string{"market", "exhaustion", "bogus"}},
 		{"alert configs", []string{"alert", "configs", "bogus"}},
@@ -484,7 +483,7 @@ func TestJSONSchemaTreeCoversDomainLeafCommands(t *testing.T) {
 	titles := schemaTitles(schemas)
 
 	root := NewRootCmd("volumeleaders-agent")
-	expectedTitles := make([]string, 0, 37)
+	expectedTitles := make([]string, 0, 36)
 	walkCommands(root, func(c *cobra.Command) {
 		if !isDomainLeafCommand(c) {
 			return
@@ -492,8 +491,8 @@ func TestJSONSchemaTreeCoversDomainLeafCommands(t *testing.T) {
 		expectedTitles = append(expectedTitles, c.CommandPath())
 	})
 	slices.Sort(expectedTitles)
-	if len(expectedTitles) != 37 {
-		t.Fatalf("expected current command tree to have 37 domain leaf commands, got %d: %v", len(expectedTitles), expectedTitles)
+	if len(expectedTitles) != 36 {
+		t.Fatalf("expected current command tree to have 36 domain leaf commands, got %d: %v", len(expectedTitles), expectedTitles)
 	}
 
 	missing := make([]string, 0)
@@ -923,8 +922,8 @@ func TestOutputSchemaTreeProducesCommandContracts(t *testing.T) {
 	if jsonErr := json.Unmarshal(out, &contracts); jsonErr != nil {
 		t.Fatalf("outputschema output is not valid JSON array: %v\nOutput: %s", jsonErr, out)
 	}
-	if len(contracts) != 37 {
-		t.Fatalf("expected 37 output contracts, got %d", len(contracts))
+	if len(contracts) != 36 {
+		t.Fatalf("expected 36 output contracts, got %d", len(contracts))
 	}
 
 	byCommand := make(map[string]map[string]any, len(contracts))
@@ -1092,7 +1091,7 @@ func TestMCPToolsListExposesLeafCommands(t *testing.T) {
 		toolSchemas[tool.Name] = tool.InputSchema
 	}
 
-	for _, expected := range []string{"trade-list", "trade-sentiment", "volume-institutional", "market-snapshots", "watchlist-configs"} {
+	for _, expected := range []string{"trade-list", "trade-sentiment", "volume-institutional", "market-earnings", "watchlist-configs"} {
 		if _, ok := toolSchemas[expected]; !ok {
 			t.Fatalf("MCP tools/list missing %q; got %v", expected, mapsKeys(toolSchemas))
 		}

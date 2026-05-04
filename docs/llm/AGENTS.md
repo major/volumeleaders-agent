@@ -26,7 +26,6 @@ Find revisits to institutional levels         trade level-touches X --days N    
 See institutional volume leaders              volume institutional --date D            Same trade model, volume-ranked
 See after-hours institutional leaders         volume ah-institutional --date D        After-hours institutional flow
 See total volume leaders                      volume total --date D                   Total market volume across trade types
-Get current prices                            market snapshots                        JSON object
 Find earnings with prior institutional flow   market earnings --days N                CSV/TSV supported
 Check exhaustion/reversal signals             market exhaustion                       Optional --date, lower rank is stronger
 Manage alert configs                          alert configs/create/edit/delete        Edit replaces unspecified values with defaults
@@ -97,7 +96,6 @@ go install github.com/major/volumeleaders-agent/cmd/volumeleaders-agent@latest
 | `volumeleaders-agent alert edit` | Modify an existing alert configuration identified by its numeric key. Requires --key with the alert config key. Specify the fields you want to set; unspecified fields are replaced with their default values. | `--key` |
 | `volumeleaders-agent market earnings` | Query the earnings calendar for a date range, showing tickers with earnings dates and associated trade activity counts. Requires --start-date and --end-date (or --days). Outputs compact JSON or CSV/TSV with --format. PREREQUISITES: provide a date range with --days or explicit start and end dates. RECOVERY: if date validation fails, use --days N for the fastest retry or provide both --start-date and --end-date. NEXT STEPS: run trade list for tickers near earnings, then market exhaustion for broader reversal context. |  |
 | `volumeleaders-agent market exhaustion` | Query exhaustion scores that indicate overbought or oversold market conditions based on institutional trade clustering patterns. Omit --date to query the current trading day. Outputs compact JSON with rank metrics at different lookback periods. |  |
-| `volumeleaders-agent market snapshots` | Retrieve current price snapshot data for all symbols tracked by VolumeLeaders, returning the latest available price and volume data. No date filtering is available; always returns the most recent data. Outputs compact JSON by default. |  |
 | `volumeleaders-agent outputschema` | Print machine-readable stdout contracts for executable commands. With no arguments it returns every contract as a JSON array. Pass a command path such as trade list to return one contract. This describes success output only; structured errors are documented by structcli flag errors. |  |
 | `volumeleaders-agent report dark-pool-20x` | Run the 20x Dark Pool Only report with fixed VolumeLeaders browser-preset filters.
 

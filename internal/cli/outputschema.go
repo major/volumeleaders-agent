@@ -143,7 +143,6 @@ func allOutputContracts() []outputContract {
 		arrayOutputContract[models.Trade]("volume ah-institutional", "List after-hours institutional volume leaders.", outputFormats(), nil, nil),
 		arrayOutputContract[models.Trade]("volume total", "List total volume leaders across trade types.", outputFormats(), nil, nil),
 
-		objectOutputContract[map[string]any]("market snapshots", "Return current price snapshots keyed by ticker.", []string{"json"}, []string{"Snapshot objects come from the VolumeLeaders API and can vary by symbol."}),
 		arrayOutputContract[models.Earnings]("market earnings", "List earnings events with related institutional activity counts.", outputFormats(), marketEarningsDefaultFields(), allFieldsSelection[models.Earnings](marketEarningsDefaultFields())),
 		objectOutputContract[models.MarketExhaustion]("market exhaustion", "Return market exhaustion rank metrics for one trading day.", []string{"json"}, nil),
 

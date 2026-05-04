@@ -58,7 +58,6 @@ Find revisits to institutional levels         trade level-touches X --days N    
 See institutional volume leaders              volume institutional --date D            Same trade model, volume-ranked
 See after-hours institutional leaders         volume ah-institutional --date D        After-hours institutional flow
 See total volume leaders                      volume total --date D                   Total market volume across trade types
-Get current prices                            market snapshots                        JSON object
 Find earnings with prior institutional flow   market earnings --days N                CSV/TSV supported
 Check exhaustion/reversal signals             market exhaustion                       Optional --date, lower rank is stronger
 Manage alert configs                          alert configs/create/edit/delete        Edit replaces unspecified values with defaults

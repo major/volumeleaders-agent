@@ -42,7 +42,7 @@ Commands emit compact JSON to stdout by default. Use `--pretty` for indented out
 | --- | --- |
 | `trade` | Institutional trades, clusters, cluster bombs, price levels |
 | `volume` | Volume leaderboards (institutional, after-hours, total) |
-| `market` | Market-wide snapshots, earnings calendar, exhaustion scores |
+| `market` | Market-wide earnings calendar and exhaustion scores |
 | `alert` | Saved alert configurations |
 | `watchlist` | Saved watchlists and their tickers |
 | `outputschema` | Machine-readable success output contracts |

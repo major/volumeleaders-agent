@@ -178,16 +178,6 @@ Query exhaustion scores that indicate overbought or oversold market conditions b
 volumeleaders-agent market exhaustion --date 2025-01-15
 ```
 
-#### `volumeleaders-agent market snapshots`
-
-Retrieve current price snapshot data for all symbols tracked by VolumeLeaders, returning the latest available price and volume data. No date filtering is available; always returns the most recent data. Outputs compact JSON by default.
-
-**Example:**
-
-```bash
-volumeleaders-agent market snapshots
-```
-
 #### `volumeleaders-agent outputschema`
 
 Print machine-readable stdout contracts for executable commands. With no arguments it returns every contract as a JSON array. Pass a command path such as trade list to return one contract. This describes success output only; structured errors are documented by structcli flag errors.
@@ -1227,12 +1217,6 @@ volumeleaders-agent market earnings --days 5
 
 ```bash
 volumeleaders-agent market exhaustion --date 2025-01-15
-```
-
-#### volumeleaders-agent market snapshots
-
-```bash
-volumeleaders-agent market snapshots
 ```
 
 #### volumeleaders-agent outputschema

@@ -2,43 +2,6 @@ package common
 
 import "testing"
 
-func TestParseSnapshotString(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name     string
-		input    string
-		expected map[string]float64
-	}{
-		{name: "empty string", input: "", expected: map[string]float64{}},
-		{name: "single ticker", input: "AAPL:255.30", expected: map[string]float64{"AAPL": 255.30}},
-		{name: "multiple tickers", input: "A:114.73;AA:70.96;AAPL:255.30", expected: map[string]float64{"A": 114.73, "AA": 70.96, "AAPL": 255.30}},
-		{name: "trailing semicolon", input: "AAPL:255.30;MSFT:420.50;", expected: map[string]float64{"AAPL": 255.30, "MSFT": 420.50}},
-		{name: "skips malformed entries", input: "AAPL:255.30;BADENTRY;MSFT:420.50", expected: map[string]float64{"AAPL": 255.30, "MSFT": 420.50}},
-		{name: "skips non-numeric prices", input: "AAPL:255.30;BAD:notanumber;MSFT:420.50", expected: map[string]float64{"AAPL": 255.30, "MSFT": 420.50}},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-			result := ParseSnapshotString(tt.input)
-			if len(result) != len(tt.expected) {
-				t.Fatalf("expected %d entries, got %d", len(tt.expected), len(result))
-			}
-			for ticker, expectedPrice := range tt.expected {
-				got, ok := result[ticker]
-				if !ok {
-					t.Errorf("missing ticker %s", ticker)
-					continue
-				}
-				if got != expectedPrice {
-					t.Errorf("ticker %s: expected %f, got %f", ticker, expectedPrice, got)
-				}
-			}
-		})
-	}
-}
-
 func TestIntStr(t *testing.T) {
 	t.Parallel()
 

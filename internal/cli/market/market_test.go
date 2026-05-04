@@ -5,54 +5,11 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"testing"
 
 	"github.com/major/volumeleaders-agent/internal/cli/testutil"
 	"github.com/major/volumeleaders-agent/internal/models"
 )
-
-func TestSnapshots(t *testing.T) {
-	t.Parallel()
-
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/Trades/GetAllSnapshots" {
-			t.Errorf("expected path /Trades/GetAllSnapshots, got %s", r.URL.Path)
-		}
-		fmt.Fprint(w, `"AAPL:255.30;MSFT:420.50"`)
-	}))
-	t.Cleanup(server.Close)
-
-	ctx := testutil.ContextWithTestClient(t, server.URL)
-	cmd := NewMarketCommand()
-	stdout, _, err := testutil.ExecuteCommand(t, cmd, ctx, "snapshots")
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if !strings.Contains(stdout, "AAPL") {
-		t.Errorf("expected output to contain AAPL, got: %s", stdout)
-	}
-	if !strings.Contains(stdout, "255.3") {
-		t.Errorf("expected output to contain 255.3, got: %s", stdout)
-	}
-	if !strings.Contains(stdout, "MSFT") {
-		t.Errorf("expected output to contain MSFT, got: %s", stdout)
-	}
-}
-
-func TestSnapshotsServerError(t *testing.T) {
-	t.Parallel()
-
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		http.Error(w, "error", http.StatusInternalServerError)
-	}))
-	t.Cleanup(server.Close)
-
-	ctx := testutil.ContextWithTestClient(t, server.URL)
-	cmd := NewMarketCommand()
-	_, _, err := testutil.ExecuteCommand(t, cmd, ctx, "snapshots")
-	testutil.AssertErrContains(t, err, "query snapshots")
-}
 
 func TestEarnings(t *testing.T) {
 	t.Parallel()

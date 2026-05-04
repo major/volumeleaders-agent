@@ -2,6 +2,7 @@ package trade
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"maps"
@@ -26,12 +27,12 @@ func minimalJSONArray(n int) string {
 	return "[" + strings.Repeat("{},", n-1) + "{}]"
 }
 
-func TestNewCmdRegistersTenRunESubcommands(t *testing.T) {
+func TestNewCmdRegistersElevenRunESubcommands(t *testing.T) {
 	t.Parallel()
 
 	cmd := NewCmd()
-	if len(cmd.Commands()) != 10 {
-		t.Fatalf("subcommand count = %d, want 10", len(cmd.Commands()))
+	if len(cmd.Commands()) != 11 {
+		t.Fatalf("subcommand count = %d, want 11", len(cmd.Commands()))
 	}
 	for _, subcmd := range cmd.Commands() {
 		if subcmd.RunE == nil {
@@ -202,6 +203,84 @@ func TestTradeListFetchesBrowserSizedPages(t *testing.T) {
 	testutil.AssertErrContains(t, err, "")
 	if !slices.Equal(gotLengths, []string{"100", "100"}) {
 		t.Fatalf("lengths = %v, want [100 100]", gotLengths)
+	}
+}
+
+func TestTradeDashboardFetchesChartOptimizedSections(t *testing.T) {
+	t.Parallel()
+
+	requestsByPath := make(map[string]url.Values)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			t.Errorf("failed to read request body: %v", err)
+		}
+		params, _ := url.ParseQuery(string(body))
+		requestsByPath[r.URL.Path] = params
+		switch r.URL.Path {
+		case "/Trades/GetTrades":
+			_, _ = w.Write([]byte(testutil.DataTablesJSON(`[{"Ticker":"IGV","Dollars":1000,"Volume":10}]`)))
+		case "/TradeClusters/GetTradeClusters":
+			_, _ = w.Write([]byte(testutil.DataTablesJSON(`[{"Ticker":"IGV","Dollars":2000,"Volume":20,"TradeCount":2}]`)))
+		case "/Chart0/GetTradeLevels":
+			_, _ = w.Write([]byte(testutil.DataTablesJSON(`[{"Price":101.5,"Dollars":3000,"Volume":30,"Trades":3}]`)))
+		case "/TradeClusterBombs/GetTradeClusterBombs":
+			_, _ = w.Write([]byte(testutil.DataTablesJSON(`[{"Ticker":"IGV","Dollars":4000,"Volume":40,"TradeCount":4,"TradeClusterBombRank":1}]`)))
+		default:
+			t.Errorf("unexpected path %q", r.URL.Path)
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	t.Cleanup(server.Close)
+
+	cmd := NewCmd()
+	ctx := testutil.ContextWithTestClient(t, server.URL)
+	stdout, _, err := testutil.ExecuteCommand(t, cmd, ctx, "dashboard", "IGV", "--start-date", "2025-05-04", "--end-date", "2026-05-04")
+	testutil.AssertErrContains(t, err, "")
+
+	var dashboard models.TradeDashboard
+	if err := json.Unmarshal([]byte(stdout), &dashboard); err != nil {
+		t.Fatalf("failed to unmarshal dashboard: %v\nstdout=%s", err, stdout)
+	}
+	if dashboard.Ticker != "IGV" || dashboard.Count != tradeDashboardDefaultCount {
+		t.Fatalf("dashboard metadata = (%q, %d), want (IGV, %d)", dashboard.Ticker, dashboard.Count, tradeDashboardDefaultCount)
+	}
+	if len(dashboard.Trades) != 1 || len(dashboard.Clusters) != 1 || len(dashboard.Levels) != 1 || len(dashboard.ClusterBombs) != 1 {
+		t.Fatalf("dashboard section lengths = trades:%d clusters:%d levels:%d bombs:%d, want all 1", len(dashboard.Trades), len(dashboard.Clusters), len(dashboard.Levels), len(dashboard.ClusterBombs))
+	}
+
+	for _, path := range []string{"/Trades/GetTrades", "/TradeClusters/GetTradeClusters", "/Chart0/GetTradeLevels", "/TradeClusterBombs/GetTradeClusterBombs"} {
+		params, ok := requestsByPath[path]
+		if !ok {
+			t.Fatalf("missing dashboard request for %s", path)
+		}
+		if got := params.Get("StartDate"); got != "2025-05-04" {
+			t.Fatalf("%s StartDate = %q, want 2025-05-04", path, got)
+		}
+		if got := params.Get("EndDate"); got != "2026-05-04" {
+			t.Fatalf("%s EndDate = %q, want 2026-05-04", path, got)
+		}
+	}
+	if got := requestsByPath["/Trades/GetTrades"].Get("length"); got != "10" {
+		t.Fatalf("trades length = %q, want 10", got)
+	}
+	if got := requestsByPath["/Trades/GetTrades"].Get("VCD"); got != "0" {
+		t.Fatalf("trades VCD = %q, want 0", got)
+	}
+	if got := requestsByPath["/Trades/GetTrades"].Get("RelativeSize"); got != "0" {
+		t.Fatalf("trades RelativeSize = %q, want 0", got)
+	}
+	if got := requestsByPath["/Trades/GetTrades"].Get("Sort"); got != "Dollars" {
+		t.Fatalf("trades Sort = %q, want Dollars", got)
+	}
+	if got := requestsByPath["/Chart0/GetTradeLevels"].Get("Ticker"); got != "IGV" {
+		t.Fatalf("levels Ticker = %q, want IGV", got)
+	}
+	if got := requestsByPath["/Chart0/GetTradeLevels"].Get("Levels"); got != "10" {
+		t.Fatalf("levels Levels = %q, want 10", got)
+	}
+	if got := requestsByPath["/Chart0/GetTradeLevels"].Get("length"); got != "-1" {
+		t.Fatalf("levels length = %q, want -1", got)
 	}
 }
 

@@ -42,6 +42,7 @@ COMMAND CHOOSER
 Goal                                          Start with                              Notes
 --------------------------------------------  --------------------------------------  -----------------------------------------------
 Find individual institutional prints          trade list X --days N                   Use ticker filters, presets, or watchlists
+Get comprehensive ticker overview            trade dashboard X --days N              Fast chart-style trades, clusters, levels, bombs
 Compare leveraged ETF bull/bear flow          trade sentiment --days N                Fixed leveraged ETF universe, not buy/sell flow
 Find converging price-level activity          trade clusters --days N                 Cluster conviction around similar prices
 Find sudden aggressive bursts                 trade cluster-bombs --days N            Burst detection, different defaults than clusters
@@ -61,10 +62,11 @@ Get watchlist tickers                         watchlist tickers --watchlist-key 
 ANALYSIS WORKFLOW
 
 1. volume institutional --date D for top dollar movers.
-2. trade list X --days N for individual prints.
-3. trade levels X --days N for support/resistance.
-4. trade clusters X --days N when prints appear concentrated around a price.
-5. market earnings --days N and market exhaustion --date D for event and reversal context.
+2. trade dashboard X --days N for a fast ticker overview before deeper drilling.
+3. trade list X --days N for individual prints.
+4. trade levels X --days N for support/resistance.
+5. trade clusters X --days N when prints appear concentrated around a price.
+6. market earnings --days N and market exhaustion --date D for event and reversal context.
 
 GLOBAL CONVENTIONS
 
@@ -94,7 +96,9 @@ Empty or too broad output: add tickers, explicit dates, min dollar filters, or a
 
 COMMAND SEQUENCES
 
-Broad scan: volume institutional --date D, then trade list TICKER --days N, then trade levels TICKER --days N.
+Broad scan: volume institutional --date D, then trade dashboard TICKER --days N, then trade list TICKER --days N, then trade levels TICKER --days N.
+
+Ticker drilldown: trade dashboard TICKER --days N, then trade list TICKER --days N, then trade clusters TICKER --days N.
 
 Event context: market earnings --days N, then trade list TICKER --start-date D --end-date D, then market exhaustion --date D.
 

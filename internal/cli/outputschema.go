@@ -108,6 +108,7 @@ func outputContractByCommand(contracts []outputContract, commandPath string) (ou
 
 func allOutputContracts() []outputContract {
 	contracts := []outputContract{
+		objectOutputContract[models.TradeDashboard]("trade dashboard", "Return a fast ticker dashboard with trades, clusters, levels, and cluster bombs.", []string{"json"}, []string{"Defaults to a 365-day lookback and 10 rows per section."}),
 		arrayOutputContract[models.TradeListRow]("trade list", "List individual institutional trades using a compact default row shape.", outputFormats(), nil, nil,
 			outputVariant{When: "--fields is set or --format is csv or tsv", Formats: outputFormats(), Schema: arraySchema[models.Trade](), FieldSelection: allFieldsSelection[models.Trade](nil), Notes: []string{"CSV and TSV include a header row matching the selected fields."}},
 			outputVariant{When: "--summary is set", Formats: []string{"json"}, Schema: objectSchema[models.TradeSummary](), Notes: []string{"--summary cannot be combined with --fields or non-JSON formats."}},

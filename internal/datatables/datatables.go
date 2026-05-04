@@ -31,6 +31,32 @@ var TradeChartColumns = []Column{
 	{Data: "LastComparibleTradeDate", Name: "Last Comp", Searchable: true, Orderable: false},
 }
 
+// TradeClusterChartColumns contains the compact chart DataTables layout used by
+// the browser dashboard for ticker-specific cluster summaries.
+var TradeClusterChartColumns = []Column{
+	{Data: "MinFullTimeString24", Name: "MinFullTimeString24", Searchable: true, Orderable: false},
+	{Data: "Price", Name: "Price", Searchable: true, Orderable: false},
+	{Data: "TradeCount", Name: "TradeCount", Searchable: true, Orderable: false},
+	{Data: "Volume", Name: "Sh", Searchable: true, Orderable: false},
+	{Data: "Dollars", Name: "$$", Searchable: true, Orderable: false},
+	{Data: "DollarsMultiplier", Name: "RS", Searchable: true, Orderable: false},
+	{Data: "TradeClusterRank", Name: "R", Searchable: true, Orderable: false},
+	{Data: "LastComparibleTradeClusterDate", Name: "Last Comp", Searchable: true, Orderable: false},
+}
+
+// TradeClusterBombChartColumns adapts the browser cluster table shape for the
+// cluster-bomb endpoint so dashboard output can include the same burst context.
+var TradeClusterBombChartColumns = []Column{
+	{Data: "MinFullTimeString24", Name: "MinFullTimeString24", Searchable: true, Orderable: false},
+	{Data: "TradeCount", Name: "TradeCount", Searchable: true, Orderable: false},
+	{Data: "Volume", Name: "Sh", Searchable: true, Orderable: false},
+	{Data: "Dollars", Name: "$$", Searchable: true, Orderable: false},
+	{Data: "DollarsMultiplier", Name: "RS", Searchable: true, Orderable: false},
+	{Data: "CumulativeDistribution", Name: "PCT", Searchable: true, Orderable: false},
+	{Data: "TradeClusterBombRank", Name: "R", Searchable: true, Orderable: false},
+	{Data: "LastComparableTradeClusterBombDate", Name: "Last Comp", Searchable: true, Orderable: false},
+}
+
 // TradeClusterColumns contains the DataTables column names used by the trade clusters endpoint.
 var TradeClusterColumns = []string{
 	"MinFullTimeString24", "MinFullTimeString24", "Ticker", "TradeCount",
@@ -65,6 +91,18 @@ var TotalVolumeColumns = []string{
 var TradeLevelColumns = []string{
 	"Price", "Dollars", "Volume", "Trades", "RelativeSize",
 	"CumulativeDistribution", "TradeLevelRank", "Level Date Range",
+}
+
+// TradeLevelChartColumns contains the chart dashboard layout for level rows.
+var TradeLevelChartColumns = []Column{
+	{Data: "Price", Name: "Price", Searchable: true, Orderable: false},
+	{Data: "Dollars", Name: "$$", Searchable: true, Orderable: false},
+	{Data: "Volume", Name: "Sh", Searchable: true, Orderable: false},
+	{Data: "Trades", Name: "Trades", Searchable: true, Orderable: false},
+	{Data: "RelativeSize", Name: "RS", Searchable: true, Orderable: false},
+	{Data: "CumulativeDistribution", Name: "PCT", Searchable: true, Orderable: false},
+	{Data: "TradeLevelRank", Name: "Rank", Searchable: true, Orderable: false},
+	{Data: "Dates", Name: "Dates", Searchable: true, Orderable: false},
 }
 
 // TradeLevelTouchColumns contains the DataTables column names used by the trade level touches endpoint.

@@ -11,6 +11,7 @@ COMMAND CHOOSER
 Goal                                          Start with                              Notes
 --------------------------------------------  --------------------------------------  -----------------------------------------------
 Find individual institutional prints          trade list X --days N                   Use ticker filters, presets, or watchlists
+Get comprehensive ticker overview            trade dashboard X --days N              Fast chart-style trades, clusters, levels, bombs
 Compare leveraged ETF bull/bear flow          trade sentiment --days N                Fixed leveraged ETF universe, not buy/sell flow
 Find converging price-level activity          trade clusters --days N                 Cluster conviction around similar prices
 Find sudden aggressive bursts                 trade cluster-bombs --days N            Burst detection, different defaults than clusters
@@ -30,10 +31,11 @@ Get watchlist tickers                         watchlist tickers --watchlist-key 
 ANALYSIS WORKFLOW
 
 1. volume institutional --date D for top dollar movers.
-2. trade list X --days N for individual prints.
-3. trade levels X --days N for support/resistance.
-4. trade clusters X --days N when prints appear concentrated around a price.
-5. market earnings --days N and market exhaustion --date D for event and reversal context.
+2. trade dashboard X --days N for a fast ticker overview before deeper drilling.
+3. trade list X --days N for individual prints.
+4. trade levels X --days N for support/resistance.
+5. trade clusters X --days N when prints appear concentrated around a price.
+6. market earnings --days N and market exhaustion --date D for event and reversal context.
 
 GLOBAL CONVENTIONS
 
@@ -63,7 +65,9 @@ Empty or too broad output: add tickers, explicit dates, min dollar filters, or a
 
 COMMAND SEQUENCES
 
-Broad scan: volume institutional --date D, then trade list TICKER --days N, then trade levels TICKER --days N.
+Broad scan: volume institutional --date D, then trade dashboard TICKER --days N, then trade list TICKER --days N, then trade levels TICKER --days N.
+
+Ticker drilldown: trade dashboard TICKER --days N, then trade list TICKER --days N, then trade clusters TICKER --days N.
 
 Event context: market earnings --days N, then trade list TICKER --start-date D --end-date D, then market exhaustion --date D.
 
@@ -100,6 +104,13 @@ Results are fetched in browser-sized 100-row pages to match VolumeLeaders' front
 
 
 Results are fetched in browser-sized 100-row pages to match VolumeLeaders' frontend behavior. Use clusters when the question is about price-level concentration, not single prints. This command uses larger default dollar thresholds than ordinary trade list. Use trade cluster-bombs instead when looking for sudden aggressive bursts tightly grouped in time and price. |  |
+| `volumeleaders-agent trade dashboard` | Query a fast ticker dashboard with the same chart-optimized institutional context VolumeLeaders shows in the browser. The dashboard fetches the largest trades, trade clusters, trade levels, and cluster bombs for one ticker in a single JSON object.
+
+Defaults to a 365-day lookback, 10 rows per section, --vcd 0, --relative-size 0, and the same broad trade/session filters used by the browser chart page. Use this command as the first stop when asking broad questions such as institutional levels for IGV, then drill into trade list, trade clusters, trade levels, or trade cluster-bombs when a section needs deeper pagination or CSV/TSV output.
+
+PREREQUISITES: Provide exactly one ticker as a positional argument or with --ticker. Browser authentication must be available.
+
+RECOVERY: If ticker validation fails, use one ticker only. If --count is rejected, use 5, 10, 20, or 50. If date flags conflict, use either --days or --start-date with --end-date. |  |
 | `volumeleaders-agent trade level-touches` | Query institutional trade events that occurred at notable price levels for a ticker, showing how the market interacted with key support and resistance zones. Accepts a ticker as positional argument or via --ticker flag. Requires --start-date and --end-date (or --days).
 
 Defaults to --trade-level-rank 5 and --length 50, rejects --length -1, --length 0, and values above 50, and only allows --trade-level-count values of 5, 10, 20, or 50. Use trade levels first to identify significant price zones, then use this command to find events where price revisited those levels.
@@ -345,6 +356,41 @@ Ratio is bull dollars divided by bear dollars and is null when bear flow is zero
 | `--start-date` | string | - | Start date YYYY-MM-DD (required unless --days is set) |
 | `--tickers` | string | - | Comma-separated ticker symbols |
 | `--trade-cluster-rank` | int | -1 | Trade cluster rank filter |
+| `--vcd` | int | 0 | VCD filter |
+
+#### `volumeleaders-agent trade dashboard`
+
+| Flag | Type | Default | Description |
+|------|------|---------|-------------|
+| `--ah` | string | 1 | After-hours session filter (-1=all, 0=exclude, 1=include) (-1, 0, 1) |
+| `--closing` | string | 1 | Closing trade filter (-1=all, 0=exclude, 1=include) (-1, 0, 1) |
+| `--conditions` | int | -1 | Trade conditions filter |
+| `--count` | int | 10 | Rows to return per dashboard section (5, 10, 20, or 50) |
+| `--dark-pools` | string | -1 | Dark pool filter (-1=all, 0=exclude, 1=only) (-1, 0, 1) |
+| `--days` | int | 0 | Look back this many days from --end-date or today |
+| `--end-date` | string | - | End date YYYY-MM-DD (default: today) |
+| `--even-shared` | string | -1 | Even shared filter (-1=all, 0=exclude, 1=only) (-1, 0, 1) |
+| `--late-prints` | string | -1 | Late print filter (-1=all, 0=exclude, 1=only) (-1, 0, 1) |
+| `--market-cap` | int | 0 | Market cap filter |
+| `--max-dollars` | float64 | 30000000000 | Maximum dollar value |
+| `--max-price` | float64 | 100000 | Maximum price |
+| `--max-volume` | int | 2000000000 | Maximum volume |
+| `--min-dollars` | float64 | 500000 | Minimum dollar value |
+| `--min-price` | float64 | 0 | Minimum price |
+| `--min-volume` | int | 0 | Minimum volume |
+| `--offsetting` | string | 1 | Offsetting trade filter (-1=all, 0=exclude, 1=include) (-1, 0, 1) |
+| `--opening` | string | 1 | Opening trade filter (-1=all, 0=exclude, 1=include) (-1, 0, 1) |
+| `--phantom` | string | 1 | Phantom print filter (-1=all, 0=exclude, 1=include) (-1, 0, 1) |
+| `--premarket` | string | 1 | Premarket session filter (-1=all, 0=exclude, 1=include) (-1, 0, 1) |
+| `--rank-snapshot` | int | -1 | Trade rank snapshot filter |
+| `--relative-size` | int | 0 | Relative size threshold |
+| `--rth` | string | 1 | Regular trading hours filter (-1=all, 0=exclude, 1=include) (-1, 0, 1) |
+| `--security-type` | int | -1 | Security type key |
+| `--sig-prints` | string | -1 | Signature print filter (-1=all, 0=exclude, 1=only) (-1, 0, 1) |
+| `--start-date` | string | - | Start date YYYY-MM-DD (default: auto) |
+| `--sweeps` | string | -1 | Sweep filter (-1=all, 0=exclude, 1=only) (-1, 0, 1) |
+| `--ticker` | string | - | Ticker symbol |
+| `--trade-rank` | int | -1 | Trade rank filter |
 | `--vcd` | int | 0 | VCD filter |
 
 #### `volumeleaders-agent trade level-touches`

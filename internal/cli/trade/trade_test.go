@@ -1,7 +1,6 @@
 package trade
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -27,17 +26,64 @@ func minimalJSONArray(n int) string {
 	return "[" + strings.Repeat("{},", n-1) + "{}]"
 }
 
-func TestNewCmdRegistersElevenRunESubcommands(t *testing.T) {
+func TestNewCmdRegistersNineRunESubcommands(t *testing.T) {
 	t.Parallel()
 
 	cmd := NewCmd()
-	if len(cmd.Commands()) != 11 {
-		t.Fatalf("subcommand count = %d, want 11", len(cmd.Commands()))
+	if len(cmd.Commands()) != 9 {
+		t.Fatalf("subcommand count = %d, want 9", len(cmd.Commands()))
 	}
 	for _, subcmd := range cmd.Commands() {
 		if subcmd.RunE == nil {
 			t.Fatalf("subcommand %q missing RunE", subcmd.Name())
 		}
+	}
+}
+
+func TestApplyExplicitFlagsPreservesPresetValuesUnlessChanged(t *testing.T) {
+	t.Parallel()
+
+	preset, err := findPreset("Top-100 Rank")
+	if err != nil {
+		t.Fatalf("find preset: %v", err)
+	}
+	filters := maps.Clone(preset.filters)
+	cmd := newTradeListCommand()
+	if err := cmd.Flags().Set("dark-pools", "1"); err != nil {
+		t.Fatalf("set dark-pools: %v", err)
+	}
+
+	applyExplicitFlags(cmd, filters)
+
+	if got := filters["DarkPools"]; got != "1" {
+		t.Fatalf("DarkPools = %q, want 1", got)
+	}
+	if got := filters["TradeRank"]; got != "100" {
+		t.Fatalf("TradeRank = %q, want preset value 100", got)
+	}
+	if got := filters["MaxDollars"]; got != "100000000000" {
+		t.Fatalf("MaxDollars = %q, want preset value 100000000000", got)
+	}
+}
+
+func TestTradeListUnknownPresetReturnsUsefulError(t *testing.T) {
+	t.Parallel()
+
+	cmd := newTradeListCommand()
+	_, _, err := testutil.ExecuteCommand(t, cmd, t.Context(), "--preset", "Missing")
+
+	testutil.AssertErrContains(t, err, "preset \"Missing\" not found")
+}
+
+func TestChangedTrueWhenFlagSetToDefaultValue(t *testing.T) {
+	t.Parallel()
+
+	cmd := newTradeSentimentCommand()
+	if err := cmd.Flags().Set("vcd", "97"); err != nil {
+		t.Fatalf("set vcd: %v", err)
+	}
+	if !cmd.Flags().Changed("vcd") {
+		t.Fatal("Changed(vcd) = false, want true for explicit default value")
 	}
 }
 
@@ -649,12 +695,13 @@ func TestTradeLevelTouchesDefaultsToRankFive(t *testing.T) {
 	}
 }
 
-func TestExecuteTradeCommandWithoutServerDoesNotPanic(t *testing.T) {
+func TestNewTradeListCommandCanBeConstructedWithoutServer(t *testing.T) {
 	t.Parallel()
 
-	cmd := newTradePresetsCommand()
-	_, _, err := testutil.ExecuteCommand(t, cmd, context.Background())
-	testutil.AssertErrContains(t, err, "")
+	cmd := newTradeListCommand()
+	if cmd == nil {
+		t.Fatal("expected trade list command")
+	}
 }
 
 func floatPtr(f float64) *float64 {

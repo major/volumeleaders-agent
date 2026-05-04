@@ -19,14 +19,6 @@ type tradePreset struct {
 	filters map[string]string
 }
 
-type tradePresetsOptions struct {
-	Format common.OutputFormat `flag:"format" flagdescr:"Output format: json, csv, or tsv"`
-}
-
-type tradePresetTickersOptions struct {
-	Preset string `flag:"preset" flagdescr:"Preset name (case-insensitive)"`
-}
-
 var tradePresets = buildPresets()
 
 func buildPresets() []tradePreset {
@@ -210,85 +202,4 @@ func watchlistConfigToFilters(cfg *models.WatchListConfig) map[string]string {
 		filters["MaxPrice"] = common.FormatFloat(cfg.MaxPrice)
 	}
 	return filters
-}
-
-func newTradePresetTickersCommand() *cobra.Command {
-	opts := &tradePresetTickersOptions{}
-	cmd := &cobra.Command{
-		Use:        "preset-tickers",
-		Short:      "Extract ticker symbols from a preset",
-		Long:       "Extract the ticker symbols configured in a named trade filter preset, showing whether the preset uses an explicit ticker list, a sector/industry filter, or is unfiltered. Requires --preset with the preset name (case-insensitive). Outputs JSON with the preset name, group, type, and ticker details.",
-		Example:    "volumeleaders-agent trade preset-tickers --preset NAME",
-		Args:       cobra.NoArgs,
-		SuggestFor: []string{"presettickers", "preset-ticker"},
-		RunE: func(cmd *cobra.Command, _ []string) error {
-			return runTradePresetTickers(cmd, opts)
-		},
-	}
-	common.BindOrPanic(cmd, opts, "preset-tickers")
-	_ = cmd.MarkFlagRequired("preset")
-	return cmd
-}
-
-func runTradePresetTickers(cmd *cobra.Command, opts *tradePresetTickersOptions) error {
-	p, err := findPreset(opts.Preset)
-	if err != nil {
-		return err
-	}
-	info := models.PresetTickersInfo{Preset: p.name, Group: p.group}
-	switch {
-	case p.filters["Tickers"] != "":
-		info.Type = "tickers"
-		info.Tickers = splitTickers(p.filters["Tickers"])
-	case p.filters["SectorIndustry"] != "":
-		info.Type = "sector-filter"
-		info.SectorIndustry = p.filters["SectorIndustry"]
-	default:
-		info.Type = "unfiltered"
-	}
-	return common.PrintJSON(cmd.OutOrStdout(), cmd.Context(), info)
-}
-
-func splitTickers(tickers string) []string {
-	parts := strings.Split(tickers, ",")
-	result := make([]string, 0, len(parts))
-	seen := make(map[string]bool, len(parts))
-	for _, part := range parts {
-		ticker := strings.TrimSpace(part)
-		if ticker == "" || seen[ticker] {
-			continue
-		}
-		seen[ticker] = true
-		result = append(result, ticker)
-	}
-	return result
-}
-
-func newTradePresetsCommand() *cobra.Command {
-	opts := &tradePresetsOptions{Format: "json"}
-	cmd := &cobra.Command{
-		Use:        "presets",
-		Short:      "List available trade filter presets",
-		Long:       "List all built-in trade filter presets with their names, groups, and filter configurations. Each preset defines a named set of filters that can be applied to trade list queries via --preset. Outputs compact JSON by default; use --format csv or tsv for tabular output.",
-		Example:    "volumeleaders-agent trade presets",
-		Args:       cobra.NoArgs,
-		SuggestFor: []string{"preset", "prsets"},
-		RunE: func(cmd *cobra.Command, _ []string) error {
-			return runTradePresets(cmd, opts)
-		},
-	}
-	common.BindOrPanic(cmd, opts, "presets")
-	return cmd
-}
-
-func runTradePresets(cmd *cobra.Command, opts *tradePresetsOptions) error {
-	format, err := common.ParseOutputFormat(opts.Format)
-	if err != nil {
-		return err
-	}
-	presets := make([]models.PresetInfo, len(tradePresets))
-	for i, p := range tradePresets {
-		presets[i] = models.PresetInfo{Name: p.name, Group: p.group, Filters: p.filters}
-	}
-	return common.PrintDataTablesResult(cmd.OutOrStdout(), cmd.Context(), presets, nil, format)
 }

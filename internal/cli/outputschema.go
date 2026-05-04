@@ -138,14 +138,11 @@ func allOutputContracts() []outputContract {
 			outputVariant{When: "--fields is set", Formats: []string{"json"}, Schema: arraySchema[models.TradeLevel](), FieldSelection: allFieldsSelection[models.TradeLevel](nil)},
 		),
 		arrayOutputContract[models.TradeLevelTouch]("trade level-touches", "List revisits to institutional price levels.", outputFormats(), nil, nil),
-		objectOutputContract[models.PresetTickersInfo]("trade preset-tickers", "List ticker symbols used by one built-in trade preset.", []string{"json"}, nil),
-		arrayOutputContract[models.PresetInfo]("trade presets", "List built-in trade filter presets.", outputFormats(), nil, nil),
 
 		arrayOutputContract[models.Trade]("volume institutional", "List regular-hours institutional volume leaders.", outputFormats(), nil, nil),
 		arrayOutputContract[models.Trade]("volume ah-institutional", "List after-hours institutional volume leaders.", outputFormats(), nil, nil),
 		arrayOutputContract[models.Trade]("volume total", "List total volume leaders across trade types.", outputFormats(), nil, nil),
 
-		objectOutputContract[map[string]any]("market snapshots", "Return current price snapshots keyed by ticker.", []string{"json"}, []string{"Snapshot objects come from the VolumeLeaders API and can vary by symbol."}),
 		arrayOutputContract[models.Earnings]("market earnings", "List earnings events with related institutional activity counts.", outputFormats(), marketEarningsDefaultFields(), allFieldsSelection[models.Earnings](marketEarningsDefaultFields())),
 		objectOutputContract[models.MarketExhaustion]("market exhaustion", "Return market exhaustion rank metrics for one trading day.", []string{"json"}, nil),
 

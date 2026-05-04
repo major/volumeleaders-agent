@@ -47,7 +47,7 @@ Find ranked institutional prints              report top-100-rank               
 Find strongest ranked prints                  report top-10-rank                      Narrower ranked-trade preset
 Find dark pool sweep activity                 report dark-pool-sweeps                 Vetted dark-pool sweep preset
 Find unusually large prints                   report disproportionately-large          5x relative size browser preset
-Find individual institutional prints          trade list X --days N                   Advanced path: use presets or tickers first
+Find individual institutional prints          trade list X --days N                   Advanced path: use reports or tickers first
 Get comprehensive ticker overview            trade dashboard X --days N              Fast chart-style trades, clusters, levels, bombs
 Compare leveraged ETF bull/bear flow          trade sentiment --days N                Fixed leveraged ETF universe, not buy/sell flow
 Find converging price-level activity          trade clusters --days N                 Cluster conviction around similar prices
@@ -58,7 +58,6 @@ Find revisits to institutional levels         trade level-touches X --days N    
 See institutional volume leaders              volume institutional --date D            Same trade model, volume-ranked
 See after-hours institutional leaders         volume ah-institutional --date D        After-hours institutional flow
 See total volume leaders                      volume total --date D                   Total market volume across trade types
-Get current prices                            market snapshots                        JSON object
 Find earnings with prior institutional flow   market earnings --days N                CSV/TSV supported
 Check exhaustion/reversal signals             market exhaustion                       Optional --date, lower rank is stronger
 Manage alert configs                          alert configs/create/edit/delete        Edit replaces unspecified values with defaults
@@ -87,7 +86,7 @@ Tickers: --tickers is comma-separated, --ticker is single-symbol. Commands that 
 
 Output formats: list-style commands may support --format json/csv/tsv. CSV/TSV include headers, booleans render as true/false, null or missing values render as empty cells. Nested summaries and single-object commands are JSON-only unless the input schema shows a format flag. Use outputschema to inspect the success stdout shape for each command.
 
-Performance: use report commands and built-in presets first. Start with one vetted report, one day, and tickers when possible, then expand. VolumeLeaders endpoints can be expensive; broad custom trade list filters are easy to overdo. report commands reject broad multi-day scans without tickers, trade list uses a bounded chart-style request for multi-day ticker lookups, and full-result retrieval keeps the browser's 100-row page size.
+Performance: use report commands first. Start with one vetted report, one day, and tickers when possible, then expand. VolumeLeaders endpoints can be expensive; broad custom trade list filters are easy to overdo. report commands reject broad multi-day scans without tickers, trade list uses a bounded chart-style request for multi-day ticker lookups, and full-result retrieval keeps the browser's 100-row page size.
 
 RECOVERY PLAYBOOK
 

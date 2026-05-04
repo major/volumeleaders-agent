@@ -178,16 +178,6 @@ Query exhaustion scores that indicate overbought or oversold market conditions b
 volumeleaders-agent market exhaustion --date 2025-01-15
 ```
 
-#### `volumeleaders-agent market snapshots`
-
-Retrieve current price snapshot data for all symbols tracked by VolumeLeaders, returning the latest available price and volume data. No date filtering is available; always returns the most recent data. Outputs compact JSON by default.
-
-**Example:**
-
-```bash
-volumeleaders-agent market snapshots
-```
-
 #### `volumeleaders-agent outputschema`
 
 Print machine-readable stdout contracts for executable commands. With no arguments it returns every contract as a JSON array. Pass a command path such as trade list to return one contract. This describes success output only; structured errors are documented by structcli flag errors.
@@ -819,7 +809,7 @@ volumeleaders-agent trade levels AAPL
 
 #### `volumeleaders-agent trade list`
 
-Query individual institutional trades from VolumeLeaders, filterable by ticker, date range, dollar amounts, volume, trade conditions, session type, and trade rank. Supports built-in filter presets (--preset) and watchlist-based filtering (--watchlist). Outputs compact JSON or CSV/TSV with --format; use --summary for aggregate metrics grouped by ticker or day.
+Query individual institutional trades from VolumeLeaders, filterable by ticker, date range, dollar amounts, volume, trade conditions, session type, and trade rank. Supports built-in filter presets (--preset) and watchlist-based filtering (--watchlist). Start with report list for curated preset-backed reports; use trade list when custom raw trade filters are needed. Outputs compact JSON or CSV/TSV with --format; use --summary for aggregate metrics grouped by ticker or day.
 
 Date defaults: 365-day lookback when tickers are provided, today-only without tickers. Preset and watchlist filters do not supply dates. Filter precedence is preset baseline, then watchlist merge, then explicit CLI flags override both.
 
@@ -887,7 +877,7 @@ NEXT STEPS: Use trade levels for support/resistance after finding a ticker, trad
 | `--order-dir` | string | desc | no | Order direction |
 | `--phantom` | string | 1 | no | Phantom print filter (-1=all, 0=exclude, 1=include) |
 | `--premarket` | string | 1 | no | Premarket session filter (-1=all, 0=exclude, 1=include) |
-| `--preset` | string | - | no | Apply a built-in filter preset (see: trade presets) |
+| `--preset` | string | - | no | Apply a built-in filter preset by name; use report list for curated preset-backed reports |
 | `--rank-snapshot` | int | -1 | no | Trade rank snapshot filter |
 | `--relative-size` | int | 5 | no | Relative size threshold |
 | `--rth` | string | 1 | no | Regular trading hours filter (-1=all, 0=exclude, 1=include) |
@@ -912,38 +902,6 @@ volumeleaders-agent trade list --tickers NVDA --dark-pools 1 --min-dollars 10000
 volumeleaders-agent trade list --sector Technology --relative-size 10
 volumeleaders-agent trade list --preset "Top-100 Rank" --start-date 2025-04-01 --end-date 2025-04-24
 volumeleaders-agent trade list --watchlist "Magnificent 7" --start-date 2025-04-01 --end-date 2025-04-24
-```
-
-#### `volumeleaders-agent trade preset-tickers`
-
-Extract the ticker symbols configured in a named trade filter preset, showing whether the preset uses an explicit ticker list, a sector/industry filter, or is unfiltered. Requires --preset with the preset name (case-insensitive). Outputs JSON with the preset name, group, type, and ticker details.
-
-**Flags:**
-
-| Flag | Type | Default | Required | Description |
-|------|------|---------|----------|-------------|
-| `--preset` | string | - | yes | Preset name (case-insensitive) |
-
-**Example:**
-
-```bash
-volumeleaders-agent trade preset-tickers --preset NAME
-```
-
-#### `volumeleaders-agent trade presets`
-
-List all built-in trade filter presets with their names, groups, and filter configurations. Each preset defines a named set of filters that can be applied to trade list queries via --preset. Outputs compact JSON by default; use --format csv or tsv for tabular output.
-
-**Flags:**
-
-| Flag | Type | Default | Required | Description |
-|------|------|---------|----------|-------------|
-| `--format` | string | json | no | Output format: json, csv, or tsv |
-
-**Example:**
-
-```bash
-volumeleaders-agent trade presets
 ```
 
 #### `volumeleaders-agent trade sentiment`
@@ -1261,12 +1219,6 @@ volumeleaders-agent market earnings --days 5
 volumeleaders-agent market exhaustion --date 2025-01-15
 ```
 
-#### volumeleaders-agent market snapshots
-
-```bash
-volumeleaders-agent market snapshots
-```
-
 #### volumeleaders-agent outputschema
 
 ```bash
@@ -1408,18 +1360,6 @@ volumeleaders-agent trade list --tickers NVDA --dark-pools 1 --min-dollars 10000
 volumeleaders-agent trade list --sector Technology --relative-size 10
 volumeleaders-agent trade list --preset "Top-100 Rank" --start-date 2025-04-01 --end-date 2025-04-24
 volumeleaders-agent trade list --watchlist "Magnificent 7" --start-date 2025-04-01 --end-date 2025-04-24
-```
-
-#### volumeleaders-agent trade preset-tickers
-
-```bash
-volumeleaders-agent trade preset-tickers --preset NAME
-```
-
-#### volumeleaders-agent trade presets
-
-```bash
-volumeleaders-agent trade presets
 ```
 
 #### volumeleaders-agent trade sentiment

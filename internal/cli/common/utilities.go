@@ -28,25 +28,3 @@ func BoolString(value bool) string {
 func ToDateKey(value string) string {
 	return strings.ReplaceAll(value, "-", "")
 }
-
-// ParseSnapshotString parses the semicolon-delimited "TICKER:PRICE" response
-// from GetAllSnapshots into a ticker-to-price map.
-func ParseSnapshotString(raw string) map[string]float64 {
-	result := make(map[string]float64)
-	if raw == "" {
-		return result
-	}
-
-	for pair := range strings.SplitSeq(raw, ";") {
-		ticker, priceStr, found := strings.Cut(pair, ":")
-		if !found {
-			continue
-		}
-		price, err := strconv.ParseFloat(priceStr, 64)
-		if err != nil {
-			continue
-		}
-		result[ticker] = price
-	}
-	return result
-}

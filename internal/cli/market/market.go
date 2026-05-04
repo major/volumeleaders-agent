@@ -42,42 +42,13 @@ func NewMarketCommand() *cobra.Command {
 		Short:   "Market-wide data commands",
 		GroupID: "market",
 		Args:    cobra.NoArgs,
-		Long:    "market contains subcommands for querying market-wide data from VolumeLeaders, including price snapshots, earnings calendars, and exhaustion signals. None of the subcommands accept positional arguments; all filtering is done via flags.",
+		Long:    "market contains subcommands for querying market-wide data from VolumeLeaders, including earnings calendars and exhaustion signals. None of the subcommands accept positional arguments; all filtering is done via flags.",
 	}
 	cmd.AddCommand(
-		newSnapshotsCmd(),
 		newEarningsCmd(),
 		newExhaustionCmd(),
 	)
 	return cmd
-}
-
-// newSnapshotsCmd returns the "snapshots" subcommand.
-func newSnapshotsCmd() *cobra.Command {
-	return &cobra.Command{
-		Use:        "snapshots",
-		Short:      "Get current price snapshots for all symbols",
-		Example:    "volumeleaders-agent market snapshots",
-		Args:       cobra.NoArgs,
-		Long:       "Retrieve current price snapshot data for all symbols tracked by VolumeLeaders, returning the latest available price and volume data. No date filtering is available; always returns the most recent data. Outputs compact JSON by default.",
-		SuggestFor: []string{"snapshot", "snaps"},
-		RunE: func(cmd *cobra.Command, _ []string) error {
-			ctx := cmd.Context()
-			vlClient, err := common.NewCommandClient(ctx)
-			if err != nil {
-				return err
-			}
-
-			var raw string
-			if err := vlClient.PostJSON(ctx, "/Trades/GetAllSnapshots", struct{}{}, &raw); err != nil {
-				slog.Error("failed to query snapshots", "error", err)
-				return fmt.Errorf("query snapshots: %w", err)
-			}
-
-			snapshots := common.ParseSnapshotString(raw)
-			return common.PrintJSON(cmd.OutOrStdout(), ctx, snapshots)
-		},
-	}
 }
 
 // newEarningsCmd returns the "earnings" subcommand.

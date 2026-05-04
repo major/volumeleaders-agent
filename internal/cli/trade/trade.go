@@ -144,7 +144,7 @@ type tradeListOptions struct {
 	tradeRangeFlags
 	tradeFilterFlags
 	Sector    string            `flag:"sector" flaggroup:"Input" flagdescr:"Sector/Industry filter"`
-	Preset    string            `flag:"preset" flaggroup:"Input" flagdescr:"Apply a built-in filter preset (see: trade presets)"`
+	Preset    string            `flag:"preset" flaggroup:"Input" flagdescr:"Apply a built-in filter preset by name; use report list for curated preset-backed reports"`
 	Watchlist string            `flag:"watchlist" flaggroup:"Input" flagdescr:"Apply filters from a saved watchlist by name"`
 	Fields    string            `flag:"fields" flaggroup:"Output" flagdescr:"Comma-separated trade fields to include in output"`
 	Summary   bool              `flag:"summary" flaggroup:"Output" flagdescr:"Return aggregate metrics instead of individual trades"`
@@ -271,8 +271,6 @@ func NewCmd() *cobra.Command {
 		newTradeListCommand(),
 		newTradeDashboardCommand(),
 		newTradeSentimentCommand(),
-		newTradePresetsCommand(),
-		newTradePresetTickersCommand(),
 		newTradeClustersCommand(),
 		newTradeClusterBombsCommand(),
 		newTradeAlertsCommand(),
@@ -324,7 +322,7 @@ func newTradeListCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "list [tickers...]",
 		Short: "Query institutional trades",
-		Long: `Query individual institutional trades from VolumeLeaders, filterable by ticker, date range, dollar amounts, volume, trade conditions, session type, and trade rank. Supports built-in filter presets (--preset) and watchlist-based filtering (--watchlist). Outputs compact JSON or CSV/TSV with --format; use --summary for aggregate metrics grouped by ticker or day.
+		Long: `Query individual institutional trades from VolumeLeaders, filterable by ticker, date range, dollar amounts, volume, trade conditions, session type, and trade rank. Supports built-in filter presets (--preset) and watchlist-based filtering (--watchlist). Start with report list for curated preset-backed reports; use trade list when custom raw trade filters are needed. Outputs compact JSON or CSV/TSV with --format; use --summary for aggregate metrics grouped by ticker or day.
 
 Date defaults: 365-day lookback when tickers are provided, today-only without tickers. Preset and watchlist filters do not supply dates. Filter precedence is preset baseline, then watchlist merge, then explicit CLI flags override both.
 

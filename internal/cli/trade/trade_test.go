@@ -2,18 +2,29 @@ package trade
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"maps"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/major/volumeleaders-agent/internal/cli/testutil"
 	"github.com/major/volumeleaders-agent/internal/models"
 )
+
+// minimalJSONArray returns a JSON array of n empty objects, usable as a
+// DataTables data payload for pagination tests that need page-sized responses.
+func minimalJSONArray(n int) string {
+	if n == 0 {
+		return "[]"
+	}
+	return "[" + strings.Repeat("{},", n-1) + "{}]"
+}
 
 func TestNewCmdRegistersTenRunESubcommands(t *testing.T) {
 	t.Parallel()
@@ -153,36 +164,132 @@ func TestBuildTradeLevelFiltersUseObservedLevelKeys(t *testing.T) {
 	}
 }
 
-func TestTradeListLengthCappedAtFifty(t *testing.T) {
+func TestTradeListRejectsUserSelectedLength(t *testing.T) {
 	t.Parallel()
 
 	cmd := NewCmd()
 	ctx := testutil.ContextWithTestClient(t, "http://127.0.0.1")
 	_, _, err := testutil.ExecuteCommand(t, cmd, ctx, "list", "--start-date", "2025-04-21", "--end-date", "2025-04-21", "--length", "100")
-	testutil.AssertErrContains(t, err, "--length must be between 1 and 50 for trade retrieval")
+	testutil.AssertErrContains(t, err, "unknown flag: --length")
 }
 
-func TestTradeListAcceptsMaximumLength(t *testing.T) {
+func TestTradeListFetchesBrowserSizedPages(t *testing.T) {
 	t.Parallel()
 
-	var gotLength string
+	var gotLengths []string
+	requestCount := 0
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		body, err := io.ReadAll(r.Body)
 		if err != nil {
 			t.Errorf("failed to read request body: %v", err)
 		}
 		params, _ := url.ParseQuery(string(body))
-		gotLength = params.Get("length")
-		_, _ = w.Write([]byte(testutil.DataTablesJSON(`[]`)))
+		gotLengths = append(gotLengths, params.Get("length"))
+		requestCount++
+		if requestCount == 1 {
+			// Full page signals more data available.
+			_, _ = w.Write([]byte(testutil.DataTablesJSONPage(minimalJSONArray(tradeBrowserPageLength), tradeBrowserPageLength+50)))
+		} else {
+			// Short page ends pagination.
+			_, _ = w.Write([]byte(testutil.DataTablesJSONPage(minimalJSONArray(50), tradeBrowserPageLength+50)))
+		}
 	}))
 	t.Cleanup(server.Close)
 
 	cmd := NewCmd()
 	ctx := testutil.ContextWithTestClient(t, server.URL)
-	_, _, err := testutil.ExecuteCommand(t, cmd, ctx, "list", "--start-date", "2025-04-21", "--end-date", "2025-04-21", "--length", "50")
+	_, _, err := testutil.ExecuteCommand(t, cmd, ctx, "list", "--start-date", "2025-04-21", "--end-date", "2025-04-21")
 	testutil.AssertErrContains(t, err, "")
-	if gotLength != "50" {
-		t.Fatalf("length = %q, want 50", gotLength)
+	if !slices.Equal(gotLengths, []string{"100", "100"}) {
+		t.Fatalf("lengths = %v, want [100 100]", gotLengths)
+	}
+}
+
+func TestTradeListSelectedFieldsFetchBrowserSizedPages(t *testing.T) {
+	t.Parallel()
+
+	var gotLengths []string
+	requestCount := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			t.Errorf("failed to read request body: %v", err)
+		}
+		params, _ := url.ParseQuery(string(body))
+		gotLengths = append(gotLengths, params.Get("length"))
+		requestCount++
+		if requestCount == 1 {
+			_, _ = w.Write([]byte(testutil.DataTablesJSONPage(minimalJSONArray(tradeBrowserPageLength), tradeBrowserPageLength+50)))
+		} else {
+			_, _ = w.Write([]byte(testutil.DataTablesJSONPage(minimalJSONArray(50), tradeBrowserPageLength+50)))
+		}
+	}))
+	t.Cleanup(server.Close)
+
+	cmd := NewCmd()
+	ctx := testutil.ContextWithTestClient(t, server.URL)
+	_, _, err := testutil.ExecuteCommand(t, cmd, ctx, "list", "--start-date", "2025-04-21", "--end-date", "2025-04-21", "--fields", "Ticker")
+	testutil.AssertErrContains(t, err, "")
+	if !slices.Equal(gotLengths, []string{"100", "100"}) {
+		t.Fatalf("lengths = %v, want [100 100]", gotLengths)
+	}
+}
+
+func TestTradeClusterCommandsRejectUserSelectedLength(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		args []string
+	}{
+		{name: "clusters", args: []string{"clusters", "AAPL", "--days", "7", "--length", "10"}},
+		{name: "cluster bombs", args: []string{"cluster-bombs", "AAPL", "--days", "3", "--length", "10"}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			cmd := NewCmd()
+			ctx := testutil.ContextWithTestClient(t, "http://127.0.0.1")
+			_, _, err := testutil.ExecuteCommand(t, cmd, ctx, tt.args...)
+			testutil.AssertErrContains(t, err, "unknown flag: --length")
+		})
+	}
+}
+
+func TestTradeClusterCommandsFetchBrowserSizedPages(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		args []string
+		path string
+	}{
+		{name: "clusters", args: []string{"clusters", "AAPL", "--days", "1"}, path: "/TradeClusters/GetTradeClusters"},
+		{name: "cluster-bombs", args: []string{"cluster-bombs", "AAPL", "--days", "1"}, path: "/TradeClusterBombs/GetTradeClusterBombs"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			var gotLengths []string
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				body, err := io.ReadAll(r.Body)
+				if err != nil {
+					t.Errorf("failed to read request body: %v", err)
+				}
+				params, _ := url.ParseQuery(string(body))
+				gotLengths = append(gotLengths, params.Get("length"))
+				_, _ = w.Write([]byte(testutil.DataTablesJSONPage("[]", 0)))
+			}))
+			t.Cleanup(server.Close)
+
+			cmd := NewCmd()
+			ctx := testutil.ContextWithTestClient(t, server.URL)
+			_, _, err := testutil.ExecuteCommand(t, cmd, ctx, tt.args...)
+			testutil.AssertErrContains(t, err, "")
+			if len(gotLengths) == 0 || gotLengths[0] != fmt.Sprintf("%d", tradeBrowserPageLength) {
+				t.Fatalf("first request length = %v, want %d", gotLengths, tradeBrowserPageLength)
+			}
+		})
 	}
 }
 
@@ -202,7 +309,12 @@ func TestTradeLevelTouchesCapsLengthAndTradeLevelCount(t *testing.T) {
 		{
 			name: "trade level count over max",
 			args: []string{"AAPL", "--start-date", "2025-04-21", "--end-date", "2025-04-21", "--trade-level-count", "100"},
-			want: "--trade-level-count must be between 1 and 50 for trade level retrieval",
+			want: "--trade-level-count must be one of 5, 10, 20, or 50 for trade level retrieval",
+		},
+		{
+			name: "trade level rank below site minimum",
+			args: []string{"AAPL", "--start-date", "2025-04-21", "--end-date", "2025-04-21", "--trade-level-rank", "4"},
+			want: "--trade-level-rank must be 5 or higher for trade level touch retrieval",
 		},
 	}
 	for _, tt := range tests {
@@ -217,13 +329,13 @@ func TestTradeLevelTouchesCapsLengthAndTradeLevelCount(t *testing.T) {
 	}
 }
 
-func TestTradeLevelsCapsTradeLevelCount(t *testing.T) {
+func TestTradeLevelsRestrictsTradeLevelCountToSiteValues(t *testing.T) {
 	t.Parallel()
 
 	cmd := NewCmd()
 	ctx := testutil.ContextWithTestClient(t, "http://127.0.0.1")
-	_, _, err := testutil.ExecuteCommand(t, cmd, ctx, "levels", "AAPL", "--trade-level-count", "100")
-	testutil.AssertErrContains(t, err, "--trade-level-count must be between 1 and 50 for trade level retrieval")
+	_, _, err := testutil.ExecuteCommand(t, cmd, ctx, "levels", "AAPL", "--trade-level-count", "6")
+	testutil.AssertErrContains(t, err, "--trade-level-count must be one of 5, 10, 20, or 50 for trade level retrieval")
 }
 
 func TestTradeLevelTouchesAcceptsMaximumTradeLevelCount(t *testing.T) {
@@ -246,6 +358,29 @@ func TestTradeLevelTouchesAcceptsMaximumTradeLevelCount(t *testing.T) {
 	testutil.AssertErrContains(t, err, "")
 	if got.Get("Levels") != "50" {
 		t.Fatalf("Levels = %q, want 50", got.Get("Levels"))
+	}
+}
+
+func TestTradeLevelTouchesDefaultsToRankFive(t *testing.T) {
+	t.Parallel()
+
+	var got url.Values
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			t.Errorf("failed to read request body: %v", err)
+		}
+		got, _ = url.ParseQuery(string(body))
+		_, _ = w.Write([]byte(testutil.DataTablesJSON(`[]`)))
+	}))
+	t.Cleanup(server.Close)
+
+	cmd := NewCmd()
+	ctx := testutil.ContextWithTestClient(t, server.URL)
+	_, _, err := testutil.ExecuteCommand(t, cmd, ctx, "level-touches", "AAPL", "--start-date", "2025-04-21", "--end-date", "2025-04-21")
+	testutil.AssertErrContains(t, err, "")
+	if got.Get("TradeLevelRank") != "5" {
+		t.Fatalf("TradeLevelRank = %q, want 5", got.Get("TradeLevelRank"))
 	}
 }
 

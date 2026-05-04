@@ -14,12 +14,18 @@ import (
 
 // RunDataTablesCommand is the shared handler for DataTables-backed commands.
 func RunDataTablesCommand[T any](cmd *cobra.Command, path string, columns []string, opts DataTableOptions, formatValue OutputFormat, label string) error {
+	return RunDataTablesCommandWithPageSize[T](cmd, path, columns, opts, formatValue, PaginationPageSize, label)
+}
+
+// RunDataTablesCommandWithPageSize is the shared handler for DataTables-backed
+// commands that need an endpoint-specific page size when opts.Length is -1.
+func RunDataTablesCommandWithPageSize[T any](cmd *cobra.Command, path string, columns []string, opts DataTableOptions, formatValue OutputFormat, pageSize int, label string) error {
 	ctx, vlClient, format, err := newDataTablesSetup(cmd, formatValue)
 	if err != nil {
 		return err
 	}
 	if opts.Length < 0 {
-		return RunPaginatedCommand[T](ctx, vlClient, cmd.OutOrStdout(), path, columns, opts, format, label)
+		return RunPaginatedCommand[T](ctx, vlClient, cmd.OutOrStdout(), path, columns, opts, format, pageSize, label)
 	}
 	request := NewDataTablesRequest(columns, opts)
 	var result []T
@@ -62,34 +68,48 @@ func newDataTablesSetup(cmd *cobra.Command, formatValue OutputFormat) (context.C
 }
 
 // RunPaginatedCommand fetches all records by paginating through the DataTables
-// endpoint in pages of PaginationPageSize.
-func RunPaginatedCommand[T any](ctx context.Context, vlClient *client.Client, w io.Writer, path string, columns []string, opts DataTableOptions, format OutputFormat, label string) error {
-	opts.Length = PaginationPageSize
+// endpoint in pages of the provided page size.
+func RunPaginatedCommand[T any](ctx context.Context, vlClient *client.Client, w io.Writer, path string, columns []string, opts DataTableOptions, format OutputFormat, pageSize int, label string) error {
+	all, err := FetchDataTablesPages[T](ctx, vlClient, path, columns, opts, pageSize, label)
+	if err != nil {
+		return err
+	}
+	return PrintDataTablesResult(w, ctx, all, opts.Fields, format)
+}
+
+// FetchDataTablesPages fetches every DataTables page with the configured page
+// size. A zero page size keeps the project-wide default for legacy callers.
+func FetchDataTablesPages[T any](ctx context.Context, vlClient *client.Client, path string, columns []string, opts DataTableOptions, pageSize int, label string) ([]T, error) {
+	if pageSize == 0 {
+		pageSize = PaginationPageSize
+	}
+	initialStart := opts.Start
+	opts.Length = pageSize
 	all := make([]T, 0)
 	for {
 		request := NewDataTablesRequest(columns, opts)
 		resp, err := vlClient.PostDataTablesPage(ctx, path, request.Encode())
 		if err != nil {
 			slog.Error("failed to "+label, "error", err)
-			return fmt.Errorf("%s: %w", label, err)
+			return nil, fmt.Errorf("%s: %w", label, err)
 		}
 		var page []T
 		if err := json.Unmarshal(resp.Data, &page); err != nil {
-			return fmt.Errorf("unmarshal %s page: %w", label, err)
+			return nil, fmt.Errorf("unmarshal %s page: %w", label, err)
 		}
 		if len(page) == 0 {
 			break
 		}
 		all = append(all, page...)
-		if resp.RecordsFiltered > 0 && len(all) >= resp.RecordsFiltered {
+		if resp.RecordsFiltered > 0 && initialStart+len(all) >= resp.RecordsFiltered {
 			break
 		}
-		if len(page) < PaginationPageSize {
+		if len(page) < pageSize {
 			break
 		}
 		opts.Start += len(page)
 	}
-	return PrintDataTablesResult(w, ctx, all, opts.Fields, format)
+	return all, nil
 }
 
 // NewDataTablesRequest builds the common DataTables request shape.

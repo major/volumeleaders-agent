@@ -59,7 +59,7 @@ func runTradeList(cmd *cobra.Command, opts *tradeListOptions) error {
 	filters["StartDate"] = startDate
 	filters["EndDate"] = endDate
 
-	dtOpts := common.DataTableOptions{Start: opts.Start, Length: opts.Length, OrderCol: opts.OrderCol, OrderDir: opts.OrderDir, Filters: filters, Fields: fields}
+	dtOpts := common.DataTableOptions{Start: opts.Start, Length: -1, OrderCol: opts.OrderCol, OrderDir: opts.OrderDir, Filters: filters, Fields: fields}
 	if !opts.Summary && cmd.Flags().Changed("group-by") {
 		return fmt.Errorf("--group-by only works with --summary")
 	}
@@ -75,7 +75,7 @@ func runTradeList(cmd *cobra.Command, opts *tradeListOptions) error {
 	if format == common.OutputFormatJSON && len(fields) == 0 {
 		return runTradeListRows(cmd, dtOpts)
 	}
-	return common.RunDataTablesCommand[models.Trade](cmd, "/Trades/GetTrades", datatables.TradeColumns, dtOpts, opts.Format, "query trades")
+	return common.RunDataTablesCommandWithPageSize[models.Trade](cmd, "/Trades/GetTrades", datatables.TradeColumns, dtOpts, opts.Format, tradeBrowserPageLength, "query trades")
 }
 
 func tradesOptionsFromListOptions(opts *tradeListOptions, tickers, startDate, endDate string) *tradesOptions {
@@ -107,6 +107,9 @@ func fetchTradeList(cmd *cobra.Command, opts common.DataTableOptions) ([]models.
 	vlClient, err := common.NewCommandClient(ctx)
 	if err != nil {
 		return nil, err
+	}
+	if opts.Length < 0 {
+		return common.FetchDataTablesPages[models.Trade](ctx, vlClient, "/Trades/GetTrades", datatables.TradeColumns, opts, tradeBrowserPageLength, "query trades")
 	}
 	request := common.NewDataTablesRequest(datatables.TradeColumns, opts)
 	var result []models.Trade

@@ -60,22 +60,20 @@ func NewForTesting(httpClient *http.Client, baseURL string) *Client {
 }
 
 // New creates an authenticated VolumeLeaders client from browser cookies.
+//
+// Cached cookies are tried first. If the XSRF token fetch detects a
+// session expiry, the cache is invalidated and fresh cookies are
+// extracted from browser stores before failing.
 func New(ctx context.Context) (*Client, error) {
-	cookies, err := auth.ExtractCookies(ctx)
+	cookies, xsrfToken, err := authenticate(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("extract cookies: %w", err)
+		return nil, err
 	}
 
 	restyClient := resty.New()
 	restyClient.SetTimeout(60 * time.Second)
-	restyClient.SetCookies(buildCookies(cookies))
-
-	xsrfToken, err := auth.FetchXSRFToken(ctx, restyClient)
-	if err != nil {
-		return nil, fmt.Errorf("fetch XSRF token: %w", err)
-	}
-
 	configureClient(restyClient, BaseURL, xsrfToken)
+	restyClient.SetCookies(buildCookies(cookies))
 
 	noRedirectClient := resty.New()
 	noRedirectClient.SetTimeout(60 * time.Second)
@@ -90,6 +88,49 @@ func New(ctx context.Context) (*Client, error) {
 		cookies:          cookies,
 		xsrfToken:        xsrfToken,
 	}, nil
+}
+
+// authenticate extracts cookies and fetches an XSRF token. When the
+// first attempt uses cached cookies that turn out to be stale, the
+// cache is cleared and a second attempt reads fresh cookies directly
+// from browser stores.
+func authenticate(ctx context.Context) (cookies map[string]string, xsrfToken string, err error) {
+	cookies, err = auth.ExtractCookies(ctx)
+	if err != nil {
+		return nil, "", fmt.Errorf("extract cookies: %w", err)
+	}
+
+	xsrfToken, err = probeXSRFToken(ctx, cookies)
+	if err != nil && auth.IsSessionExpired(err) {
+		// Cached cookies may be stale. Clear cache and retry with
+		// fresh browser cookies.
+		_ = auth.InvalidateCache()
+
+		cookies, err = auth.ExtractCookies(ctx)
+		if err != nil {
+			return nil, "", fmt.Errorf("extract fresh cookies: %w", err)
+		}
+
+		xsrfToken, err = probeXSRFToken(ctx, cookies)
+	}
+	if err != nil {
+		return nil, "", fmt.Errorf("fetch XSRF token: %w", err)
+	}
+
+	return cookies, xsrfToken, nil
+}
+
+// probeXSRFToken creates a temporary resty client to fetch the XSRF
+// token without configuring the full request middleware. The throwaway
+// client avoids resty's append-only cookie behavior that would cause
+// duplicates on retry.
+func probeXSRFToken(ctx context.Context, cookies map[string]string) (string, error) {
+	probe := resty.New()
+	probe.SetTimeout(60 * time.Second)
+	probe.SetCookies(buildCookies(cookies))
+	defer probe.Close()
+
+	return auth.FetchXSRFToken(ctx, probe)
 }
 
 // Close releases resources held by both resty clients.

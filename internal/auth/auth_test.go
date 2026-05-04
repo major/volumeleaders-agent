@@ -182,6 +182,7 @@ func TestCookieDiagnostic(t *testing.T) {
 		found        map[string]string
 		allCookies   kooky.Cookies
 		validCookies kooky.Cookies
+		browserErrs  error
 		wantParts    []string
 		forbidParts  []string
 	}{
@@ -195,6 +196,9 @@ func TestCookieDiagnostic(t *testing.T) {
 				"browser stores with VolumeLeaders cookies: 0",
 				"missing valid cookies: ASP.NET_SessionId, .ASPXAUTH",
 				"only cookie storage is inspected; local storage, session storage, and IndexedDB are not inspected",
+			},
+			forbidParts: []string{
+				"browser read errors",
 			},
 		},
 		{
@@ -222,13 +226,32 @@ func TestCookieDiagnostic(t *testing.T) {
 				"/home/",
 			},
 		},
+		{
+			name:        "surfaces browser read errors",
+			found:       map[string]string{},
+			browserErrs: fmt.Errorf("database is locked"),
+			wantParts: []string{
+				"browser read errors: database is locked",
+				"missing valid cookies: ASP.NET_SessionId, .ASPXAUTH",
+			},
+		},
+		{
+			name:        "surfaces joined browser errors",
+			found:       map[string]string{},
+			browserErrs: errors.Join(fmt.Errorf("firefox: database is locked"), fmt.Errorf("chrome: profile not found")),
+			wantParts: []string{
+				"browser read errors:",
+				"database is locked",
+				"profile not found",
+			},
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			diagnostic := cookieDiagnostic(tt.found, tt.allCookies, tt.validCookies)
+			diagnostic := cookieDiagnostic(tt.found, tt.allCookies, tt.validCookies, tt.browserErrs)
 			for _, want := range tt.wantParts {
 				if !strings.Contains(diagnostic, want) {
 					t.Errorf("expected diagnostic to contain %q, got %q", want, diagnostic)

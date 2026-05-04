@@ -66,22 +66,39 @@ func IsSessionExpired(err error) bool {
 	return errors.Is(err, ErrSessionExpired)
 }
 
-// ExtractCookies reads required VolumeLeaders cookies from supported browsers.
+// ExtractCookies reads required VolumeLeaders cookies, checking a local
+// cache first and falling back to browser cookie stores on cache miss.
 //
 // Kooky scans all registered browsers and returns accumulated errors for
 // browsers that could not be read (uninstalled, locked, etc.). We ignore
 // those errors as long as the required auth cookies were found in at least
-// one browser.
+// one browser. When no cookies are found, the accumulated errors are
+// included in the diagnostic to help troubleshoot (e.g. Windows SQLite
+// lock failures that silently prevent reads).
+//
+// Successfully extracted cookies are cached so subsequent invocations
+// avoid the cost of reading browser stores. Call InvalidateCache when
+// the server reports a session expiry so the next call re-reads from
+// browser stores.
 func ExtractCookies(ctx context.Context) (map[string]string, error) {
+	if cached, err := loadCache(); err == nil {
+		return cached, nil
+	}
+
 	// ReadCookies returns cookies it could find plus errors from browsers
 	// it could not read. Errors from missing browsers are expected.
-	validCookies, _ := kooky.ReadCookies(ctx, kooky.Valid, kooky.DomainHasSuffix(volumeLeadersDomain))
+	validCookies, validErr := kooky.ReadCookies(ctx, kooky.Valid, kooky.DomainHasSuffix(volumeLeadersDomain))
 	found := authCookies(validCookies)
 
 	if found["ASP.NET_SessionId"] == "" || found[".ASPXAUTH"] == "" {
-		allCookies, _ := kooky.ReadCookies(ctx, kooky.DomainHasSuffix(volumeLeadersDomain))
-		return nil, fmt.Errorf("required browser cookies unavailable: %s", cookieDiagnostic(found, allCookies, validCookies))
+		allCookies, allErr := kooky.ReadCookies(ctx, kooky.DomainHasSuffix(volumeLeadersDomain))
+		browserErrs := errors.Join(validErr, allErr)
+		return nil, fmt.Errorf("required browser cookies unavailable: %s", cookieDiagnostic(found, allCookies, validCookies, browserErrs))
 	}
+
+	// Cache for subsequent runs (best-effort, failures are not fatal).
+	_ = saveCache(found)
+
 	return found, nil
 }
 
@@ -118,7 +135,7 @@ func authCookies(cookies kooky.Cookies) map[string]string {
 	return found
 }
 
-func cookieDiagnostic(found map[string]string, allCookies, validCookies kooky.Cookies) string {
+func cookieDiagnostic(found map[string]string, allCookies, validCookies kooky.Cookies, browserErrs error) string {
 	missing := missingRequiredCookies(found)
 	rejected := rejectedRequiredCookies(found, allCookies)
 	parts := []string{
@@ -131,6 +148,9 @@ func cookieDiagnostic(found map[string]string, allCookies, validCookies kooky.Co
 	}
 	if len(rejected) > 0 {
 		parts = append(parts, fmt.Sprintf("matching required cookies found but not usable as valid cookies: %s", strings.Join(rejected, ", ")))
+	}
+	if browserErrs != nil {
+		parts = append(parts, fmt.Sprintf("browser read errors: %v", browserErrs))
 	}
 	return strings.Join(parts, "; ")
 }

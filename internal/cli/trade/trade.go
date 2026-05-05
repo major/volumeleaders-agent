@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 	"strconv"
+	"strings"
 
-	"github.com/leodido/structcli"
 	"github.com/spf13/cobra"
 
 	"github.com/major/volumeleaders-agent/internal/cli/common"
@@ -19,14 +19,6 @@ const (
 	maxTradeLevelRequestLength  = 50
 	tradeListTickerLookbackDays = 365
 )
-
-func init() {
-	structcli.RegisterEnum(map[tradeSummaryGroup][]string{
-		tradeSummaryGroupTicker:    {"ticker"},
-		tradeSummaryGroupDay:       {"day"},
-		tradeSummaryGroupTickerDay: {"ticker,day", "ticker, day", "ticker day", "ticker-day"},
-	})
-}
 
 var tradeClusterDefaultFields = []string{
 	"Date",
@@ -111,78 +103,78 @@ func (filters *tradeRangeFilters) levelTouchMap(relativeSize, rank, count int) m
 }
 
 type tradeDateRangeFlags struct {
-	StartDate string `flag:"start-date" flaggroup:"Dates" flagshort:"s" flagdescr:"Start date YYYY-MM-DD (required unless --days is set)"`
-	EndDate   string `flag:"end-date" flaggroup:"Dates" flagshort:"e" flagdescr:"End date YYYY-MM-DD (required unless --days is set)"`
-	Days      int    `flag:"days" flaggroup:"Dates" flagshort:"d" flagdescr:"Look back this many days from --end-date or today"`
+	StartDate string
+	EndDate   string
+	Days      int
 }
 
 type tradeOptionalDateRangeFlags struct {
-	StartDate string `flag:"start-date" flaggroup:"Dates" flagshort:"s" flagdescr:"Start date YYYY-MM-DD (default: auto)"`
-	EndDate   string `flag:"end-date" flaggroup:"Dates" flagshort:"e" flagdescr:"End date YYYY-MM-DD (default: today)"`
-	Days      int    `flag:"days" flaggroup:"Dates" flagshort:"d" flagdescr:"Look back this many days from --end-date or today"`
+	StartDate string
+	EndDate   string
+	Days      int
 }
 
 type tradeRangeFlags struct {
-	MinVolume  int     `flag:"min-volume" flaggroup:"Ranges" flagdescr:"Minimum volume"`
-	MaxVolume  int     `flag:"max-volume" flaggroup:"Ranges" flagdescr:"Maximum volume"`
-	MinPrice   float64 `flag:"min-price" flaggroup:"Ranges" flagdescr:"Minimum price"`
-	MaxPrice   float64 `flag:"max-price" flaggroup:"Ranges" flagdescr:"Maximum price"`
-	MinDollars float64 `flag:"min-dollars" flaggroup:"Ranges" flagdescr:"Minimum dollar value"`
-	MaxDollars float64 `flag:"max-dollars" flaggroup:"Ranges" flagdescr:"Maximum dollar value"`
+	MinVolume  int
+	MaxVolume  int
+	MinPrice   float64
+	MaxPrice   float64
+	MinDollars float64
+	MaxDollars float64
 }
 
 type tradeVolumeDollarRangeFlags struct {
-	MinVolume  int     `flag:"min-volume" flaggroup:"Ranges" flagdescr:"Minimum volume"`
-	MaxVolume  int     `flag:"max-volume" flaggroup:"Ranges" flagdescr:"Maximum volume"`
-	MinDollars float64 `flag:"min-dollars" flaggroup:"Ranges" flagdescr:"Minimum dollar value"`
-	MaxDollars float64 `flag:"max-dollars" flaggroup:"Ranges" flagdescr:"Maximum dollar value"`
+	MinVolume  int
+	MaxVolume  int
+	MinDollars float64
+	MaxDollars float64
 }
 
 type tradeFilterFlags struct {
-	Conditions   int                   `flag:"conditions" flaggroup:"Filters" flagdescr:"Trade conditions filter"`
-	VCD          int                   `flag:"vcd" flaggroup:"Filters" flagdescr:"VCD filter"`
-	SecurityType int                   `flag:"security-type" flaggroup:"Filters" flagdescr:"Security type key"`
-	RelativeSize int                   `flag:"relative-size" flaggroup:"Filters" flagdescr:"Relative size threshold"`
-	DarkPools    common.TriStateFilter `flag:"dark-pools" flaggroup:"Filters" flagdescr:"Dark pool filter (-1=all, 0=exclude, 1=only)"`
-	Sweeps       common.TriStateFilter `flag:"sweeps" flaggroup:"Filters" flagdescr:"Sweep filter (-1=all, 0=exclude, 1=only)"`
-	LatePrints   common.TriStateFilter `flag:"late-prints" flaggroup:"Filters" flagdescr:"Late print filter (-1=all, 0=exclude, 1=only)"`
-	SigPrints    common.TriStateFilter `flag:"sig-prints" flaggroup:"Filters" flagdescr:"Signature print filter (-1=all, 0=exclude, 1=only)"`
-	EvenShared   common.TriStateFilter `flag:"even-shared" flaggroup:"Filters" flagdescr:"Even shared filter (-1=all, 0=exclude, 1=only)"`
-	TradeRank    int                   `flag:"trade-rank" flaggroup:"Filters" flagdescr:"Trade rank filter"`
-	RankSnapshot int                   `flag:"rank-snapshot" flaggroup:"Filters" flagdescr:"Trade rank snapshot filter"`
-	MarketCap    int                   `flag:"market-cap" flaggroup:"Filters" flagdescr:"Market cap filter"`
-	Premarket    common.TriStateFilter `flag:"premarket" flaggroup:"Sessions" flagdescr:"Premarket session filter (-1=all, 0=exclude, 1=include)"`
-	RTH          common.TriStateFilter `flag:"rth" flaggroup:"Sessions" flagdescr:"Regular trading hours filter (-1=all, 0=exclude, 1=include)"`
-	AH           common.TriStateFilter `flag:"ah" flaggroup:"Sessions" flagdescr:"After-hours session filter (-1=all, 0=exclude, 1=include)"`
-	Opening      common.TriStateFilter `flag:"opening" flaggroup:"Sessions" flagdescr:"Opening trade filter (-1=all, 0=exclude, 1=include)"`
-	Closing      common.TriStateFilter `flag:"closing" flaggroup:"Sessions" flagdescr:"Closing trade filter (-1=all, 0=exclude, 1=include)"`
-	Phantom      common.TriStateFilter `flag:"phantom" flaggroup:"Sessions" flagdescr:"Phantom print filter (-1=all, 0=exclude, 1=include)"`
-	Offsetting   common.TriStateFilter `flag:"offsetting" flaggroup:"Sessions" flagdescr:"Offsetting trade filter (-1=all, 0=exclude, 1=include)"`
+	Conditions   int
+	VCD          int
+	SecurityType int
+	RelativeSize int
+	DarkPools    common.TriStateFilter
+	Sweeps       common.TriStateFilter
+	LatePrints   common.TriStateFilter
+	SigPrints    common.TriStateFilter
+	EvenShared   common.TriStateFilter
+	TradeRank    int
+	RankSnapshot int
+	MarketCap    int
+	Premarket    common.TriStateFilter
+	RTH          common.TriStateFilter
+	AH           common.TriStateFilter
+	Opening      common.TriStateFilter
+	Closing      common.TriStateFilter
+	Phantom      common.TriStateFilter
+	Offsetting   common.TriStateFilter
 }
 
 type tradePaginationFlags struct {
-	Start    int                   `flag:"start" flaggroup:"Pagination" flagdescr:"DataTables start offset"`
-	Length   int                   `flag:"length" flaggroup:"Pagination" flagshort:"l" flagdescr:"Number of results"`
-	OrderCol int                   `flag:"order-col" flaggroup:"Pagination" flagdescr:"Order column index"`
-	OrderDir common.OrderDirection `flag:"order-dir" flaggroup:"Pagination" flagdescr:"Order direction"`
+	Start    int
+	Length   int
+	OrderCol int
+	OrderDir common.OrderDirection
 }
 
 type tradeFixedPageFlags struct {
-	Start    int                   `flag:"start" flaggroup:"Pagination" flagdescr:"DataTables start offset"`
-	OrderCol int                   `flag:"order-col" flaggroup:"Pagination" flagdescr:"Order column index"`
-	OrderDir common.OrderDirection `flag:"order-dir" flaggroup:"Pagination" flagdescr:"Order direction"`
+	Start    int
+	OrderCol int
+	OrderDir common.OrderDirection
 }
 
 type tradeFormatFlag struct {
-	Format common.OutputFormat `flag:"format" flaggroup:"Output" flagshort:"f" flagdescr:"Output format: json, csv, or tsv"`
+	Format common.OutputFormat
 }
 
 type tradeTickersFlag struct {
-	Tickers string `flag:"tickers" flaggroup:"Input" flagshort:"t" flagdescr:"Comma-separated ticker symbols"`
+	Tickers string
 }
 
 type tradeTickerFlag struct {
-	Ticker string `flag:"ticker" flaggroup:"Input" flagshort:"t" flagdescr:"Ticker symbol"`
+	Ticker string
 }
 
 type tradeListOptions struct {
@@ -190,12 +182,12 @@ type tradeListOptions struct {
 	tradeOptionalDateRangeFlags
 	tradeRangeFlags
 	tradeFilterFlags
-	Sector    string            `flag:"sector" flaggroup:"Input" flagdescr:"Sector/Industry filter"`
-	Preset    string            `flag:"preset" flaggroup:"Input" flagdescr:"Apply a built-in filter preset by name; use report list for curated preset-backed reports"`
-	Watchlist string            `flag:"watchlist" flaggroup:"Input" flagdescr:"Apply filters from a saved watchlist by name"`
-	Fields    string            `flag:"fields" flaggroup:"Output" flagdescr:"Comma-separated trade fields to include in output"`
-	Summary   bool              `flag:"summary" flaggroup:"Output" flagdescr:"Return aggregate metrics instead of individual trades"`
-	GroupBy   tradeSummaryGroup `flag:"group-by" flaggroup:"Output" flagdescr:"Summary grouping (requires --summary): ticker, day, or ticker,day"`
+	Sector    string
+	Preset    string
+	Watchlist string
+	Fields    string
+	Summary   bool
+	GroupBy   tradeSummaryGroup
 	tradeFormatFlag
 	tradeFixedPageFlags
 }
@@ -211,12 +203,12 @@ type tradeClustersOptions struct {
 	tradeTickersFlag
 	tradeDateRangeFlags
 	tradeRangeFlags
-	VCD              int    `flag:"vcd" flaggroup:"Filters" flagdescr:"VCD filter"`
-	SecurityType     int    `flag:"security-type" flaggroup:"Filters" flagdescr:"Security type key"`
-	RelativeSize     int    `flag:"relative-size" flaggroup:"Filters" flagdescr:"Relative size threshold"`
-	TradeClusterRank int    `flag:"trade-cluster-rank" flaggroup:"Filters" flagdescr:"Trade cluster rank filter"`
-	Sector           string `flag:"sector" flaggroup:"Input" flagdescr:"Sector/Industry filter"`
-	Fields           string `flag:"fields" flaggroup:"Output" flagdescr:"Comma-separated TradeCluster fields to include in output, or 'all' for every field"`
+	VCD              int
+	SecurityType     int
+	RelativeSize     int
+	TradeClusterRank int
+	Sector           string
+	Fields           string
 	tradeFormatFlag
 	tradeFixedPageFlags
 }
@@ -225,11 +217,11 @@ type tradeClusterBombsOptions struct {
 	tradeTickersFlag
 	tradeDateRangeFlags
 	tradeVolumeDollarRangeFlags
-	VCD                  int    `flag:"vcd" flaggroup:"Filters" flagdescr:"VCD filter"`
-	SecurityType         int    `flag:"security-type" flaggroup:"Filters" flagdescr:"Security type key"`
-	RelativeSize         int    `flag:"relative-size" flaggroup:"Filters" flagdescr:"Relative size threshold"`
-	TradeClusterBombRank int    `flag:"trade-cluster-bomb-rank" flaggroup:"Filters" flagdescr:"Trade cluster bomb rank filter"`
-	Sector               string `flag:"sector" flaggroup:"Input" flagdescr:"Sector/Industry filter"`
+	VCD                  int
+	SecurityType         int
+	RelativeSize         int
+	TradeClusterBombRank int
+	Sector               string
 	tradeFormatFlag
 	tradeFixedPageFlags
 }
@@ -237,8 +229,8 @@ type tradeClusterBombsOptions struct {
 type tradeLevelsOptions struct {
 	tradeTickerFlag
 	tradeOptionalDateRangeFlags
-	TradeLevelCount int    `flag:"trade-level-count" flaggroup:"Output" flagdescr:"Number of price levels to return (5, 10, 20, or 50)"`
-	Fields          string `flag:"fields" flaggroup:"Output" flagdescr:"Comma-separated TradeLevel fields to include in output, or 'all' for every field"`
+	TradeLevelCount int
+	Fields          string
 	tradeFormatFlag
 }
 
@@ -246,10 +238,10 @@ type tradeLevelTouchesOptions struct {
 	tradeTickerFlag
 	tradeDateRangeFlags
 	tradeRangeFlags
-	VCD             int `flag:"vcd" flaggroup:"Filters" flagdescr:"VCD filter"`
-	RelativeSize    int `flag:"relative-size" flaggroup:"Filters" flagdescr:"Relative size threshold"`
-	TradeLevelRank  int `flag:"trade-level-rank" flaggroup:"Filters" flagdescr:"Trade level rank filter"`
-	TradeLevelCount int `flag:"trade-level-count" flaggroup:"Output" flagdescr:"Number of price levels to include (5, 10, 20, or 50)"`
+	VCD             int
+	RelativeSize    int
+	TradeLevelRank  int
+	TradeLevelCount int
 	tradeFormatFlag
 	tradePaginationFlags
 }
@@ -259,7 +251,7 @@ type tradeDashboardOptions struct {
 	tradeOptionalDateRangeFlags
 	tradeRangeFlags
 	tradeFilterFlags
-	Count int `flag:"count" flaggroup:"Output" flagshort:"c" flagdescr:"Rows to return per dashboard section (5, 10, 20, or 50)"`
+	Count int
 }
 
 func (opts *tradeLevelsOptions) Validate(_ context.Context) []error {
@@ -290,13 +282,13 @@ func (opts *tradeDashboardOptions) Validate(_ context.Context) []error {
 }
 
 type tradeAlertsOptions struct {
-	Date string `flag:"date" flaggroup:"Dates" flagshort:"d" flagdescr:"Date YYYY-MM-DD"`
+	Date string
 	tradeFormatFlag
 	tradePaginationFlags
 }
 
 type tradeClusterAlertsOptions struct {
-	Date string `flag:"date" flaggroup:"Dates" flagshort:"d" flagdescr:"Date YYYY-MM-DD"`
+	Date string
 	tradeFormatFlag
 	tradePaginationFlags
 }
@@ -327,6 +319,145 @@ func NewCmd() *cobra.Command {
 // NewTradeCommand returns the "trade" command group with all subcommands.
 func NewTradeCommand() *cobra.Command { return NewCmd() }
 
+// Set implements pflag.Value for tradeSummaryGroup. Accepts canonical values
+// and legacy aliases (e.g. "ticker day", "ticker-day") for backwards compatibility.
+func (v *tradeSummaryGroup) Set(value string) error {
+	normalized := strings.ToLower(strings.ReplaceAll(strings.TrimSpace(value), " ", ""))
+	if normalized == "tickerday" || normalized == "ticker-day" {
+		normalized = string(tradeSummaryGroupTickerDay)
+	}
+	switch tradeSummaryGroup(normalized) {
+	case tradeSummaryGroupTicker, tradeSummaryGroupDay, tradeSummaryGroupTickerDay:
+		*v = tradeSummaryGroup(normalized)
+		return nil
+	default:
+		return fmt.Errorf("invalid value %q, expected one of ticker, day, ticker,day", value)
+	}
+}
+
+// String implements pflag.Value for tradeSummaryGroup.
+func (v tradeSummaryGroup) String() string { return string(v) }
+
+// Type implements pflag.Value for tradeSummaryGroup.
+func (v tradeSummaryGroup) Type() string { return "string" }
+
+func registerTradeDateRangeFlags(cmd *cobra.Command, opts *tradeDateRangeFlags) {
+	cmd.Flags().StringVarP(&opts.StartDate, "start-date", "s", opts.StartDate, "Start date YYYY-MM-DD (required unless --days is set)")
+	common.AnnotateFlagGroup(cmd, "start-date", "Dates")
+	cmd.Flags().StringVarP(&opts.EndDate, "end-date", "e", opts.EndDate, "End date YYYY-MM-DD (required unless --days is set)")
+	common.AnnotateFlagGroup(cmd, "end-date", "Dates")
+	cmd.Flags().IntVarP(&opts.Days, "days", "d", opts.Days, "Look back this many days from --end-date or today")
+	common.AnnotateFlagGroup(cmd, "days", "Dates")
+}
+
+func registerTradeOptionalDateRangeFlags(cmd *cobra.Command, opts *tradeOptionalDateRangeFlags) {
+	cmd.Flags().StringVarP(&opts.StartDate, "start-date", "s", opts.StartDate, "Start date YYYY-MM-DD (default: auto)")
+	common.AnnotateFlagGroup(cmd, "start-date", "Dates")
+	cmd.Flags().StringVarP(&opts.EndDate, "end-date", "e", opts.EndDate, "End date YYYY-MM-DD (default: today)")
+	common.AnnotateFlagGroup(cmd, "end-date", "Dates")
+	cmd.Flags().IntVarP(&opts.Days, "days", "d", opts.Days, "Look back this many days from --end-date or today")
+	common.AnnotateFlagGroup(cmd, "days", "Dates")
+}
+
+func registerTradeRangeFlags(cmd *cobra.Command, opts *tradeRangeFlags) {
+	cmd.Flags().IntVar(&opts.MinVolume, "min-volume", opts.MinVolume, "Minimum volume")
+	common.AnnotateFlagGroup(cmd, "min-volume", "Ranges")
+	cmd.Flags().IntVar(&opts.MaxVolume, "max-volume", opts.MaxVolume, "Maximum volume")
+	common.AnnotateFlagGroup(cmd, "max-volume", "Ranges")
+	cmd.Flags().Float64Var(&opts.MinPrice, "min-price", opts.MinPrice, "Minimum price")
+	common.AnnotateFlagGroup(cmd, "min-price", "Ranges")
+	cmd.Flags().Float64Var(&opts.MaxPrice, "max-price", opts.MaxPrice, "Maximum price")
+	common.AnnotateFlagGroup(cmd, "max-price", "Ranges")
+	cmd.Flags().Float64Var(&opts.MinDollars, "min-dollars", opts.MinDollars, "Minimum dollar value")
+	common.AnnotateFlagGroup(cmd, "min-dollars", "Ranges")
+	cmd.Flags().Float64Var(&opts.MaxDollars, "max-dollars", opts.MaxDollars, "Maximum dollar value")
+	common.AnnotateFlagGroup(cmd, "max-dollars", "Ranges")
+}
+
+func registerTradeVolumeDollarRangeFlags(cmd *cobra.Command, opts *tradeVolumeDollarRangeFlags) {
+	cmd.Flags().IntVar(&opts.MinVolume, "min-volume", opts.MinVolume, "Minimum volume")
+	common.AnnotateFlagGroup(cmd, "min-volume", "Ranges")
+	cmd.Flags().IntVar(&opts.MaxVolume, "max-volume", opts.MaxVolume, "Maximum volume")
+	common.AnnotateFlagGroup(cmd, "max-volume", "Ranges")
+	cmd.Flags().Float64Var(&opts.MinDollars, "min-dollars", opts.MinDollars, "Minimum dollar value")
+	common.AnnotateFlagGroup(cmd, "min-dollars", "Ranges")
+	cmd.Flags().Float64Var(&opts.MaxDollars, "max-dollars", opts.MaxDollars, "Maximum dollar value")
+	common.AnnotateFlagGroup(cmd, "max-dollars", "Ranges")
+}
+
+func registerTradeFilterFlags(cmd *cobra.Command, opts *tradeFilterFlags) {
+	cmd.Flags().IntVar(&opts.Conditions, "conditions", opts.Conditions, "Trade conditions filter")
+	common.AnnotateFlagGroup(cmd, "conditions", "Filters")
+	cmd.Flags().IntVar(&opts.VCD, "vcd", opts.VCD, "VCD filter")
+	common.AnnotateFlagGroup(cmd, "vcd", "Filters")
+	cmd.Flags().IntVar(&opts.SecurityType, "security-type", opts.SecurityType, "Security type key")
+	common.AnnotateFlagGroup(cmd, "security-type", "Filters")
+	cmd.Flags().IntVar(&opts.RelativeSize, "relative-size", opts.RelativeSize, "Relative size threshold")
+	common.AnnotateFlagGroup(cmd, "relative-size", "Filters")
+	registerTriStateFlag(cmd, &opts.DarkPools, "dark-pools", "Filters", "Dark pool filter (-1=all, 0=exclude, 1=only)")
+	registerTriStateFlag(cmd, &opts.Sweeps, "sweeps", "Filters", "Sweep filter (-1=all, 0=exclude, 1=only)")
+	registerTriStateFlag(cmd, &opts.LatePrints, "late-prints", "Filters", "Late print filter (-1=all, 0=exclude, 1=only)")
+	registerTriStateFlag(cmd, &opts.SigPrints, "sig-prints", "Filters", "Signature print filter (-1=all, 0=exclude, 1=only)")
+	registerTriStateFlag(cmd, &opts.EvenShared, "even-shared", "Filters", "Even shared filter (-1=all, 0=exclude, 1=only)")
+	cmd.Flags().IntVar(&opts.TradeRank, "trade-rank", opts.TradeRank, "Trade rank filter")
+	common.AnnotateFlagGroup(cmd, "trade-rank", "Filters")
+	cmd.Flags().IntVar(&opts.RankSnapshot, "rank-snapshot", opts.RankSnapshot, "Trade rank snapshot filter")
+	common.AnnotateFlagGroup(cmd, "rank-snapshot", "Filters")
+	cmd.Flags().IntVar(&opts.MarketCap, "market-cap", opts.MarketCap, "Market cap filter")
+	common.AnnotateFlagGroup(cmd, "market-cap", "Filters")
+	registerTriStateFlag(cmd, &opts.Premarket, "premarket", "Sessions", "Premarket session filter (-1=all, 0=exclude, 1=include)")
+	registerTriStateFlag(cmd, &opts.RTH, "rth", "Sessions", "Regular trading hours filter (-1=all, 0=exclude, 1=include)")
+	registerTriStateFlag(cmd, &opts.AH, "ah", "Sessions", "After-hours session filter (-1=all, 0=exclude, 1=include)")
+	registerTriStateFlag(cmd, &opts.Opening, "opening", "Sessions", "Opening trade filter (-1=all, 0=exclude, 1=include)")
+	registerTriStateFlag(cmd, &opts.Closing, "closing", "Sessions", "Closing trade filter (-1=all, 0=exclude, 1=include)")
+	registerTriStateFlag(cmd, &opts.Phantom, "phantom", "Sessions", "Phantom print filter (-1=all, 0=exclude, 1=include)")
+	registerTriStateFlag(cmd, &opts.Offsetting, "offsetting", "Sessions", "Offsetting trade filter (-1=all, 0=exclude, 1=include)")
+}
+
+func registerTriStateFlag(cmd *cobra.Command, value *common.TriStateFilter, name, group, description string) {
+	cmd.Flags().Var(value, name, description)
+	common.AnnotateFlagGroup(cmd, name, group)
+	common.AnnotateFlagEnum(cmd, name, []string{"-1", "0", "1"})
+}
+
+func registerTradePaginationFlags(cmd *cobra.Command, opts *tradePaginationFlags) {
+	cmd.Flags().IntVar(&opts.Start, "start", opts.Start, "DataTables start offset")
+	common.AnnotateFlagGroup(cmd, "start", "Pagination")
+	cmd.Flags().IntVarP(&opts.Length, "length", "l", opts.Length, "Number of results")
+	common.AnnotateFlagGroup(cmd, "length", "Pagination")
+	cmd.Flags().IntVar(&opts.OrderCol, "order-col", opts.OrderCol, "Order column index")
+	common.AnnotateFlagGroup(cmd, "order-col", "Pagination")
+	cmd.Flags().Var(&opts.OrderDir, "order-dir", "Order direction")
+	common.AnnotateFlagGroup(cmd, "order-dir", "Pagination")
+	common.AnnotateFlagEnum(cmd, "order-dir", []string{"asc", "desc"})
+}
+
+func registerTradeFixedPageFlags(cmd *cobra.Command, opts *tradeFixedPageFlags) {
+	cmd.Flags().IntVar(&opts.Start, "start", opts.Start, "DataTables start offset")
+	common.AnnotateFlagGroup(cmd, "start", "Pagination")
+	cmd.Flags().IntVar(&opts.OrderCol, "order-col", opts.OrderCol, "Order column index")
+	common.AnnotateFlagGroup(cmd, "order-col", "Pagination")
+	cmd.Flags().Var(&opts.OrderDir, "order-dir", "Order direction")
+	common.AnnotateFlagGroup(cmd, "order-dir", "Pagination")
+	common.AnnotateFlagEnum(cmd, "order-dir", []string{"asc", "desc"})
+}
+
+func registerTradeFormatFlag(cmd *cobra.Command, opts *tradeFormatFlag) {
+	cmd.Flags().VarP(&opts.Format, "format", "f", "Output format: json, csv, or tsv")
+	common.AnnotateFlagGroup(cmd, "format", "Output")
+	common.AnnotateFlagEnum(cmd, "format", []string{"json", "csv", "tsv"})
+}
+
+func registerTradeTickersFlag(cmd *cobra.Command, opts *tradeTickersFlag) {
+	cmd.Flags().StringVarP(&opts.Tickers, "tickers", "t", opts.Tickers, "Comma-separated ticker symbols")
+	common.AnnotateFlagGroup(cmd, "tickers", "Input")
+}
+
+func registerTradeTickerFlag(cmd *cobra.Command, opts *tradeTickerFlag) {
+	cmd.Flags().StringVarP(&opts.Ticker, "ticker", "t", opts.Ticker, "Ticker symbol")
+	common.AnnotateFlagGroup(cmd, "ticker", "Input")
+}
+
 func newTradeDashboardCommand() *cobra.Command {
 	opts := &tradeDashboardOptions{}
 	presetTradeFilterDefaults(&opts.tradeFilterFlags, 0)
@@ -350,7 +481,13 @@ RECOVERY: If ticker validation fails, use one ticker only. If --count is rejecte
 			return runTradeDashboard(cmd, opts)
 		},
 	}
-	common.BindOrPanic(cmd, opts, "dashboard")
+	registerTradeTickerFlag(cmd, &opts.tradeTickerFlag)
+	registerTradeOptionalDateRangeFlags(cmd, &opts.tradeOptionalDateRangeFlags)
+	registerTradeRangeFlags(cmd, &opts.tradeRangeFlags)
+	registerTradeFilterFlags(cmd, &opts.tradeFilterFlags)
+	cmd.Flags().IntVarP(&opts.Count, "count", "c", opts.Count, "Rows to return per dashboard section (5, 10, 20, or 50)")
+	common.AnnotateFlagGroup(cmd, "count", "Output")
+	common.WrapValidation(cmd, opts)
 	setTradeRangeFlagDefValues(cmd, opts.MinDollars)
 	return cmd
 }
@@ -417,7 +554,26 @@ volumeleaders-agent trade list --watchlist "Magnificent 7" --start-date 2025-04-
 			return runTradeList(cmd, opts)
 		},
 	}
-	common.BindOrPanic(cmd, opts, "list")
+	registerTradeTickersFlag(cmd, &opts.tradeTickersFlag)
+	registerTradeOptionalDateRangeFlags(cmd, &opts.tradeOptionalDateRangeFlags)
+	registerTradeRangeFlags(cmd, &opts.tradeRangeFlags)
+	registerTradeFilterFlags(cmd, &opts.tradeFilterFlags)
+	cmd.Flags().StringVar(&opts.Sector, "sector", opts.Sector, "Sector/Industry filter")
+	common.AnnotateFlagGroup(cmd, "sector", "Input")
+	cmd.Flags().StringVar(&opts.Preset, "preset", opts.Preset, "Apply a built-in filter preset by name; use report list for curated preset-backed reports")
+	common.AnnotateFlagGroup(cmd, "preset", "Input")
+	cmd.Flags().StringVar(&opts.Watchlist, "watchlist", opts.Watchlist, "Apply filters from a saved watchlist by name")
+	common.AnnotateFlagGroup(cmd, "watchlist", "Input")
+	cmd.Flags().StringVar(&opts.Fields, "fields", opts.Fields, "Comma-separated trade fields to include in output")
+	common.AnnotateFlagGroup(cmd, "fields", "Output")
+	cmd.Flags().BoolVar(&opts.Summary, "summary", opts.Summary, "Return aggregate metrics instead of individual trades")
+	common.AnnotateFlagGroup(cmd, "summary", "Output")
+	cmd.Flags().Var(&opts.GroupBy, "group-by", "Summary grouping (requires --summary): ticker, day, or ticker,day")
+	common.AnnotateFlagGroup(cmd, "group-by", "Output")
+	common.AnnotateFlagEnum(cmd, "group-by", []string{"ticker", "day", "ticker,day"})
+	registerTradeFormatFlag(cmd, &opts.tradeFormatFlag)
+	registerTradeFixedPageFlags(cmd, &opts.tradeFixedPageFlags)
+	common.WrapValidation(cmd, opts)
 	setTradeRangeFlagDefValues(cmd, opts.MinDollars)
 	return cmd
 }
@@ -442,7 +598,11 @@ Ratio is bull dollars divided by bear dollars and is null when bear flow is zero
 			return runTradeSentiment(cmd, opts)
 		},
 	}
-	common.BindOrPanic(cmd, opts, "sentiment")
+	registerTradeDateRangeFlags(cmd, &opts.tradeDateRangeFlags)
+	registerTradeRangeFlags(cmd, &opts.tradeRangeFlags)
+	registerTradeFilterFlags(cmd, &opts.tradeFilterFlags)
+	registerTradeFormatFlag(cmd, &opts.tradeFormatFlag)
+	common.WrapValidation(cmd, opts)
 	setTradeRangeFlagDefValues(cmd, opts.MinDollars)
 	return cmd
 }
@@ -469,7 +629,24 @@ Results are fetched in browser-sized 100-row pages to match VolumeLeaders' front
 			return runTradeClusters(cmd, opts)
 		},
 	}
-	common.BindOrPanic(cmd, opts, "clusters")
+	registerTradeTickersFlag(cmd, &opts.tradeTickersFlag)
+	registerTradeDateRangeFlags(cmd, &opts.tradeDateRangeFlags)
+	registerTradeRangeFlags(cmd, &opts.tradeRangeFlags)
+	cmd.Flags().IntVar(&opts.VCD, "vcd", opts.VCD, "VCD filter")
+	common.AnnotateFlagGroup(cmd, "vcd", "Filters")
+	cmd.Flags().IntVar(&opts.SecurityType, "security-type", opts.SecurityType, "Security type key")
+	common.AnnotateFlagGroup(cmd, "security-type", "Filters")
+	cmd.Flags().IntVar(&opts.RelativeSize, "relative-size", opts.RelativeSize, "Relative size threshold")
+	common.AnnotateFlagGroup(cmd, "relative-size", "Filters")
+	cmd.Flags().IntVar(&opts.TradeClusterRank, "trade-cluster-rank", opts.TradeClusterRank, "Trade cluster rank filter")
+	common.AnnotateFlagGroup(cmd, "trade-cluster-rank", "Filters")
+	cmd.Flags().StringVar(&opts.Sector, "sector", opts.Sector, "Sector/Industry filter")
+	common.AnnotateFlagGroup(cmd, "sector", "Input")
+	cmd.Flags().StringVar(&opts.Fields, "fields", opts.Fields, "Comma-separated TradeCluster fields to include in output, or 'all' for every field")
+	common.AnnotateFlagGroup(cmd, "fields", "Output")
+	registerTradeFormatFlag(cmd, &opts.tradeFormatFlag)
+	registerTradeFixedPageFlags(cmd, &opts.tradeFixedPageFlags)
+	common.WrapValidation(cmd, opts)
 	setTradeRangeFlagDefValues(cmd, opts.MinDollars)
 	return cmd
 }
@@ -493,7 +670,22 @@ Results are fetched in browser-sized 100-row pages to match VolumeLeaders' front
 			return runTradeClusterBombs(cmd, opts)
 		},
 	}
-	common.BindOrPanic(cmd, opts, "cluster-bombs")
+	registerTradeTickersFlag(cmd, &opts.tradeTickersFlag)
+	registerTradeDateRangeFlags(cmd, &opts.tradeDateRangeFlags)
+	registerTradeVolumeDollarRangeFlags(cmd, &opts.tradeVolumeDollarRangeFlags)
+	cmd.Flags().IntVar(&opts.VCD, "vcd", opts.VCD, "VCD filter")
+	common.AnnotateFlagGroup(cmd, "vcd", "Filters")
+	cmd.Flags().IntVar(&opts.SecurityType, "security-type", opts.SecurityType, "Security type key")
+	common.AnnotateFlagGroup(cmd, "security-type", "Filters")
+	cmd.Flags().IntVar(&opts.RelativeSize, "relative-size", opts.RelativeSize, "Relative size threshold")
+	common.AnnotateFlagGroup(cmd, "relative-size", "Filters")
+	cmd.Flags().IntVar(&opts.TradeClusterBombRank, "trade-cluster-bomb-rank", opts.TradeClusterBombRank, "Trade cluster bomb rank filter")
+	common.AnnotateFlagGroup(cmd, "trade-cluster-bomb-rank", "Filters")
+	cmd.Flags().StringVar(&opts.Sector, "sector", opts.Sector, "Sector/Industry filter")
+	common.AnnotateFlagGroup(cmd, "sector", "Input")
+	registerTradeFormatFlag(cmd, &opts.tradeFormatFlag)
+	registerTradeFixedPageFlags(cmd, &opts.tradeFixedPageFlags)
+	common.WrapValidation(cmd, opts)
 	setTradeVolumeDollarFlagDefValues(cmd, opts.MinDollars)
 	return cmd
 }
@@ -515,8 +707,12 @@ Alert configs trigger when trades match thresholds. Threshold names follow the p
 			return runTradeAlerts(cmd, opts)
 		},
 	}
-	common.BindOrPanic(cmd, opts, "alerts")
-	_ = cmd.MarkFlagRequired("date")
+	cmd.Flags().StringVarP(&opts.Date, "date", "d", opts.Date, "Date YYYY-MM-DD")
+	common.AnnotateFlagGroup(cmd, "date", "Dates")
+	common.MarkFlagRequired(cmd, "date")
+	registerTradeFormatFlag(cmd, &opts.tradeFormatFlag)
+	registerTradePaginationFlags(cmd, &opts.tradePaginationFlags)
+	common.WrapValidation(cmd, opts)
 	return cmd
 }
 
@@ -537,8 +733,12 @@ Cluster alert rows use the full cluster-shaped model rather than the compact def
 			return runTradeClusterAlerts(cmd, opts)
 		},
 	}
-	common.BindOrPanic(cmd, opts, "cluster-alerts")
-	_ = cmd.MarkFlagRequired("date")
+	cmd.Flags().StringVarP(&opts.Date, "date", "d", opts.Date, "Date YYYY-MM-DD")
+	common.AnnotateFlagGroup(cmd, "date", "Dates")
+	common.MarkFlagRequired(cmd, "date")
+	registerTradeFormatFlag(cmd, &opts.tradeFormatFlag)
+	registerTradePaginationFlags(cmd, &opts.tradePaginationFlags)
+	common.WrapValidation(cmd, opts)
 	return cmd
 }
 
@@ -565,7 +765,14 @@ NEXT STEPS: Use trade dashboard as the first single-ticker overview, or use trad
 			return runTradeLevels(cmd, opts)
 		},
 	}
-	common.BindOrPanic(cmd, opts, "levels")
+	registerTradeTickerFlag(cmd, &opts.tradeTickerFlag)
+	registerTradeOptionalDateRangeFlags(cmd, &opts.tradeOptionalDateRangeFlags)
+	cmd.Flags().IntVar(&opts.TradeLevelCount, "trade-level-count", opts.TradeLevelCount, "Number of price levels to return (5, 10, 20, or 50)")
+	common.AnnotateFlagGroup(cmd, "trade-level-count", "Output")
+	cmd.Flags().StringVar(&opts.Fields, "fields", opts.Fields, "Comma-separated TradeLevel fields to include in output, or 'all' for every field")
+	common.AnnotateFlagGroup(cmd, "fields", "Output")
+	registerTradeFormatFlag(cmd, &opts.tradeFormatFlag)
+	common.WrapValidation(cmd, opts)
 	return cmd
 }
 
@@ -595,7 +802,20 @@ NEXT STEPS: Compare touched levels with fresh trade list output to see whether r
 			return runTradeLevelTouches(cmd, opts)
 		},
 	}
-	common.BindOrPanic(cmd, opts, "level-touches")
+	registerTradeTickerFlag(cmd, &opts.tradeTickerFlag)
+	registerTradeDateRangeFlags(cmd, &opts.tradeDateRangeFlags)
+	registerTradeRangeFlags(cmd, &opts.tradeRangeFlags)
+	cmd.Flags().IntVar(&opts.VCD, "vcd", opts.VCD, "VCD filter")
+	common.AnnotateFlagGroup(cmd, "vcd", "Filters")
+	cmd.Flags().IntVar(&opts.RelativeSize, "relative-size", opts.RelativeSize, "Relative size threshold")
+	common.AnnotateFlagGroup(cmd, "relative-size", "Filters")
+	cmd.Flags().IntVar(&opts.TradeLevelRank, "trade-level-rank", opts.TradeLevelRank, "Trade level rank filter")
+	common.AnnotateFlagGroup(cmd, "trade-level-rank", "Filters")
+	cmd.Flags().IntVar(&opts.TradeLevelCount, "trade-level-count", opts.TradeLevelCount, "Number of price levels to include (5, 10, 20, or 50)")
+	common.AnnotateFlagGroup(cmd, "trade-level-count", "Output")
+	registerTradeFormatFlag(cmd, &opts.tradeFormatFlag)
+	registerTradePaginationFlags(cmd, &opts.tradePaginationFlags)
+	common.WrapValidation(cmd, opts)
 	setTradeRangeFlagDefValues(cmd, opts.MinDollars)
 	return cmd
 }

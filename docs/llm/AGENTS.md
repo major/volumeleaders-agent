@@ -304,7 +304,7 @@ Ratio is bull dollars divided by bear dollars and is null when bear flow is zero
 | Flag | Type | Default | Description |
 |------|------|---------|-------------|
 | `--fields` | string | - | Comma-separated fields to include (use 'all' for every field) |
-| `--format` | string | json | Output format: json, csv, or tsv (csv, json, tsv) |
+| `--format` | string | json | Output format: json, csv, or tsv (json, csv, tsv) |
 
 #### `volumeleaders-agent alert create`
 
@@ -390,7 +390,7 @@ Ratio is bull dollars divided by bear dollars and is null when bear flow is zero
 | `--days` | int | 0 | Look back this many days from --end-date or today |
 | `--end-date` | string | - | End date YYYY-MM-DD (required unless --days is set) |
 | `--fields` | string | - | Comma-separated fields to include (use 'all' for every field) |
-| `--format` | string | json | Output format: json, csv, or tsv (json,csv,tsv) |
+| `--format` | string | json | Output format: json, csv, or tsv (json, csv, tsv) |
 | `--start-date` | string | - | Start date YYYY-MM-DD (required unless --days is set) |
 
 #### `volumeleaders-agent market exhaustion`
@@ -553,7 +553,7 @@ Ratio is bull dollars divided by bear dollars and is null when bear flow is zero
 | Flag | Type | Default | Description |
 |------|------|---------|-------------|
 | `--date` | string | - | Date YYYY-MM-DD |
-| `--format` | string | json | Output format: json, csv, or tsv (csv, json, tsv) |
+| `--format` | string | json | Output format: json, csv, or tsv (json, csv, tsv) |
 | `--length` | int | 100 | Number of results |
 | `--order-col` | int | 1 | Order column index |
 | `--order-dir` | string | desc | Order direction (asc, desc) |
@@ -564,7 +564,7 @@ Ratio is bull dollars divided by bear dollars and is null when bear flow is zero
 | Flag | Type | Default | Description |
 |------|------|---------|-------------|
 | `--date` | string | - | Date YYYY-MM-DD |
-| `--format` | string | json | Output format: json, csv, or tsv (csv, json, tsv) |
+| `--format` | string | json | Output format: json, csv, or tsv (json, csv, tsv) |
 | `--length` | int | 100 | Number of results |
 | `--order-col` | int | 1 | Order column index |
 | `--order-dir` | string | desc | Order direction (asc, desc) |
@@ -576,7 +576,7 @@ Ratio is bull dollars divided by bear dollars and is null when bear flow is zero
 |------|------|---------|-------------|
 | `--days` | int | 0 | Look back this many days from --end-date or today |
 | `--end-date` | string | - | End date YYYY-MM-DD (required unless --days is set) |
-| `--format` | string | json | Output format: json, csv, or tsv (csv, json, tsv) |
+| `--format` | string | json | Output format: json, csv, or tsv (json, csv, tsv) |
 | `--max-dollars` | float64 | 30000000000 | Maximum dollar value |
 | `--max-volume` | int | 2000000000 | Maximum volume |
 | `--min-dollars` | float64 | 0 | Minimum dollar value |
@@ -599,7 +599,7 @@ Ratio is bull dollars divided by bear dollars and is null when bear flow is zero
 | `--days` | int | 0 | Look back this many days from --end-date or today |
 | `--end-date` | string | - | End date YYYY-MM-DD (required unless --days is set) |
 | `--fields` | string | - | Comma-separated TradeCluster fields to include in output, or 'all' for every field |
-| `--format` | string | json | Output format: json, csv, or tsv (csv, json, tsv) |
+| `--format` | string | json | Output format: json, csv, or tsv (json, csv, tsv) |
 | `--max-dollars` | float64 | 30000000000 | Maximum dollar value |
 | `--max-price` | float64 | 100000 | Maximum price |
 | `--max-volume` | int | 2000000000 | Maximum volume |
@@ -658,7 +658,7 @@ Ratio is bull dollars divided by bear dollars and is null when bear flow is zero
 |------|------|---------|-------------|
 | `--days` | int | 0 | Look back this many days from --end-date or today |
 | `--end-date` | string | - | End date YYYY-MM-DD (required unless --days is set) |
-| `--format` | string | json | Output format: json, csv, or tsv (csv, json, tsv) |
+| `--format` | string | json | Output format: json, csv, or tsv (json, csv, tsv) |
 | `--length` | int | 50 | Number of results |
 | `--max-dollars` | float64 | 30000000000 | Maximum dollar value |
 | `--max-price` | float64 | 100000 | Maximum price |
@@ -683,7 +683,7 @@ Ratio is bull dollars divided by bear dollars and is null when bear flow is zero
 | `--days` | int | 0 | Look back this many days from --end-date or today |
 | `--end-date` | string | - | End date YYYY-MM-DD (default: today) |
 | `--fields` | string | - | Comma-separated TradeLevel fields to include in output, or 'all' for every field |
-| `--format` | string | json | Output format: json, csv, or tsv (csv, json, tsv) |
+| `--format` | string | json | Output format: json, csv, or tsv (json, csv, tsv) |
 | `--start-date` | string | - | Start date YYYY-MM-DD (default: auto) |
 | `--ticker` | string | - | Ticker symbol |
 | `--trade-level-count` | int | 10 | Number of price levels to return (5, 10, 20, or 50) |
@@ -700,8 +700,8 @@ Ratio is bull dollars divided by bear dollars and is null when bear flow is zero
 | `--end-date` | string | - | End date YYYY-MM-DD (default: today) |
 | `--even-shared` | string | -1 | Even shared filter (-1=all, 0=exclude, 1=only) (-1, 0, 1) |
 | `--fields` | string | - | Comma-separated trade fields to include in output |
-| `--format` | string | json | Output format: json, csv, or tsv (csv, json, tsv) |
-| `--group-by` | string | ticker | Summary grouping (requires --summary): ticker, day, or ticker,day (day, ticker, ticker,day) |
+| `--format` | string | json | Output format: json, csv, or tsv (json, csv, tsv) |
+| `--group-by` | string | ticker | Summary grouping (requires --summary): ticker, day, or ticker,day (ticker, day, ticker,day) |
 | `--late-prints` | string | -1 | Late print filter (-1=all, 0=exclude, 1=only) (-1, 0, 1) |
 | `--market-cap` | int | 0 | Market cap filter |
 | `--max-dollars` | float64 | 30000000000 | Maximum dollar value |
@@ -743,7 +743,7 @@ Ratio is bull dollars divided by bear dollars and is null when bear flow is zero
 | `--days` | int | 0 | Look back this many days from --end-date or today |
 | `--end-date` | string | - | End date YYYY-MM-DD (required unless --days is set) |
 | `--even-shared` | string | -1 | Even shared filter (-1=all, 0=exclude, 1=only) (-1, 0, 1) |
-| `--format` | string | json | Output format: json, csv, or tsv (csv, json, tsv) |
+| `--format` | string | json | Output format: json, csv, or tsv (json, csv, tsv) |
 | `--late-prints` | string | -1 | Late print filter (-1=all, 0=exclude, 1=only) (-1, 0, 1) |
 | `--market-cap` | int | 0 | Market cap filter |
 | `--max-dollars` | float64 | 30000000000 | Maximum dollar value |
@@ -783,10 +783,10 @@ Ratio is bull dollars divided by bear dollars and is null when bear flow is zero
 | Flag | Type | Default | Description |
 |------|------|---------|-------------|
 | `--date` | string | - | Date YYYY-MM-DD |
-| `--format` | string | json | Output format: json, csv, or tsv (json,csv,tsv) |
+| `--format` | string | json | Output format: json, csv, or tsv (json, csv, tsv) |
 | `--length` | int | 100 | Number of results |
 | `--order-col` | int | 1 | Order column index |
-| `--order-dir` | string | asc | Order direction (asc,desc) |
+| `--order-dir` | string | asc | Order direction (asc, desc) |
 | `--start` | int | 0 | DataTables start offset |
 | `--tickers` | string | - | Comma-separated ticker symbols |
 
@@ -795,10 +795,10 @@ Ratio is bull dollars divided by bear dollars and is null when bear flow is zero
 | Flag | Type | Default | Description |
 |------|------|---------|-------------|
 | `--date` | string | - | Date YYYY-MM-DD |
-| `--format` | string | json | Output format: json, csv, or tsv (json,csv,tsv) |
+| `--format` | string | json | Output format: json, csv, or tsv (json, csv, tsv) |
 | `--length` | int | 100 | Number of results |
 | `--order-col` | int | 1 | Order column index |
-| `--order-dir` | string | asc | Order direction (asc,desc) |
+| `--order-dir` | string | asc | Order direction (asc, desc) |
 | `--start` | int | 0 | DataTables start offset |
 | `--tickers` | string | - | Comma-separated ticker symbols |
 
@@ -807,10 +807,10 @@ Ratio is bull dollars divided by bear dollars and is null when bear flow is zero
 | Flag | Type | Default | Description |
 |------|------|---------|-------------|
 | `--date` | string | - | Date YYYY-MM-DD |
-| `--format` | string | json | Output format: json, csv, or tsv (json,csv,tsv) |
+| `--format` | string | json | Output format: json, csv, or tsv (json, csv, tsv) |
 | `--length` | int | 100 | Number of results |
 | `--order-col` | int | 1 | Order column index |
-| `--order-dir` | string | asc | Order direction (asc,desc) |
+| `--order-dir` | string | asc | Order direction (asc, desc) |
 | `--start` | int | 0 | DataTables start offset |
 | `--tickers` | string | - | Comma-separated ticker symbols |
 
@@ -825,7 +825,7 @@ Ratio is bull dollars divided by bear dollars and is null when bear flow is zero
 
 | Flag | Type | Default | Description |
 |------|------|---------|-------------|
-| `--format` | string | json | Output format: json, csv, or tsv (csv, json, tsv) |
+| `--format` | string | json | Output format: json, csv, or tsv (json, csv, tsv) |
 
 #### `volumeleaders-agent watchlist create`
 
@@ -839,11 +839,11 @@ Ratio is bull dollars divided by bear dollars and is null when bear flow is zero
 | `--lit-exchanges` | bool | true | Include lit exchange trades |
 | `--max-dollars` | float64 | 3e+10 | Maximum dollars filter |
 | `--max-price` | float64 | 100000 | Maximum price filter |
-| `--max-trade-rank` | string | -1 | Maximum trade rank (-1=all, 1/3/5/10/25/50/100) (-1, 1, 10, 100, 25, 3, 5, 50) |
+| `--max-trade-rank` | string | -1 | Maximum trade rank (-1=all, 1/3/5/10/25/50/100) (-1, 1, 3, 5, 10, 25, 50, 100) |
 | `--max-volume` | int | 2000000000 | Maximum volume filter |
 | `--min-dollars` | float64 | 0 | Minimum dollars filter |
 | `--min-price` | float64 | 0 | Minimum price filter |
-| `--min-relative-size` | string | 0 | Minimum relative size (0/5/10/25/50/100) (0, 10, 100, 25, 5, 50) |
+| `--min-relative-size` | string | 0 | Minimum relative size (0/5/10/25/50/100) (0, 5, 10, 25, 50, 100) |
 | `--min-vcd` | float64 | 0 | Minimum VCD percentile (0-100) |
 | `--min-volume` | int | 0 | Minimum volume filter |
 | `--name` | string | - | Watch list name |
@@ -883,11 +883,11 @@ Ratio is bull dollars divided by bear dollars and is null when bear flow is zero
 | `--lit-exchanges` | bool | true | Include lit exchange trades |
 | `--max-dollars` | float64 | 3e+10 | Maximum dollars filter |
 | `--max-price` | float64 | 100000 | Maximum price filter |
-| `--max-trade-rank` | string | -1 | Maximum trade rank (-1=all, 1/3/5/10/25/50/100) (-1, 1, 10, 100, 25, 3, 5, 50) |
+| `--max-trade-rank` | string | -1 | Maximum trade rank (-1=all, 1/3/5/10/25/50/100) (-1, 1, 3, 5, 10, 25, 50, 100) |
 | `--max-volume` | int | 2000000000 | Maximum volume filter |
 | `--min-dollars` | float64 | 0 | Minimum dollars filter |
 | `--min-price` | float64 | 0 | Minimum price filter |
-| `--min-relative-size` | string | 0 | Minimum relative size (0/5/10/25/50/100) (0, 10, 100, 25, 5, 50) |
+| `--min-relative-size` | string | 0 | Minimum relative size (0/5/10/25/50/100) (0, 5, 10, 25, 50, 100) |
 | `--min-vcd` | float64 | 0 | Minimum VCD percentile (0-100) |
 | `--min-volume` | int | 0 | Minimum volume filter |
 | `--name` | string | - | Watch list name |
@@ -912,7 +912,7 @@ Ratio is bull dollars divided by bear dollars and is null when bear flow is zero
 
 | Flag | Type | Default | Description |
 |------|------|---------|-------------|
-| `--format` | string | json | Output format: json, csv, or tsv (csv, json, tsv) |
+| `--format` | string | json | Output format: json, csv, or tsv (json, csv, tsv) |
 | `--watchlist-key` | int | -1 | Watch list key (-1 for all) |
 
 ## Machine Interface

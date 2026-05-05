@@ -53,7 +53,7 @@ func AnnotateFlagGroup(cmd *cobra.Command, flagName, group string) {
 
 // AnnotateFlagEnum sets the allowed values annotation on a registered flag.
 func AnnotateFlagEnum(cmd *cobra.Command, flagName string, values []string) {
-	annotateFlag(cmd, flagName, flagEnumAnnotation, strings.Join(values, ","))
+	_ = cmd.Flags().SetAnnotation(flagName, flagEnumAnnotation, values)
 }
 
 // WrapValidation installs a PreRunE hook on cmd that:

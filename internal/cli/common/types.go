@@ -1,6 +1,10 @@
 package common
 
-import "github.com/leodido/structcli"
+import (
+	"fmt"
+
+	"github.com/leodido/structcli"
+)
 
 func init() {
 	structcli.RegisterEnum[OutputFormat](map[OutputFormat][]string{
@@ -41,6 +45,27 @@ const (
 	OutputFormatTSV OutputFormat = "tsv"
 )
 
+// Set implements pflag.Value for OutputFormat.
+func (v *OutputFormat) Set(value string) error {
+	switch OutputFormat(value) {
+	case OutputFormatJSON, OutputFormatCSV, OutputFormatTSV:
+		*v = OutputFormat(value)
+		return nil
+	default:
+		return fmt.Errorf("invalid value %q, expected one of json, csv, tsv", value)
+	}
+}
+
+// String implements pflag.Value for OutputFormat.
+func (v OutputFormat) String() string {
+	return string(v)
+}
+
+// Type implements pflag.Value for OutputFormat.
+func (v OutputFormat) Type() string {
+	return "string"
+}
+
 // OrderDirection identifies the supported DataTables sort directions.
 type OrderDirection string
 
@@ -50,6 +75,27 @@ const (
 	// OrderDirectionDESC sorts results in descending order.
 	OrderDirectionDESC OrderDirection = "desc"
 )
+
+// Set implements pflag.Value for OrderDirection.
+func (v *OrderDirection) Set(value string) error {
+	switch OrderDirection(value) {
+	case OrderDirectionASC, OrderDirectionDESC:
+		*v = OrderDirection(value)
+		return nil
+	default:
+		return fmt.Errorf("invalid value %q, expected one of asc, desc", value)
+	}
+}
+
+// String implements pflag.Value for OrderDirection.
+func (v OrderDirection) String() string {
+	return string(v)
+}
+
+// Type implements pflag.Value for OrderDirection.
+func (v OrderDirection) Type() string {
+	return "string"
+}
 
 // TriStateFilter identifies toggle-style filters used by the VolumeLeaders API.
 // A value of -1 leaves the filter unselected, 0 excludes matching rows, and 1
@@ -66,6 +112,27 @@ const (
 	// TriStateOnly returns only rows matching the filter.
 	TriStateOnly TriStateFilter = "1"
 )
+
+// Set implements pflag.Value for TriStateFilter.
+func (v *TriStateFilter) Set(value string) error {
+	switch TriStateFilter(value) {
+	case TriStateAll, TriStateExclude, TriStateOnly:
+		*v = TriStateFilter(value)
+		return nil
+	default:
+		return fmt.Errorf("invalid value %q, expected one of -1, 0, 1", value)
+	}
+}
+
+// String implements pflag.Value for TriStateFilter.
+func (v TriStateFilter) String() string {
+	return string(v)
+}
+
+// Type implements pflag.Value for TriStateFilter.
+func (v TriStateFilter) Type() string {
+	return "string"
+}
 
 // Int returns the integer value expected by internal DataTables filter code.
 func (value TriStateFilter) Int() int {

@@ -7,6 +7,7 @@ Go CLI tool for querying institutional trade data from [VolumeLeaders](https://w
 When modifying CLI commands, flags, models, or behavior:
 
 - Update `AGENTS.md` if the change affects project structure, build process, or conventions.
+- Keep `.coderabbit.yaml` and `.github/copilot-instructions.md` plus `.github/instructions/*.instructions.md` aligned with current repo conventions when review-relevant behavior changes.
 - Use `volumeleaders-agent --jsonschema=tree` as the source of truth for command names, flags, aliases, defaults, and examples. Use `volumeleaders-agent outputschema` as the source of truth for success stdout contracts, formats, fields, and variants. Command Long descriptions contain embedded domain knowledge (workflows, recovery steps, conventions, gotchas).
 - Run `make docs` or `make generate-discovery` when commands, flags, defaults, examples, or Long descriptions change. The generated `SKILL.md` lives at the repository root for consistent tool discovery; extended generated LLM discovery files live in `docs/llm/` so they do not overwrite this hand-maintained root `AGENTS.md`.
 

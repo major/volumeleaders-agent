@@ -531,7 +531,7 @@ func mcpTextResult(text string, isError bool) map[string]any {
 	return map[string]any{"content": []map[string]string{{"type": "text", "text": text}}, "isError": isError}
 }
 
-func writeMCPResult(output io.Writer, id any, result any) {
+func writeMCPResult(output io.Writer, id, result any) {
 	_ = json.NewEncoder(output).Encode(map[string]any{"jsonrpc": "2.0", "id": id, "result": result})
 }
 

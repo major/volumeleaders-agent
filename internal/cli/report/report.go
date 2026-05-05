@@ -5,7 +5,6 @@ import (
 	"maps"
 	"strings"
 
-	"github.com/leodido/structcli"
 	"github.com/spf13/cobra"
 
 	"github.com/major/volumeleaders-agent/internal/cli/common"
@@ -14,14 +13,6 @@ import (
 )
 
 const reportBrowserPageLength = 100
-
-func init() {
-	structcli.RegisterEnum(map[reportSummaryGroup][]string{
-		reportSummaryGroupTicker:    {"ticker"},
-		reportSummaryGroupDay:       {"day"},
-		reportSummaryGroupTickerDay: {"ticker,day", "ticker, day", "ticker day", "ticker-day"},
-	})
-}
 
 type reportDefinition struct {
 	use     string
@@ -33,18 +24,18 @@ type reportDefinition struct {
 }
 
 type reportOptions struct {
-	Tickers   string              `flag:"tickers" flaggroup:"Input" flagshort:"t" flagdescr:"Comma-separated ticker symbols; use this for multi-day report lookbacks"`
-	StartDate string              `flag:"start-date" flaggroup:"Dates" flagshort:"s" flagdescr:"Start date YYYY-MM-DD (default: today)"`
-	EndDate   string              `flag:"end-date" flaggroup:"Dates" flagshort:"e" flagdescr:"End date YYYY-MM-DD (default: today)"`
-	Days      int                 `flag:"days" flaggroup:"Dates" flagshort:"d" flagdescr:"Look back this many days from --end-date or today; broad scans require a single day"`
-	Fields    string              `flag:"fields" flaggroup:"Output" flagdescr:"Comma-separated raw Trade fields to include, or omit for compact JSON"`
-	Summary   bool                `flag:"summary" flaggroup:"Output" flagdescr:"Return aggregate metrics instead of individual trades"`
-	GroupBy   reportSummaryGroup  `flag:"group-by" flaggroup:"Output" flagdescr:"Summary grouping (requires --summary): ticker, day, or ticker,day"`
-	Format    common.OutputFormat `flag:"format" flaggroup:"Output" flagshort:"f" flagdescr:"Output format: json, csv, or tsv"`
+	Tickers   string
+	StartDate string
+	EndDate   string
+	Days      int
+	Fields    string
+	Summary   bool
+	GroupBy   reportSummaryGroup
+	Format    common.OutputFormat
 }
 
 type reportListOptions struct {
-	Format common.OutputFormat `flag:"format" flagdescr:"Output format: json, csv, or tsv"`
+	Format common.OutputFormat
 }
 
 // ReportInfo describes one curated report command for report list output.
@@ -63,6 +54,27 @@ const (
 	reportSummaryGroupDay       reportSummaryGroup = "day"
 	reportSummaryGroupTickerDay reportSummaryGroup = "ticker,day"
 )
+
+// Set implements pflag.Value for reportSummaryGroup.
+func (v *reportSummaryGroup) Set(value string) error {
+	switch reportSummaryGroup(value) {
+	case reportSummaryGroupTicker, reportSummaryGroupDay, reportSummaryGroupTickerDay:
+		*v = reportSummaryGroup(value)
+		return nil
+	default:
+		return fmt.Errorf("invalid value %q, expected one of ticker, day, ticker,day", value)
+	}
+}
+
+// String implements pflag.Value for reportSummaryGroup.
+func (v reportSummaryGroup) String() string {
+	return string(v)
+}
+
+// Type implements pflag.Value for reportSummaryGroup.
+func (v reportSummaryGroup) Type() string {
+	return "string"
+}
 
 // NewCmd returns the "report" command group with curated report presets.
 func NewCmd() *cobra.Command {
@@ -103,7 +115,8 @@ func newReportListCommand() *cobra.Command {
 			return runReportList(cmd, opts)
 		},
 	}
-	common.BindOrPanic(cmd, opts, "report list")
+	cmd.Flags().Var(&opts.Format, "format", "Output format: json, csv, or tsv")
+	common.WrapValidation(cmd, opts)
 	return cmd
 }
 
@@ -119,7 +132,23 @@ func newReportCommand(definition *reportDefinition) *cobra.Command {
 			return runReport(cmd, opts, definition)
 		},
 	}
-	common.BindOrPanic(cmd, opts, definition.use)
+	cmd.Flags().StringVarP(&opts.Tickers, "tickers", "t", "", "Comma-separated ticker symbols; use this for multi-day report lookbacks")
+	common.AnnotateFlagGroup(cmd, "tickers", "Input")
+	cmd.Flags().StringVarP(&opts.StartDate, "start-date", "s", "", "Start date YYYY-MM-DD (default: today)")
+	common.AnnotateFlagGroup(cmd, "start-date", "Dates")
+	cmd.Flags().StringVarP(&opts.EndDate, "end-date", "e", "", "End date YYYY-MM-DD (default: today)")
+	common.AnnotateFlagGroup(cmd, "end-date", "Dates")
+	cmd.Flags().IntVarP(&opts.Days, "days", "d", 0, "Look back this many days from --end-date or today; broad scans require a single day")
+	common.AnnotateFlagGroup(cmd, "days", "Dates")
+	cmd.Flags().StringVar(&opts.Fields, "fields", "", "Comma-separated raw Trade fields to include, or omit for compact JSON")
+	common.AnnotateFlagGroup(cmd, "fields", "Output")
+	cmd.Flags().BoolVar(&opts.Summary, "summary", false, "Return aggregate metrics instead of individual trades")
+	common.AnnotateFlagGroup(cmd, "summary", "Output")
+	cmd.Flags().Var(&opts.GroupBy, "group-by", "Summary grouping (requires --summary): ticker, day, or ticker,day")
+	common.AnnotateFlagGroup(cmd, "group-by", "Output")
+	cmd.Flags().VarP(&opts.Format, "format", "f", "Output format: json, csv, or tsv")
+	common.AnnotateFlagGroup(cmd, "format", "Output")
+	common.WrapValidation(cmd, opts)
 	return cmd
 }
 

@@ -15,11 +15,11 @@ import (
 const updateTimeout = 5 * time.Minute
 
 type configOptions struct {
-	CheckNotifications bool `flag:"check-notifications" flaggroup:"Update" flagdescr:"Set automatic update notification preference; true enables notifications, false disables them, omitted only displays current settings"`
+	CheckNotifications bool
 }
 
 type installOptions struct {
-	Force bool `flag:"force" flaggroup:"Update" flagdescr:"Install the latest release even when the current version is already latest"`
+	Force bool
 }
 
 // SettingsResult describes persisted updater notification settings.
@@ -54,7 +54,9 @@ volumeleaders-agent update --force`,
 			return common.PrintJSON(cmd.OutOrStdout(), cmd.Context(), result)
 		},
 	}
-	common.BindOrPanic(cmd, installOpts, "update options")
+	cmd.Flags().BoolVar(&installOpts.Force, "force", false, "Install the latest release even when the current version is already latest")
+	common.AnnotateFlagGroup(cmd, "force", "Update")
+	common.WrapValidation(cmd, installOpts)
 	cmd.AddCommand(newCheckCmd(currentVersion), newConfigCmd())
 	return cmd
 }
@@ -110,6 +112,8 @@ volumeleaders-agent update config --check-notifications=false`,
 			return common.PrintJSON(cmd.OutOrStdout(), cmd.Context(), SettingsResult{CheckNotifications: settings.CheckNotifications, Path: path})
 		},
 	}
-	common.BindOrPanic(cmd, opts, "update config options")
+	cmd.Flags().BoolVar(&opts.CheckNotifications, "check-notifications", true, "Set automatic update notification preference; true enables notifications, false disables them, omitted only displays current settings")
+	common.AnnotateFlagGroup(cmd, "check-notifications", "Update")
+	common.WrapValidation(cmd, opts)
 	return cmd
 }

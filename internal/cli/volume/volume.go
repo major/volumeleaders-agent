@@ -10,13 +10,13 @@ import (
 
 // volumeOptions holds flags shared by all volume subcommands.
 type volumeOptions struct {
-	Date     string                `flag:"date" flaggroup:"Dates" flagshort:"d" flagdescr:"Date YYYY-MM-DD" flagrequired:"true"`
-	Tickers  string                `flag:"tickers" flaggroup:"Input" flagshort:"t" flagdescr:"Comma-separated ticker symbols"`
-	Format   common.OutputFormat   `flag:"format" flaggroup:"Output" flagshort:"f" default:"json" flagdescr:"Output format: json, csv, or tsv"`
-	Start    int                   `flag:"start" flaggroup:"Pagination" flagdescr:"DataTables start offset"`
-	Length   int                   `flag:"length" flaggroup:"Pagination" flagshort:"l" flagdescr:"Number of results"`
-	OrderCol int                   `flag:"order-col" flaggroup:"Pagination" flagdescr:"Order column index"`
-	OrderDir common.OrderDirection `flag:"order-dir" flaggroup:"Pagination" flagdescr:"Order direction"`
+	Date     string
+	Tickers  string
+	Format   common.OutputFormat
+	Start    int
+	Length   int
+	OrderCol int
+	OrderDir common.OrderDirection
 }
 
 // NewVolumeCommand returns the "volume" command group with all subcommands.
@@ -38,7 +38,7 @@ func NewVolumeCommand() *cobra.Command {
 
 // newInstitutionalCmd returns the "institutional" subcommand.
 func newInstitutionalCmd() *cobra.Command {
-	opts := volumeOptions{Length: 100, OrderCol: 1, OrderDir: "asc"}
+	opts := volumeOptions{Length: 100, OrderCol: 1, OrderDir: "asc", Format: "json"}
 	cmd := &cobra.Command{
 		Use:        "institutional [tickers...]",
 		Short:      "Query institutional volume leaderboard",
@@ -52,13 +52,30 @@ func newInstitutionalCmd() *cobra.Command {
 				datatables.InstitutionalVolumeColumns)
 		},
 	}
-	common.BindOrPanic(cmd, &opts, "institutional")
+	cmd.Flags().StringVarP(&opts.Date, "date", "d", "", "Date YYYY-MM-DD")
+	common.AnnotateFlagGroup(cmd, "date", "Dates")
+	common.MarkFlagRequired(cmd, "date")
+	cmd.Flags().StringVarP(&opts.Tickers, "tickers", "t", "", "Comma-separated ticker symbols")
+	common.AnnotateFlagGroup(cmd, "tickers", "Input")
+	cmd.Flags().VarP(&opts.Format, "format", "f", "Output format: json, csv, or tsv")
+	common.AnnotateFlagGroup(cmd, "format", "Output")
+	common.AnnotateFlagEnum(cmd, "format", []string{"json", "csv", "tsv"})
+	cmd.Flags().IntVar(&opts.Start, "start", 0, "DataTables start offset")
+	common.AnnotateFlagGroup(cmd, "start", "Pagination")
+	cmd.Flags().IntVarP(&opts.Length, "length", "l", 100, "Number of results")
+	common.AnnotateFlagGroup(cmd, "length", "Pagination")
+	cmd.Flags().IntVar(&opts.OrderCol, "order-col", 1, "Order column index")
+	common.AnnotateFlagGroup(cmd, "order-col", "Pagination")
+	cmd.Flags().Var(&opts.OrderDir, "order-dir", "Order direction")
+	common.AnnotateFlagGroup(cmd, "order-dir", "Pagination")
+	common.AnnotateFlagEnum(cmd, "order-dir", []string{"asc", "desc"})
+	common.WrapValidation(cmd, &opts)
 	return cmd
 }
 
 // newAHInstitutionalCmd returns the "ah-institutional" subcommand.
 func newAHInstitutionalCmd() *cobra.Command {
-	opts := volumeOptions{Length: 100, OrderCol: 1, OrderDir: "asc"}
+	opts := volumeOptions{Length: 100, OrderCol: 1, OrderDir: "asc", Format: "json"}
 	cmd := &cobra.Command{
 		Use:        "ah-institutional [tickers...]",
 		Short:      "Query after-hours institutional volume leaderboard",
@@ -72,13 +89,30 @@ func newAHInstitutionalCmd() *cobra.Command {
 				datatables.InstitutionalVolumeColumns)
 		},
 	}
-	common.BindOrPanic(cmd, &opts, "ah-institutional")
+	cmd.Flags().StringVarP(&opts.Date, "date", "d", "", "Date YYYY-MM-DD")
+	common.AnnotateFlagGroup(cmd, "date", "Dates")
+	common.MarkFlagRequired(cmd, "date")
+	cmd.Flags().StringVarP(&opts.Tickers, "tickers", "t", "", "Comma-separated ticker symbols")
+	common.AnnotateFlagGroup(cmd, "tickers", "Input")
+	cmd.Flags().VarP(&opts.Format, "format", "f", "Output format: json, csv, or tsv")
+	common.AnnotateFlagGroup(cmd, "format", "Output")
+	common.AnnotateFlagEnum(cmd, "format", []string{"json", "csv", "tsv"})
+	cmd.Flags().IntVar(&opts.Start, "start", 0, "DataTables start offset")
+	common.AnnotateFlagGroup(cmd, "start", "Pagination")
+	cmd.Flags().IntVarP(&opts.Length, "length", "l", 100, "Number of results")
+	common.AnnotateFlagGroup(cmd, "length", "Pagination")
+	cmd.Flags().IntVar(&opts.OrderCol, "order-col", 1, "Order column index")
+	common.AnnotateFlagGroup(cmd, "order-col", "Pagination")
+	cmd.Flags().Var(&opts.OrderDir, "order-dir", "Order direction")
+	common.AnnotateFlagGroup(cmd, "order-dir", "Pagination")
+	common.AnnotateFlagEnum(cmd, "order-dir", []string{"asc", "desc"})
+	common.WrapValidation(cmd, &opts)
 	return cmd
 }
 
 // newTotalCmd returns the "total" subcommand.
 func newTotalCmd() *cobra.Command {
-	opts := volumeOptions{Length: 100, OrderCol: 1, OrderDir: "asc"}
+	opts := volumeOptions{Length: 100, OrderCol: 1, OrderDir: "asc", Format: "json"}
 	cmd := &cobra.Command{
 		Use:        "total [tickers...]",
 		Short:      "Query total volume leaderboard",
@@ -92,7 +126,24 @@ func newTotalCmd() *cobra.Command {
 				datatables.TotalVolumeColumns)
 		},
 	}
-	common.BindOrPanic(cmd, &opts, "total")
+	cmd.Flags().StringVarP(&opts.Date, "date", "d", "", "Date YYYY-MM-DD")
+	common.AnnotateFlagGroup(cmd, "date", "Dates")
+	common.MarkFlagRequired(cmd, "date")
+	cmd.Flags().StringVarP(&opts.Tickers, "tickers", "t", "", "Comma-separated ticker symbols")
+	common.AnnotateFlagGroup(cmd, "tickers", "Input")
+	cmd.Flags().VarP(&opts.Format, "format", "f", "Output format: json, csv, or tsv")
+	common.AnnotateFlagGroup(cmd, "format", "Output")
+	common.AnnotateFlagEnum(cmd, "format", []string{"json", "csv", "tsv"})
+	cmd.Flags().IntVar(&opts.Start, "start", 0, "DataTables start offset")
+	common.AnnotateFlagGroup(cmd, "start", "Pagination")
+	cmd.Flags().IntVarP(&opts.Length, "length", "l", 100, "Number of results")
+	common.AnnotateFlagGroup(cmd, "length", "Pagination")
+	cmd.Flags().IntVar(&opts.OrderCol, "order-col", 1, "Order column index")
+	common.AnnotateFlagGroup(cmd, "order-col", "Pagination")
+	cmd.Flags().Var(&opts.OrderDir, "order-dir", "Order direction")
+	common.AnnotateFlagGroup(cmd, "order-dir", "Pagination")
+	common.AnnotateFlagEnum(cmd, "order-dir", []string{"asc", "desc"})
+	common.WrapValidation(cmd, &opts)
 	return cmd
 }
 

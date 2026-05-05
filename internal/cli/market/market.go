@@ -23,16 +23,16 @@ var marketEarningsDefaultFields = []string{
 
 // earningsOptions holds flags for the "market earnings" subcommand.
 type earningsOptions struct {
-	StartDate string              `flag:"start-date" flaggroup:"Dates" flagshort:"s" flagdescr:"Start date YYYY-MM-DD (required unless --days is set)"`
-	EndDate   string              `flag:"end-date" flaggroup:"Dates" flagshort:"e" flagdescr:"End date YYYY-MM-DD (required unless --days is set)"`
-	Days      int                 `flag:"days" flaggroup:"Dates" flagshort:"d" flagdescr:"Look back this many days from --end-date or today"`
-	Format    common.OutputFormat `flag:"format" flaggroup:"Output" flagshort:"f" flagdescr:"Output format: json, csv, or tsv" default:"json"`
-	Fields    string              `flag:"fields" flaggroup:"Output" flagdescr:"Comma-separated fields to include (use 'all' for every field)"`
+	StartDate string
+	EndDate   string
+	Days      int
+	Format    common.OutputFormat
+	Fields    string
 }
 
 // exhaustionOptions holds flags for the "market exhaustion" subcommand.
 type exhaustionOptions struct {
-	Date string `flag:"date" flaggroup:"Dates" flagshort:"d" flagdescr:"Date YYYY-MM-DD (empty for current day)"`
+	Date string
 }
 
 // NewMarketCommand returns the "market" command group with all subcommands.
@@ -53,7 +53,7 @@ func NewMarketCommand() *cobra.Command {
 
 // newEarningsCmd returns the "earnings" subcommand.
 func newEarningsCmd() *cobra.Command {
-	opts := &earningsOptions{}
+	opts := &earningsOptions{Format: common.OutputFormatJSON}
 	cmd := &cobra.Command{
 		Use:        "earnings",
 		Short:      "Query earnings calendar within a date range",
@@ -76,7 +76,18 @@ func newEarningsCmd() *cobra.Command {
 			return common.RunDataTablesCommand[models.Earnings](cmd, "/Earnings/GetEarnings", datatables.EarningsColumns, dtOpts, opts.Format, "query earnings")
 		},
 	}
-	common.BindOrPanic(cmd, opts, "earnings options")
+	cmd.Flags().StringVarP(&opts.StartDate, "start-date", "s", "", "Start date YYYY-MM-DD (required unless --days is set)")
+	common.AnnotateFlagGroup(cmd, "start-date", "Dates")
+	cmd.Flags().StringVarP(&opts.EndDate, "end-date", "e", "", "End date YYYY-MM-DD (required unless --days is set)")
+	common.AnnotateFlagGroup(cmd, "end-date", "Dates")
+	cmd.Flags().IntVarP(&opts.Days, "days", "d", 0, "Look back this many days from --end-date or today")
+	common.AnnotateFlagGroup(cmd, "days", "Dates")
+	cmd.Flags().VarP(&opts.Format, "format", "f", "Output format: json, csv, or tsv")
+	common.AnnotateFlagGroup(cmd, "format", "Output")
+	common.AnnotateFlagEnum(cmd, "format", []string{"json", "csv", "tsv"})
+	cmd.Flags().StringVar(&opts.Fields, "fields", "", "Comma-separated fields to include (use 'all' for every field)")
+	common.AnnotateFlagGroup(cmd, "fields", "Output")
+	common.WrapValidation(cmd, opts)
 	return cmd
 }
 
@@ -108,7 +119,9 @@ func newExhaustionCmd() *cobra.Command {
 			return common.PrintJSON(cmd.OutOrStdout(), ctx, summarizeMarketExhaustion(score))
 		},
 	}
-	common.BindOrPanic(cmd, opts, "exhaustion options")
+	cmd.Flags().StringVarP(&opts.Date, "date", "d", "", "Date YYYY-MM-DD (empty for current day)")
+	common.AnnotateFlagGroup(cmd, "date", "Dates")
+	common.WrapValidation(cmd, opts)
 	return cmd
 }
 

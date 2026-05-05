@@ -390,7 +390,7 @@ Ratio is bull dollars divided by bear dollars and is null when bear flow is zero
 | `--days` | int | 0 | Look back this many days from --end-date or today |
 | `--end-date` | string | - | End date YYYY-MM-DD (required unless --days is set) |
 | `--fields` | string | - | Comma-separated fields to include (use 'all' for every field) |
-| `--format` | string | json | Output format: json, csv, or tsv (csv, json, tsv) |
+| `--format` | string | json | Output format: json, csv, or tsv (json,csv,tsv) |
 | `--start-date` | string | - | Start date YYYY-MM-DD (required unless --days is set) |
 
 #### `volumeleaders-agent market exhaustion`
@@ -406,8 +406,8 @@ Ratio is bull dollars divided by bear dollars and is null when bear flow is zero
 | `--days` | int | 0 | Look back this many days from --end-date or today; broad scans require a single day |
 | `--end-date` | string | - | End date YYYY-MM-DD (default: today) |
 | `--fields` | string | - | Comma-separated raw Trade fields to include, or omit for compact JSON |
-| `--format` | string | json | Output format: json, csv, or tsv (csv, json, tsv) |
-| `--group-by` | string | ticker | Summary grouping (requires --summary): ticker, day, or ticker,day (day, ticker, ticker,day) |
+| `--format` | string | json | Output format: json, csv, or tsv |
+| `--group-by` | string | ticker | Summary grouping (requires --summary): ticker, day, or ticker,day |
 | `--start-date` | string | - | Start date YYYY-MM-DD (default: today) |
 | `--summary` | bool | false | Return aggregate metrics instead of individual trades |
 | `--tickers` | string | - | Comma-separated ticker symbols; use this for multi-day report lookbacks |
@@ -419,8 +419,8 @@ Ratio is bull dollars divided by bear dollars and is null when bear flow is zero
 | `--days` | int | 0 | Look back this many days from --end-date or today; broad scans require a single day |
 | `--end-date` | string | - | End date YYYY-MM-DD (default: today) |
 | `--fields` | string | - | Comma-separated raw Trade fields to include, or omit for compact JSON |
-| `--format` | string | json | Output format: json, csv, or tsv (csv, json, tsv) |
-| `--group-by` | string | ticker | Summary grouping (requires --summary): ticker, day, or ticker,day (day, ticker, ticker,day) |
+| `--format` | string | json | Output format: json, csv, or tsv |
+| `--group-by` | string | ticker | Summary grouping (requires --summary): ticker, day, or ticker,day |
 | `--start-date` | string | - | Start date YYYY-MM-DD (default: today) |
 | `--summary` | bool | false | Return aggregate metrics instead of individual trades |
 | `--tickers` | string | - | Comma-separated ticker symbols; use this for multi-day report lookbacks |
@@ -432,8 +432,8 @@ Ratio is bull dollars divided by bear dollars and is null when bear flow is zero
 | `--days` | int | 0 | Look back this many days from --end-date or today; broad scans require a single day |
 | `--end-date` | string | - | End date YYYY-MM-DD (default: today) |
 | `--fields` | string | - | Comma-separated raw Trade fields to include, or omit for compact JSON |
-| `--format` | string | json | Output format: json, csv, or tsv (csv, json, tsv) |
-| `--group-by` | string | ticker | Summary grouping (requires --summary): ticker, day, or ticker,day (day, ticker, ticker,day) |
+| `--format` | string | json | Output format: json, csv, or tsv |
+| `--group-by` | string | ticker | Summary grouping (requires --summary): ticker, day, or ticker,day |
 | `--start-date` | string | - | Start date YYYY-MM-DD (default: today) |
 | `--summary` | bool | false | Return aggregate metrics instead of individual trades |
 | `--tickers` | string | - | Comma-separated ticker symbols; use this for multi-day report lookbacks |
@@ -445,8 +445,8 @@ Ratio is bull dollars divided by bear dollars and is null when bear flow is zero
 | `--days` | int | 0 | Look back this many days from --end-date or today; broad scans require a single day |
 | `--end-date` | string | - | End date YYYY-MM-DD (default: today) |
 | `--fields` | string | - | Comma-separated raw Trade fields to include, or omit for compact JSON |
-| `--format` | string | json | Output format: json, csv, or tsv (csv, json, tsv) |
-| `--group-by` | string | ticker | Summary grouping (requires --summary): ticker, day, or ticker,day (day, ticker, ticker,day) |
+| `--format` | string | json | Output format: json, csv, or tsv |
+| `--group-by` | string | ticker | Summary grouping (requires --summary): ticker, day, or ticker,day |
 | `--start-date` | string | - | Start date YYYY-MM-DD (default: today) |
 | `--summary` | bool | false | Return aggregate metrics instead of individual trades |
 | `--tickers` | string | - | Comma-separated ticker symbols; use this for multi-day report lookbacks |
@@ -455,7 +455,7 @@ Ratio is bull dollars divided by bear dollars and is null when bear flow is zero
 
 | Flag | Type | Default | Description |
 |------|------|---------|-------------|
-| `--format` | string | json | Output format: json, csv, or tsv (csv, json, tsv) |
+| `--format` | string | json | Output format: json, csv, or tsv |
 
 #### `volumeleaders-agent report offsetting-trades`
 
@@ -464,8 +464,8 @@ Ratio is bull dollars divided by bear dollars and is null when bear flow is zero
 | `--days` | int | 0 | Look back this many days from --end-date or today; broad scans require a single day |
 | `--end-date` | string | - | End date YYYY-MM-DD (default: today) |
 | `--fields` | string | - | Comma-separated raw Trade fields to include, or omit for compact JSON |
-| `--format` | string | json | Output format: json, csv, or tsv (csv, json, tsv) |
-| `--group-by` | string | ticker | Summary grouping (requires --summary): ticker, day, or ticker,day (day, ticker, ticker,day) |
+| `--format` | string | json | Output format: json, csv, or tsv |
+| `--group-by` | string | ticker | Summary grouping (requires --summary): ticker, day, or ticker,day |
 | `--start-date` | string | - | Start date YYYY-MM-DD (default: today) |
 | `--summary` | bool | false | Return aggregate metrics instead of individual trades |
 | `--tickers` | string | - | Comma-separated ticker symbols; use this for multi-day report lookbacks |
@@ -477,8 +477,8 @@ Ratio is bull dollars divided by bear dollars and is null when bear flow is zero
 | `--days` | int | 0 | Look back this many days from --end-date or today; broad scans require a single day |
 | `--end-date` | string | - | End date YYYY-MM-DD (default: today) |
 | `--fields` | string | - | Comma-separated raw Trade fields to include, or omit for compact JSON |
-| `--format` | string | json | Output format: json, csv, or tsv (csv, json, tsv) |
-| `--group-by` | string | ticker | Summary grouping (requires --summary): ticker, day, or ticker,day (day, ticker, ticker,day) |
+| `--format` | string | json | Output format: json, csv, or tsv |
+| `--group-by` | string | ticker | Summary grouping (requires --summary): ticker, day, or ticker,day |
 | `--start-date` | string | - | Start date YYYY-MM-DD (default: today) |
 | `--summary` | bool | false | Return aggregate metrics instead of individual trades |
 | `--tickers` | string | - | Comma-separated ticker symbols; use this for multi-day report lookbacks |
@@ -490,8 +490,8 @@ Ratio is bull dollars divided by bear dollars and is null when bear flow is zero
 | `--days` | int | 0 | Look back this many days from --end-date or today; broad scans require a single day |
 | `--end-date` | string | - | End date YYYY-MM-DD (default: today) |
 | `--fields` | string | - | Comma-separated raw Trade fields to include, or omit for compact JSON |
-| `--format` | string | json | Output format: json, csv, or tsv (csv, json, tsv) |
-| `--group-by` | string | ticker | Summary grouping (requires --summary): ticker, day, or ticker,day (day, ticker, ticker,day) |
+| `--format` | string | json | Output format: json, csv, or tsv |
+| `--group-by` | string | ticker | Summary grouping (requires --summary): ticker, day, or ticker,day |
 | `--start-date` | string | - | Start date YYYY-MM-DD (default: today) |
 | `--summary` | bool | false | Return aggregate metrics instead of individual trades |
 | `--tickers` | string | - | Comma-separated ticker symbols; use this for multi-day report lookbacks |
@@ -503,8 +503,8 @@ Ratio is bull dollars divided by bear dollars and is null when bear flow is zero
 | `--days` | int | 0 | Look back this many days from --end-date or today; broad scans require a single day |
 | `--end-date` | string | - | End date YYYY-MM-DD (default: today) |
 | `--fields` | string | - | Comma-separated raw Trade fields to include, or omit for compact JSON |
-| `--format` | string | json | Output format: json, csv, or tsv (csv, json, tsv) |
-| `--group-by` | string | ticker | Summary grouping (requires --summary): ticker, day, or ticker,day (day, ticker, ticker,day) |
+| `--format` | string | json | Output format: json, csv, or tsv |
+| `--group-by` | string | ticker | Summary grouping (requires --summary): ticker, day, or ticker,day |
 | `--start-date` | string | - | Start date YYYY-MM-DD (default: today) |
 | `--summary` | bool | false | Return aggregate metrics instead of individual trades |
 | `--tickers` | string | - | Comma-separated ticker symbols; use this for multi-day report lookbacks |
@@ -516,8 +516,8 @@ Ratio is bull dollars divided by bear dollars and is null when bear flow is zero
 | `--days` | int | 0 | Look back this many days from --end-date or today; broad scans require a single day |
 | `--end-date` | string | - | End date YYYY-MM-DD (default: today) |
 | `--fields` | string | - | Comma-separated raw Trade fields to include, or omit for compact JSON |
-| `--format` | string | json | Output format: json, csv, or tsv (csv, json, tsv) |
-| `--group-by` | string | ticker | Summary grouping (requires --summary): ticker, day, or ticker,day (day, ticker, ticker,day) |
+| `--format` | string | json | Output format: json, csv, or tsv |
+| `--group-by` | string | ticker | Summary grouping (requires --summary): ticker, day, or ticker,day |
 | `--start-date` | string | - | Start date YYYY-MM-DD (default: today) |
 | `--summary` | bool | false | Return aggregate metrics instead of individual trades |
 | `--tickers` | string | - | Comma-separated ticker symbols; use this for multi-day report lookbacks |
@@ -529,8 +529,8 @@ Ratio is bull dollars divided by bear dollars and is null when bear flow is zero
 | `--days` | int | 0 | Look back this many days from --end-date or today; broad scans require a single day |
 | `--end-date` | string | - | End date YYYY-MM-DD (default: today) |
 | `--fields` | string | - | Comma-separated raw Trade fields to include, or omit for compact JSON |
-| `--format` | string | json | Output format: json, csv, or tsv (csv, json, tsv) |
-| `--group-by` | string | ticker | Summary grouping (requires --summary): ticker, day, or ticker,day (day, ticker, ticker,day) |
+| `--format` | string | json | Output format: json, csv, or tsv |
+| `--group-by` | string | ticker | Summary grouping (requires --summary): ticker, day, or ticker,day |
 | `--start-date` | string | - | Start date YYYY-MM-DD (default: today) |
 | `--summary` | bool | false | Return aggregate metrics instead of individual trades |
 | `--tickers` | string | - | Comma-separated ticker symbols; use this for multi-day report lookbacks |
@@ -542,8 +542,8 @@ Ratio is bull dollars divided by bear dollars and is null when bear flow is zero
 | `--days` | int | 0 | Look back this many days from --end-date or today; broad scans require a single day |
 | `--end-date` | string | - | End date YYYY-MM-DD (default: today) |
 | `--fields` | string | - | Comma-separated raw Trade fields to include, or omit for compact JSON |
-| `--format` | string | json | Output format: json, csv, or tsv (csv, json, tsv) |
-| `--group-by` | string | ticker | Summary grouping (requires --summary): ticker, day, or ticker,day (day, ticker, ticker,day) |
+| `--format` | string | json | Output format: json, csv, or tsv |
+| `--group-by` | string | ticker | Summary grouping (requires --summary): ticker, day, or ticker,day |
 | `--start-date` | string | - | Start date YYYY-MM-DD (default: today) |
 | `--summary` | bool | false | Return aggregate metrics instead of individual trades |
 | `--tickers` | string | - | Comma-separated ticker symbols; use this for multi-day report lookbacks |
@@ -783,10 +783,10 @@ Ratio is bull dollars divided by bear dollars and is null when bear flow is zero
 | Flag | Type | Default | Description |
 |------|------|---------|-------------|
 | `--date` | string | - | Date YYYY-MM-DD |
-| `--format` | string | json | Output format: json, csv, or tsv (csv, json, tsv) |
+| `--format` | string | json | Output format: json, csv, or tsv (json,csv,tsv) |
 | `--length` | int | 100 | Number of results |
 | `--order-col` | int | 1 | Order column index |
-| `--order-dir` | string | asc | Order direction (asc, desc) |
+| `--order-dir` | string | asc | Order direction (asc,desc) |
 | `--start` | int | 0 | DataTables start offset |
 | `--tickers` | string | - | Comma-separated ticker symbols |
 
@@ -795,10 +795,10 @@ Ratio is bull dollars divided by bear dollars and is null when bear flow is zero
 | Flag | Type | Default | Description |
 |------|------|---------|-------------|
 | `--date` | string | - | Date YYYY-MM-DD |
-| `--format` | string | json | Output format: json, csv, or tsv (csv, json, tsv) |
+| `--format` | string | json | Output format: json, csv, or tsv (json,csv,tsv) |
 | `--length` | int | 100 | Number of results |
 | `--order-col` | int | 1 | Order column index |
-| `--order-dir` | string | asc | Order direction (asc, desc) |
+| `--order-dir` | string | asc | Order direction (asc,desc) |
 | `--start` | int | 0 | DataTables start offset |
 | `--tickers` | string | - | Comma-separated ticker symbols |
 
@@ -807,10 +807,10 @@ Ratio is bull dollars divided by bear dollars and is null when bear flow is zero
 | Flag | Type | Default | Description |
 |------|------|---------|-------------|
 | `--date` | string | - | Date YYYY-MM-DD |
-| `--format` | string | json | Output format: json, csv, or tsv (csv, json, tsv) |
+| `--format` | string | json | Output format: json, csv, or tsv (json,csv,tsv) |
 | `--length` | int | 100 | Number of results |
 | `--order-col` | int | 1 | Order column index |
-| `--order-dir` | string | asc | Order direction (asc, desc) |
+| `--order-dir` | string | asc | Order direction (asc,desc) |
 | `--start` | int | 0 | DataTables start offset |
 | `--tickers` | string | - | Comma-separated ticker symbols |
 

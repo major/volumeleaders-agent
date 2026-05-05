@@ -34,7 +34,8 @@ func runTradeSentiment(cmd *cobra.Command, opts *tradeSentimentOptions) error {
 	if err != nil {
 		return err
 	}
-	trades, err := fetchTradeSentimentTrades(cmd, vlClient, common.DataTableOptions{Start: 0, Length: maxTradeRequestLength, OrderCol: 1, OrderDir: "desc", Filters: filters})
+	dtOpts := common.NewDataTableOptions(common.DataTableRequestConfig{Start: 0, Length: maxTradeRequestLength, OrderCol: 1, OrderDir: common.OrderDirectionDESC, Filters: filters})
+	trades, err := fetchTradeSentimentTrades(cmd, vlClient, dtOpts)
 	if err != nil {
 		return err
 	}

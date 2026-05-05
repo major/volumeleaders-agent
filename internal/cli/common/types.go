@@ -89,6 +89,18 @@ type DataTableOptions struct {
 	Fields   []string
 }
 
+// DataTableRequestConfig names the request assembly fields that most commands
+// pass through to DataTableOptions. Keeping the construction in one shape makes
+// endpoint handlers easier to scan when they mainly differ by filters.
+type DataTableRequestConfig struct {
+	Start    int
+	Length   int
+	OrderCol int
+	OrderDir OrderDirection
+	Filters  map[string]string
+	Fields   []string
+}
+
 // PaginationPageSize is the number of records fetched per page when the user
 // requests all results (--length -1).
 const PaginationPageSize = 1000

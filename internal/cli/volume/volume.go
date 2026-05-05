@@ -100,15 +100,6 @@ func newTotalCmd() *cobra.Command {
 func runVolume(cmd *cobra.Command, opts *volumeOptions, path string, columns []string) error {
 	tickers := common.MultiTickerValue(cmd)
 
-	dtOpts := common.DataTableOptions{
-		Start:    opts.Start,
-		Length:   opts.Length,
-		OrderCol: opts.OrderCol,
-		OrderDir: opts.OrderDir,
-		Filters: map[string]string{
-			"Date":    opts.Date,
-			"Tickers": tickers,
-		},
-	}
+	dtOpts := common.NewDataTableOptions(common.DataTableRequestConfig{Start: opts.Start, Length: opts.Length, OrderCol: opts.OrderCol, OrderDir: opts.OrderDir, Filters: map[string]string{"Date": opts.Date, "Tickers": tickers}})
 	return common.RunDataTablesCommand[models.Trade](cmd, path, columns, dtOpts, opts.Format, "query volume data")
 }

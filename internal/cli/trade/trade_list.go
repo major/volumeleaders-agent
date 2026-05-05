@@ -59,7 +59,7 @@ func runTradeList(cmd *cobra.Command, opts *tradeListOptions) error {
 	filters["StartDate"] = startDate
 	filters["EndDate"] = endDate
 
-	dtOpts := common.DataTableOptions{Start: opts.Start, Length: -1, OrderCol: opts.OrderCol, OrderDir: opts.OrderDir, Filters: filters, Fields: fields}
+	dtOpts := common.NewDataTableOptions(common.DataTableRequestConfig{Start: opts.Start, Length: -1, OrderCol: opts.OrderCol, OrderDir: opts.OrderDir, Filters: filters, Fields: fields})
 	if !opts.Summary && cmd.Flags().Changed("group-by") {
 		return fmt.Errorf("--group-by only works with --summary")
 	}

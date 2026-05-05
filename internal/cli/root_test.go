@@ -569,9 +569,9 @@ func TestJSONSchemaSubcommandIncludesFlagUsabilityMetadata(t *testing.T) {
 			if !ok {
 				t.Fatalf("flag %q schema is not an object", flag)
 			}
-			group, ok := flagSchema["x-structcli-group"].(string)
+			group, ok := flagSchema["x-flag-group"].(string)
 			if !ok {
-				t.Fatalf("flag %q missing x-structcli-group", flag)
+				t.Fatalf("flag %q missing x-flag-group", flag)
 			}
 			if group != expectedGroup {
 				t.Fatalf("flag %q group = %q, want %q", flag, group, expectedGroup)
@@ -593,9 +593,9 @@ func TestJSONSchemaSubcommandIncludesFlagUsabilityMetadata(t *testing.T) {
 			if !ok {
 				t.Fatalf("flag %q schema is not an object", flag)
 			}
-			short, ok := flagSchema["x-structcli-shorthand"].(string)
+			short, ok := flagSchema["x-flag-shorthand"].(string)
 			if !ok {
-				t.Fatalf("flag %q missing x-structcli-shorthand", flag)
+				t.Fatalf("flag %q missing x-flag-shorthand", flag)
 			}
 			if short != expectedShort {
 				t.Fatalf("flag %q shorthand = %q, want %q", flag, short, expectedShort)
@@ -603,9 +603,9 @@ func TestJSONSchemaSubcommandIncludesFlagUsabilityMetadata(t *testing.T) {
 		})
 	}
 
-	groups, ok := schema["x-structcli-groups"].(map[string]any)
+	groups, ok := schema["x-flag-groups"].(map[string]any)
 	if !ok {
-		t.Fatal("schema missing top-level x-structcli-groups map")
+		t.Fatal("schema missing top-level x-flag-groups map")
 	}
 	for _, expectedGroup := range []string{"Dates", "Filters", "Input", "Output", "Pagination", "Ranges", "Sessions"} {
 		if _, ok := groups[expectedGroup]; !ok {
@@ -782,9 +782,9 @@ func TestJSONSchemaFlagGroupsAcrossCommands(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			schema := commandJSONSchema(t, binary, tt.args...)
-			groups, ok := schema["x-structcli-groups"].(map[string]any)
+			groups, ok := schema["x-flag-groups"].(map[string]any)
 			if !ok {
-				t.Fatalf("schema for %q missing x-structcli-groups", tt.name)
+				t.Fatalf("schema for %q missing x-flag-groups", tt.name)
 			}
 			got := make([]string, 0, len(groups))
 			for group := range groups {

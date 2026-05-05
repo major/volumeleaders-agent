@@ -8,7 +8,7 @@ import (
 )
 
 // flagSpec describes the expected name, type, and default value for a CLI flag
-// registered via structcli.Bind struct tags.
+// registered via explicit flag registration.
 type flagSpec struct {
 	name     string
 	typeName string
@@ -103,9 +103,8 @@ func TestVolumeTotalFlagRegistration(t *testing.T) {
 	})
 }
 
-// TestMarketEarningsFlagRegistration verifies that struct-tag-based flag
-// registration on market earnings produces the expected flags from
-// earningsOptions{}.
+// TestMarketEarningsFlagRegistration verifies that flag registration on
+// market earnings produces the expected flags from earningsOptions{}.
 func TestMarketEarningsFlagRegistration(t *testing.T) {
 	t.Parallel()
 	assertFlags(t, []string{"market", "earnings"}, []flagSpec{
@@ -162,7 +161,7 @@ func TestTradeListFlagRegistration(t *testing.T) {
 	assertFlagAbsent(t, []string{"trade", "cluster-bombs"}, "length")
 }
 
-// TestEnumFlagValidation verifies structcli rejects invalid bounded values
+// TestEnumFlagValidation verifies that invalid bounded values are rejected
 // during flag parsing, before command handlers can perform API requests.
 func TestEnumFlagValidation(t *testing.T) {
 	t.Parallel()

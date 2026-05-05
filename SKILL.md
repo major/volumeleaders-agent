@@ -772,7 +772,7 @@ volumeleaders-agent trade level-touches AAPL --days 14
 
 Query significant price levels for a ticker, showing historical support and resistance zones identified by institutional trade clustering. Accepts a ticker as positional argument or via --ticker flag. Outputs compact JSON by default.
 
-Defaults to a 365-day lookback when dates are omitted and uses the same chart-optimized VolumeLeaders request as trade dashboard. For any single-ticker investigation, run trade dashboard TICKER first because it returns trades, clusters, levels, and cluster bombs together; use trade levels only when you need level-only output, CSV/TSV, or explicit field selection. Only --trade-level-count values of 5, 10, 20, or 50 are accepted. Default JSON is compact and omits repetitive ticker metadata and the verbose Dates list; use --fields all or CSV/TSV when raw fields are needed.
+Defaults to a 365-day lookback when dates are omitted and shares the chart-optimized VolumeLeaders level request used by trade dashboard. This command intentionally exposes a reduced CLI surface: ticker, dates, --trade-level-count, --fields, and --format. For any single-ticker investigation, run trade dashboard TICKER first because it returns trades, clusters, levels, and cluster bombs together; use trade levels only when you need level-only output, CSV/TSV, or explicit field selection. Only --trade-level-count values of 5, 10, 20, or 50 are accepted. Default JSON is compact and omits repetitive ticker metadata and the verbose Dates list; use --fields all or CSV/TSV when raw fields are needed.
 
 PREREQUISITES: Provide exactly one ticker as a positional argument or with --ticker.
 

@@ -158,6 +158,54 @@ func TestBuildTradeFiltersPreservesAPIKeys(t *testing.T) {
 	}
 }
 
+func TestTradeRangeFiltersPreserveAPIKeys(t *testing.T) {
+	t.Parallel()
+
+	base := tradeRangeFilters{
+		Tickers:    "AAPL,NVDA",
+		StartDate:  "2026-04-01",
+		EndDate:    "2026-04-24",
+		MinVolume:  100,
+		MaxVolume:  200,
+		MinPrice:   1.5,
+		MaxPrice:   99.25,
+		MinDollars: 500000,
+		MaxDollars: 30000000000,
+		VCD:        0,
+		Sector:     "Technology",
+	}
+	tests := []struct {
+		name string
+		got  map[string]string
+		want map[string]string
+	}{
+		{
+			name: "cluster filters",
+			got:  base.clusterMap(-1, 5, 10),
+			want: map[string]string{"Tickers": "AAPL,NVDA", "StartDate": "2026-04-01", "EndDate": "2026-04-24", "MinVolume": "100", "MaxVolume": "200", "MinPrice": "1.5", "MaxPrice": "99.25", "MinDollars": "500000", "MaxDollars": "30000000000", "VCD": "0", "SecurityTypeKey": "-1", "RelativeSize": "5", "TradeClusterRank": "10", "SectorIndustry": "Technology"},
+		},
+		{
+			name: "cluster bomb filters omit price range",
+			got:  base.clusterBombMap(-1, 5, 10),
+			want: map[string]string{"Tickers": "AAPL,NVDA", "StartDate": "2026-04-01", "EndDate": "2026-04-24", "MinVolume": "100", "MaxVolume": "200", "MinDollars": "500000", "MaxDollars": "30000000000", "VCD": "0", "SecurityTypeKey": "-1", "RelativeSize": "5", "TradeClusterBombRank": "10", "SectorIndustry": "Technology"},
+		},
+		{
+			name: "level touch filters",
+			got:  base.levelTouchMap(5, 10, 20),
+			want: map[string]string{"Tickers": "AAPL,NVDA", "StartDate": "2026-04-01", "EndDate": "2026-04-24", "MinVolume": "100", "MaxVolume": "200", "MinPrice": "1.5", "MaxPrice": "99.25", "MinDollars": "500000", "MaxDollars": "30000000000", "VCD": "0", "RelativeSize": "5", "TradeLevelRank": "10", "Levels": "20"},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			if !maps.Equal(tt.got, tt.want) {
+				t.Fatalf("filters mismatch\nexpected: %#v\ngot:      %#v", tt.want, tt.got)
+			}
+		})
+	}
+}
+
 func TestPresetTradeFilterDefaultsPreserveTriStateValues(t *testing.T) {
 	t.Parallel()
 

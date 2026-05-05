@@ -71,5 +71,12 @@ func runTradeLevelTouches(cmd *cobra.Command, opts *tradeLevelTouchesOptions) er
 	if err != nil {
 		return err
 	}
-	return common.RunDataTablesCommand[models.TradeLevelTouch](cmd, "/TradeLevelTouches/GetTradeLevelTouches", datatables.TradeLevelTouchColumns, common.DataTableOptions{Start: opts.Start, Length: opts.Length, OrderCol: opts.OrderCol, OrderDir: opts.OrderDir, Filters: map[string]string{"Tickers": ticker, "StartDate": startDate, "EndDate": endDate, "MinVolume": common.IntStr(opts.MinVolume), "MaxVolume": common.IntStr(opts.MaxVolume), "MinPrice": common.FormatFloat(opts.MinPrice), "MaxPrice": common.FormatFloat(opts.MaxPrice), "MinDollars": common.FormatFloat(opts.MinDollars), "MaxDollars": common.FormatFloat(opts.MaxDollars), "VCD": common.IntStr(opts.VCD), "RelativeSize": common.IntStr(opts.RelativeSize), "TradeLevelRank": common.IntStr(opts.TradeLevelRank), "Levels": common.IntStr(opts.TradeLevelCount)}}, opts.Format, "query trade level touches")
+	rangeFilters := tradeLevelTouchRangeFilters(ticker, opts, startDate, endDate)
+	filters := rangeFilters.levelTouchMap(opts.RelativeSize, opts.TradeLevelRank, opts.TradeLevelCount)
+	dtOpts := common.NewDataTableOptions(common.DataTableRequestConfig{Start: opts.Start, Length: opts.Length, OrderCol: opts.OrderCol, OrderDir: opts.OrderDir, Filters: filters})
+	return common.RunDataTablesCommand[models.TradeLevelTouch](cmd, "/TradeLevelTouches/GetTradeLevelTouches", datatables.TradeLevelTouchColumns, dtOpts, opts.Format, "query trade level touches")
+}
+
+func tradeLevelTouchRangeFilters(ticker string, opts *tradeLevelTouchesOptions, startDate, endDate string) tradeRangeFilters {
+	return tradeRangeFilters{Tickers: ticker, StartDate: startDate, EndDate: endDate, MinVolume: opts.MinVolume, MaxVolume: opts.MaxVolume, MinPrice: opts.MinPrice, MaxPrice: opts.MaxPrice, MinDollars: opts.MinDollars, MaxDollars: opts.MaxDollars, VCD: opts.VCD}
 }

@@ -72,17 +72,7 @@ func newEarningsCmd() *cobra.Command {
 				return err
 			}
 
-			dtOpts := common.DataTableOptions{
-				Start:    0,
-				Length:   -1,
-				OrderCol: 0,
-				OrderDir: "asc",
-				Fields:   fields,
-				Filters: map[string]string{
-					"StartDate": startDate,
-					"EndDate":   endDate,
-				},
-			}
+			dtOpts := common.NewDataTableOptions(common.DataTableRequestConfig{Start: 0, Length: -1, OrderCol: 0, OrderDir: common.OrderDirectionASC, Fields: fields, Filters: map[string]string{"StartDate": startDate, "EndDate": endDate}})
 			return common.RunDataTablesCommand[models.Earnings](cmd, "/Earnings/GetEarnings", datatables.EarningsColumns, dtOpts, opts.Format, "query earnings")
 		},
 	}

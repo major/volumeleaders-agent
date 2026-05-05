@@ -169,7 +169,7 @@ func runReport(cmd *cobra.Command, opts *reportOptions, definition *reportDefini
 	filters["Tickers"] = tickers
 	filters["StartDate"] = startDate
 	filters["EndDate"] = endDate
-	dtOpts := common.DataTableOptions{Start: 0, Length: -1, OrderCol: 0, OrderDir: common.OrderDirectionDESC, Filters: filters, Fields: fields}
+	dtOpts := common.NewDataTableOptions(common.DataTableRequestConfig{Start: 0, Length: -1, OrderCol: 0, OrderDir: common.OrderDirectionDESC, Filters: filters, Fields: fields})
 	trades, err := fetchReportTrades(cmd, dtOpts)
 	if err != nil {
 		return err

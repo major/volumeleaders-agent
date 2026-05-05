@@ -19,7 +19,10 @@ func runTradeClusters(cmd *cobra.Command, opts *tradeClustersOptions) error {
 	if err != nil {
 		return fmt.Errorf("parsing fields flag: %w", err)
 	}
-	return common.RunDataTablesCommandWithPageSize[models.TradeCluster](cmd, "/TradeClusters/GetTradeClusters", datatables.TradeClusterColumns, common.DataTableOptions{Start: opts.Start, Length: -1, OrderCol: opts.OrderCol, OrderDir: opts.OrderDir, Fields: fields, Filters: map[string]string{"Tickers": common.MultiTickerValue(cmd), "StartDate": startDate, "EndDate": endDate, "MinVolume": common.IntStr(opts.MinVolume), "MaxVolume": common.IntStr(opts.MaxVolume), "MinPrice": common.FormatFloat(opts.MinPrice), "MaxPrice": common.FormatFloat(opts.MaxPrice), "MinDollars": common.FormatFloat(opts.MinDollars), "MaxDollars": common.FormatFloat(opts.MaxDollars), "VCD": common.IntStr(opts.VCD), "SecurityTypeKey": common.IntStr(opts.SecurityType), "RelativeSize": common.IntStr(opts.RelativeSize), "TradeClusterRank": common.IntStr(opts.TradeClusterRank), "SectorIndustry": opts.Sector}}, opts.Format, tradeBrowserPageLength, "query trade clusters")
+	rangeFilters := tradeClusterRangeFilters(cmd, opts, startDate, endDate)
+	filters := rangeFilters.clusterMap(opts.SecurityType, opts.RelativeSize, opts.TradeClusterRank)
+	dtOpts := common.NewDataTableOptions(common.DataTableRequestConfig{Start: opts.Start, Length: -1, OrderCol: opts.OrderCol, OrderDir: opts.OrderDir, Fields: fields, Filters: filters})
+	return common.RunDataTablesCommandWithPageSize[models.TradeCluster](cmd, "/TradeClusters/GetTradeClusters", datatables.TradeClusterColumns, dtOpts, opts.Format, tradeBrowserPageLength, "query trade clusters")
 }
 
 func runTradeClusterBombs(cmd *cobra.Command, opts *tradeClusterBombsOptions) error {
@@ -27,13 +30,26 @@ func runTradeClusterBombs(cmd *cobra.Command, opts *tradeClusterBombsOptions) er
 	if err != nil {
 		return err
 	}
-	return common.RunDataTablesCommandWithPageSize[models.TradeClusterBomb](cmd, "/TradeClusterBombs/GetTradeClusterBombs", datatables.TradeClusterBombColumns, common.DataTableOptions{Start: opts.Start, Length: -1, OrderCol: opts.OrderCol, OrderDir: opts.OrderDir, Filters: map[string]string{"Tickers": common.MultiTickerValue(cmd), "StartDate": startDate, "EndDate": endDate, "MinVolume": common.IntStr(opts.MinVolume), "MaxVolume": common.IntStr(opts.MaxVolume), "MinDollars": common.FormatFloat(opts.MinDollars), "MaxDollars": common.FormatFloat(opts.MaxDollars), "VCD": common.IntStr(opts.VCD), "SecurityTypeKey": common.IntStr(opts.SecurityType), "RelativeSize": common.IntStr(opts.RelativeSize), "TradeClusterBombRank": common.IntStr(opts.TradeClusterBombRank), "SectorIndustry": opts.Sector}}, opts.Format, tradeBrowserPageLength, "query trade cluster bombs")
+	rangeFilters := tradeClusterBombRangeFilters(cmd, opts, startDate, endDate)
+	filters := rangeFilters.clusterBombMap(opts.SecurityType, opts.RelativeSize, opts.TradeClusterBombRank)
+	dtOpts := common.NewDataTableOptions(common.DataTableRequestConfig{Start: opts.Start, Length: -1, OrderCol: opts.OrderCol, OrderDir: opts.OrderDir, Filters: filters})
+	return common.RunDataTablesCommandWithPageSize[models.TradeClusterBomb](cmd, "/TradeClusterBombs/GetTradeClusterBombs", datatables.TradeClusterBombColumns, dtOpts, opts.Format, tradeBrowserPageLength, "query trade cluster bombs")
 }
 
 func runTradeAlerts(cmd *cobra.Command, opts *tradeAlertsOptions) error {
-	return common.RunDataTablesCommand[models.TradeAlert](cmd, "/TradeAlerts/GetTradeAlerts", datatables.TradeColumns, common.DataTableOptions{Start: opts.Start, Length: opts.Length, OrderCol: opts.OrderCol, OrderDir: opts.OrderDir, Filters: map[string]string{"Date": opts.Date}}, opts.Format, "query trade alerts")
+	dtOpts := common.NewDataTableOptions(common.DataTableRequestConfig{Start: opts.Start, Length: opts.Length, OrderCol: opts.OrderCol, OrderDir: opts.OrderDir, Filters: map[string]string{"Date": opts.Date}})
+	return common.RunDataTablesCommand[models.TradeAlert](cmd, "/TradeAlerts/GetTradeAlerts", datatables.TradeColumns, dtOpts, opts.Format, "query trade alerts")
 }
 
 func runTradeClusterAlerts(cmd *cobra.Command, opts *tradeClusterAlertsOptions) error {
-	return common.RunDataTablesCommand[models.TradeClusterAlert](cmd, "/TradeClusterAlerts/GetTradeClusterAlerts", datatables.TradeClusterColumns, common.DataTableOptions{Start: opts.Start, Length: opts.Length, OrderCol: opts.OrderCol, OrderDir: opts.OrderDir, Filters: map[string]string{"Date": opts.Date}}, opts.Format, "query trade cluster alerts")
+	dtOpts := common.NewDataTableOptions(common.DataTableRequestConfig{Start: opts.Start, Length: opts.Length, OrderCol: opts.OrderCol, OrderDir: opts.OrderDir, Filters: map[string]string{"Date": opts.Date}})
+	return common.RunDataTablesCommand[models.TradeClusterAlert](cmd, "/TradeClusterAlerts/GetTradeClusterAlerts", datatables.TradeClusterColumns, dtOpts, opts.Format, "query trade cluster alerts")
+}
+
+func tradeClusterRangeFilters(cmd *cobra.Command, opts *tradeClustersOptions, startDate, endDate string) tradeRangeFilters {
+	return tradeRangeFilters{Tickers: common.MultiTickerValue(cmd), StartDate: startDate, EndDate: endDate, MinVolume: opts.MinVolume, MaxVolume: opts.MaxVolume, MinPrice: opts.MinPrice, MaxPrice: opts.MaxPrice, MinDollars: opts.MinDollars, MaxDollars: opts.MaxDollars, VCD: opts.VCD, Sector: opts.Sector}
+}
+
+func tradeClusterBombRangeFilters(cmd *cobra.Command, opts *tradeClusterBombsOptions, startDate, endDate string) tradeRangeFilters {
+	return tradeRangeFilters{Tickers: common.MultiTickerValue(cmd), StartDate: startDate, EndDate: endDate, MinVolume: opts.MinVolume, MaxVolume: opts.MaxVolume, MinDollars: opts.MinDollars, MaxDollars: opts.MaxDollars, VCD: opts.VCD, Sector: opts.Sector}
 }

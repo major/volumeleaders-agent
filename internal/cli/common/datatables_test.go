@@ -30,6 +30,21 @@ func TestNewDataTablesRequest(t *testing.T) {
 	}
 }
 
+func TestNewDataTableOptions(t *testing.T) {
+	t.Parallel()
+
+	filters := map[string]string{"Ticker": "AAPL"}
+	fields := []string{"Ticker", "Price"}
+	got := NewDataTableOptions(DataTableRequestConfig{Start: 5, Length: 25, OrderCol: 2, OrderDir: OrderDirectionDESC, Filters: filters, Fields: fields})
+
+	if got.Start != 5 || got.Length != 25 || got.OrderCol != 2 || got.OrderDir != OrderDirectionDESC {
+		t.Fatalf("unexpected options: %+v", got)
+	}
+	if got.Filters["Ticker"] != "AAPL" || len(got.Fields) != 2 {
+		t.Fatalf("expected filters and fields to be preserved, got %+v", got)
+	}
+}
+
 func TestRunDataTablesCommand(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {

@@ -53,6 +53,63 @@ type tradesOptions struct {
 	minPrice, maxPrice, minDollars, maxDollars     float64
 }
 
+type tradeRangeFilters struct {
+	Tickers    string
+	StartDate  string
+	EndDate    string
+	MinVolume  int
+	MaxVolume  int
+	MinPrice   float64
+	MaxPrice   float64
+	MinDollars float64
+	MaxDollars float64
+	VCD        int
+	Sector     string
+}
+
+func (filters *tradeRangeFilters) baseMap() map[string]string {
+	return map[string]string{
+		"Tickers":    filters.Tickers,
+		"StartDate":  filters.StartDate,
+		"EndDate":    filters.EndDate,
+		"MinVolume":  common.IntStr(filters.MinVolume),
+		"MaxVolume":  common.IntStr(filters.MaxVolume),
+		"MinPrice":   common.FormatFloat(filters.MinPrice),
+		"MaxPrice":   common.FormatFloat(filters.MaxPrice),
+		"MinDollars": common.FormatFloat(filters.MinDollars),
+		"MaxDollars": common.FormatFloat(filters.MaxDollars),
+		"VCD":        common.IntStr(filters.VCD),
+	}
+}
+
+func (filters *tradeRangeFilters) clusterMap(securityType, relativeSize, rank int) map[string]string {
+	values := filters.baseMap()
+	values["SecurityTypeKey"] = common.IntStr(securityType)
+	values["RelativeSize"] = common.IntStr(relativeSize)
+	values["TradeClusterRank"] = common.IntStr(rank)
+	values["SectorIndustry"] = filters.Sector
+	return values
+}
+
+func (filters *tradeRangeFilters) clusterBombMap(securityType, relativeSize, rank int) map[string]string {
+	values := filters.baseMap()
+	delete(values, "MinPrice")
+	delete(values, "MaxPrice")
+	values["SecurityTypeKey"] = common.IntStr(securityType)
+	values["RelativeSize"] = common.IntStr(relativeSize)
+	values["TradeClusterBombRank"] = common.IntStr(rank)
+	values["SectorIndustry"] = filters.Sector
+	return values
+}
+
+func (filters *tradeRangeFilters) levelTouchMap(relativeSize, rank, count int) map[string]string {
+	values := filters.baseMap()
+	values["RelativeSize"] = common.IntStr(relativeSize)
+	values["TradeLevelRank"] = common.IntStr(rank)
+	values["Levels"] = common.IntStr(count)
+	return values
+}
+
 type tradeDateRangeFlags struct {
 	StartDate string `flag:"start-date" flaggroup:"Dates" flagshort:"s" flagdescr:"Start date YYYY-MM-DD (required unless --days is set)"`
 	EndDate   string `flag:"end-date" flaggroup:"Dates" flagshort:"e" flagdescr:"End date YYYY-MM-DD (required unless --days is set)"`

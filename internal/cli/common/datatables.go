@@ -83,11 +83,10 @@ func FetchDataTablesPages[T any](ctx context.Context, vlClient *client.Client, p
 	if pageSize == 0 {
 		pageSize = PaginationPageSize
 	}
-	initialStart := opts.Start
-	opts.Length = pageSize
+	pageState := newDataTablePageState(opts, pageSize)
 	all := make([]T, 0)
 	for {
-		request := NewDataTablesRequest(columns, opts)
+		request := NewDataTablesRequest(columns, pageState.options())
 		resp, err := vlClient.PostDataTablesPage(ctx, path, request.Encode())
 		if err != nil {
 			slog.Error("failed to "+label, "error", err)
@@ -101,16 +100,43 @@ func FetchDataTablesPages[T any](ctx context.Context, vlClient *client.Client, p
 			break
 		}
 		all = append(all, page...)
-		if resp.RecordsFiltered > 0 && initialStart+len(all) >= resp.RecordsFiltered {
+		if pageState.fetchedAllRecords(len(all), resp.RecordsFiltered) {
 			break
 		}
-		if len(page) < pageSize {
+		if pageState.isShortPage(len(page)) {
 			break
 		}
-		opts.Start += len(page)
+		pageState.advance(len(page))
 	}
 	return all, nil
 }
+
+// NewDataTableOptions converts the named request config used by command
+// handlers into the lower-level options consumed by DataTables helpers.
+func NewDataTableOptions(config DataTableRequestConfig) DataTableOptions {
+	return DataTableOptions(config)
+}
+
+type dataTablePageState struct {
+	initialStart int
+	pageSize     int
+	optionsValue DataTableOptions
+}
+
+func newDataTablePageState(opts DataTableOptions, pageSize int) dataTablePageState {
+	opts.Length = pageSize
+	return dataTablePageState{initialStart: opts.Start, pageSize: pageSize, optionsValue: opts}
+}
+
+func (state *dataTablePageState) options() DataTableOptions { return state.optionsValue }
+
+func (state *dataTablePageState) fetchedAllRecords(fetched, recordsFiltered int) bool {
+	return recordsFiltered > 0 && state.initialStart+fetched >= recordsFiltered
+}
+
+func (state *dataTablePageState) isShortPage(length int) bool { return length < state.pageSize }
+
+func (state *dataTablePageState) advance(length int) { state.optionsValue.Start += length }
 
 // NewDataTablesRequest builds the common DataTables request shape.
 func NewDataTablesRequest(columns []string, opts DataTableOptions) datatables.Request {

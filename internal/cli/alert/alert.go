@@ -5,7 +5,6 @@ import (
 	"log/slog"
 	"strconv"
 
-	"github.com/leodido/structcli"
 	"github.com/spf13/cobra"
 
 	"github.com/major/volumeleaders-agent/internal/cli/common"
@@ -20,56 +19,70 @@ const (
 	alertTickerGroupSelected alertTickerGroup = "SelectedTickers"
 )
 
-func init() {
-	structcli.RegisterEnum[alertTickerGroup](map[alertTickerGroup][]string{
-		alertTickerGroupAll:      {"AllTickers"},
-		alertTickerGroupSelected: {"SelectedTickers"},
-	})
+// Set implements pflag.Value for alertTickerGroup.
+func (v *alertTickerGroup) Set(value string) error {
+	switch alertTickerGroup(value) {
+	case alertTickerGroupAll, alertTickerGroupSelected:
+		*v = alertTickerGroup(value)
+		return nil
+	default:
+		return fmt.Errorf("invalid value %q, expected one of AllTickers, SelectedTickers", value)
+	}
+}
+
+// String implements pflag.Value for alertTickerGroup.
+func (v alertTickerGroup) String() string {
+	return string(v)
+}
+
+// Type implements pflag.Value for alertTickerGroup.
+func (v alertTickerGroup) Type() string {
+	return "string"
 }
 
 // alertConfigsOptions holds flags for the "alert configs" subcommand.
 type alertConfigsOptions struct {
-	Format common.OutputFormat `flag:"format" flaggroup:"Output" flagshort:"f" default:"json" flagdescr:"Output format: json, csv, or tsv"`
-	Fields string              `flag:"fields" flaggroup:"Output" flagdescr:"Comma-separated fields to include (use 'all' for every field)"`
+	Format common.OutputFormat
+	Fields string
 }
 
 // alertDeleteOptions holds flags for the "alert delete" subcommand.
 type alertDeleteOptions struct {
-	Key int `flag:"key" flaggroup:"Input" flagshort:"k" flagrequired:"true" flagdescr:"Alert config key to delete"`
+	Key int
 }
 
 // alertConfigFlags holds the shared flag set for alert create/edit commands.
 type alertConfigFlags struct {
-	Name                   string           `flag:"name" flaggroup:"Basic" flagdescr:"Alert name (max 50 chars)"`
-	TickerGroup            alertTickerGroup `flag:"ticker-group" flaggroup:"Basic" flagdescr:"Ticker group: AllTickers or SelectedTickers"`
-	Tickers                string           `flag:"tickers" flaggroup:"Basic" flagshort:"t" flagdescr:"Comma-separated ticker symbols (max 500, used with SelectedTickers)"`
-	TradeRankLTE           int              `flag:"trade-rank-lte" flaggroup:"Trade Filters" flagdescr:"Trade rank <= (0=N/A, 1/3/5/10/25/50/100)"`
-	TradeVCDGTE            int              `flag:"trade-vcd-gte" flaggroup:"Trade Filters" flagdescr:"Trade VCD >= (0=N/A, 99/100)"`
-	TradeMultGTE           int              `flag:"trade-mult-gte" flaggroup:"Trade Filters" flagdescr:"Trade multiplier >= (0=N/A, 5/10/25/50/100)"`
-	TradeVolumeGTE         int              `flag:"trade-volume-gte" flaggroup:"Trade Filters" flagdescr:"Trade volume >= (0=N/A, 1000000/2000000/5000000/10000000)"`
-	TradeDollarsGTE        int              `flag:"trade-dollars-gte" flaggroup:"Trade Filters" flagdescr:"Trade dollars >= (0=N/A, 1000000/10000000/...)"`
-	TradeConditions        string           `flag:"trade-conditions" flaggroup:"Trade Filters" flagdescr:"Trade conditions (0=N/A, OBH/OBD/OSH/OSD combos)"`
-	DarkPool               bool             `flag:"dark-pool" flaggroup:"Trade Filters" flagdescr:"Dark pool filter"`
-	Sweep                  bool             `flag:"sweep" flaggroup:"Trade Filters" flagdescr:"Sweep filter"`
-	ClosingTradeRankLTE    int              `flag:"closing-trade-rank-lte" flaggroup:"Closing Filters" flagdescr:"Closing trade rank <="`
-	ClosingTradeVCDGTE     int              `flag:"closing-trade-vcd-gte" flaggroup:"Closing Filters" flagdescr:"Closing trade VCD >= (0/97/98/99/100)"`
-	ClosingTradeMultGTE    int              `flag:"closing-trade-mult-gte" flaggroup:"Closing Filters" flagdescr:"Closing trade multiplier >="`
-	ClosingTradeVolumeGTE  int              `flag:"closing-trade-volume-gte" flaggroup:"Closing Filters" flagdescr:"Closing trade volume >="`
-	ClosingTradeDollarsGTE int              `flag:"closing-trade-dollars-gte" flaggroup:"Closing Filters" flagdescr:"Closing trade dollars >="`
-	ClosingTradeConditions string           `flag:"closing-trade-conditions" flaggroup:"Closing Filters" flagdescr:"Closing trade conditions"`
-	ClusterRankLTE         int              `flag:"cluster-rank-lte" flaggroup:"Cluster Filters" flagdescr:"Trade cluster rank <="`
-	ClusterVCDGTE          int              `flag:"cluster-vcd-gte" flaggroup:"Cluster Filters" flagdescr:"Trade cluster VCD >= (0/97/98/99/100)"`
-	ClusterMultGTE         int              `flag:"cluster-mult-gte" flaggroup:"Cluster Filters" flagdescr:"Trade cluster multiplier >="`
-	ClusterVolumeGTE       int              `flag:"cluster-volume-gte" flaggroup:"Cluster Filters" flagdescr:"Trade cluster volume >="`
-	ClusterDollarsGTE      int              `flag:"cluster-dollars-gte" flaggroup:"Cluster Filters" flagdescr:"Trade cluster dollars >="`
-	TotalRankLTE           int              `flag:"total-rank-lte" flaggroup:"Total Filters" flagdescr:"Total rank <= (0/1/3/10/25/50/100)"`
-	TotalVolumeGTE         int              `flag:"total-volume-gte" flaggroup:"Total Filters" flagdescr:"Total volume >="`
-	TotalDollarsGTE        int              `flag:"total-dollars-gte" flaggroup:"Total Filters" flagdescr:"Total dollars >="`
-	AHRankLTE              int              `flag:"ah-rank-lte" flaggroup:"After-Hours Filters" flagdescr:"After-hours rank <="`
-	AHVolumeGTE            int              `flag:"ah-volume-gte" flaggroup:"After-Hours Filters" flagdescr:"After-hours volume >="`
-	AHDollarsGTE           int              `flag:"ah-dollars-gte" flaggroup:"After-Hours Filters" flagdescr:"After-hours dollars >="`
-	OffsettingPrint        bool             `flag:"offsetting-print" flaggroup:"Trade Filters" flagdescr:"Offsetting print filter"`
-	PhantomPrint           bool             `flag:"phantom-print" flaggroup:"Trade Filters" flagdescr:"Phantom print filter"`
+	Name                   string
+	TickerGroup            alertTickerGroup
+	Tickers                string
+	TradeRankLTE           int
+	TradeVCDGTE            int
+	TradeMultGTE           int
+	TradeVolumeGTE         int
+	TradeDollarsGTE        int
+	TradeConditions        string
+	DarkPool               bool
+	Sweep                  bool
+	ClosingTradeRankLTE    int
+	ClosingTradeVCDGTE     int
+	ClosingTradeMultGTE    int
+	ClosingTradeVolumeGTE  int
+	ClosingTradeDollarsGTE int
+	ClosingTradeConditions string
+	ClusterRankLTE         int
+	ClusterVCDGTE          int
+	ClusterMultGTE         int
+	ClusterVolumeGTE       int
+	ClusterDollarsGTE      int
+	TotalRankLTE           int
+	TotalVolumeGTE         int
+	TotalDollarsGTE        int
+	AHRankLTE              int
+	AHVolumeGTE            int
+	AHDollarsGTE           int
+	OffsettingPrint        bool
+	PhantomPrint           bool
 }
 
 // alertCreateOptions holds flags for the "alert create" subcommand.
@@ -79,7 +92,7 @@ type alertCreateOptions struct {
 
 // alertEditOptions holds flags for the "alert edit" subcommand.
 type alertEditOptions struct {
-	Key int `flag:"key" flaggroup:"Input" flagshort:"k" flagrequired:"true" flagdescr:"Alert config key to edit"`
+	Key int
 	alertConfigFlags
 }
 
@@ -94,6 +107,95 @@ var alertConfigDefaultFields = []string{
 	"Sweep",
 	"OffsettingPrint",
 	"PhantomPrint",
+}
+
+// registerAlertConfigFlags registers the shared alert configuration flags on cmd.
+// Both create and edit commands embed alertConfigFlags, so this avoids duplicating
+// 30 flag registrations across both commands.
+func registerAlertConfigFlags(cmd *cobra.Command, opts *alertConfigFlags) {
+	f := cmd.Flags()
+
+	// Basic
+	f.StringVar(&opts.Name, "name", "", "Alert name (max 50 chars)")
+	f.Var(&opts.TickerGroup, "ticker-group", "Ticker group: AllTickers or SelectedTickers")
+	f.StringVarP(&opts.Tickers, "tickers", "t", "", "Comma-separated ticker symbols (max 500, used with SelectedTickers)")
+
+	// Trade Filters
+	f.IntVar(&opts.TradeRankLTE, "trade-rank-lte", 0, "Trade rank <= (0=N/A, 1/3/5/10/25/50/100)")
+	f.IntVar(&opts.TradeVCDGTE, "trade-vcd-gte", 0, "Trade VCD >= (0=N/A, 99/100)")
+	f.IntVar(&opts.TradeMultGTE, "trade-mult-gte", 0, "Trade multiplier >= (0=N/A, 5/10/25/50/100)")
+	f.IntVar(&opts.TradeVolumeGTE, "trade-volume-gte", 0, "Trade volume >= (0=N/A, 1000000/2000000/5000000/10000000)")
+	f.IntVar(&opts.TradeDollarsGTE, "trade-dollars-gte", 0, "Trade dollars >= (0=N/A, 1000000/10000000/...)")
+	f.StringVar(&opts.TradeConditions, "trade-conditions", opts.TradeConditions, "Trade conditions (0=N/A, OBH/OBD/OSH/OSD combos)")
+	f.BoolVar(&opts.DarkPool, "dark-pool", false, "Dark pool filter")
+	f.BoolVar(&opts.Sweep, "sweep", false, "Sweep filter")
+	f.BoolVar(&opts.OffsettingPrint, "offsetting-print", false, "Offsetting print filter")
+	f.BoolVar(&opts.PhantomPrint, "phantom-print", false, "Phantom print filter")
+
+	// Closing Filters
+	f.IntVar(&opts.ClosingTradeRankLTE, "closing-trade-rank-lte", 0, "Closing trade rank <=")
+	f.IntVar(&opts.ClosingTradeVCDGTE, "closing-trade-vcd-gte", 0, "Closing trade VCD >= (0/97/98/99/100)")
+	f.IntVar(&opts.ClosingTradeMultGTE, "closing-trade-mult-gte", 0, "Closing trade multiplier >=")
+	f.IntVar(&opts.ClosingTradeVolumeGTE, "closing-trade-volume-gte", 0, "Closing trade volume >=")
+	f.IntVar(&opts.ClosingTradeDollarsGTE, "closing-trade-dollars-gte", 0, "Closing trade dollars >=")
+	f.StringVar(&opts.ClosingTradeConditions, "closing-trade-conditions", opts.ClosingTradeConditions, "Closing trade conditions")
+
+	// Cluster Filters
+	f.IntVar(&opts.ClusterRankLTE, "cluster-rank-lte", 0, "Trade cluster rank <=")
+	f.IntVar(&opts.ClusterVCDGTE, "cluster-vcd-gte", 0, "Trade cluster VCD >= (0/97/98/99/100)")
+	f.IntVar(&opts.ClusterMultGTE, "cluster-mult-gte", 0, "Trade cluster multiplier >=")
+	f.IntVar(&opts.ClusterVolumeGTE, "cluster-volume-gte", 0, "Trade cluster volume >=")
+	f.IntVar(&opts.ClusterDollarsGTE, "cluster-dollars-gte", 0, "Trade cluster dollars >=")
+
+	// Total Filters
+	f.IntVar(&opts.TotalRankLTE, "total-rank-lte", 0, "Total rank <= (0/1/3/10/25/50/100)")
+	f.IntVar(&opts.TotalVolumeGTE, "total-volume-gte", 0, "Total volume >=")
+	f.IntVar(&opts.TotalDollarsGTE, "total-dollars-gte", 0, "Total dollars >=")
+
+	// After-Hours Filters
+	f.IntVar(&opts.AHRankLTE, "ah-rank-lte", 0, "After-hours rank <=")
+	f.IntVar(&opts.AHVolumeGTE, "ah-volume-gte", 0, "After-hours volume >=")
+	f.IntVar(&opts.AHDollarsGTE, "ah-dollars-gte", 0, "After-hours dollars >=")
+
+	// Group annotations
+	common.AnnotateFlagGroup(cmd, "name", "Basic")
+	common.AnnotateFlagGroup(cmd, "ticker-group", "Basic")
+	common.AnnotateFlagGroup(cmd, "tickers", "Basic")
+
+	common.AnnotateFlagGroup(cmd, "trade-rank-lte", "Trade Filters")
+	common.AnnotateFlagGroup(cmd, "trade-vcd-gte", "Trade Filters")
+	common.AnnotateFlagGroup(cmd, "trade-mult-gte", "Trade Filters")
+	common.AnnotateFlagGroup(cmd, "trade-volume-gte", "Trade Filters")
+	common.AnnotateFlagGroup(cmd, "trade-dollars-gte", "Trade Filters")
+	common.AnnotateFlagGroup(cmd, "trade-conditions", "Trade Filters")
+	common.AnnotateFlagGroup(cmd, "dark-pool", "Trade Filters")
+	common.AnnotateFlagGroup(cmd, "sweep", "Trade Filters")
+	common.AnnotateFlagGroup(cmd, "offsetting-print", "Trade Filters")
+	common.AnnotateFlagGroup(cmd, "phantom-print", "Trade Filters")
+
+	common.AnnotateFlagGroup(cmd, "closing-trade-rank-lte", "Closing Filters")
+	common.AnnotateFlagGroup(cmd, "closing-trade-vcd-gte", "Closing Filters")
+	common.AnnotateFlagGroup(cmd, "closing-trade-mult-gte", "Closing Filters")
+	common.AnnotateFlagGroup(cmd, "closing-trade-volume-gte", "Closing Filters")
+	common.AnnotateFlagGroup(cmd, "closing-trade-dollars-gte", "Closing Filters")
+	common.AnnotateFlagGroup(cmd, "closing-trade-conditions", "Closing Filters")
+
+	common.AnnotateFlagGroup(cmd, "cluster-rank-lte", "Cluster Filters")
+	common.AnnotateFlagGroup(cmd, "cluster-vcd-gte", "Cluster Filters")
+	common.AnnotateFlagGroup(cmd, "cluster-mult-gte", "Cluster Filters")
+	common.AnnotateFlagGroup(cmd, "cluster-volume-gte", "Cluster Filters")
+	common.AnnotateFlagGroup(cmd, "cluster-dollars-gte", "Cluster Filters")
+
+	common.AnnotateFlagGroup(cmd, "total-rank-lte", "Total Filters")
+	common.AnnotateFlagGroup(cmd, "total-volume-gte", "Total Filters")
+	common.AnnotateFlagGroup(cmd, "total-dollars-gte", "Total Filters")
+
+	common.AnnotateFlagGroup(cmd, "ah-rank-lte", "After-Hours Filters")
+	common.AnnotateFlagGroup(cmd, "ah-volume-gte", "After-Hours Filters")
+	common.AnnotateFlagGroup(cmd, "ah-dollars-gte", "After-Hours Filters")
+
+	// Enum annotation
+	common.AnnotateFlagEnum(cmd, "ticker-group", []string{"AllTickers", "SelectedTickers"})
 }
 
 // NewAlertCommand returns the "alert" command group with all subcommands.
@@ -116,7 +218,9 @@ func NewAlertCommand() *cobra.Command {
 
 // newConfigsCmd returns the "configs" subcommand.
 func newConfigsCmd() *cobra.Command {
-	opts := &alertConfigsOptions{}
+	opts := &alertConfigsOptions{
+		Format: common.OutputFormatJSON,
+	}
 	cmd := &cobra.Command{
 		Use:        "configs",
 		Short:      "List saved alert configurations",
@@ -144,7 +248,16 @@ func newConfigsCmd() *cobra.Command {
 				dtOpts, opts.Format, "query alert configs")
 		},
 	}
-	common.BindOrPanic(cmd, opts, "configs")
+
+	f := cmd.Flags()
+	f.VarP(&opts.Format, "format", "f", "Output format: json, csv, or tsv")
+	f.StringVar(&opts.Fields, "fields", "", "Comma-separated fields to include (use 'all' for every field)")
+
+	common.AnnotateFlagGroup(cmd, "format", "Output")
+	common.AnnotateFlagGroup(cmd, "fields", "Output")
+	common.AnnotateFlagEnum(cmd, "format", []string{"json", "csv", "tsv"})
+	common.WrapValidation(cmd, opts)
+
 	return cmd
 }
 
@@ -177,14 +290,21 @@ func newDeleteCmd() *cobra.Command {
 			return common.PrintJSON(cmd.OutOrStdout(), ctx, result)
 		},
 	}
-	common.BindOrPanic(cmd, opts, "delete")
+
+	f := cmd.Flags()
+	f.IntVarP(&opts.Key, "key", "k", 0, "Alert config key to delete")
+
+	common.AnnotateFlagGroup(cmd, "key", "Input")
+	common.MarkFlagRequired(cmd, "key")
+	common.WrapValidation(cmd, opts)
+
 	return cmd
 }
 
 // newCreateCmd returns the "create" subcommand.
 func newCreateCmd() *cobra.Command {
 	opts := &alertCreateOptions{}
-	opts.TickerGroup = "AllTickers"
+	opts.TickerGroup = alertTickerGroupAll
 	opts.TradeConditions = "0"
 	opts.ClosingTradeConditions = "0"
 	cmd := &cobra.Command{
@@ -200,8 +320,11 @@ volumeleaders-agent alert create --name "Dark pool sweeps" --sweep --dark-pool -
 			return runAlertCreateEdit(cmd, &opts.alertConfigFlags, 0)
 		},
 	}
-	common.BindOrPanic(cmd, opts, "create")
-	_ = cmd.MarkFlagRequired("name")
+
+	registerAlertConfigFlags(cmd, &opts.alertConfigFlags)
+	common.MarkFlagRequired(cmd, "name")
+	common.WrapValidation(cmd, opts)
+
 	return cmd
 }
 
@@ -222,7 +345,16 @@ func newEditCmd() *cobra.Command {
 			return runAlertCreateEdit(cmd, &opts.alertConfigFlags, opts.Key)
 		},
 	}
-	common.BindOrPanic(cmd, opts, "edit")
+
+	f := cmd.Flags()
+	f.IntVarP(&opts.Key, "key", "k", 0, "Alert config key to edit")
+
+	common.AnnotateFlagGroup(cmd, "key", "Input")
+	common.MarkFlagRequired(cmd, "key")
+
+	registerAlertConfigFlags(cmd, &opts.alertConfigFlags)
+	common.WrapValidation(cmd, opts)
+
 	return cmd
 }
 

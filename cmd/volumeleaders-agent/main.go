@@ -3,8 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
-
-	"github.com/leodido/structcli"
+	"strings"
 
 	"github.com/major/volumeleaders-agent/internal/auth"
 	cli "github.com/major/volumeleaders-agent/internal/cli"
@@ -16,15 +15,10 @@ var version = "dev"
 func main() {
 	rootCmd := cli.NewRootCmd(version)
 	cli.SetupCLI(rootCmd)
-	c, err := structcli.ExecuteC(rootCmd)
+	_, err := rootCmd.ExecuteC()
 	if err != nil {
-		// Session expiration gets a dedicated exit code (2) and human-readable
-		// message before structcli's structured error handler runs.
-		if auth.IsSessionExpired(err) {
-			fmt.Fprintln(os.Stderr, userFacingError(err))
-			os.Exit(exitCode(err))
-		}
-		os.Exit(structcli.HandleError(c, err, os.Stderr))
+		fmt.Fprintln(os.Stderr, userFacingError(err))
+		os.Exit(exitCode(err))
 	}
 }
 
@@ -38,6 +32,13 @@ func userFacingError(err error) string {
 func exitCode(err error) int {
 	if auth.IsSessionExpired(err) {
 		return 2
+	}
+	message := err.Error()
+	if strings.Contains(message, "unknown flag") || strings.Contains(message, "unknown shorthand flag") {
+		return 12
+	}
+	if strings.Contains(message, "required flag") {
+		return 10
 	}
 	return 1
 }

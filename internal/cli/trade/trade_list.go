@@ -182,7 +182,11 @@ const (
 )
 
 func parseTradeSummaryGroup(value tradeSummaryGroup) (tradeSummaryGroup, error) {
-	normalized := strings.ToLower(strings.ReplaceAll(strings.TrimSpace(string(value)), " ", ""))
+	normalized := strings.ToLower(strings.TrimSpace(string(value)))
+	normalized = strings.NewReplacer(" ", "", "-", ",").Replace(normalized)
+	if normalized == "tickerday" {
+		normalized = string(tradeSummaryGroupTickerDay)
+	}
 	switch tradeSummaryGroup(normalized) {
 	case tradeSummaryGroupTicker, tradeSummaryGroupDay, tradeSummaryGroupTickerDay:
 		return tradeSummaryGroup(normalized), nil

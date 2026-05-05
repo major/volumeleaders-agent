@@ -5,7 +5,6 @@ import (
 	"log/slog"
 	"strconv"
 
-	"github.com/leodido/structcli"
 	"github.com/spf13/cobra"
 
 	"github.com/major/volumeleaders-agent/internal/cli/common"
@@ -19,13 +18,6 @@ const (
 	alertTickerGroupAll      alertTickerGroup = "AllTickers"
 	alertTickerGroupSelected alertTickerGroup = "SelectedTickers"
 )
-
-func init() {
-	structcli.RegisterEnum[alertTickerGroup](map[alertTickerGroup][]string{
-		alertTickerGroupAll:      {"AllTickers"},
-		alertTickerGroupSelected: {"SelectedTickers"},
-	})
-}
 
 // alertConfigsOptions holds flags for the "alert configs" subcommand.
 type alertConfigsOptions struct {
@@ -201,7 +193,9 @@ volumeleaders-agent alert create --name "Dark pool sweeps" --sweep --dark-pool -
 		},
 	}
 	common.BindOrPanic(cmd, opts, "create")
-	_ = cmd.MarkFlagRequired("name")
+	if err := common.MarkFlagRequired(cmd, "name"); err != nil {
+		panic(err)
+	}
 	return cmd
 }
 

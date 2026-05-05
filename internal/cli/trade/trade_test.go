@@ -1108,6 +1108,40 @@ func TestLeveragedETFDirection(t *testing.T) {
 	}
 }
 
+func TestParseTradeSummaryGroupAcceptsAliases(t *testing.T) {
+	t.Parallel()
+
+	tests := map[tradeSummaryGroup]tradeSummaryGroup{
+		"ticker":      tradeSummaryGroupTicker,
+		"day":         tradeSummaryGroupDay,
+		"ticker,day":  tradeSummaryGroupTickerDay,
+		"ticker, day": tradeSummaryGroupTickerDay,
+		"ticker day":  tradeSummaryGroupTickerDay,
+		"ticker-day":  tradeSummaryGroupTickerDay,
+	}
+	for input, want := range tests {
+		got, err := parseTradeSummaryGroup(input)
+		if err != nil {
+			t.Fatalf("parseTradeSummaryGroup(%q) returned error: %v", input, err)
+		}
+		if got != want {
+			t.Fatalf("parseTradeSummaryGroup(%q) = %q, want %q", input, got, want)
+		}
+	}
+}
+
+func TestParseTradeSummaryGroupRejectsInvalidValue(t *testing.T) {
+	t.Parallel()
+
+	_, err := parseTradeSummaryGroup("sector")
+	if err == nil {
+		t.Fatal("expected error for invalid group-by value, got nil")
+	}
+	if !strings.Contains(err.Error(), "invalid group-by") {
+		t.Fatalf("expected 'invalid group-by' error, got: %v", err)
+	}
+}
+
 func TestSummarizeTrades(t *testing.T) {
 	t.Parallel()
 

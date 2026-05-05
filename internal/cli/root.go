@@ -2,13 +2,9 @@ package cli
 
 import (
 	"context"
-	"fmt"
 	"log/slog"
 	"os"
 
-	"github.com/leodido/structcli"
-	"github.com/leodido/structcli/helptopics"
-	structclimcp "github.com/leodido/structcli/mcp"
 	"github.com/spf13/cobra"
 
 	"github.com/major/volumeleaders-agent/internal/cli/alert"
@@ -22,7 +18,7 @@ import (
 	updater "github.com/major/volumeleaders-agent/internal/update"
 )
 
-// rootOptions holds flags bound to the root command via structcli.Bind.
+// rootOptions holds flags bound to the root command.
 // The bind pipeline populates these fields before PersistentPreRunE fires.
 type rootOptions struct {
 	Pretty bool `flag:"pretty" flaggroup:"Output" flagshort:"p" flagdescr:"Pretty-print JSON output with indentation"`
@@ -115,7 +111,11 @@ Ticker drilldown: trade dashboard TICKER --days N first, then trade list, trade 
 
 Event context: market earnings --days N, then trade list TICKER --start-date D --end-date D, then market exhaustion with optional --date.
 
-Watchlist workflow: watchlist configs to find keys and names, watchlist tickers --watchlist-key K to inspect symbols, then trade list --watchlist NAME --days N.`,
+Watchlist workflow: watchlist configs to find keys and names, watchlist tickers --watchlist-key K to inspect symbols, then trade list --watchlist NAME --days N.
+
+Reference:
+config-keys List all configuration file keys
+env-vars    List all environment variable bindings`,
 		Version:          version,
 		SilenceErrors:    true,
 		SilenceUsage:     true,
@@ -135,7 +135,7 @@ Watchlist workflow: watchlist configs to find keys and names, watchlist tickers 
 		&cobra.Group{ID: "alerts", Title: "Alert Commands:"},
 		&cobra.Group{ID: "watchlists", Title: "Watchlist Commands:"},
 		&cobra.Group{ID: "system", Title: "System Commands:"},
-		&cobra.Group{ID: "reference", Title: "Reference Commands:"},
+		&cobra.Group{ID: "reference", Title: "Reference:"},
 	)
 	updateCommand := updatecmd.NewCmd(version)
 	updateCommand.GroupID = "system"
@@ -148,32 +148,44 @@ Watchlist workflow: watchlist configs to find keys and names, watchlist tickers 
 		watchlist.NewCmd(),
 		updateCommand,
 		newOutputSchemaCmd(),
+		newConfigKeysCmd(),
+		newEnvVarsCmd(),
 	)
 	common.BindOrPanic(cmd, opts, "root options")
 	return cmd
 }
 
-// SetupCLI configures structcli features on the root command. Called from main
-// after NewRootCmd; separated because WithJSONSchema uses cobra.OnInitialize
-// (process-global) which races in parallel tests.
+// SetupCLI configures Cobra-powered introspection features on the root command.
 func SetupCLI(cmd *cobra.Command) {
-	if err := structcli.Setup(
-		cmd,
-		structcli.WithAppName("volumeleaders-agent"),
-		structcli.WithJSONSchema(),
-		structcli.WithHelpTopics(helptopics.Options{ReferenceSection: true}),
-		structcli.WithFlagErrors(),
-		structcli.WithMCP(structclimcp.Options{
-			Name:    "volumeleaders-agent",
-			Version: cmd.Version,
-			Exclude: []string{
-				"completion-bash",
-				"completion-fish",
-				"completion-powershell",
-				"completion-zsh",
-			},
-		}),
-	); err != nil {
-		panic(fmt.Sprintf("structcli.Setup: %v", err))
+	configureCobraIntrospection(cmd)
+}
+
+func newConfigKeysCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "config-keys",
+		Short:   "List all configuration file keys",
+		Long:    "Configuration Keys\n\nvolumeleaders-agent does not support configuration-file defaults. Use command flags directly.",
+		GroupID: "reference",
+		Args:    cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			_, err := cmd.OutOrStdout().Write([]byte(cmd.Long + "\n"))
+			return err
+		},
 	}
+	return cmd
+}
+
+func newEnvVarsCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "env-vars",
+		Short:   "List all environment variable bindings",
+		Long:    "Environment Variables\n\nvolumeleaders-agent does not support environment-variable flag defaults. Use command flags directly.",
+		GroupID: "reference",
+		Args:    cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			_, err := cmd.OutOrStdout().Write([]byte(cmd.Long + "\n"))
+			return err
+		},
+	}
+	return cmd
 }

@@ -626,7 +626,7 @@ func TestJSONSchemaEnumValuesPresent(t *testing.T) {
 	}{
 		{flag: "format", want: []string{"csv", "json", "tsv"}},
 		{flag: "order-dir", want: []string{"asc", "desc"}},
-		{flag: "group-by", want: []string{"day", "ticker", "ticker,day"}},
+		{flag: "group-by", want: []string{"day", "ticker", "ticker day", "ticker, day", "ticker,day", "ticker-day"}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.flag, func(t *testing.T) {

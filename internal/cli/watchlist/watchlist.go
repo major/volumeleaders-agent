@@ -6,7 +6,6 @@ import (
 	"net/url"
 	"strconv"
 
-	"github.com/leodido/structcli"
 	"github.com/spf13/cobra"
 
 	"github.com/major/volumeleaders-agent/internal/cli/common"
@@ -44,33 +43,6 @@ const (
 	watchlistTradeRank50  watchlistTradeRank = "50"
 	watchlistTradeRank100 watchlistTradeRank = "100"
 )
-
-func init() {
-	structcli.RegisterEnum[watchlistSecurityType](map[watchlistSecurityType][]string{
-		watchlistSecurityAll:    {"-1"},
-		watchlistSecurityStocks: {"1"},
-		watchlistSecurityETFs:   {"26"},
-		watchlistSecurityREITs:  {"4"},
-	})
-	structcli.RegisterEnum[watchlistRelativeSize](map[watchlistRelativeSize][]string{
-		watchlistRelativeSizeAll: {"0"},
-		watchlistRelativeSize5:   {"5"},
-		watchlistRelativeSize10:  {"10"},
-		watchlistRelativeSize25:  {"25"},
-		watchlistRelativeSize50:  {"50"},
-		watchlistRelativeSize100: {"100"},
-	})
-	structcli.RegisterEnum[watchlistTradeRank](map[watchlistTradeRank][]string{
-		watchlistTradeRankAll: {"-1"},
-		watchlistTradeRank1:   {"1"},
-		watchlistTradeRank3:   {"3"},
-		watchlistTradeRank5:   {"5"},
-		watchlistTradeRank10:  {"10"},
-		watchlistTradeRank25:  {"25"},
-		watchlistTradeRank50:  {"50"},
-		watchlistTradeRank100: {"100"},
-	})
-}
 
 // watchlistConfigsOptions holds flags for the "watchlist configs" subcommand.
 type watchlistConfigsOptions struct {
@@ -142,7 +114,7 @@ type watchlistEditOptions struct {
 }
 
 // presetWatchlistConfigDefaults sets non-zero default values on watchlistConfigFlags
-// before structcli.Bind so they become pflag defaults without using default tags.
+// before binding so they become pflag defaults without using default tags.
 func presetWatchlistConfigDefaults(cfg *watchlistConfigFlags) {
 	cfg.MaxVolume = 2000000000
 	cfg.MaxDollars = 30000000000
@@ -284,9 +256,9 @@ func newDeleteCmd() *cobra.Command {
 				return fmt.Errorf("delete watchlist: %w", err)
 			}
 
-		return common.PrintJSON(cmd.OutOrStdout(), ctx, result)
-	},
-}
+			return common.PrintJSON(cmd.OutOrStdout(), ctx, result)
+		},
+	}
 	common.BindOrPanic(cmd, opts, "delete")
 	return cmd
 }
@@ -319,9 +291,9 @@ func newAddTickerCmd() *cobra.Command {
 				return fmt.Errorf("add ticker to watchlist: %w", err)
 			}
 
-		return common.PrintJSON(cmd.OutOrStdout(), ctx, result)
-	},
-}
+			return common.PrintJSON(cmd.OutOrStdout(), ctx, result)
+		},
+	}
 	common.BindOrPanic(cmd, opts, "add-ticker")
 	return cmd
 }
@@ -344,7 +316,9 @@ volumeleaders-agent watchlist create --name "Large caps" --security-type 1 --min
 		},
 	}
 	common.BindOrPanic(cmd, opts, "create")
-	_ = cmd.MarkFlagRequired("name")
+	if err := common.MarkFlagRequired(cmd, "name"); err != nil {
+		panic(err)
+	}
 	return cmd
 }
 

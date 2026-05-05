@@ -90,7 +90,7 @@ volumeleaders-agent ships a generated root `SKILL.md` for coding agents and LLM 
 
 ### Claude Code and other skill-aware tools
 
-Use the checked-in root `SKILL.md` when your tool supports Agent Skills, including Claude Code. It contains trigger phrases, command descriptions, flag tables, examples, and workflow guidance generated from the live Cobra and structcli command tree.
+Use the checked-in root `SKILL.md` when your tool supports Agent Skills, including Claude Code. It contains trigger phrases, command descriptions, flag tables, examples, and workflow guidance aligned with the live Cobra command tree.
 
 For Claude Code, copy or symlink the generated skill into your local skills directory if you want it available outside this repository:
 
@@ -109,7 +109,7 @@ The root `AGENTS.md` stays hand-written because it captures architecture, packag
 
 ### Regenerating discovery files
 
-The root `SKILL.md` plus `docs/llm/AGENTS.md` and `docs/llm/llms.txt` are built from the Cobra and structcli command tree. Refresh them after command, flag, default, or example changes:
+The root `SKILL.md` plus `docs/llm/AGENTS.md` and `docs/llm/llms.txt` are maintained as Cobra discovery templates. Refresh them after command, flag, default, or example changes:
 
 ```bash
 make docs

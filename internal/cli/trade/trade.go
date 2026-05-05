@@ -53,16 +53,6 @@ type tradesOptions struct {
 	minPrice, maxPrice, minDollars, maxDollars     float64
 }
 
-type tradeLevelOptions struct {
-	ticker, startDate, endDate string
-	minVolume, maxVolume       int
-	vcd, relativeSize          int
-	tradeLevelRank             int
-	tradeLevelCount            int
-	minPrice, maxPrice         float64
-	minDollars, maxDollars     float64
-}
-
 type tradeDateRangeFlags struct {
 	StartDate string `flag:"start-date" flaggroup:"Dates" flagshort:"s" flagdescr:"Start date YYYY-MM-DD (required unless --days is set)"`
 	EndDate   string `flag:"end-date" flaggroup:"Dates" flagshort:"e" flagdescr:"End date YYYY-MM-DD (required unless --days is set)"`
@@ -190,10 +180,6 @@ type tradeClusterBombsOptions struct {
 type tradeLevelsOptions struct {
 	tradeTickerFlag
 	tradeOptionalDateRangeFlags
-	tradeRangeFlags
-	VCD             int    `flag:"vcd" flaggroup:"Filters" flagdescr:"VCD filter"`
-	RelativeSize    int    `flag:"relative-size" flaggroup:"Filters" flagdescr:"Relative size threshold"`
-	TradeLevelRank  int    `flag:"trade-level-rank" flaggroup:"Filters" flagdescr:"Trade level rank filter"`
 	TradeLevelCount int    `flag:"trade-level-count" flaggroup:"Output" flagdescr:"Number of price levels to return (5, 10, 20, or 50)"`
 	Fields          string `flag:"fields" flaggroup:"Output" flagdescr:"Comma-separated TradeLevel fields to include in output, or 'all' for every field"`
 	tradeFormatFlag
@@ -295,7 +281,7 @@ func newTradeDashboardCommand() *cobra.Command {
 		Short: "Query a ticker institutional dashboard",
 		Long: `Query a fast ticker dashboard with the same chart-optimized institutional context VolumeLeaders shows in the browser. The dashboard fetches the largest trades, trade clusters, trade levels, and cluster bombs for one ticker in a single JSON object.
 
-Defaults to a 365-day lookback, 10 rows per section, --vcd 0, --relative-size 0, and the same broad trade/session filters used by the browser chart page. Use this command as the first stop when asking broad questions such as institutional levels for IGV, then drill into trade list, trade clusters, trade levels, or trade cluster-bombs when a section needs deeper pagination or CSV/TSV output.
+Defaults to a 365-day lookback, 10 rows per section, --vcd 0, --relative-size 0, and the same broad trade/session filters used by the browser chart page. Use this command as the first stop for any single-ticker investigation, including institutional levels, largest trades, clustered activity, or sudden bursts, then drill into trade list, trade clusters, trade levels, or trade cluster-bombs only when a section needs deeper pagination, CSV/TSV output, or explicit field selection.
 
 PREREQUISITES: Provide exactly one ticker as a positional argument or with --ticker. Browser authentication must be available.
 
@@ -360,7 +346,7 @@ PREREQUISITES: Browser authentication. For reproducible scans, pass explicit dat
 
 RECOVERY: Multi-day lookups whose effective filters include tickers return the top 10 long-period trades with the same lightweight chart query shape VolumeLeaders uses in the browser. Single-day scans, all-market scans, sector-only presets, and --summary still fetch all matching rows in browser-sized 100-row pages. If --summary rejects --fields or --format, rerun summary as JSON without --fields. If date flags conflict, use either --days or --start-date with --end-date.
 
-NEXT STEPS: Use trade levels for support/resistance after finding a ticker, trade clusters when prints concentrate near a price, or trade sentiment for leveraged ETF bull/bear context.`,
+NEXT STEPS: Use trade dashboard first for any single-ticker investigation, then trade levels for level-only support/resistance output, trade clusters when prints concentrate near a price, or trade sentiment for leveraged ETF bull/bear context.`,
 		Example: `volumeleaders-agent trade list AAPL MSFT
 volumeleaders-agent trade list --tickers AAPL,MSFT
 volumeleaders-agent trade list --tickers NVDA --dark-pools 1 --min-dollars 1000000
@@ -501,8 +487,6 @@ Cluster alert rows use the full cluster-shaped model rather than the compact def
 
 func newTradeLevelsCommand() *cobra.Command {
 	opts := &tradeLevelsOptions{}
-	presetTradeRangeDefaults(&opts.tradeRangeFlags, 500000)
-	opts.TradeLevelRank = -1
 	opts.TradeLevelCount = 10
 	opts.Format = "json"
 	cmd := &cobra.Command{
@@ -510,13 +494,13 @@ func newTradeLevelsCommand() *cobra.Command {
 		Short: "Query significant price levels for a ticker",
 		Long: `Query significant price levels for a ticker, showing historical support and resistance zones identified by institutional trade clustering. Accepts a ticker as positional argument or via --ticker flag. Outputs compact JSON by default.
 
-Defaults to a 365-day lookback when dates are omitted. Uses non-standard --relative-size 0 and only allows --trade-level-count values of 5, 10, 20, or 50. Default JSON is compact and omits repetitive ticker metadata and the verbose Dates list; use --fields all or CSV/TSV when raw fields are needed.
+Defaults to a 365-day lookback when dates are omitted and shares the chart-optimized VolumeLeaders level request used by trade dashboard. This command intentionally exposes a reduced CLI surface: ticker, dates, --trade-level-count, --fields, and --format. For any single-ticker investigation, run trade dashboard TICKER first because it returns trades, clusters, levels, and cluster bombs together; use trade levels only when you need level-only output, CSV/TSV, or explicit field selection. Only --trade-level-count values of 5, 10, 20, or 50 are accepted. Default JSON is compact and omits repetitive ticker metadata and the verbose Dates list; use --fields all or CSV/TSV when raw fields are needed.
 
 PREREQUISITES: Provide exactly one ticker as a positional argument or with --ticker.
 
 RECOVERY: If ticker validation fails, use one ticker only. If --trade-level-count is rejected, use 5, 10, 20, or 50.
 
-NEXT STEPS: Use trade level-touches with the same ticker and date range to find trades that revisited these levels.`,
+NEXT STEPS: Use trade dashboard as the first single-ticker overview, or use trade level-touches with the same ticker and date range to find trades that revisited these levels.`,
 		Example:    "volumeleaders-agent trade levels AAPL",
 		Args:       cobra.ArbitraryArgs,
 		SuggestFor: []string{"level", "lvels"},
@@ -525,7 +509,6 @@ NEXT STEPS: Use trade level-touches with the same ticker and date range to find 
 		},
 	}
 	common.BindOrPanic(cmd, opts, "levels")
-	setTradeRangeFlagDefValues(cmd, opts.MinDollars)
 	return cmd
 }
 
@@ -633,10 +616,6 @@ func setFloatFlagDefValue(cmd *cobra.Command, name string, value float64) {
 
 func buildTradeFilters(opts *tradesOptions) map[string]string {
 	return map[string]string{"Tickers": opts.tickers, "StartDate": opts.startDate, "EndDate": opts.endDate, "MinVolume": common.IntStr(opts.minVolume), "MaxVolume": common.IntStr(opts.maxVolume), "MinPrice": common.FormatFloat(opts.minPrice), "MaxPrice": common.FormatFloat(opts.maxPrice), "MinDollars": common.FormatFloat(opts.minDollars), "MaxDollars": common.FormatFloat(opts.maxDollars), "Conditions": common.IntStr(opts.conditions), "VCD": common.IntStr(opts.vcd), "SecurityTypeKey": common.IntStr(opts.securityType), "RelativeSize": common.IntStr(opts.relativeSize), "DarkPools": common.IntStr(opts.darkPools), "Sweeps": common.IntStr(opts.sweeps), "LatePrints": common.IntStr(opts.latePrints), "SignaturePrints": common.IntStr(opts.sigPrints), "EvenShared": common.IntStr(opts.evenShared), "TradeRank": common.IntStr(opts.tradeRank), "TradeRankSnapshot": common.IntStr(opts.rankSnapshot), "MarketCap": common.IntStr(opts.marketCap), "IncludePremarket": common.IntStr(opts.premarket), "IncludeRTH": common.IntStr(opts.rth), "IncludeAH": common.IntStr(opts.ah), "IncludeOpening": common.IntStr(opts.opening), "IncludeClosing": common.IntStr(opts.closing), "IncludePhantom": common.IntStr(opts.phantom), "IncludeOffsetting": common.IntStr(opts.offsetting), "SectorIndustry": opts.sector}
-}
-
-func buildTradeLevelFilters(opts *tradeLevelOptions) map[string]string {
-	return map[string]string{"Ticker": opts.ticker, "MinVolume": common.IntStr(opts.minVolume), "MaxVolume": common.IntStr(opts.maxVolume), "MinPrice": common.FormatFloat(opts.minPrice), "MaxPrice": common.FormatFloat(opts.maxPrice), "MinDollars": common.FormatFloat(opts.minDollars), "MaxDollars": common.FormatFloat(opts.maxDollars), "VCD": common.IntStr(opts.vcd), "RelativeSize": common.IntStr(opts.relativeSize), "StartDate": opts.startDate, "EndDate": opts.endDate, "TradeLevelRank": common.IntStr(opts.tradeLevelRank), "Levels": common.IntStr(opts.tradeLevelCount)}
 }
 
 func getString(cmd *cobra.Command, name string) string {

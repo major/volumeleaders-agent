@@ -679,7 +679,7 @@ volumeleaders-agent trade clusters AAPL --days 7
 
 Query a fast ticker dashboard with the same chart-optimized institutional context VolumeLeaders shows in the browser. The dashboard fetches the largest trades, trade clusters, trade levels, and cluster bombs for one ticker in a single JSON object.
 
-Defaults to a 365-day lookback, 10 rows per section, --vcd 0, --relative-size 0, and the same broad trade/session filters used by the browser chart page. Use this command as the first stop when asking broad questions such as institutional levels for IGV, then drill into trade list, trade clusters, trade levels, or trade cluster-bombs when a section needs deeper pagination or CSV/TSV output.
+Defaults to a 365-day lookback, 10 rows per section, --vcd 0, --relative-size 0, and the same broad trade/session filters used by the browser chart page. Use this command as the first stop for any single-ticker investigation, including institutional levels, largest trades, clustered activity, or sudden bursts, then drill into trade list, trade clusters, trade levels, or trade cluster-bombs only when a section needs deeper pagination, CSV/TSV output, or explicit field selection.
 
 PREREQUISITES: Provide exactly one ticker as a positional argument or with --ticker. Browser authentication must be available.
 
@@ -772,13 +772,13 @@ volumeleaders-agent trade level-touches AAPL --days 14
 
 Query significant price levels for a ticker, showing historical support and resistance zones identified by institutional trade clustering. Accepts a ticker as positional argument or via --ticker flag. Outputs compact JSON by default.
 
-Defaults to a 365-day lookback when dates are omitted. Uses non-standard --relative-size 0 and only allows --trade-level-count values of 5, 10, 20, or 50. Default JSON is compact and omits repetitive ticker metadata and the verbose Dates list; use --fields all or CSV/TSV when raw fields are needed.
+Defaults to a 365-day lookback when dates are omitted and shares the chart-optimized VolumeLeaders level request used by trade dashboard. This command intentionally exposes a reduced CLI surface: ticker, dates, --trade-level-count, --fields, and --format. For any single-ticker investigation, run trade dashboard TICKER first because it returns trades, clusters, levels, and cluster bombs together; use trade levels only when you need level-only output, CSV/TSV, or explicit field selection. Only --trade-level-count values of 5, 10, 20, or 50 are accepted. Default JSON is compact and omits repetitive ticker metadata and the verbose Dates list; use --fields all or CSV/TSV when raw fields are needed.
 
 PREREQUISITES: Provide exactly one ticker as a positional argument or with --ticker.
 
 RECOVERY: If ticker validation fails, use one ticker only. If --trade-level-count is rejected, use 5, 10, 20, or 50.
 
-NEXT STEPS: Use trade level-touches with the same ticker and date range to find trades that revisited these levels.
+NEXT STEPS: Use trade dashboard as the first single-ticker overview, or use trade level-touches with the same ticker and date range to find trades that revisited these levels.
 
 **Flags:**
 
@@ -788,18 +788,9 @@ NEXT STEPS: Use trade level-touches with the same ticker and date range to find 
 | `--end-date` | string | - | no | End date YYYY-MM-DD (default: today) |
 | `--fields` | string | - | no | Comma-separated TradeLevel fields to include in output, or 'all' for every field |
 | `--format` | string | json | no | Output format: json, csv, or tsv |
-| `--max-dollars` | float64 | 30000000000 | no | Maximum dollar value |
-| `--max-price` | float64 | 100000 | no | Maximum price |
-| `--max-volume` | int | 2000000000 | no | Maximum volume |
-| `--min-dollars` | float64 | 500000 | no | Minimum dollar value |
-| `--min-price` | float64 | 0 | no | Minimum price |
-| `--min-volume` | int | 0 | no | Minimum volume |
-| `--relative-size` | int | 0 | no | Relative size threshold |
 | `--start-date` | string | - | no | Start date YYYY-MM-DD (default: auto) |
 | `--ticker` | string | - | no | Ticker symbol |
 | `--trade-level-count` | int | 10 | no | Number of price levels to return (5, 10, 20, or 50) |
-| `--trade-level-rank` | int | -1 | no | Trade level rank filter |
-| `--vcd` | int | 0 | no | VCD filter |
 
 **Example:**
 
@@ -847,7 +838,7 @@ PREREQUISITES: Browser authentication. For reproducible scans, pass explicit dat
 
 RECOVERY: Multi-day lookups whose effective filters include tickers return the top 10 long-period trades with the same lightweight chart query shape VolumeLeaders uses in the browser. Single-day scans, all-market scans, sector-only presets, and --summary still fetch all matching rows in browser-sized 100-row pages. If --summary rejects --fields or --format, rerun summary as JSON without --fields. If date flags conflict, use either --days or --start-date with --end-date.
 
-NEXT STEPS: Use trade levels for support/resistance after finding a ticker, trade clusters when prints concentrate near a price, or trade sentiment for leveraged ETF bull/bear context.
+NEXT STEPS: Use trade dashboard first for any single-ticker investigation, then trade levels for level-only support/resistance output, trade clusters when prints concentrate near a price, or trade sentiment for leveraged ETF bull/bear context.
 
 **Flags:**
 
@@ -976,7 +967,7 @@ volumeleaders-agent volume ah-institutional --date 2025-01-15
 
 #### `volumeleaders-agent volume institutional`
 
-Query the regular-hours institutional volume leaderboard, ranking tickers by total institutional trade volume for a given date. Accepts optional ticker positional arguments to filter results; also accepts --tickers flag. Requires --date. Outputs compact JSON or CSV/TSV with --format. PREREQUISITES: choose a trading date in YYYY-MM-DD format. RECOVERY: if --date is missing or invalid, retry with an explicit trading day. NEXT STEPS: run trade list for interesting tickers, then trade levels for support and resistance context.
+Query the regular-hours institutional volume leaderboard, ranking tickers by total institutional trade volume for a given date. Accepts optional ticker positional arguments to filter results; also accepts --tickers flag. Requires --date. Outputs compact JSON or CSV/TSV with --format. PREREQUISITES: choose a trading date in YYYY-MM-DD format. RECOVERY: if --date is missing or invalid, retry with an explicit trading day. NEXT STEPS: run trade dashboard for interesting single tickers first, then use trade list, trade levels, or trade clusters only when a dashboard section needs deeper detail.
 
 **Flags:**
 

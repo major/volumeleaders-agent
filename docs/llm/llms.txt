@@ -17,13 +17,13 @@ Find ranked institutional prints              report top-100-rank               
 Find strongest ranked prints                  report top-10-rank                      Narrower ranked-trade preset
 Find dark pool sweep activity                 report dark-pool-sweeps                 Vetted dark-pool sweep preset
 Find unusually large prints                   report disproportionately-large          5x relative size browser preset
-Find individual institutional prints          trade list X --days N                   Advanced path: use reports or tickers first
-Get comprehensive ticker overview            trade dashboard X --days N              Fast chart-style trades, clusters, levels, bombs
+Get comprehensive ticker overview            trade dashboard X --days N              First stop for any single-ticker work
+Find individual institutional prints          trade list X --days N                   Advanced path after dashboard or reports
 Compare leveraged ETF bull/bear flow          trade sentiment --days N                Fixed leveraged ETF universe, not buy/sell flow
 Find converging price-level activity          trade clusters --days N                 Cluster conviction around similar prices
 Find sudden aggressive bursts                 trade cluster-bombs --days N            Burst detection, different defaults than clusters
 Inspect trade or cluster alerts               trade alerts --date D                   System-generated alerts
-Find support/resistance levels                trade levels X --days N                 One ticker, capped level count
+Find support/resistance levels                trade levels X --days N                 Level-only drilldown after dashboard
 Find revisits to institutional levels         trade level-touches X --days N          Level retests, capped pagination
 See institutional volume leaders              volume institutional --date D            Same trade model, volume-ranked
 See after-hours institutional leaders         volume ah-institutional --date D        After-hours institutional flow
@@ -38,17 +38,17 @@ ANALYSIS WORKFLOW
 
 1. report list to choose a vetted preset report before raw filters.
 2. report top-100-rank or report disproportionately-large for the broad scan.
-3. trade dashboard X --days N for a fast ticker overview before deeper drilling.
+3. trade dashboard X --days N for any single-ticker question before deeper drilling.
 4. trade list --preset NAME only when report commands are not specific enough.
-5. trade levels X --days N for support/resistance.
-6. trade clusters X --days N when prints appear concentrated around a price.
+5. trade levels X --days N only when the dashboard level section needs level-only output, CSV/TSV, or fields.
+6. trade clusters X --days N when dashboard or trade output shows concentration around a price.
 7. market earnings --days N and market exhaustion for event and reversal context.
 
 GLOBAL CONVENTIONS
 
 Dates: YYYY-MM-DD. Commands with date ranges accept either --start-date D --end-date D or --days N. --days counts backward from today unless --end-date is also set, and cannot be combined with --start-date.
 
-Pagination: --start offset, --length count, --length -1 means all rows unless a capped endpoint rejects it. trade list does not expose --length; multi-day lookups whose effective filters include tickers return the top 10 long-period trades with VolumeLeaders' lightweight chart query shape, while trade list --summary, single-day trade scans, all-market trade scans, sector-only presets, trade clusters, and trade cluster-bombs fetch all rows internally in browser-sized 100-row pages. trade level-touches only allows 1 to 50 rows. trade levels and trade level-touches only allow --trade-level-count values of 5, 10, 20, or 50.
+Pagination: --start offset, --length count, --length -1 means all rows unless a capped endpoint rejects it. trade list does not expose --length; multi-day lookups whose effective filters include tickers return the top 10 long-period trades with VolumeLeaders' lightweight chart query shape, while trade list --summary, single-day trade scans, all-market trade scans, sector-only presets, trade clusters, and trade cluster-bombs fetch all rows internally in browser-sized 100-row pages. trade level-touches only allows 1 to 50 rows. trade dashboard count and trade levels/level-touches level counts only allow values of 5, 10, 20, or 50.
 
 Toggle filters: -1 means all/unfiltered, 0 means exclude, 1 means include/only.
 
@@ -68,15 +68,15 @@ Pagination validation failed: reduce --length to the documented cap. trade level
 
 Unknown flag or enum value: run the same command with --help or --jsonschema to inspect supported flags, defaults, allowed values, and required fields before retrying.
 
-Empty or too broad output: use report list to pick a vetted preset report first, then add tickers or explicit dates. If JSON is too verbose, use --fields where supported or --format csv for list-style commands. Avoid hand-building raw filters unless report commands and trade list --preset cannot answer the question.
+Empty or too broad output: use report list to pick a vetted preset report first, then add tickers or explicit dates. For a single ticker, run trade dashboard TICKER before raw trade, cluster, or level drilldowns. If JSON is too verbose, use --fields where supported or --format csv for list-style commands. Avoid hand-building raw filters unless report commands and trade list --preset cannot answer the question.
 
 COMMAND SEQUENCES
 
-Broad scan: report top-100-rank, then report disproportionately-large, then trade dashboard TICKER --days N, then trade levels TICKER --days N.
+Broad scan: report top-100-rank, then report disproportionately-large, then trade dashboard TICKER --days N, then targeted drilldowns only for the sections that need more detail.
 
 Preset workflow: report list, then report NAME for safe defaults, then trade list --preset NAME only if advanced customization is needed.
 
-Ticker drilldown: trade dashboard TICKER --days N, then trade list TICKER --days N, then trade clusters TICKER --days N.
+Ticker drilldown: trade dashboard TICKER --days N first, then trade list, trade levels, trade clusters, or trade cluster-bombs only for the dashboard sections that need deeper pagination, CSV/TSV, or field selection.
 
 Event context: market earnings --days N, then trade list TICKER --start-date D --end-date D, then market exhaustion with optional --date.
 
@@ -206,7 +206,7 @@ Results are fetched in browser-sized 100-row pages to match VolumeLeaders' front
 Results are fetched in browser-sized 100-row pages to match VolumeLeaders' frontend behavior. Use clusters when the question is about price-level concentration, not single prints. This command uses larger default dollar thresholds than ordinary trade list. Use trade cluster-bombs instead when looking for sudden aggressive bursts tightly grouped in time and price.
 - [volumeleaders-agent trade dashboard](#volumeleaders-agent-trade-dashboard): Query a fast ticker dashboard with the same chart-optimized institutional context VolumeLeaders shows in the browser. The dashboard fetches the largest trades, trade clusters, trade levels, and cluster bombs for one ticker in a single JSON object.
 
-Defaults to a 365-day lookback, 10 rows per section, --vcd 0, --relative-size 0, and the same broad trade/session filters used by the browser chart page. Use this command as the first stop when asking broad questions such as institutional levels for IGV, then drill into trade list, trade clusters, trade levels, or trade cluster-bombs when a section needs deeper pagination or CSV/TSV output.
+Defaults to a 365-day lookback, 10 rows per section, --vcd 0, --relative-size 0, and the same broad trade/session filters used by the browser chart page. Use this command as the first stop for any single-ticker investigation, including institutional levels, largest trades, clustered activity, or sudden bursts, then drill into trade list, trade clusters, trade levels, or trade cluster-bombs only when a section needs deeper pagination, CSV/TSV output, or explicit field selection.
 
 PREREQUISITES: Provide exactly one ticker as a positional argument or with --ticker. Browser authentication must be available.
 
@@ -222,13 +222,13 @@ RECOVERY: If --length is rejected, use 1 to 50. If --trade-level-count is reject
 NEXT STEPS: Compare touched levels with fresh trade list output to see whether recent institutional prints confirm or reject the level.
 - [volumeleaders-agent trade levels](#volumeleaders-agent-trade-levels): Query significant price levels for a ticker, showing historical support and resistance zones identified by institutional trade clustering. Accepts a ticker as positional argument or via --ticker flag. Outputs compact JSON by default.
 
-Defaults to a 365-day lookback when dates are omitted. Uses non-standard --relative-size 0 and only allows --trade-level-count values of 5, 10, 20, or 50. Default JSON is compact and omits repetitive ticker metadata and the verbose Dates list; use --fields all or CSV/TSV when raw fields are needed.
+Defaults to a 365-day lookback when dates are omitted and shares the chart-optimized VolumeLeaders level request used by trade dashboard. This command intentionally exposes a reduced CLI surface: ticker, dates, --trade-level-count, --fields, and --format. For any single-ticker investigation, run trade dashboard TICKER first because it returns trades, clusters, levels, and cluster bombs together; use trade levels only when you need level-only output, CSV/TSV, or explicit field selection. Only --trade-level-count values of 5, 10, 20, or 50 are accepted. Default JSON is compact and omits repetitive ticker metadata and the verbose Dates list; use --fields all or CSV/TSV when raw fields are needed.
 
 PREREQUISITES: Provide exactly one ticker as a positional argument or with --ticker.
 
 RECOVERY: If ticker validation fails, use one ticker only. If --trade-level-count is rejected, use 5, 10, 20, or 50.
 
-NEXT STEPS: Use trade level-touches with the same ticker and date range to find trades that revisited these levels.
+NEXT STEPS: Use trade dashboard as the first single-ticker overview, or use trade level-touches with the same ticker and date range to find trades that revisited these levels.
 - [volumeleaders-agent trade list](#volumeleaders-agent-trade-list): Query individual institutional trades from VolumeLeaders, filterable by ticker, date range, dollar amounts, volume, trade conditions, session type, and trade rank. Supports built-in filter presets (--preset) and watchlist-based filtering (--watchlist). Start with report list for curated preset-backed reports; use trade list when custom raw trade filters are needed. Outputs compact JSON or CSV/TSV with --format; use --summary for aggregate metrics grouped by ticker or day.
 
 Date defaults: 365-day lookback when tickers are provided, today-only without tickers. Preset and watchlist filters do not supply dates. Filter precedence is preset baseline, then watchlist merge, then explicit CLI flags override both.
@@ -267,14 +267,14 @@ PREREQUISITES: Browser authentication. For reproducible scans, pass explicit dat
 
 RECOVERY: Multi-day lookups whose effective filters include tickers return the top 10 long-period trades with the same lightweight chart query shape VolumeLeaders uses in the browser. Single-day scans, all-market scans, sector-only presets, and --summary still fetch all matching rows in browser-sized 100-row pages. If --summary rejects --fields or --format, rerun summary as JSON without --fields. If date flags conflict, use either --days or --start-date with --end-date.
 
-NEXT STEPS: Use trade levels for support/resistance after finding a ticker, trade clusters when prints concentrate near a price, or trade sentiment for leveraged ETF bull/bear context.
+NEXT STEPS: Use trade dashboard first for any single-ticker investigation, then trade levels for level-only support/resistance output, trade clusters when prints concentrate near a price, or trade sentiment for leveraged ETF bull/bear context.
 - [volumeleaders-agent trade sentiment](#volumeleaders-agent-trade-sentiment): Summarize leveraged ETF bull and bear flow by trading day, showing aggregate institutional dollar volume on the bull and bear side. Requires --start-date and --end-date (or --days). Outputs one record per day with bull and bear totals.
 
 This command always queries the combined leveraged ETF sector filter SectorIndustry=X B, classifies bull and bear ETFs locally, and cannot be constrained by ticker or sector flags. Non-standard defaults include --min-dollars 5000000 and --vcd 97; shared --relative-size 5 still applies.
 
 Ratio is bull dollars divided by bear dollars and is null when bear flow is zero. Treat the output as leveraged ETF proxy flow, not signed buy/sell flow for the broader market.
 - [volumeleaders-agent volume ah-institutional](#volumeleaders-agent-volume-ah-institutional): Query the after-hours institutional volume leaderboard, ranking tickers by total institutional trade volume during after-hours sessions for a given date. Accepts optional ticker positional arguments; also accepts --tickers flag. Requires --date.
-- [volumeleaders-agent volume institutional](#volumeleaders-agent-volume-institutional): Query the regular-hours institutional volume leaderboard, ranking tickers by total institutional trade volume for a given date. Accepts optional ticker positional arguments to filter results; also accepts --tickers flag. Requires --date. Outputs compact JSON or CSV/TSV with --format. PREREQUISITES: choose a trading date in YYYY-MM-DD format. RECOVERY: if --date is missing or invalid, retry with an explicit trading day. NEXT STEPS: run trade list for interesting tickers, then trade levels for support and resistance context.
+- [volumeleaders-agent volume institutional](#volumeleaders-agent-volume-institutional): Query the regular-hours institutional volume leaderboard, ranking tickers by total institutional trade volume for a given date. Accepts optional ticker positional arguments to filter results; also accepts --tickers flag. Requires --date. Outputs compact JSON or CSV/TSV with --format. PREREQUISITES: choose a trading date in YYYY-MM-DD format. RECOVERY: if --date is missing or invalid, retry with an explicit trading day. NEXT STEPS: run trade dashboard for interesting single tickers first, then use trade list, trade levels, or trade clusters only when a dashboard section needs deeper detail.
 - [volumeleaders-agent volume total](#volumeleaders-agent-volume-total): Query the total volume leaderboard combining all session types, ranking tickers by total institutional trade volume for a given date. Accepts optional ticker positional arguments; also accepts --tickers flag. Requires --date.
 - [volumeleaders-agent watchlist add-ticker](#volumeleaders-agent-watchlist-add-ticker): Add a ticker symbol to an existing watchlist. Requires --watchlist-key with the watchlist key and --ticker with the symbol to add. The ticker is appended to the watchlist without affecting existing symbols.
 - [volumeleaders-agent watchlist configs](#volumeleaders-agent-watchlist-configs): List all saved watchlist configurations with their keys and names. Outputs compact JSON or CSV/TSV with --format. Each row shows the watchlist key and name; use the tickers subcommand to view symbols in a specific watchlist.
@@ -750,7 +750,7 @@ Results are fetched in browser-sized 100-row pages to match VolumeLeaders' front
 
 Query a fast ticker dashboard with the same chart-optimized institutional context VolumeLeaders shows in the browser. The dashboard fetches the largest trades, trade clusters, trade levels, and cluster bombs for one ticker in a single JSON object.
 
-Defaults to a 365-day lookback, 10 rows per section, --vcd 0, --relative-size 0, and the same broad trade/session filters used by the browser chart page. Use this command as the first stop when asking broad questions such as institutional levels for IGV, then drill into trade list, trade clusters, trade levels, or trade cluster-bombs when a section needs deeper pagination or CSV/TSV output.
+Defaults to a 365-day lookback, 10 rows per section, --vcd 0, --relative-size 0, and the same broad trade/session filters used by the browser chart page. Use this command as the first stop for any single-ticker investigation, including institutional levels, largest trades, clustered activity, or sudden bursts, then drill into trade list, trade clusters, trade levels, or trade cluster-bombs only when a section needs deeper pagination, CSV/TSV output, or explicit field selection.
 
 PREREQUISITES: Provide exactly one ticker as a positional argument or with --ticker. Browser authentication must be available.
 
@@ -827,13 +827,13 @@ NEXT STEPS: Compare touched levels with fresh trade list output to see whether r
 
 Query significant price levels for a ticker, showing historical support and resistance zones identified by institutional trade clustering. Accepts a ticker as positional argument or via --ticker flag. Outputs compact JSON by default.
 
-Defaults to a 365-day lookback when dates are omitted. Uses non-standard --relative-size 0 and only allows --trade-level-count values of 5, 10, 20, or 50. Default JSON is compact and omits repetitive ticker metadata and the verbose Dates list; use --fields all or CSV/TSV when raw fields are needed.
+Defaults to a 365-day lookback when dates are omitted and shares the chart-optimized VolumeLeaders level request used by trade dashboard. This command intentionally exposes a reduced CLI surface: ticker, dates, --trade-level-count, --fields, and --format. For any single-ticker investigation, run trade dashboard TICKER first because it returns trades, clusters, levels, and cluster bombs together; use trade levels only when you need level-only output, CSV/TSV, or explicit field selection. Only --trade-level-count values of 5, 10, 20, or 50 are accepted. Default JSON is compact and omits repetitive ticker metadata and the verbose Dates list; use --fields all or CSV/TSV when raw fields are needed.
 
 PREREQUISITES: Provide exactly one ticker as a positional argument or with --ticker.
 
 RECOVERY: If ticker validation fails, use one ticker only. If --trade-level-count is rejected, use 5, 10, 20, or 50.
 
-NEXT STEPS: Use trade level-touches with the same ticker and date range to find trades that revisited these levels.
+NEXT STEPS: Use trade dashboard as the first single-ticker overview, or use trade level-touches with the same ticker and date range to find trades that revisited these levels.
 
 ### Flags
 
@@ -841,18 +841,9 @@ NEXT STEPS: Use trade level-touches with the same ticker and date range to find 
 - `--end-date` (string): End date YYYY-MM-DD (default: today)
 - `--fields` (string): Comma-separated TradeLevel fields to include in output, or 'all' for every field
 - `--format` (string, default: json): Output format: json, csv, or tsv
-- `--max-dollars` (float64, default: 30000000000): Maximum dollar value
-- `--max-price` (float64, default: 100000): Maximum price
-- `--max-volume` (int, default: 2000000000): Maximum volume
-- `--min-dollars` (float64, default: 500000): Minimum dollar value
-- `--min-price` (float64, default: 0): Minimum price
-- `--min-volume` (int, default: 0): Minimum volume
-- `--relative-size` (int, default: 0): Relative size threshold
 - `--start-date` (string): Start date YYYY-MM-DD (default: auto)
 - `--ticker` (string): Ticker symbol
 - `--trade-level-count` (int, default: 10): Number of price levels to return (5, 10, 20, or 50)
-- `--trade-level-rank` (int, default: -1): Trade level rank filter
-- `--vcd` (int, default: 0): VCD filter
 
 ## volumeleaders-agent trade list
 
@@ -894,7 +885,7 @@ PREREQUISITES: Browser authentication. For reproducible scans, pass explicit dat
 
 RECOVERY: Multi-day lookups whose effective filters include tickers return the top 10 long-period trades with the same lightweight chart query shape VolumeLeaders uses in the browser. Single-day scans, all-market scans, sector-only presets, and --summary still fetch all matching rows in browser-sized 100-row pages. If --summary rejects --fields or --format, rerun summary as JSON without --fields. If date flags conflict, use either --days or --start-date with --end-date.
 
-NEXT STEPS: Use trade levels for support/resistance after finding a ticker, trade clusters when prints concentrate near a price, or trade sentiment for leveraged ETF bull/bear context.
+NEXT STEPS: Use trade dashboard first for any single-ticker investigation, then trade levels for level-only support/resistance output, trade clusters when prints concentrate near a price, or trade sentiment for leveraged ETF bull/bear context.
 
 ### Flags
 
@@ -994,7 +985,7 @@ Query the after-hours institutional volume leaderboard, ranking tickers by total
 
 ## volumeleaders-agent volume institutional
 
-Query the regular-hours institutional volume leaderboard, ranking tickers by total institutional trade volume for a given date. Accepts optional ticker positional arguments to filter results; also accepts --tickers flag. Requires --date. Outputs compact JSON or CSV/TSV with --format. PREREQUISITES: choose a trading date in YYYY-MM-DD format. RECOVERY: if --date is missing or invalid, retry with an explicit trading day. NEXT STEPS: run trade list for interesting tickers, then trade levels for support and resistance context.
+Query the regular-hours institutional volume leaderboard, ranking tickers by total institutional trade volume for a given date. Accepts optional ticker positional arguments to filter results; also accepts --tickers flag. Requires --date. Outputs compact JSON or CSV/TSV with --format. PREREQUISITES: choose a trading date in YYYY-MM-DD format. RECOVERY: if --date is missing or invalid, retry with an explicit trading day. NEXT STEPS: run trade dashboard for interesting single tickers first, then use trade list, trade levels, or trade clusters only when a dashboard section needs deeper detail.
 
 ### Flags
 

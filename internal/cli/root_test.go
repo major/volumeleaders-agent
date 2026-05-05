@@ -994,6 +994,44 @@ func TestOutputSchemaSubcommandDescribesVariantsAndFields(t *testing.T) {
 	}
 }
 
+func TestOutputSchemaTradeLevelsDescribesDelimitedVariant(t *testing.T) {
+	t.Parallel()
+	binary := buildBinary(t)
+
+	out, err := exec.Command(binary, "outputschema", "trade", "levels").CombinedOutput()
+	if err != nil {
+		t.Fatalf("outputschema trade levels failed: %v\nOutput: %s", err, out)
+	}
+
+	var contract map[string]any
+	if jsonErr := json.Unmarshal(out, &contract); jsonErr != nil {
+		t.Fatalf("outputschema trade levels is not valid JSON object: %v\nOutput: %s", jsonErr, out)
+	}
+	if got := sortedStrings(stringSlice(t, contract["formats"])); !slices.Equal(got, []string{"csv", "json", "tsv"}) {
+		t.Fatalf("formats = %v, want [csv json tsv]", got)
+	}
+
+	schema := nestedMap(t, contract, "schema")
+	if got := schemaModel(schema); got != "TradeLevelRow" {
+		t.Fatalf("default schema model = %v, want TradeLevelRow", got)
+	}
+	variants, ok := contract["variants"].([]any)
+	if !ok || len(variants) != 1 {
+		t.Fatalf("variants = %v, want one TradeLevel variant", contract["variants"])
+	}
+	variant, ok := variants[0].(map[string]any)
+	if !ok {
+		t.Fatalf("variant is not an object: %v", variants[0])
+	}
+	variantSchema := nestedMap(t, variant, "schema")
+	if got := schemaModel(variantSchema); got != "TradeLevel" {
+		t.Fatalf("variant schema model = %v, want TradeLevel", got)
+	}
+	if got := sortedStrings(stringSlice(t, variant["formats"])); !slices.Equal(got, []string{"csv", "json", "tsv"}) {
+		t.Fatalf("variant formats = %v, want [csv json tsv]", got)
+	}
+}
+
 func TestOutputSchemaMarketExhaustionProperties(t *testing.T) {
 	t.Parallel()
 	binary := buildBinary(t)
@@ -1039,6 +1077,23 @@ func nestedMap(t *testing.T, parent map[string]any, key string) map[string]any {
 		t.Fatalf("%q missing or not an object: %v", key, parent[key])
 	}
 	return child
+}
+
+func stringSlice(t *testing.T, raw any) []string {
+	t.Helper()
+	values, ok := raw.([]any)
+	if !ok {
+		t.Fatalf("value is not a JSON array: %v", raw)
+	}
+	result := make([]string, 0, len(values))
+	for _, value := range values {
+		text, ok := value.(string)
+		if !ok {
+			t.Fatalf("array item is not a string: %v", value)
+		}
+		result = append(result, text)
+	}
+	return result
 }
 
 func schemaModel(schema map[string]any) string {

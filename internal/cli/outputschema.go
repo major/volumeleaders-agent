@@ -18,10 +18,8 @@ import (
 )
 
 // outputContract describes the stdout contract for one executable command.
-// It intentionally lives outside structcli because structcli v0.17.0 only
-// exposes input schemas. Keeping output contracts separate avoids changing
-// command execution paths while still giving LLM clients machine-readable
-// success shapes.
+// Keeping output contracts separate from input discovery avoids changing command
+// execution paths while still giving LLM clients machine-readable success shapes.
 type outputContract struct {
 	Command        string          `json:"command"`
 	Description    string          `json:"description"`
@@ -74,7 +72,7 @@ func newOutputSchemaCmd() *cobra.Command {
 		Short:   "Print command output contracts",
 		GroupID: "reference",
 		Args:    cobra.ArbitraryArgs,
-		Long:    "Print machine-readable stdout contracts for executable commands. With no arguments it returns every contract as a JSON array. Pass a command path such as trade list to return one contract. This describes success output only; structured errors are documented by structcli flag errors.",
+		Long:    "Print machine-readable stdout contracts for executable commands. With no arguments it returns every contract as a JSON array. Pass a command path such as trade list to return one contract. This describes success output only; input flags and required values are documented by --jsonschema.",
 		Example: `volumeleaders-agent outputschema
 volumeleaders-agent outputschema trade list`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -95,7 +93,7 @@ volumeleaders-agent outputschema trade list`,
 }
 
 func prettyFromCommand(cmd *cobra.Command) bool {
-	pretty, _ := cmd.Root().PersistentFlags().GetBool("pretty")
+	pretty, _ := cmd.Root().Flags().GetBool("pretty")
 	return pretty
 }
 

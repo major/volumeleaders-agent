@@ -12,7 +12,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/leodido/structcli"
 	"github.com/spf13/cobra"
 
 	"github.com/major/volumeleaders-agent/internal/cli/common"
@@ -76,16 +75,15 @@ func ExecuteCommand(t *testing.T, cmd *cobra.Command, ctx context.Context, args 
 	cmd.SetArgs(args)
 	cmd.SetContext(ctx)
 	propagateTestContext(cmd, ctx)
-	_, err = structcli.ExecuteC(cmd)
+	_, err = cmd.ExecuteC()
 	return outBuf.String(), errBuf.String(), err
 }
 
 // propagateTestContext layers test context values onto child commands that
-// already have a context set by structcli.Bind. During Bind, structcli
-// calls cmd.SetContext to attach its internal scope, which prevents cobra
-// from inheriting the parent context during execution. This helper walks
-// the command tree and layers TestClientKey and PrettyJSONKey onto each
-// child's existing context so that RunE handlers find the test client.
+// already have a context set during command initialization. A child command with
+// an explicit context does not inherit the parent execution context from cobra,
+// so this helper layers TestClientKey and PrettyJSONKey onto each child context
+// before RunE handlers look up the test client.
 func propagateTestContext(parent *cobra.Command, ctx context.Context) {
 	testClient := ctx.Value(common.TestClientKey)
 	prettyJSON := ctx.Value(common.PrettyJSONKey)

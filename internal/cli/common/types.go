@@ -1,27 +1,6 @@
 package common
 
-import (
-	"fmt"
-
-	"github.com/leodido/structcli"
-)
-
-func init() {
-	structcli.RegisterEnum[OutputFormat](map[OutputFormat][]string{
-		OutputFormatJSON: {"json"},
-		OutputFormatCSV:  {"csv"},
-		OutputFormatTSV:  {"tsv"},
-	})
-	structcli.RegisterEnum[OrderDirection](map[OrderDirection][]string{
-		OrderDirectionASC:  {"asc"},
-		OrderDirectionDESC: {"desc"},
-	})
-	structcli.RegisterEnum[TriStateFilter](map[TriStateFilter][]string{
-		TriStateAll:     {"-1"},
-		TriStateExclude: {"0"},
-		TriStateOnly:    {"1"},
-	})
-}
+import "fmt"
 
 // ContextKey identifies values stored in command contexts.
 type ContextKey int
@@ -99,9 +78,9 @@ func (v OrderDirection) Type() string {
 
 // TriStateFilter identifies toggle-style filters used by the VolumeLeaders API.
 // A value of -1 leaves the filter unselected, 0 excludes matching rows, and 1
-// returns only matching rows. It is string-backed so structcli can expose the
-// supported values as JSON Schema enums while the CLI still accepts the same
-// numeric-looking arguments users pass today.
+// returns only matching rows. It is string-backed so JSON Schema discovery can
+// expose supported values while the CLI still accepts the same numeric-looking
+// arguments users pass today.
 type TriStateFilter string
 
 const (

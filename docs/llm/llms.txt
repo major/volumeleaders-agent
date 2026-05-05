@@ -2,7 +2,9 @@
 
 https://github.com/major/volumeleaders-agent
 
-> volumeleaders-agent queries institutional trade data from VolumeLeaders. Use it for trades, volume leaderboards, market data, alerts, and watchlists.
+> CLI tool for querying VolumeLeaders institutional trade data
+
+volumeleaders-agent queries institutional trade data from VolumeLeaders. Use it for trades, volume leaderboards, market data, alerts, and watchlists.
 
 Auth: reads browser cookies automatically. If auth fails with exit code 2 and "Authentication required: VolumeLeaders session has expired.", log in at https://www.volumeleaders.com in your browser, then retry.
 
@@ -93,7 +95,7 @@ Watchlist workflow: watchlist configs to find keys and names, watchlist tickers 
 - [volumeleaders-agent alert edit](#volumeleaders-agent-alert-edit): Modify an existing alert configuration identified by its numeric key. Requires --key with the alert config key. Specify the fields you want to set; unspecified fields are replaced with their default values.
 - [volumeleaders-agent market earnings](#volumeleaders-agent-market-earnings): Query the earnings calendar for a date range, showing tickers with earnings dates and associated trade activity counts. Requires --start-date and --end-date (or --days). Outputs compact JSON or CSV/TSV with --format. PREREQUISITES: provide a date range with --days or explicit start and end dates. RECOVERY: if date validation fails, use --days N for the fastest retry or provide both --start-date and --end-date. NEXT STEPS: run trade list for tickers near earnings, then market exhaustion for broader reversal context.
 - [volumeleaders-agent market exhaustion](#volumeleaders-agent-market-exhaustion): Query exhaustion scores that indicate overbought or oversold market conditions based on institutional trade clustering patterns. Omit --date to query the current trading day. Outputs compact JSON with rank metrics at different lookback periods.
-- [volumeleaders-agent outputschema](#volumeleaders-agent-outputschema): Print machine-readable stdout contracts for executable commands. With no arguments it returns every contract as a JSON array. Pass a command path such as trade list to return one contract. This describes success output only; structured errors are documented by structcli flag errors.
+- [volumeleaders-agent outputschema](#volumeleaders-agent-outputschema): Print machine-readable stdout contracts for executable commands. With no arguments it returns every contract as a JSON array. Pass a command path such as trade list to return one contract. This describes success output only; input flags and required values are documented by --jsonschema.
 - [volumeleaders-agent report dark-pool-20x](#volumeleaders-agent-report-dark-pool-20x): Run the 20x Dark Pool Only report with fixed VolumeLeaders browser-preset filters.
 
 Returns the site-vetted top 100 ranked dark-pool-only preset for trades at least twenty times average size. Use this for unusually large dark-pool prints without adding raw dark-pool filters.
@@ -289,867 +291,626 @@ Ratio is bull dollars divided by bear dollars and is null when bear flow is zero
 - [volumeleaders-agent watchlist edit](#volumeleaders-agent-watchlist-edit): Modify an existing watchlist configuration identified by its numeric key. Requires --key with the watchlist key. Specify the fields you want to set; unspecified fields are replaced with their default values.
 - [volumeleaders-agent watchlist tickers](#volumeleaders-agent-watchlist-tickers): Query the ticker symbols belonging to a specific watchlist identified by --watchlist-key. Returns all tickers in the watchlist with their metadata. Outputs compact JSON or CSV/TSV with --format.
 
-## volumeleaders-agent alert configs
-
-List all saved alert configurations with their keys, names, ticker filters, trade conditions, and notification settings. Outputs compact JSON or CSV/TSV with --format. Use --fields to select specific output fields.
+## Configuration
 
 ### Flags
 
-- `--fields` (string): Comma-separated fields to include (use 'all' for every field)
-- `--format` (string, default: json): Output format: json, csv, or tsv
-
-## volumeleaders-agent alert create
-
-Create a new alert configuration with a name and filter settings for institutional trade activity. Requires --name. Specify filters such as trade rank, dollar thresholds, dark pool and sweep conditions, and ticker scope. Returns a success response with the new configuration key.
-
-### Flags
-
-- `--ah-dollars-gte` (int, default: 0): After-hours dollars >=
-- `--ah-rank-lte` (int, default: 0): After-hours rank <=
-- `--ah-volume-gte` (int, default: 0): After-hours volume >=
-- `--closing-trade-conditions` (string, default: 0): Closing trade conditions
-- `--closing-trade-dollars-gte` (int, default: 0): Closing trade dollars >=
-- `--closing-trade-mult-gte` (int, default: 0): Closing trade multiplier >=
-- `--closing-trade-rank-lte` (int, default: 0): Closing trade rank <=
-- `--closing-trade-vcd-gte` (int, default: 0): Closing trade VCD >= (0/97/98/99/100)
-- `--closing-trade-volume-gte` (int, default: 0): Closing trade volume >=
-- `--cluster-dollars-gte` (int, default: 0): Trade cluster dollars >=
-- `--cluster-mult-gte` (int, default: 0): Trade cluster multiplier >=
-- `--cluster-rank-lte` (int, default: 0): Trade cluster rank <=
-- `--cluster-vcd-gte` (int, default: 0): Trade cluster VCD >= (0/97/98/99/100)
-- `--cluster-volume-gte` (int, default: 0): Trade cluster volume >=
-- `--dark-pool` (bool, default: false): Dark pool filter
-- `--name` (string, required): Alert name (max 50 chars)
-- `--offsetting-print` (bool, default: false): Offsetting print filter
-- `--phantom-print` (bool, default: false): Phantom print filter
-- `--sweep` (bool, default: false): Sweep filter
-- `--ticker-group` (string, default: AllTickers): Ticker group: AllTickers or SelectedTickers
-- `--tickers` (string): Comma-separated ticker symbols (max 500, used with SelectedTickers)
-- `--total-dollars-gte` (int, default: 0): Total dollars >=
-- `--total-rank-lte` (int, default: 0): Total rank <= (0/1/3/10/25/50/100)
-- `--total-volume-gte` (int, default: 0): Total volume >=
-- `--trade-conditions` (string, default: 0): Trade conditions (0=N/A, OBH/OBD/OSH/OSD combos)
-- `--trade-dollars-gte` (int, default: 0): Trade dollars >= (0=N/A, 1000000/10000000/...)
-- `--trade-mult-gte` (int, default: 0): Trade multiplier >= (0=N/A, 5/10/25/50/100)
-- `--trade-rank-lte` (int, default: 0): Trade rank <= (0=N/A, 1/3/5/10/25/50/100)
-- `--trade-vcd-gte` (int, default: 0): Trade VCD >= (0=N/A, 99/100)
-- `--trade-volume-gte` (int, default: 0): Trade volume >= (0=N/A, 1000000/2000000/5000000/10000000)
-
-## volumeleaders-agent alert delete
-
-Remove a saved alert configuration by its numeric key. Requires --key with the alert config key (visible in configs output). The deletion is permanent and cannot be undone.
-
-### Flags
-
-- `--key` (int, default: 0, required): Alert config key to delete
-
-## volumeleaders-agent alert edit
-
-Modify an existing alert configuration identified by its numeric key. Requires --key with the alert config key. Specify the fields you want to set; unspecified fields are replaced with their default values.
-
-### Flags
-
-- `--ah-dollars-gte` (int, default: 0): After-hours dollars >=
-- `--ah-rank-lte` (int, default: 0): After-hours rank <=
-- `--ah-volume-gte` (int, default: 0): After-hours volume >=
-- `--closing-trade-conditions` (string, default: 0): Closing trade conditions
-- `--closing-trade-dollars-gte` (int, default: 0): Closing trade dollars >=
-- `--closing-trade-mult-gte` (int, default: 0): Closing trade multiplier >=
-- `--closing-trade-rank-lte` (int, default: 0): Closing trade rank <=
-- `--closing-trade-vcd-gte` (int, default: 0): Closing trade VCD >= (0/97/98/99/100)
-- `--closing-trade-volume-gte` (int, default: 0): Closing trade volume >=
-- `--cluster-dollars-gte` (int, default: 0): Trade cluster dollars >=
-- `--cluster-mult-gte` (int, default: 0): Trade cluster multiplier >=
-- `--cluster-rank-lte` (int, default: 0): Trade cluster rank <=
-- `--cluster-vcd-gte` (int, default: 0): Trade cluster VCD >= (0/97/98/99/100)
-- `--cluster-volume-gte` (int, default: 0): Trade cluster volume >=
-- `--dark-pool` (bool, default: false): Dark pool filter
-- `--key` (int, default: 0, required): Alert config key to edit
-- `--name` (string): Alert name (max 50 chars)
-- `--offsetting-print` (bool, default: false): Offsetting print filter
-- `--phantom-print` (bool, default: false): Phantom print filter
-- `--sweep` (bool, default: false): Sweep filter
-- `--ticker-group` (string, default: AllTickers): Ticker group: AllTickers or SelectedTickers
-- `--tickers` (string): Comma-separated ticker symbols (max 500, used with SelectedTickers)
-- `--total-dollars-gte` (int, default: 0): Total dollars >=
-- `--total-rank-lte` (int, default: 0): Total rank <= (0/1/3/10/25/50/100)
-- `--total-volume-gte` (int, default: 0): Total volume >=
-- `--trade-conditions` (string, default: 0): Trade conditions (0=N/A, OBH/OBD/OSH/OSD combos)
-- `--trade-dollars-gte` (int, default: 0): Trade dollars >= (0=N/A, 1000000/10000000/...)
-- `--trade-mult-gte` (int, default: 0): Trade multiplier >= (0=N/A, 5/10/25/50/100)
-- `--trade-rank-lte` (int, default: 0): Trade rank <= (0=N/A, 1/3/5/10/25/50/100)
-- `--trade-vcd-gte` (int, default: 0): Trade VCD >= (0=N/A, 99/100)
-- `--trade-volume-gte` (int, default: 0): Trade volume >= (0=N/A, 1000000/2000000/5000000/10000000)
-
-## volumeleaders-agent market earnings
-
-Query the earnings calendar for a date range, showing tickers with earnings dates and associated trade activity counts. Requires --start-date and --end-date (or --days). Outputs compact JSON or CSV/TSV with --format. PREREQUISITES: provide a date range with --days or explicit start and end dates. RECOVERY: if date validation fails, use --days N for the fastest retry or provide both --start-date and --end-date. NEXT STEPS: run trade list for tickers near earnings, then market exhaustion for broader reversal context.
-
-### Flags
-
-- `--days` (int, default: 0): Look back this many days from --end-date or today
-- `--end-date` (string): End date YYYY-MM-DD (required unless --days is set)
-- `--fields` (string): Comma-separated fields to include (use 'all' for every field)
-- `--format` (string, default: json): Output format: json, csv, or tsv
-- `--start-date` (string): Start date YYYY-MM-DD (required unless --days is set)
-
-## volumeleaders-agent market exhaustion
-
-Query exhaustion scores that indicate overbought or oversold market conditions based on institutional trade clustering patterns. Omit --date to query the current trading day. Outputs compact JSON with rank metrics at different lookback periods.
-
-### Flags
-
-- `--date` (string): Date YYYY-MM-DD (empty for current day)
-
-## volumeleaders-agent outputschema
-
-Print machine-readable stdout contracts for executable commands. With no arguments it returns every contract as a JSON array. Pass a command path such as trade list to return one contract. This describes success output only; structured errors are documented by structcli flag errors.
-
-## volumeleaders-agent report dark-pool-20x
-
-Run the 20x Dark Pool Only report with fixed VolumeLeaders browser-preset filters.
-
-Returns the site-vetted top 100 ranked dark-pool-only preset for trades at least twenty times average size. Use this for unusually large dark-pool prints without adding raw dark-pool filters.
-
-Reports are the recommended entry point for users and LLMs. They expose only safe overrides: tickers, dates, fields, summary grouping, and output format. Do not hand-build low-level filters unless this curated report cannot answer the question; use trade list --preset as the advanced escape hatch.
-
-Defaults to today only. Multi-day broad scans without tickers are rejected to avoid expensive requests and backend timeouts. Results are fetched in browser-sized 100-row pages and ordered by time descending.
-
-RECOVERY: If the report is too broad, add --tickers or query one day at a time. If a custom filter is truly required, run report list to inspect the vetted filters, then use trade list --preset rather than assembling raw filter flags.
-
-### Flags
-
-- `--days` (int, default: 0): Look back this many days from --end-date or today; broad scans require a single day
-- `--end-date` (string): End date YYYY-MM-DD (default: today)
-- `--fields` (string): Comma-separated raw Trade fields to include, or omit for compact JSON
-- `--format` (string, default: json): Output format: json, csv, or tsv
-- `--group-by` (string, default: ticker): Summary grouping (requires --summary): ticker, day, or ticker,day
-- `--start-date` (string): Start date YYYY-MM-DD (default: today)
-- `--summary` (bool, default: false): Return aggregate metrics instead of individual trades
-- `--tickers` (string): Comma-separated ticker symbols; use this for multi-day report lookbacks
-
-## volumeleaders-agent report dark-pool-sweeps
-
-Run the Dark Pool Sweeps report with fixed VolumeLeaders browser-preset filters.
-
-Returns the site-vetted dark pool sweep preset: top 100 ranked dark pool sweeps during premarket and regular trading hours, excluding after-hours, opening, closing, phantom, and signature prints.
-
-Reports are the recommended entry point for users and LLMs. They expose only safe overrides: tickers, dates, fields, summary grouping, and output format. Do not hand-build low-level filters unless this curated report cannot answer the question; use trade list --preset as the advanced escape hatch.
-
-Defaults to today only. Multi-day broad scans without tickers are rejected to avoid expensive requests and backend timeouts. Results are fetched in browser-sized 100-row pages and ordered by time descending.
-
-RECOVERY: If the report is too broad, add --tickers or query one day at a time. If a custom filter is truly required, run report list to inspect the vetted filters, then use trade list --preset rather than assembling raw filter flags.
-
-### Flags
-
-- `--days` (int, default: 0): Look back this many days from --end-date or today; broad scans require a single day
-- `--end-date` (string): End date YYYY-MM-DD (default: today)
-- `--fields` (string): Comma-separated raw Trade fields to include, or omit for compact JSON
-- `--format` (string, default: json): Output format: json, csv, or tsv
-- `--group-by` (string, default: ticker): Summary grouping (requires --summary): ticker, day, or ticker,day
-- `--start-date` (string): Start date YYYY-MM-DD (default: today)
-- `--summary` (bool, default: false): Return aggregate metrics instead of individual trades
-- `--tickers` (string): Comma-separated ticker symbols; use this for multi-day report lookbacks
-
-## volumeleaders-agent report disproportionately-large
-
-Run the Disproportionately Large report with fixed VolumeLeaders browser-preset filters.
-
-Returns the site-vetted 5x relative size scan. Use this when the user asks for unusually large prints, disproportionate activity, or trades that are at least five times normal block size.
-
-Reports are the recommended entry point for users and LLMs. They expose only safe overrides: tickers, dates, fields, summary grouping, and output format. Do not hand-build low-level filters unless this curated report cannot answer the question; use trade list --preset as the advanced escape hatch.
-
-Defaults to today only. Multi-day broad scans without tickers are rejected to avoid expensive requests and backend timeouts. Results are fetched in browser-sized 100-row pages and ordered by time descending.
-
-RECOVERY: If the report is too broad, add --tickers or query one day at a time. If a custom filter is truly required, run report list to inspect the vetted filters, then use trade list --preset rather than assembling raw filter flags.
-
-### Flags
-
-- `--days` (int, default: 0): Look back this many days from --end-date or today; broad scans require a single day
-- `--end-date` (string): End date YYYY-MM-DD (default: today)
-- `--fields` (string): Comma-separated raw Trade fields to include, or omit for compact JSON
-- `--format` (string, default: json): Output format: json, csv, or tsv
-- `--group-by` (string, default: ticker): Summary grouping (requires --summary): ticker, day, or ticker,day
-- `--start-date` (string): Start date YYYY-MM-DD (default: today)
-- `--summary` (bool, default: false): Return aggregate metrics instead of individual trades
-- `--tickers` (string): Comma-separated ticker symbols; use this for multi-day report lookbacks
-
-## volumeleaders-agent report leveraged-etfs
-
-Run the Leveraged ETFs report with fixed VolumeLeaders browser-preset filters.
-
-Returns the site-vetted top 100 ranked leveraged ETF preset. Use this for broad ranked activity in leveraged and inverse ETF products without hand-building sector filters.
-
-Reports are the recommended entry point for users and LLMs. They expose only safe overrides: tickers, dates, fields, summary grouping, and output format. Do not hand-build low-level filters unless this curated report cannot answer the question; use trade list --preset as the advanced escape hatch.
-
-Defaults to today only. Multi-day broad scans without tickers are rejected to avoid expensive requests and backend timeouts. Results are fetched in browser-sized 100-row pages and ordered by time descending.
-
-RECOVERY: If the report is too broad, add --tickers or query one day at a time. If a custom filter is truly required, run report list to inspect the vetted filters, then use trade list --preset rather than assembling raw filter flags.
-
-### Flags
-
-- `--days` (int, default: 0): Look back this many days from --end-date or today; broad scans require a single day
-- `--end-date` (string): End date YYYY-MM-DD (default: today)
-- `--fields` (string): Comma-separated raw Trade fields to include, or omit for compact JSON
-- `--format` (string, default: json): Output format: json, csv, or tsv
-- `--group-by` (string, default: ticker): Summary grouping (requires --summary): ticker, day, or ticker,day
-- `--start-date` (string): Start date YYYY-MM-DD (default: today)
-- `--summary` (bool, default: false): Return aggregate metrics instead of individual trades
-- `--tickers` (string): Comma-separated ticker symbols; use this for multi-day report lookbacks
-
-## volumeleaders-agent report list
-
-List curated report commands, their source VolumeLeaders preset names, and their fixed filter configurations. Use these reports before raw trade list filters because they avoid expensive, timeout-prone filter combinations and expose only the safe override surface.
-
-### Flags
-
-- `--format` (string, default: json): Output format: json, csv, or tsv
-
-## volumeleaders-agent report offsetting-trades
-
-Run the Offsetting Trades report with fixed VolumeLeaders browser-preset filters.
-
-Returns the site-vetted offsetting trades preset, excluding normal trading sessions and phantom trades. Use this when the user specifically asks for offsetting trade activity.
-
-Reports are the recommended entry point for users and LLMs. They expose only safe overrides: tickers, dates, fields, summary grouping, and output format. Do not hand-build low-level filters unless this curated report cannot answer the question; use trade list --preset as the advanced escape hatch.
-
-Defaults to today only. Multi-day broad scans without tickers are rejected to avoid expensive requests and backend timeouts. Results are fetched in browser-sized 100-row pages and ordered by time descending.
-
-RECOVERY: If the report is too broad, add --tickers or query one day at a time. If a custom filter is truly required, run report list to inspect the vetted filters, then use trade list --preset rather than assembling raw filter flags.
-
-### Flags
-
-- `--days` (int, default: 0): Look back this many days from --end-date or today; broad scans require a single day
-- `--end-date` (string): End date YYYY-MM-DD (default: today)
-- `--fields` (string): Comma-separated raw Trade fields to include, or omit for compact JSON
-- `--format` (string, default: json): Output format: json, csv, or tsv
-- `--group-by` (string, default: ticker): Summary grouping (requires --summary): ticker, day, or ticker,day
-- `--start-date` (string): Start date YYYY-MM-DD (default: today)
-- `--summary` (bool, default: false): Return aggregate metrics instead of individual trades
-- `--tickers` (string): Comma-separated ticker symbols; use this for multi-day report lookbacks
-
-## volumeleaders-agent report phantom-trades
-
-Run the Phantom Trades report with fixed VolumeLeaders browser-preset filters.
-
-Returns the site-vetted phantom trades preset, excluding normal trading sessions and offsetting trades. Use this when the user specifically asks for phantom print activity.
-
-Reports are the recommended entry point for users and LLMs. They expose only safe overrides: tickers, dates, fields, summary grouping, and output format. Do not hand-build low-level filters unless this curated report cannot answer the question; use trade list --preset as the advanced escape hatch.
-
-Defaults to today only. Multi-day broad scans without tickers are rejected to avoid expensive requests and backend timeouts. Results are fetched in browser-sized 100-row pages and ordered by time descending.
-
-RECOVERY: If the report is too broad, add --tickers or query one day at a time. If a custom filter is truly required, run report list to inspect the vetted filters, then use trade list --preset rather than assembling raw filter flags.
-
-### Flags
-
-- `--days` (int, default: 0): Look back this many days from --end-date or today; broad scans require a single day
-- `--end-date` (string): End date YYYY-MM-DD (default: today)
-- `--fields` (string): Comma-separated raw Trade fields to include, or omit for compact JSON
-- `--format` (string, default: json): Output format: json, csv, or tsv
-- `--group-by` (string, default: ticker): Summary grouping (requires --summary): ticker, day, or ticker,day
-- `--start-date` (string): Start date YYYY-MM-DD (default: today)
-- `--summary` (bool, default: false): Return aggregate metrics instead of individual trades
-- `--tickers` (string): Comma-separated ticker symbols; use this for multi-day report lookbacks
-
-## volumeleaders-agent report rsi-overbought
-
-Run the RSI Overbought report with fixed VolumeLeaders browser-preset filters.
-
-Returns the site-vetted top 100 ranked RSI overbought preset with trades at least five times average size. Use this when looking for high-rank prints in overbought names.
-
-Reports are the recommended entry point for users and LLMs. They expose only safe overrides: tickers, dates, fields, summary grouping, and output format. Do not hand-build low-level filters unless this curated report cannot answer the question; use trade list --preset as the advanced escape hatch.
-
-Defaults to today only. Multi-day broad scans without tickers are rejected to avoid expensive requests and backend timeouts. Results are fetched in browser-sized 100-row pages and ordered by time descending.
-
-RECOVERY: If the report is too broad, add --tickers or query one day at a time. If a custom filter is truly required, run report list to inspect the vetted filters, then use trade list --preset rather than assembling raw filter flags.
-
-### Flags
-
-- `--days` (int, default: 0): Look back this many days from --end-date or today; broad scans require a single day
-- `--end-date` (string): End date YYYY-MM-DD (default: today)
-- `--fields` (string): Comma-separated raw Trade fields to include, or omit for compact JSON
-- `--format` (string, default: json): Output format: json, csv, or tsv
-- `--group-by` (string, default: ticker): Summary grouping (requires --summary): ticker, day, or ticker,day
-- `--start-date` (string): Start date YYYY-MM-DD (default: today)
-- `--summary` (bool, default: false): Return aggregate metrics instead of individual trades
-- `--tickers` (string): Comma-separated ticker symbols; use this for multi-day report lookbacks
-
-## volumeleaders-agent report rsi-oversold
-
-Run the RSI Oversold report with fixed VolumeLeaders browser-preset filters.
-
-Returns the site-vetted top 100 ranked RSI oversold preset with trades at least five times average size. Use this when looking for high-rank prints in oversold names.
-
-Reports are the recommended entry point for users and LLMs. They expose only safe overrides: tickers, dates, fields, summary grouping, and output format. Do not hand-build low-level filters unless this curated report cannot answer the question; use trade list --preset as the advanced escape hatch.
-
-Defaults to today only. Multi-day broad scans without tickers are rejected to avoid expensive requests and backend timeouts. Results are fetched in browser-sized 100-row pages and ordered by time descending.
-
-RECOVERY: If the report is too broad, add --tickers or query one day at a time. If a custom filter is truly required, run report list to inspect the vetted filters, then use trade list --preset rather than assembling raw filter flags.
-
-### Flags
-
-- `--days` (int, default: 0): Look back this many days from --end-date or today; broad scans require a single day
-- `--end-date` (string): End date YYYY-MM-DD (default: today)
-- `--fields` (string): Comma-separated raw Trade fields to include, or omit for compact JSON
-- `--format` (string, default: json): Output format: json, csv, or tsv
-- `--group-by` (string, default: ticker): Summary grouping (requires --summary): ticker, day, or ticker,day
-- `--start-date` (string): Start date YYYY-MM-DD (default: today)
-- `--summary` (bool, default: false): Return aggregate metrics instead of individual trades
-- `--tickers` (string): Comma-separated ticker symbols; use this for multi-day report lookbacks
-
-## volumeleaders-agent report top-10-rank
-
-Run the Top 10 Ranked Trades report with fixed VolumeLeaders browser-preset filters.
-
-Returns the strongest ranked institutional prints using the site-vetted top 10 preset. Use this when the user asks for the highest-conviction trades without needing a broader top 100 scan.
-
-Reports are the recommended entry point for users and LLMs. They expose only safe overrides: tickers, dates, fields, summary grouping, and output format. Do not hand-build low-level filters unless this curated report cannot answer the question; use trade list --preset as the advanced escape hatch.
-
-Defaults to today only. Multi-day broad scans without tickers are rejected to avoid expensive requests and backend timeouts. Results are fetched in browser-sized 100-row pages and ordered by time descending.
-
-RECOVERY: If the report is too broad, add --tickers or query one day at a time. If a custom filter is truly required, run report list to inspect the vetted filters, then use trade list --preset rather than assembling raw filter flags.
-
-### Flags
-
-- `--days` (int, default: 0): Look back this many days from --end-date or today; broad scans require a single day
-- `--end-date` (string): End date YYYY-MM-DD (default: today)
-- `--fields` (string): Comma-separated raw Trade fields to include, or omit for compact JSON
-- `--format` (string, default: json): Output format: json, csv, or tsv
-- `--group-by` (string, default: ticker): Summary grouping (requires --summary): ticker, day, or ticker,day
-- `--start-date` (string): Start date YYYY-MM-DD (default: today)
-- `--summary` (bool, default: false): Return aggregate metrics instead of individual trades
-- `--tickers` (string): Comma-separated ticker symbols; use this for multi-day report lookbacks
-
-## volumeleaders-agent report top-100-rank
-
-Run the Top 100 Ranked Trades report with fixed VolumeLeaders browser-preset filters.
-
-Returns the site-vetted top 100 ranked institutional trades preset. Use this before manual TradeRank filters because it preserves the browser preset shape and avoids oversized custom queries.
-
-Reports are the recommended entry point for users and LLMs. They expose only safe overrides: tickers, dates, fields, summary grouping, and output format. Do not hand-build low-level filters unless this curated report cannot answer the question; use trade list --preset as the advanced escape hatch.
-
-Defaults to today only. Multi-day broad scans without tickers are rejected to avoid expensive requests and backend timeouts. Results are fetched in browser-sized 100-row pages and ordered by time descending.
-
-RECOVERY: If the report is too broad, add --tickers or query one day at a time. If a custom filter is truly required, run report list to inspect the vetted filters, then use trade list --preset rather than assembling raw filter flags.
-
-### Flags
-
-- `--days` (int, default: 0): Look back this many days from --end-date or today; broad scans require a single day
-- `--end-date` (string): End date YYYY-MM-DD (default: today)
-- `--fields` (string): Comma-separated raw Trade fields to include, or omit for compact JSON
-- `--format` (string, default: json): Output format: json, csv, or tsv
-- `--group-by` (string, default: ticker): Summary grouping (requires --summary): ticker, day, or ticker,day
-- `--start-date` (string): Start date YYYY-MM-DD (default: today)
-- `--summary` (bool, default: false): Return aggregate metrics instead of individual trades
-- `--tickers` (string): Comma-separated ticker symbols; use this for multi-day report lookbacks
-
-## volumeleaders-agent report top-30-rank-10x-99th
-
-Run the Top 30 Rank, 10x Average Size, 99th Percentile report with fixed VolumeLeaders browser-preset filters.
-
-Returns the site-vetted top 30 ranked preset for trades above ten times average size and in the 99th cumulative distribution percentile. Use this when the user asks for the strongest extreme-size prints.
-
-Reports are the recommended entry point for users and LLMs. They expose only safe overrides: tickers, dates, fields, summary grouping, and output format. Do not hand-build low-level filters unless this curated report cannot answer the question; use trade list --preset as the advanced escape hatch.
-
-Defaults to today only. Multi-day broad scans without tickers are rejected to avoid expensive requests and backend timeouts. Results are fetched in browser-sized 100-row pages and ordered by time descending.
-
-RECOVERY: If the report is too broad, add --tickers or query one day at a time. If a custom filter is truly required, run report list to inspect the vetted filters, then use trade list --preset rather than assembling raw filter flags.
-
-### Flags
-
-- `--days` (int, default: 0): Look back this many days from --end-date or today; broad scans require a single day
-- `--end-date` (string): End date YYYY-MM-DD (default: today)
-- `--fields` (string): Comma-separated raw Trade fields to include, or omit for compact JSON
-- `--format` (string, default: json): Output format: json, csv, or tsv
-- `--group-by` (string, default: ticker): Summary grouping (requires --summary): ticker, day, or ticker,day
-- `--start-date` (string): Start date YYYY-MM-DD (default: today)
-- `--summary` (bool, default: false): Return aggregate metrics instead of individual trades
-- `--tickers` (string): Comma-separated ticker symbols; use this for multi-day report lookbacks
-
-## volumeleaders-agent trade alerts
-
-Query trade alerts fired on a specific date based on saved alert configurations. Requires --date. Returns alert records matching your configured filters. Outputs compact JSON or CSV/TSV with --format.
-
-Alert configs trigger when trades match thresholds. Threshold names follow the pattern CategoryMetricLTE or CategoryMetricGTE where LTE is maximum rank and GTE is minimum value. Use alert configs to see your configured thresholds.
-
-### Flags
-
-- `--date` (string, required): Date YYYY-MM-DD
-- `--format` (string, default: json): Output format: json, csv, or tsv
-- `--length` (int, default: 100): Number of results
-- `--order-col` (int, default: 1): Order column index
-- `--order-dir` (string, default: desc): Order direction
-- `--start` (int, default: 0): DataTables start offset
-
-## volumeleaders-agent trade cluster-alerts
-
-Query trade cluster alerts fired on a specific date based on saved alert configurations that target cluster activity. Requires --date. Returns cluster alert records matching your configured filters.
-
-Cluster alert rows use the full cluster-shaped model rather than the compact default from trade clusters. Use trade alerts for individual trade alert rows and this command for cluster-level alert rows.
-
-### Flags
-
-- `--date` (string, required): Date YYYY-MM-DD
-- `--format` (string, default: json): Output format: json, csv, or tsv
-- `--length` (int, default: 100): Number of results
-- `--order-col` (int, default: 1): Order column index
-- `--order-dir` (string, default: desc): Order direction
-- `--start` (int, default: 0): DataTables start offset
-
-## volumeleaders-agent trade cluster-bombs
-
-Query trade cluster bombs, which are extreme-magnitude trade clusters that exceed normal institutional activity thresholds. Filterable by ticker, date range, dollar amounts, sector, and cluster bomb rank. Outputs compact JSON by default.
-
-Results are fetched in browser-sized 100-row pages to match VolumeLeaders' frontend behavior. Cluster bombs find sudden aggressive bursts tightly grouped in time and price, with different defaults and rank fields than trade clusters. Use this command when looking for extreme concentration events, not general price-level clustering.
-
-### Flags
-
-- `--days` (int, default: 0): Look back this many days from --end-date or today
-- `--end-date` (string): End date YYYY-MM-DD (required unless --days is set)
-- `--format` (string, default: json): Output format: json, csv, or tsv
-- `--max-dollars` (float64, default: 30000000000): Maximum dollar value
-- `--max-volume` (int, default: 2000000000): Maximum volume
-- `--min-dollars` (float64, default: 0): Minimum dollar value
-- `--min-volume` (int, default: 0): Minimum volume
-- `--order-col` (int, default: 1): Order column index
-- `--order-dir` (string, default: desc): Order direction
-- `--relative-size` (int, default: 0): Relative size threshold
-- `--sector` (string): Sector/Industry filter
-- `--security-type` (int, default: 0): Security type key
-- `--start` (int, default: 0): DataTables start offset
-- `--start-date` (string): Start date YYYY-MM-DD (required unless --days is set)
-- `--tickers` (string): Comma-separated ticker symbols
-- `--trade-cluster-bomb-rank` (int, default: -1): Trade cluster bomb rank filter
-- `--vcd` (int, default: 0): VCD filter
-
-## volumeleaders-agent trade clusters
-
-Query aggregated trade clusters, which group multiple trades in a short window into a single cluster record. Filterable by ticker, date range, dollar amounts, sector, and trade cluster rank. Outputs compact JSON or CSV/TSV with --format.
-
-
-Results are fetched in browser-sized 100-row pages to match VolumeLeaders' frontend behavior. Use clusters when the question is about price-level concentration, not single prints. This command uses larger default dollar thresholds than ordinary trade list. Use trade cluster-bombs instead when looking for sudden aggressive bursts tightly grouped in time and price.
-
-### Flags
-
-- `--days` (int, default: 0): Look back this many days from --end-date or today
-- `--end-date` (string): End date YYYY-MM-DD (required unless --days is set)
-- `--fields` (string): Comma-separated TradeCluster fields to include in output, or 'all' for every field
-- `--format` (string, default: json): Output format: json, csv, or tsv
-- `--max-dollars` (float64, default: 30000000000): Maximum dollar value
-- `--max-price` (float64, default: 100000): Maximum price
-- `--max-volume` (int, default: 2000000000): Maximum volume
-- `--min-dollars` (float64, default: 10000000): Minimum dollar value
-- `--min-price` (float64, default: 0): Minimum price
-- `--min-volume` (int, default: 0): Minimum volume
-- `--order-col` (int, default: 1): Order column index
-- `--order-dir` (string, default: desc): Order direction
-- `--relative-size` (int, default: 5): Relative size threshold
-- `--sector` (string): Sector/Industry filter
-- `--security-type` (int, default: -1): Security type key
-- `--start` (int, default: 0): DataTables start offset
-- `--start-date` (string): Start date YYYY-MM-DD (required unless --days is set)
-- `--tickers` (string): Comma-separated ticker symbols
-- `--trade-cluster-rank` (int, default: -1): Trade cluster rank filter
-- `--vcd` (int, default: 0): VCD filter
-
-## volumeleaders-agent trade dashboard
-
-Query a fast ticker dashboard with the same chart-optimized institutional context VolumeLeaders shows in the browser. The dashboard fetches the largest trades, trade clusters, trade levels, and cluster bombs for one ticker in a single JSON object.
-
-Defaults to a 365-day lookback, 10 rows per section, --vcd 0, --relative-size 0, and the same broad trade/session filters used by the browser chart page. Use this command as the first stop for any single-ticker investigation, including institutional levels, largest trades, clustered activity, or sudden bursts, then drill into trade list, trade clusters, trade levels, or trade cluster-bombs only when a section needs deeper pagination, CSV/TSV output, or explicit field selection.
-
-PREREQUISITES: Provide exactly one ticker as a positional argument or with --ticker. Browser authentication must be available.
-
-RECOVERY: If ticker validation fails, use one ticker only. If --count is rejected, use 5, 10, 20, or 50. If date flags conflict, use either --days or --start-date with --end-date.
-
-### Flags
-
-- `--ah` (string, default: 1): After-hours session filter (-1=all, 0=exclude, 1=include)
-- `--closing` (string, default: 1): Closing trade filter (-1=all, 0=exclude, 1=include)
-- `--conditions` (int, default: -1): Trade conditions filter
-- `--count` (int, default: 10): Rows to return per dashboard section (5, 10, 20, or 50)
-- `--dark-pools` (string, default: -1): Dark pool filter (-1=all, 0=exclude, 1=only)
-- `--days` (int, default: 0): Look back this many days from --end-date or today
-- `--end-date` (string): End date YYYY-MM-DD (default: today)
-- `--even-shared` (string, default: -1): Even shared filter (-1=all, 0=exclude, 1=only)
-- `--late-prints` (string, default: -1): Late print filter (-1=all, 0=exclude, 1=only)
-- `--market-cap` (int, default: 0): Market cap filter
-- `--max-dollars` (float64, default: 30000000000): Maximum dollar value
-- `--max-price` (float64, default: 100000): Maximum price
-- `--max-volume` (int, default: 2000000000): Maximum volume
-- `--min-dollars` (float64, default: 500000): Minimum dollar value
-- `--min-price` (float64, default: 0): Minimum price
-- `--min-volume` (int, default: 0): Minimum volume
-- `--offsetting` (string, default: 1): Offsetting trade filter (-1=all, 0=exclude, 1=include)
-- `--opening` (string, default: 1): Opening trade filter (-1=all, 0=exclude, 1=include)
-- `--phantom` (string, default: 1): Phantom print filter (-1=all, 0=exclude, 1=include)
-- `--premarket` (string, default: 1): Premarket session filter (-1=all, 0=exclude, 1=include)
-- `--rank-snapshot` (int, default: -1): Trade rank snapshot filter
-- `--relative-size` (int, default: 0): Relative size threshold
-- `--rth` (string, default: 1): Regular trading hours filter (-1=all, 0=exclude, 1=include)
-- `--security-type` (int, default: -1): Security type key
-- `--sig-prints` (string, default: -1): Signature print filter (-1=all, 0=exclude, 1=only)
-- `--start-date` (string): Start date YYYY-MM-DD (default: auto)
-- `--sweeps` (string, default: -1): Sweep filter (-1=all, 0=exclude, 1=only)
-- `--ticker` (string): Ticker symbol
-- `--trade-rank` (int, default: -1): Trade rank filter
-- `--vcd` (int, default: 0): VCD filter
-
-## volumeleaders-agent trade level-touches
-
-Query institutional trade events that occurred at notable price levels for a ticker, showing how the market interacted with key support and resistance zones. Accepts a ticker as positional argument or via --ticker flag. Requires --start-date and --end-date (or --days).
-
-Defaults to --trade-level-rank 5 and --length 50, rejects --length -1, --length 0, and values above 50, and only allows --trade-level-count values of 5, 10, 20, or 50. Use trade levels first to identify significant price zones, then use this command to find events where price revisited those levels.
-
-PREREQUISITES: Provide exactly one ticker and a date range with --start-date and --end-date or --days.
-
-RECOVERY: If --length is rejected, use 1 to 50. If --trade-level-count is rejected, use 5, 10, 20, or 50. If --trade-level-rank is rejected, use 5 or higher. If dates are missing, add --days N for a quick retry.
-
-NEXT STEPS: Compare touched levels with fresh trade list output to see whether recent institutional prints confirm or reject the level.
-
-### Flags
-
-- `--days` (int, default: 0): Look back this many days from --end-date or today
-- `--end-date` (string): End date YYYY-MM-DD (required unless --days is set)
-- `--format` (string, default: json): Output format: json, csv, or tsv
-- `--length` (int, default: 50): Number of results
-- `--max-dollars` (float64, default: 30000000000): Maximum dollar value
-- `--max-price` (float64, default: 100000): Maximum price
-- `--max-volume` (int, default: 2000000000): Maximum volume
-- `--min-dollars` (float64, default: 500000): Minimum dollar value
-- `--min-price` (float64, default: 0): Minimum price
-- `--min-volume` (int, default: 0): Minimum volume
-- `--order-col` (int, default: 0): Order column index
-- `--order-dir` (string, default: desc): Order direction
-- `--relative-size` (int, default: 0): Relative size threshold
-- `--start` (int, default: 0): DataTables start offset
-- `--start-date` (string): Start date YYYY-MM-DD (required unless --days is set)
-- `--ticker` (string): Ticker symbol
-- `--trade-level-count` (int, default: 50): Number of price levels to include (5, 10, 20, or 50)
-- `--trade-level-rank` (int, default: 5): Trade level rank filter
-- `--vcd` (int, default: 0): VCD filter
-
-## volumeleaders-agent trade levels
-
-Query significant price levels for a ticker, showing historical support and resistance zones identified by institutional trade clustering. Accepts a ticker as positional argument or via --ticker flag. Outputs compact JSON by default.
-
-Defaults to a 365-day lookback when dates are omitted and shares the chart-optimized VolumeLeaders level request used by trade dashboard. This command intentionally exposes a reduced CLI surface: ticker, dates, --trade-level-count, --fields, and --format. For any single-ticker investigation, run trade dashboard TICKER first because it returns trades, clusters, levels, and cluster bombs together; use trade levels only when you need level-only output, CSV/TSV, or explicit field selection. Only --trade-level-count values of 5, 10, 20, or 50 are accepted. Default JSON is compact and omits repetitive ticker metadata and the verbose Dates list; use --fields all or CSV/TSV when raw fields are needed.
-
-PREREQUISITES: Provide exactly one ticker as a positional argument or with --ticker.
-
-RECOVERY: If ticker validation fails, use one ticker only. If --trade-level-count is rejected, use 5, 10, 20, or 50.
-
-NEXT STEPS: Use trade dashboard as the first single-ticker overview, or use trade level-touches with the same ticker and date range to find trades that revisited these levels.
-
-### Flags
-
-- `--days` (int, default: 0): Look back this many days from --end-date or today
-- `--end-date` (string): End date YYYY-MM-DD (default: today)
-- `--fields` (string): Comma-separated TradeLevel fields to include in output, or 'all' for every field
-- `--format` (string, default: json): Output format: json, csv, or tsv
-- `--start-date` (string): Start date YYYY-MM-DD (default: auto)
-- `--ticker` (string): Ticker symbol
-- `--trade-level-count` (int, default: 10): Number of price levels to return (5, 10, 20, or 50)
-
-## volumeleaders-agent trade list
-
-Query individual institutional trades from VolumeLeaders, filterable by ticker, date range, dollar amounts, volume, trade conditions, session type, and trade rank. Supports built-in filter presets (--preset) and watchlist-based filtering (--watchlist). Start with report list for curated preset-backed reports; use trade list when custom raw trade filters are needed. Outputs compact JSON or CSV/TSV with --format; use --summary for aggregate metrics grouped by ticker or day.
-
-Date defaults: 365-day lookback when tickers are provided, today-only without tickers. Preset and watchlist filters do not supply dates. Filter precedence is preset baseline, then watchlist merge, then explicit CLI flags override both.
-
-Default JSON is compact and omits repetitive/internal fields. Use --fields FIELD1,FIELD2, CSV/TSV, or --fields all where supported when raw API fields are needed. --summary returns aggregate JSON with valid --group-by values of ticker, day, or ticker,day; do not combine summary mode with --fields or non-JSON formats.
-
-KEY METRICS
-
-Field                      Meaning
--------------------------  ---------------------------------------------------------------
-CumulativeDistribution     Volume percentile, 0 to 1, higher means more accumulation
-DollarsMultiplier          Trade dollars relative to average block size
-TradeRank                  VL significance rank now, lower is stronger
-TradeRankSnapshot          VL significance rank at print time, lower is stronger
-TradeClusterRank           Rank for cluster significance, lower is stronger
-TradeClusterBombRank       Rank for burst significance, lower is stronger
-TradeLevelRank             Rank for level significance, lower is stronger
-RelativeSize               Trade size vs normal activity
-PercentDailyVolume         Trade volume as percent of average daily volume
-VCD                        Volume Confirmation Distribution score
-FrequencyLast30TD          Similar-magnitude trade frequency over last 30 trading days
-FrequencyLast90TD          Similar-magnitude trade frequency over last 90 trading days
-FrequencyLast1CY           Similar-magnitude trade frequency over last calendar year
-RSIHour                    Hourly RSI at time of trade
-RSIDay                     Daily RSI at time of trade
-DarkPool                   Boolean: trade printed on a dark pool
-Sweep                      Boolean: trade was a sweep order
-LatePrint                  Boolean: trade was a late print
-SignaturePrint             Boolean: trade matched a signature print pattern
-PhantomPrint               Boolean: trade was a phantom print
-InsideBar                  Boolean: bar was an inside bar
-
-Shared trade filters include volume, price, dollars, conditions, VCD, relative size, security type, market cap, trade rank, dark pools, sweeps, late prints, signature prints, even-share prints, and session/event toggles.
-
-PREREQUISITES: Browser authentication. For reproducible scans, pass explicit dates or --days plus tickers, preset, watchlist, or sector filters.
-
-RECOVERY: Multi-day lookups whose effective filters include tickers return the top 10 long-period trades with the same lightweight chart query shape VolumeLeaders uses in the browser. Single-day scans, all-market scans, sector-only presets, and --summary still fetch all matching rows in browser-sized 100-row pages. If --summary rejects --fields or --format, rerun summary as JSON without --fields. If date flags conflict, use either --days or --start-date with --end-date.
-
-NEXT STEPS: Use trade dashboard first for any single-ticker investigation, then trade levels for level-only support/resistance output, trade clusters when prints concentrate near a price, or trade sentiment for leveraged ETF bull/bear context.
-
-### Flags
-
-- `--ah` (string, default: 1): After-hours session filter (-1=all, 0=exclude, 1=include)
-- `--closing` (string, default: 1): Closing trade filter (-1=all, 0=exclude, 1=include)
-- `--conditions` (int, default: -1): Trade conditions filter
-- `--dark-pools` (string, default: -1): Dark pool filter (-1=all, 0=exclude, 1=only)
-- `--days` (int, default: 0): Look back this many days from --end-date or today
-- `--end-date` (string): End date YYYY-MM-DD (default: today)
-- `--even-shared` (string, default: -1): Even shared filter (-1=all, 0=exclude, 1=only)
-- `--fields` (string): Comma-separated trade fields to include in output
-- `--format` (string, default: json): Output format: json, csv, or tsv
-- `--group-by` (string, default: ticker): Summary grouping (requires --summary): ticker, day, or ticker,day
-- `--late-prints` (string, default: -1): Late print filter (-1=all, 0=exclude, 1=only)
-- `--market-cap` (int, default: 0): Market cap filter
-- `--max-dollars` (float64, default: 30000000000): Maximum dollar value
-- `--max-price` (float64, default: 100000): Maximum price
-- `--max-volume` (int, default: 2000000000): Maximum volume
-- `--min-dollars` (float64, default: 500000): Minimum dollar value
-- `--min-price` (float64, default: 0): Minimum price
-- `--min-volume` (int, default: 0): Minimum volume
-- `--offsetting` (string, default: 1): Offsetting trade filter (-1=all, 0=exclude, 1=include)
-- `--opening` (string, default: 1): Opening trade filter (-1=all, 0=exclude, 1=include)
-- `--order-col` (int, default: 1): Order column index
-- `--order-dir` (string, default: desc): Order direction
-- `--phantom` (string, default: 1): Phantom print filter (-1=all, 0=exclude, 1=include)
-- `--premarket` (string, default: 1): Premarket session filter (-1=all, 0=exclude, 1=include)
-- `--preset` (string): Apply a built-in filter preset by name; use report list for curated preset-backed reports
-- `--rank-snapshot` (int, default: -1): Trade rank snapshot filter
-- `--relative-size` (int, default: 5): Relative size threshold
-- `--rth` (string, default: 1): Regular trading hours filter (-1=all, 0=exclude, 1=include)
-- `--sector` (string): Sector/Industry filter
-- `--security-type` (int, default: -1): Security type key
-- `--sig-prints` (string, default: -1): Signature print filter (-1=all, 0=exclude, 1=only)
-- `--start` (int, default: 0): DataTables start offset
-- `--start-date` (string): Start date YYYY-MM-DD (default: auto)
-- `--summary` (bool, default: false): Return aggregate metrics instead of individual trades
-- `--sweeps` (string, default: -1): Sweep filter (-1=all, 0=exclude, 1=only)
-- `--tickers` (string): Comma-separated ticker symbols
-- `--trade-rank` (int, default: -1): Trade rank filter
-- `--vcd` (int, default: 97): VCD filter
-- `--watchlist` (string): Apply filters from a saved watchlist by name
-
-## volumeleaders-agent trade sentiment
-
-Summarize leveraged ETF bull and bear flow by trading day, showing aggregate institutional dollar volume on the bull and bear side. Requires --start-date and --end-date (or --days). Outputs one record per day with bull and bear totals.
-
-This command always queries the combined leveraged ETF sector filter SectorIndustry=X B, classifies bull and bear ETFs locally, and cannot be constrained by ticker or sector flags. Non-standard defaults include --min-dollars 5000000 and --vcd 97; shared --relative-size 5 still applies.
-
-Ratio is bull dollars divided by bear dollars and is null when bear flow is zero. Treat the output as leveraged ETF proxy flow, not signed buy/sell flow for the broader market.
-
-### Flags
-
-- `--ah` (string, default: 1): After-hours session filter (-1=all, 0=exclude, 1=include)
-- `--closing` (string, default: 1): Closing trade filter (-1=all, 0=exclude, 1=include)
-- `--conditions` (int, default: -1): Trade conditions filter
-- `--dark-pools` (string, default: -1): Dark pool filter (-1=all, 0=exclude, 1=only)
-- `--days` (int, default: 0): Look back this many days from --end-date or today
-- `--end-date` (string): End date YYYY-MM-DD (required unless --days is set)
-- `--even-shared` (string, default: -1): Even shared filter (-1=all, 0=exclude, 1=only)
-- `--format` (string, default: json): Output format: json, csv, or tsv
-- `--late-prints` (string, default: -1): Late print filter (-1=all, 0=exclude, 1=only)
-- `--market-cap` (int, default: 0): Market cap filter
-- `--max-dollars` (float64, default: 30000000000): Maximum dollar value
-- `--max-price` (float64, default: 100000): Maximum price
-- `--max-volume` (int, default: 2000000000): Maximum volume
-- `--min-dollars` (float64, default: 5000000): Minimum dollar value
-- `--min-price` (float64, default: 0): Minimum price
-- `--min-volume` (int, default: 0): Minimum volume
-- `--offsetting` (string, default: 1): Offsetting trade filter (-1=all, 0=exclude, 1=include)
-- `--opening` (string, default: 1): Opening trade filter (-1=all, 0=exclude, 1=include)
-- `--phantom` (string, default: 1): Phantom print filter (-1=all, 0=exclude, 1=include)
-- `--premarket` (string, default: 1): Premarket session filter (-1=all, 0=exclude, 1=include)
-- `--rank-snapshot` (int, default: -1): Trade rank snapshot filter
-- `--relative-size` (int, default: 5): Relative size threshold
-- `--rth` (string, default: 1): Regular trading hours filter (-1=all, 0=exclude, 1=include)
-- `--security-type` (int, default: -1): Security type key
-- `--sig-prints` (string, default: -1): Signature print filter (-1=all, 0=exclude, 1=only)
-- `--start-date` (string): Start date YYYY-MM-DD (required unless --days is set)
-- `--sweeps` (string, default: -1): Sweep filter (-1=all, 0=exclude, 1=only)
-- `--trade-rank` (int, default: -1): Trade rank filter
-- `--vcd` (int, default: 97): VCD filter
-
-## volumeleaders-agent update
-
-Download the latest GitHub release for the current platform, verify it against the release checksum file, and replace the running binary atomically. Automatic update notifications are enabled by default, cached for one day, skipped in CI and non-interactive output, and can be disabled with update config.
-
-### Flags
-
-- `--force` (bool, default: false): Install the latest release even when the current version is already latest
-
-## volumeleaders-agent update check
-
-Check the latest GitHub release for the current platform and report whether it is newer than the running binary. This command only reports status and never modifies the installed binary.
-
-## volumeleaders-agent update config
-
-Show updater notification settings, or persist a new automatic notification preference when --check-notifications is set. This updater-specific settings file only controls update checks and does not enable general CLI config loading.
-
-### Flags
-
-- `--check-notifications` (bool, default: true): Set automatic update notification preference; true enables notifications, false disables them, omitted only displays current settings
-
-## volumeleaders-agent volume ah-institutional
-
-Query the after-hours institutional volume leaderboard, ranking tickers by total institutional trade volume during after-hours sessions for a given date. Accepts optional ticker positional arguments; also accepts --tickers flag. Requires --date.
-
-### Flags
-
-- `--date` (string, required): Date YYYY-MM-DD
-- `--format` (string, default: json): Output format: json, csv, or tsv
-- `--length` (int, default: 100): Number of results
-- `--order-col` (int, default: 1): Order column index
-- `--order-dir` (string, default: asc): Order direction
-- `--start` (int, default: 0): DataTables start offset
-- `--tickers` (string): Comma-separated ticker symbols
-
-## volumeleaders-agent volume institutional
-
-Query the regular-hours institutional volume leaderboard, ranking tickers by total institutional trade volume for a given date. Accepts optional ticker positional arguments to filter results; also accepts --tickers flag. Requires --date. Outputs compact JSON or CSV/TSV with --format. PREREQUISITES: choose a trading date in YYYY-MM-DD format. RECOVERY: if --date is missing or invalid, retry with an explicit trading day. NEXT STEPS: run trade dashboard for interesting single tickers first, then use trade list, trade levels, or trade clusters only when a dashboard section needs deeper detail.
-
-### Flags
-
-- `--date` (string, required): Date YYYY-MM-DD
-- `--format` (string, default: json): Output format: json, csv, or tsv
-- `--length` (int, default: 100): Number of results
-- `--order-col` (int, default: 1): Order column index
-- `--order-dir` (string, default: asc): Order direction
-- `--start` (int, default: 0): DataTables start offset
-- `--tickers` (string): Comma-separated ticker symbols
-
-## volumeleaders-agent volume total
-
-Query the total volume leaderboard combining all session types, ranking tickers by total institutional trade volume for a given date. Accepts optional ticker positional arguments; also accepts --tickers flag. Requires --date.
-
-### Flags
-
-- `--date` (string, required): Date YYYY-MM-DD
-- `--format` (string, default: json): Output format: json, csv, or tsv
-- `--length` (int, default: 100): Number of results
-- `--order-col` (int, default: 1): Order column index
-- `--order-dir` (string, default: asc): Order direction
-- `--start` (int, default: 0): DataTables start offset
-- `--tickers` (string): Comma-separated ticker symbols
-
-## volumeleaders-agent watchlist add-ticker
-
-Add a ticker symbol to an existing watchlist. Requires --watchlist-key with the watchlist key and --ticker with the symbol to add. The ticker is appended to the watchlist without affecting existing symbols.
-
-### Flags
-
-- `--ticker` (string, required): Ticker symbol to add
-- `--watchlist-key` (int, default: 0, required): Watch list key
-
-## volumeleaders-agent watchlist configs
-
-List all saved watchlist configurations with their keys and names. Outputs compact JSON or CSV/TSV with --format. Each row shows the watchlist key and name; use the tickers subcommand to view symbols in a specific watchlist.
-
-### Flags
-
-- `--format` (string, default: json): Output format: json, csv, or tsv
-
-## volumeleaders-agent watchlist create
-
-Create a new watchlist configuration with a name and optional filter settings such as minimum volume, price range, sector, and trade conditions. Requires --name. Use --tickers to specify an explicit ticker list or leave unset for a filter-based watchlist.
-
-### Flags
-
-- `--ah-trades` (bool, default: true): Include after-hours trades
-- `--blocks` (bool, default: true): Include block trades
-- `--closing-trades` (bool, default: true): Include closing trades
-- `--dark-pools` (bool, default: true): Include dark pool trades
-- `--late-prints` (bool, default: true): Include late prints
-- `--lit-exchanges` (bool, default: true): Include lit exchange trades
-- `--max-dollars` (float64, default: 3e+10): Maximum dollars filter
-- `--max-price` (float64, default: 100000): Maximum price filter
-- `--max-trade-rank` (string, default: -1): Maximum trade rank (-1=all, 1/3/5/10/25/50/100)
-- `--max-volume` (int, default: 2000000000): Maximum volume filter
-- `--min-dollars` (float64, default: 0): Minimum dollars filter
-- `--min-price` (float64, default: 0): Minimum price filter
-- `--min-relative-size` (string, default: 0): Minimum relative size (0/5/10/25/50/100)
-- `--min-vcd` (float64, default: 0): Minimum VCD percentile (0-100)
-- `--min-volume` (int, default: 0): Minimum volume filter
-- `--name` (string, required): Watch list name
-- `--normal-prints` (bool, default: true): Include normal prints
-- `--offsetting-trades` (bool, default: true): Include offsetting trades
-- `--opening-trades` (bool, default: true): Include opening trades
-- `--phantom-trades` (bool, default: true): Include phantom trades
-- `--premarket-trades` (bool, default: true): Include premarket trades
-- `--rsi-overbought-daily` (string, default: -1): RSI overbought daily (-1=ignore, 0=no, 1=yes)
-- `--rsi-overbought-hourly` (string, default: -1): RSI overbought hourly (-1=ignore, 0=no, 1=yes)
-- `--rsi-oversold-daily` (string, default: -1): RSI oversold daily (-1=ignore, 0=no, 1=yes)
-- `--rsi-oversold-hourly` (string, default: -1): RSI oversold hourly (-1=ignore, 0=no, 1=yes)
-- `--rth-trades` (bool, default: true): Include regular trading hours trades
-- `--sector-industry` (string): Sector/industry filter (max 100 chars)
-- `--security-type` (string, default: -1): Security type (-1=all, 1=stocks, 26=ETFs, 4=REITs)
-- `--signature-prints` (bool, default: true): Include signature prints
-- `--sweeps` (bool, default: true): Include sweep trades
-- `--tickers` (string): Comma-separated ticker symbols (max 500)
-- `--timely-prints` (bool, default: true): Include timely prints
-
-## volumeleaders-agent watchlist delete
-
-Remove a saved watchlist configuration by its numeric key. Requires --key with the watchlist key (visible in configs output). The deletion is permanent and removes the watchlist and all its tickers.
-
-### Flags
-
-- `--key` (int, default: 0, required): Watch list key to delete
-
-## volumeleaders-agent watchlist edit
-
-Modify an existing watchlist configuration identified by its numeric key. Requires --key with the watchlist key. Specify the fields you want to set; unspecified fields are replaced with their default values.
-
-### Flags
-
-- `--ah-trades` (bool, default: true): Include after-hours trades
-- `--blocks` (bool, default: true): Include block trades
-- `--closing-trades` (bool, default: true): Include closing trades
-- `--dark-pools` (bool, default: true): Include dark pool trades
-- `--key` (int, default: 0, required): Watch list key to edit
-- `--late-prints` (bool, default: true): Include late prints
-- `--lit-exchanges` (bool, default: true): Include lit exchange trades
-- `--max-dollars` (float64, default: 3e+10): Maximum dollars filter
-- `--max-price` (float64, default: 100000): Maximum price filter
-- `--max-trade-rank` (string, default: -1): Maximum trade rank (-1=all, 1/3/5/10/25/50/100)
-- `--max-volume` (int, default: 2000000000): Maximum volume filter
-- `--min-dollars` (float64, default: 0): Minimum dollars filter
-- `--min-price` (float64, default: 0): Minimum price filter
-- `--min-relative-size` (string, default: 0): Minimum relative size (0/5/10/25/50/100)
-- `--min-vcd` (float64, default: 0): Minimum VCD percentile (0-100)
-- `--min-volume` (int, default: 0): Minimum volume filter
-- `--name` (string): Watch list name
-- `--normal-prints` (bool, default: true): Include normal prints
-- `--offsetting-trades` (bool, default: true): Include offsetting trades
-- `--opening-trades` (bool, default: true): Include opening trades
-- `--phantom-trades` (bool, default: true): Include phantom trades
-- `--premarket-trades` (bool, default: true): Include premarket trades
-- `--rsi-overbought-daily` (string, default: -1): RSI overbought daily (-1=ignore, 0=no, 1=yes)
-- `--rsi-overbought-hourly` (string, default: -1): RSI overbought hourly (-1=ignore, 0=no, 1=yes)
-- `--rsi-oversold-daily` (string, default: -1): RSI oversold daily (-1=ignore, 0=no, 1=yes)
-- `--rsi-oversold-hourly` (string, default: -1): RSI oversold hourly (-1=ignore, 0=no, 1=yes)
-- `--rth-trades` (bool, default: true): Include regular trading hours trades
-- `--sector-industry` (string): Sector/industry filter (max 100 chars)
-- `--security-type` (string, default: -1): Security type (-1=all, 1=stocks, 26=ETFs, 4=REITs)
-- `--signature-prints` (bool, default: true): Include signature prints
-- `--sweeps` (bool, default: true): Include sweep trades
-- `--tickers` (string): Comma-separated ticker symbols (max 500)
-- `--timely-prints` (bool, default: true): Include timely prints
-
-## volumeleaders-agent watchlist tickers
-
-Query the ticker symbols belonging to a specific watchlist identified by --watchlist-key. Returns all tickers in the watchlist with their metadata. Outputs compact JSON or CSV/TSV with --format.
-
-### Flags
-
-- `--format` (string, default: json): Output format: json, csv, or tsv
-- `--watchlist-key` (int, default: -1): Watch list key (-1 for all)
-
-## Optional
-
-- [JSON Schema](#json-schema): Machine-readable schema available via `volumeleaders-agent --jsonschema`
+#### `volumeleaders-agent alert configs`
+
+| Flag | Type | Default | Description |
+|------|------|---------|-------------|
+| `--fields` | string | - | Comma-separated fields to include (use 'all' for every field) |
+| `--format` | string | json | Output format: json, csv, or tsv (json, csv, tsv) |
+
+#### `volumeleaders-agent alert create`
+
+| Flag | Type | Default | Description |
+|------|------|---------|-------------|
+| `--ah-dollars-gte` | int | 0 | After-hours dollars >= |
+| `--ah-rank-lte` | int | 0 | After-hours rank <= |
+| `--ah-volume-gte` | int | 0 | After-hours volume >= |
+| `--closing-trade-conditions` | string | 0 | Closing trade conditions |
+| `--closing-trade-dollars-gte` | int | 0 | Closing trade dollars >= |
+| `--closing-trade-mult-gte` | int | 0 | Closing trade multiplier >= |
+| `--closing-trade-rank-lte` | int | 0 | Closing trade rank <= |
+| `--closing-trade-vcd-gte` | int | 0 | Closing trade VCD >= (0/97/98/99/100) |
+| `--closing-trade-volume-gte` | int | 0 | Closing trade volume >= |
+| `--cluster-dollars-gte` | int | 0 | Trade cluster dollars >= |
+| `--cluster-mult-gte` | int | 0 | Trade cluster multiplier >= |
+| `--cluster-rank-lte` | int | 0 | Trade cluster rank <= |
+| `--cluster-vcd-gte` | int | 0 | Trade cluster VCD >= (0/97/98/99/100) |
+| `--cluster-volume-gte` | int | 0 | Trade cluster volume >= |
+| `--dark-pool` | bool | false | Dark pool filter |
+| `--name` | string | - | Alert name (max 50 chars) |
+| `--offsetting-print` | bool | false | Offsetting print filter |
+| `--phantom-print` | bool | false | Phantom print filter |
+| `--sweep` | bool | false | Sweep filter |
+| `--ticker-group` | string | AllTickers | Ticker group: AllTickers or SelectedTickers (AllTickers, SelectedTickers) |
+| `--tickers` | string | - | Comma-separated ticker symbols (max 500, used with SelectedTickers) |
+| `--total-dollars-gte` | int | 0 | Total dollars >= |
+| `--total-rank-lte` | int | 0 | Total rank <= (0/1/3/10/25/50/100) |
+| `--total-volume-gte` | int | 0 | Total volume >= |
+| `--trade-conditions` | string | 0 | Trade conditions (0=N/A, OBH/OBD/OSH/OSD combos) |
+| `--trade-dollars-gte` | int | 0 | Trade dollars >= (0=N/A, 1000000/10000000/...) |
+| `--trade-mult-gte` | int | 0 | Trade multiplier >= (0=N/A, 5/10/25/50/100) |
+| `--trade-rank-lte` | int | 0 | Trade rank <= (0=N/A, 1/3/5/10/25/50/100) |
+| `--trade-vcd-gte` | int | 0 | Trade VCD >= (0=N/A, 99/100) |
+| `--trade-volume-gte` | int | 0 | Trade volume >= (0=N/A, 1000000/2000000/5000000/10000000) |
+
+#### `volumeleaders-agent alert delete`
+
+| Flag | Type | Default | Description |
+|------|------|---------|-------------|
+| `--key` | int | 0 | Alert config key to delete |
+
+#### `volumeleaders-agent alert edit`
+
+| Flag | Type | Default | Description |
+|------|------|---------|-------------|
+| `--ah-dollars-gte` | int | 0 | After-hours dollars >= |
+| `--ah-rank-lte` | int | 0 | After-hours rank <= |
+| `--ah-volume-gte` | int | 0 | After-hours volume >= |
+| `--closing-trade-conditions` | string | 0 | Closing trade conditions |
+| `--closing-trade-dollars-gte` | int | 0 | Closing trade dollars >= |
+| `--closing-trade-mult-gte` | int | 0 | Closing trade multiplier >= |
+| `--closing-trade-rank-lte` | int | 0 | Closing trade rank <= |
+| `--closing-trade-vcd-gte` | int | 0 | Closing trade VCD >= (0/97/98/99/100) |
+| `--closing-trade-volume-gte` | int | 0 | Closing trade volume >= |
+| `--cluster-dollars-gte` | int | 0 | Trade cluster dollars >= |
+| `--cluster-mult-gte` | int | 0 | Trade cluster multiplier >= |
+| `--cluster-rank-lte` | int | 0 | Trade cluster rank <= |
+| `--cluster-vcd-gte` | int | 0 | Trade cluster VCD >= (0/97/98/99/100) |
+| `--cluster-volume-gte` | int | 0 | Trade cluster volume >= |
+| `--dark-pool` | bool | false | Dark pool filter |
+| `--key` | int | 0 | Alert config key to edit |
+| `--name` | string | - | Alert name (max 50 chars) |
+| `--offsetting-print` | bool | false | Offsetting print filter |
+| `--phantom-print` | bool | false | Phantom print filter |
+| `--sweep` | bool | false | Sweep filter |
+| `--ticker-group` | string | AllTickers | Ticker group: AllTickers or SelectedTickers (AllTickers, SelectedTickers) |
+| `--tickers` | string | - | Comma-separated ticker symbols (max 500, used with SelectedTickers) |
+| `--total-dollars-gte` | int | 0 | Total dollars >= |
+| `--total-rank-lte` | int | 0 | Total rank <= (0/1/3/10/25/50/100) |
+| `--total-volume-gte` | int | 0 | Total volume >= |
+| `--trade-conditions` | string | 0 | Trade conditions (0=N/A, OBH/OBD/OSH/OSD combos) |
+| `--trade-dollars-gte` | int | 0 | Trade dollars >= (0=N/A, 1000000/10000000/...) |
+| `--trade-mult-gte` | int | 0 | Trade multiplier >= (0=N/A, 5/10/25/50/100) |
+| `--trade-rank-lte` | int | 0 | Trade rank <= (0=N/A, 1/3/5/10/25/50/100) |
+| `--trade-vcd-gte` | int | 0 | Trade VCD >= (0=N/A, 99/100) |
+| `--trade-volume-gte` | int | 0 | Trade volume >= (0=N/A, 1000000/2000000/5000000/10000000) |
+
+#### `volumeleaders-agent market earnings`
+
+| Flag | Type | Default | Description |
+|------|------|---------|-------------|
+| `--days` | int | 0 | Look back this many days from --end-date or today |
+| `--end-date` | string | - | End date YYYY-MM-DD (required unless --days is set) |
+| `--fields` | string | - | Comma-separated fields to include (use 'all' for every field) |
+| `--format` | string | json | Output format: json, csv, or tsv (json, csv, tsv) |
+| `--start-date` | string | - | Start date YYYY-MM-DD (required unless --days is set) |
+
+#### `volumeleaders-agent market exhaustion`
+
+| Flag | Type | Default | Description |
+|------|------|---------|-------------|
+| `--date` | string | - | Date YYYY-MM-DD (empty for current day) |
+
+#### `volumeleaders-agent outputschema`
+
+#### `volumeleaders-agent report dark-pool-20x`
+
+| Flag | Type | Default | Description |
+|------|------|---------|-------------|
+| `--days` | int | 0 | Look back this many days from --end-date or today; broad scans require a single day |
+| `--end-date` | string | - | End date YYYY-MM-DD (default: today) |
+| `--fields` | string | - | Comma-separated raw Trade fields to include, or omit for compact JSON |
+| `--format` | string | json | Output format: json, csv, or tsv |
+| `--group-by` | string | ticker | Summary grouping (requires --summary): ticker, day, or ticker,day |
+| `--start-date` | string | - | Start date YYYY-MM-DD (default: today) |
+| `--summary` | bool | false | Return aggregate metrics instead of individual trades |
+| `--tickers` | string | - | Comma-separated ticker symbols; use this for multi-day report lookbacks |
+
+#### `volumeleaders-agent report dark-pool-sweeps`
+
+| Flag | Type | Default | Description |
+|------|------|---------|-------------|
+| `--days` | int | 0 | Look back this many days from --end-date or today; broad scans require a single day |
+| `--end-date` | string | - | End date YYYY-MM-DD (default: today) |
+| `--fields` | string | - | Comma-separated raw Trade fields to include, or omit for compact JSON |
+| `--format` | string | json | Output format: json, csv, or tsv |
+| `--group-by` | string | ticker | Summary grouping (requires --summary): ticker, day, or ticker,day |
+| `--start-date` | string | - | Start date YYYY-MM-DD (default: today) |
+| `--summary` | bool | false | Return aggregate metrics instead of individual trades |
+| `--tickers` | string | - | Comma-separated ticker symbols; use this for multi-day report lookbacks |
+
+#### `volumeleaders-agent report disproportionately-large`
+
+| Flag | Type | Default | Description |
+|------|------|---------|-------------|
+| `--days` | int | 0 | Look back this many days from --end-date or today; broad scans require a single day |
+| `--end-date` | string | - | End date YYYY-MM-DD (default: today) |
+| `--fields` | string | - | Comma-separated raw Trade fields to include, or omit for compact JSON |
+| `--format` | string | json | Output format: json, csv, or tsv |
+| `--group-by` | string | ticker | Summary grouping (requires --summary): ticker, day, or ticker,day |
+| `--start-date` | string | - | Start date YYYY-MM-DD (default: today) |
+| `--summary` | bool | false | Return aggregate metrics instead of individual trades |
+| `--tickers` | string | - | Comma-separated ticker symbols; use this for multi-day report lookbacks |
+
+#### `volumeleaders-agent report leveraged-etfs`
+
+| Flag | Type | Default | Description |
+|------|------|---------|-------------|
+| `--days` | int | 0 | Look back this many days from --end-date or today; broad scans require a single day |
+| `--end-date` | string | - | End date YYYY-MM-DD (default: today) |
+| `--fields` | string | - | Comma-separated raw Trade fields to include, or omit for compact JSON |
+| `--format` | string | json | Output format: json, csv, or tsv |
+| `--group-by` | string | ticker | Summary grouping (requires --summary): ticker, day, or ticker,day |
+| `--start-date` | string | - | Start date YYYY-MM-DD (default: today) |
+| `--summary` | bool | false | Return aggregate metrics instead of individual trades |
+| `--tickers` | string | - | Comma-separated ticker symbols; use this for multi-day report lookbacks |
+
+#### `volumeleaders-agent report list`
+
+| Flag | Type | Default | Description |
+|------|------|---------|-------------|
+| `--format` | string | json | Output format: json, csv, or tsv |
+
+#### `volumeleaders-agent report offsetting-trades`
+
+| Flag | Type | Default | Description |
+|------|------|---------|-------------|
+| `--days` | int | 0 | Look back this many days from --end-date or today; broad scans require a single day |
+| `--end-date` | string | - | End date YYYY-MM-DD (default: today) |
+| `--fields` | string | - | Comma-separated raw Trade fields to include, or omit for compact JSON |
+| `--format` | string | json | Output format: json, csv, or tsv |
+| `--group-by` | string | ticker | Summary grouping (requires --summary): ticker, day, or ticker,day |
+| `--start-date` | string | - | Start date YYYY-MM-DD (default: today) |
+| `--summary` | bool | false | Return aggregate metrics instead of individual trades |
+| `--tickers` | string | - | Comma-separated ticker symbols; use this for multi-day report lookbacks |
+
+#### `volumeleaders-agent report phantom-trades`
+
+| Flag | Type | Default | Description |
+|------|------|---------|-------------|
+| `--days` | int | 0 | Look back this many days from --end-date or today; broad scans require a single day |
+| `--end-date` | string | - | End date YYYY-MM-DD (default: today) |
+| `--fields` | string | - | Comma-separated raw Trade fields to include, or omit for compact JSON |
+| `--format` | string | json | Output format: json, csv, or tsv |
+| `--group-by` | string | ticker | Summary grouping (requires --summary): ticker, day, or ticker,day |
+| `--start-date` | string | - | Start date YYYY-MM-DD (default: today) |
+| `--summary` | bool | false | Return aggregate metrics instead of individual trades |
+| `--tickers` | string | - | Comma-separated ticker symbols; use this for multi-day report lookbacks |
+
+#### `volumeleaders-agent report rsi-overbought`
+
+| Flag | Type | Default | Description |
+|------|------|---------|-------------|
+| `--days` | int | 0 | Look back this many days from --end-date or today; broad scans require a single day |
+| `--end-date` | string | - | End date YYYY-MM-DD (default: today) |
+| `--fields` | string | - | Comma-separated raw Trade fields to include, or omit for compact JSON |
+| `--format` | string | json | Output format: json, csv, or tsv |
+| `--group-by` | string | ticker | Summary grouping (requires --summary): ticker, day, or ticker,day |
+| `--start-date` | string | - | Start date YYYY-MM-DD (default: today) |
+| `--summary` | bool | false | Return aggregate metrics instead of individual trades |
+| `--tickers` | string | - | Comma-separated ticker symbols; use this for multi-day report lookbacks |
+
+#### `volumeleaders-agent report rsi-oversold`
+
+| Flag | Type | Default | Description |
+|------|------|---------|-------------|
+| `--days` | int | 0 | Look back this many days from --end-date or today; broad scans require a single day |
+| `--end-date` | string | - | End date YYYY-MM-DD (default: today) |
+| `--fields` | string | - | Comma-separated raw Trade fields to include, or omit for compact JSON |
+| `--format` | string | json | Output format: json, csv, or tsv |
+| `--group-by` | string | ticker | Summary grouping (requires --summary): ticker, day, or ticker,day |
+| `--start-date` | string | - | Start date YYYY-MM-DD (default: today) |
+| `--summary` | bool | false | Return aggregate metrics instead of individual trades |
+| `--tickers` | string | - | Comma-separated ticker symbols; use this for multi-day report lookbacks |
+
+#### `volumeleaders-agent report top-10-rank`
+
+| Flag | Type | Default | Description |
+|------|------|---------|-------------|
+| `--days` | int | 0 | Look back this many days from --end-date or today; broad scans require a single day |
+| `--end-date` | string | - | End date YYYY-MM-DD (default: today) |
+| `--fields` | string | - | Comma-separated raw Trade fields to include, or omit for compact JSON |
+| `--format` | string | json | Output format: json, csv, or tsv |
+| `--group-by` | string | ticker | Summary grouping (requires --summary): ticker, day, or ticker,day |
+| `--start-date` | string | - | Start date YYYY-MM-DD (default: today) |
+| `--summary` | bool | false | Return aggregate metrics instead of individual trades |
+| `--tickers` | string | - | Comma-separated ticker symbols; use this for multi-day report lookbacks |
+
+#### `volumeleaders-agent report top-100-rank`
+
+| Flag | Type | Default | Description |
+|------|------|---------|-------------|
+| `--days` | int | 0 | Look back this many days from --end-date or today; broad scans require a single day |
+| `--end-date` | string | - | End date YYYY-MM-DD (default: today) |
+| `--fields` | string | - | Comma-separated raw Trade fields to include, or omit for compact JSON |
+| `--format` | string | json | Output format: json, csv, or tsv |
+| `--group-by` | string | ticker | Summary grouping (requires --summary): ticker, day, or ticker,day |
+| `--start-date` | string | - | Start date YYYY-MM-DD (default: today) |
+| `--summary` | bool | false | Return aggregate metrics instead of individual trades |
+| `--tickers` | string | - | Comma-separated ticker symbols; use this for multi-day report lookbacks |
+
+#### `volumeleaders-agent report top-30-rank-10x-99th`
+
+| Flag | Type | Default | Description |
+|------|------|---------|-------------|
+| `--days` | int | 0 | Look back this many days from --end-date or today; broad scans require a single day |
+| `--end-date` | string | - | End date YYYY-MM-DD (default: today) |
+| `--fields` | string | - | Comma-separated raw Trade fields to include, or omit for compact JSON |
+| `--format` | string | json | Output format: json, csv, or tsv |
+| `--group-by` | string | ticker | Summary grouping (requires --summary): ticker, day, or ticker,day |
+| `--start-date` | string | - | Start date YYYY-MM-DD (default: today) |
+| `--summary` | bool | false | Return aggregate metrics instead of individual trades |
+| `--tickers` | string | - | Comma-separated ticker symbols; use this for multi-day report lookbacks |
+
+#### `volumeleaders-agent trade alerts`
+
+| Flag | Type | Default | Description |
+|------|------|---------|-------------|
+| `--date` | string | - | Date YYYY-MM-DD |
+| `--format` | string | json | Output format: json, csv, or tsv (json, csv, tsv) |
+| `--length` | int | 100 | Number of results |
+| `--order-col` | int | 1 | Order column index |
+| `--order-dir` | string | desc | Order direction (asc, desc) |
+| `--start` | int | 0 | DataTables start offset |
+
+#### `volumeleaders-agent trade cluster-alerts`
+
+| Flag | Type | Default | Description |
+|------|------|---------|-------------|
+| `--date` | string | - | Date YYYY-MM-DD |
+| `--format` | string | json | Output format: json, csv, or tsv (json, csv, tsv) |
+| `--length` | int | 100 | Number of results |
+| `--order-col` | int | 1 | Order column index |
+| `--order-dir` | string | desc | Order direction (asc, desc) |
+| `--start` | int | 0 | DataTables start offset |
+
+#### `volumeleaders-agent trade cluster-bombs`
+
+| Flag | Type | Default | Description |
+|------|------|---------|-------------|
+| `--days` | int | 0 | Look back this many days from --end-date or today |
+| `--end-date` | string | - | End date YYYY-MM-DD (required unless --days is set) |
+| `--format` | string | json | Output format: json, csv, or tsv (json, csv, tsv) |
+| `--max-dollars` | float64 | 30000000000 | Maximum dollar value |
+| `--max-volume` | int | 2000000000 | Maximum volume |
+| `--min-dollars` | float64 | 0 | Minimum dollar value |
+| `--min-volume` | int | 0 | Minimum volume |
+| `--order-col` | int | 1 | Order column index |
+| `--order-dir` | string | desc | Order direction (asc, desc) |
+| `--relative-size` | int | 0 | Relative size threshold |
+| `--sector` | string | - | Sector/Industry filter |
+| `--security-type` | int | 0 | Security type key |
+| `--start` | int | 0 | DataTables start offset |
+| `--start-date` | string | - | Start date YYYY-MM-DD (required unless --days is set) |
+| `--tickers` | string | - | Comma-separated ticker symbols |
+| `--trade-cluster-bomb-rank` | int | -1 | Trade cluster bomb rank filter |
+| `--vcd` | int | 0 | VCD filter |
+
+#### `volumeleaders-agent trade clusters`
+
+| Flag | Type | Default | Description |
+|------|------|---------|-------------|
+| `--days` | int | 0 | Look back this many days from --end-date or today |
+| `--end-date` | string | - | End date YYYY-MM-DD (required unless --days is set) |
+| `--fields` | string | - | Comma-separated TradeCluster fields to include in output, or 'all' for every field |
+| `--format` | string | json | Output format: json, csv, or tsv (json, csv, tsv) |
+| `--max-dollars` | float64 | 30000000000 | Maximum dollar value |
+| `--max-price` | float64 | 100000 | Maximum price |
+| `--max-volume` | int | 2000000000 | Maximum volume |
+| `--min-dollars` | float64 | 10000000 | Minimum dollar value |
+| `--min-price` | float64 | 0 | Minimum price |
+| `--min-volume` | int | 0 | Minimum volume |
+| `--order-col` | int | 1 | Order column index |
+| `--order-dir` | string | desc | Order direction (asc, desc) |
+| `--relative-size` | int | 5 | Relative size threshold |
+| `--sector` | string | - | Sector/Industry filter |
+| `--security-type` | int | -1 | Security type key |
+| `--start` | int | 0 | DataTables start offset |
+| `--start-date` | string | - | Start date YYYY-MM-DD (required unless --days is set) |
+| `--tickers` | string | - | Comma-separated ticker symbols |
+| `--trade-cluster-rank` | int | -1 | Trade cluster rank filter |
+| `--vcd` | int | 0 | VCD filter |
+
+#### `volumeleaders-agent trade dashboard`
+
+| Flag | Type | Default | Description |
+|------|------|---------|-------------|
+| `--ah` | string | 1 | After-hours session filter (-1=all, 0=exclude, 1=include) (-1, 0, 1) |
+| `--closing` | string | 1 | Closing trade filter (-1=all, 0=exclude, 1=include) (-1, 0, 1) |
+| `--conditions` | int | -1 | Trade conditions filter |
+| `--count` | int | 10 | Rows to return per dashboard section (5, 10, 20, or 50) |
+| `--dark-pools` | string | -1 | Dark pool filter (-1=all, 0=exclude, 1=only) (-1, 0, 1) |
+| `--days` | int | 0 | Look back this many days from --end-date or today |
+| `--end-date` | string | - | End date YYYY-MM-DD (default: today) |
+| `--even-shared` | string | -1 | Even shared filter (-1=all, 0=exclude, 1=only) (-1, 0, 1) |
+| `--late-prints` | string | -1 | Late print filter (-1=all, 0=exclude, 1=only) (-1, 0, 1) |
+| `--market-cap` | int | 0 | Market cap filter |
+| `--max-dollars` | float64 | 30000000000 | Maximum dollar value |
+| `--max-price` | float64 | 100000 | Maximum price |
+| `--max-volume` | int | 2000000000 | Maximum volume |
+| `--min-dollars` | float64 | 500000 | Minimum dollar value |
+| `--min-price` | float64 | 0 | Minimum price |
+| `--min-volume` | int | 0 | Minimum volume |
+| `--offsetting` | string | 1 | Offsetting trade filter (-1=all, 0=exclude, 1=include) (-1, 0, 1) |
+| `--opening` | string | 1 | Opening trade filter (-1=all, 0=exclude, 1=include) (-1, 0, 1) |
+| `--phantom` | string | 1 | Phantom print filter (-1=all, 0=exclude, 1=include) (-1, 0, 1) |
+| `--premarket` | string | 1 | Premarket session filter (-1=all, 0=exclude, 1=include) (-1, 0, 1) |
+| `--rank-snapshot` | int | -1 | Trade rank snapshot filter |
+| `--relative-size` | int | 0 | Relative size threshold |
+| `--rth` | string | 1 | Regular trading hours filter (-1=all, 0=exclude, 1=include) (-1, 0, 1) |
+| `--security-type` | int | -1 | Security type key |
+| `--sig-prints` | string | -1 | Signature print filter (-1=all, 0=exclude, 1=only) (-1, 0, 1) |
+| `--start-date` | string | - | Start date YYYY-MM-DD (default: auto) |
+| `--sweeps` | string | -1 | Sweep filter (-1=all, 0=exclude, 1=only) (-1, 0, 1) |
+| `--ticker` | string | - | Ticker symbol |
+| `--trade-rank` | int | -1 | Trade rank filter |
+| `--vcd` | int | 0 | VCD filter |
+
+#### `volumeleaders-agent trade level-touches`
+
+| Flag | Type | Default | Description |
+|------|------|---------|-------------|
+| `--days` | int | 0 | Look back this many days from --end-date or today |
+| `--end-date` | string | - | End date YYYY-MM-DD (required unless --days is set) |
+| `--format` | string | json | Output format: json, csv, or tsv (json, csv, tsv) |
+| `--length` | int | 50 | Number of results |
+| `--max-dollars` | float64 | 30000000000 | Maximum dollar value |
+| `--max-price` | float64 | 100000 | Maximum price |
+| `--max-volume` | int | 2000000000 | Maximum volume |
+| `--min-dollars` | float64 | 500000 | Minimum dollar value |
+| `--min-price` | float64 | 0 | Minimum price |
+| `--min-volume` | int | 0 | Minimum volume |
+| `--order-col` | int | 0 | Order column index |
+| `--order-dir` | string | desc | Order direction (asc, desc) |
+| `--relative-size` | int | 0 | Relative size threshold |
+| `--start` | int | 0 | DataTables start offset |
+| `--start-date` | string | - | Start date YYYY-MM-DD (required unless --days is set) |
+| `--ticker` | string | - | Ticker symbol |
+| `--trade-level-count` | int | 50 | Number of price levels to include (5, 10, 20, or 50) |
+| `--trade-level-rank` | int | 5 | Trade level rank filter |
+| `--vcd` | int | 0 | VCD filter |
+
+#### `volumeleaders-agent trade levels`
+
+| Flag | Type | Default | Description |
+|------|------|---------|-------------|
+| `--days` | int | 0 | Look back this many days from --end-date or today |
+| `--end-date` | string | - | End date YYYY-MM-DD (default: today) |
+| `--fields` | string | - | Comma-separated TradeLevel fields to include in output, or 'all' for every field |
+| `--format` | string | json | Output format: json, csv, or tsv (json, csv, tsv) |
+| `--start-date` | string | - | Start date YYYY-MM-DD (default: auto) |
+| `--ticker` | string | - | Ticker symbol |
+| `--trade-level-count` | int | 10 | Number of price levels to return (5, 10, 20, or 50) |
+
+#### `volumeleaders-agent trade list`
+
+| Flag | Type | Default | Description |
+|------|------|---------|-------------|
+| `--ah` | string | 1 | After-hours session filter (-1=all, 0=exclude, 1=include) (-1, 0, 1) |
+| `--closing` | string | 1 | Closing trade filter (-1=all, 0=exclude, 1=include) (-1, 0, 1) |
+| `--conditions` | int | -1 | Trade conditions filter |
+| `--dark-pools` | string | -1 | Dark pool filter (-1=all, 0=exclude, 1=only) (-1, 0, 1) |
+| `--days` | int | 0 | Look back this many days from --end-date or today |
+| `--end-date` | string | - | End date YYYY-MM-DD (default: today) |
+| `--even-shared` | string | -1 | Even shared filter (-1=all, 0=exclude, 1=only) (-1, 0, 1) |
+| `--fields` | string | - | Comma-separated trade fields to include in output |
+| `--format` | string | json | Output format: json, csv, or tsv (json, csv, tsv) |
+| `--group-by` | string | ticker | Summary grouping (requires --summary): ticker, day, or ticker,day (ticker, day, ticker,day) |
+| `--late-prints` | string | -1 | Late print filter (-1=all, 0=exclude, 1=only) (-1, 0, 1) |
+| `--market-cap` | int | 0 | Market cap filter |
+| `--max-dollars` | float64 | 30000000000 | Maximum dollar value |
+| `--max-price` | float64 | 100000 | Maximum price |
+| `--max-volume` | int | 2000000000 | Maximum volume |
+| `--min-dollars` | float64 | 500000 | Minimum dollar value |
+| `--min-price` | float64 | 0 | Minimum price |
+| `--min-volume` | int | 0 | Minimum volume |
+| `--offsetting` | string | 1 | Offsetting trade filter (-1=all, 0=exclude, 1=include) (-1, 0, 1) |
+| `--opening` | string | 1 | Opening trade filter (-1=all, 0=exclude, 1=include) (-1, 0, 1) |
+| `--order-col` | int | 1 | Order column index |
+| `--order-dir` | string | desc | Order direction (asc, desc) |
+| `--phantom` | string | 1 | Phantom print filter (-1=all, 0=exclude, 1=include) (-1, 0, 1) |
+| `--premarket` | string | 1 | Premarket session filter (-1=all, 0=exclude, 1=include) (-1, 0, 1) |
+| `--preset` | string | - | Apply a built-in filter preset by name; use report list for curated preset-backed reports |
+| `--rank-snapshot` | int | -1 | Trade rank snapshot filter |
+| `--relative-size` | int | 5 | Relative size threshold |
+| `--rth` | string | 1 | Regular trading hours filter (-1=all, 0=exclude, 1=include) (-1, 0, 1) |
+| `--sector` | string | - | Sector/Industry filter |
+| `--security-type` | int | -1 | Security type key |
+| `--sig-prints` | string | -1 | Signature print filter (-1=all, 0=exclude, 1=only) (-1, 0, 1) |
+| `--start` | int | 0 | DataTables start offset |
+| `--start-date` | string | - | Start date YYYY-MM-DD (default: auto) |
+| `--summary` | bool | false | Return aggregate metrics instead of individual trades |
+| `--sweeps` | string | -1 | Sweep filter (-1=all, 0=exclude, 1=only) (-1, 0, 1) |
+| `--tickers` | string | - | Comma-separated ticker symbols |
+| `--trade-rank` | int | -1 | Trade rank filter |
+| `--vcd` | int | 97 | VCD filter |
+| `--watchlist` | string | - | Apply filters from a saved watchlist by name |
+
+#### `volumeleaders-agent trade sentiment`
+
+| Flag | Type | Default | Description |
+|------|------|---------|-------------|
+| `--ah` | string | 1 | After-hours session filter (-1=all, 0=exclude, 1=include) (-1, 0, 1) |
+| `--closing` | string | 1 | Closing trade filter (-1=all, 0=exclude, 1=include) (-1, 0, 1) |
+| `--conditions` | int | -1 | Trade conditions filter |
+| `--dark-pools` | string | -1 | Dark pool filter (-1=all, 0=exclude, 1=only) (-1, 0, 1) |
+| `--days` | int | 0 | Look back this many days from --end-date or today |
+| `--end-date` | string | - | End date YYYY-MM-DD (required unless --days is set) |
+| `--even-shared` | string | -1 | Even shared filter (-1=all, 0=exclude, 1=only) (-1, 0, 1) |
+| `--format` | string | json | Output format: json, csv, or tsv (json, csv, tsv) |
+| `--late-prints` | string | -1 | Late print filter (-1=all, 0=exclude, 1=only) (-1, 0, 1) |
+| `--market-cap` | int | 0 | Market cap filter |
+| `--max-dollars` | float64 | 30000000000 | Maximum dollar value |
+| `--max-price` | float64 | 100000 | Maximum price |
+| `--max-volume` | int | 2000000000 | Maximum volume |
+| `--min-dollars` | float64 | 5000000 | Minimum dollar value |
+| `--min-price` | float64 | 0 | Minimum price |
+| `--min-volume` | int | 0 | Minimum volume |
+| `--offsetting` | string | 1 | Offsetting trade filter (-1=all, 0=exclude, 1=include) (-1, 0, 1) |
+| `--opening` | string | 1 | Opening trade filter (-1=all, 0=exclude, 1=include) (-1, 0, 1) |
+| `--phantom` | string | 1 | Phantom print filter (-1=all, 0=exclude, 1=include) (-1, 0, 1) |
+| `--premarket` | string | 1 | Premarket session filter (-1=all, 0=exclude, 1=include) (-1, 0, 1) |
+| `--rank-snapshot` | int | -1 | Trade rank snapshot filter |
+| `--relative-size` | int | 5 | Relative size threshold |
+| `--rth` | string | 1 | Regular trading hours filter (-1=all, 0=exclude, 1=include) (-1, 0, 1) |
+| `--security-type` | int | -1 | Security type key |
+| `--sig-prints` | string | -1 | Signature print filter (-1=all, 0=exclude, 1=only) (-1, 0, 1) |
+| `--start-date` | string | - | Start date YYYY-MM-DD (required unless --days is set) |
+| `--sweeps` | string | -1 | Sweep filter (-1=all, 0=exclude, 1=only) (-1, 0, 1) |
+| `--trade-rank` | int | -1 | Trade rank filter |
+| `--vcd` | int | 97 | VCD filter |
+
+#### `volumeleaders-agent update`
+
+| Flag | Type | Default | Description |
+|------|------|---------|-------------|
+| `--force` | bool | false | Install the latest release even when the current version is already latest |
+
+#### `volumeleaders-agent update check`
+
+#### `volumeleaders-agent update config`
+
+| Flag | Type | Default | Description |
+|------|------|---------|-------------|
+| `--check-notifications` | bool | true | Set automatic update notification preference; true enables notifications, false disables them, omitted only displays current settings |
+
+#### `volumeleaders-agent volume ah-institutional`
+
+| Flag | Type | Default | Description |
+|------|------|---------|-------------|
+| `--date` | string | - | Date YYYY-MM-DD |
+| `--format` | string | json | Output format: json, csv, or tsv (json, csv, tsv) |
+| `--length` | int | 100 | Number of results |
+| `--order-col` | int | 1 | Order column index |
+| `--order-dir` | string | asc | Order direction (asc, desc) |
+| `--start` | int | 0 | DataTables start offset |
+| `--tickers` | string | - | Comma-separated ticker symbols |
+
+#### `volumeleaders-agent volume institutional`
+
+| Flag | Type | Default | Description |
+|------|------|---------|-------------|
+| `--date` | string | - | Date YYYY-MM-DD |
+| `--format` | string | json | Output format: json, csv, or tsv (json, csv, tsv) |
+| `--length` | int | 100 | Number of results |
+| `--order-col` | int | 1 | Order column index |
+| `--order-dir` | string | asc | Order direction (asc, desc) |
+| `--start` | int | 0 | DataTables start offset |
+| `--tickers` | string | - | Comma-separated ticker symbols |
+
+#### `volumeleaders-agent volume total`
+
+| Flag | Type | Default | Description |
+|------|------|---------|-------------|
+| `--date` | string | - | Date YYYY-MM-DD |
+| `--format` | string | json | Output format: json, csv, or tsv (json, csv, tsv) |
+| `--length` | int | 100 | Number of results |
+| `--order-col` | int | 1 | Order column index |
+| `--order-dir` | string | asc | Order direction (asc, desc) |
+| `--start` | int | 0 | DataTables start offset |
+| `--tickers` | string | - | Comma-separated ticker symbols |
+
+#### `volumeleaders-agent watchlist add-ticker`
+
+| Flag | Type | Default | Description |
+|------|------|---------|-------------|
+| `--ticker` | string | - | Ticker symbol to add |
+| `--watchlist-key` | int | 0 | Watch list key |
+
+#### `volumeleaders-agent watchlist configs`
+
+| Flag | Type | Default | Description |
+|------|------|---------|-------------|
+| `--format` | string | json | Output format: json, csv, or tsv (json, csv, tsv) |
+
+#### `volumeleaders-agent watchlist create`
+
+| Flag | Type | Default | Description |
+|------|------|---------|-------------|
+| `--ah-trades` | bool | true | Include after-hours trades |
+| `--blocks` | bool | true | Include block trades |
+| `--closing-trades` | bool | true | Include closing trades |
+| `--dark-pools` | bool | true | Include dark pool trades |
+| `--late-prints` | bool | true | Include late prints |
+| `--lit-exchanges` | bool | true | Include lit exchange trades |
+| `--max-dollars` | float64 | 3e+10 | Maximum dollars filter |
+| `--max-price` | float64 | 100000 | Maximum price filter |
+| `--max-trade-rank` | string | -1 | Maximum trade rank (-1=all, 1/3/5/10/25/50/100) (-1, 1, 3, 5, 10, 25, 50, 100) |
+| `--max-volume` | int | 2000000000 | Maximum volume filter |
+| `--min-dollars` | float64 | 0 | Minimum dollars filter |
+| `--min-price` | float64 | 0 | Minimum price filter |
+| `--min-relative-size` | string | 0 | Minimum relative size (0/5/10/25/50/100) (0, 5, 10, 25, 50, 100) |
+| `--min-vcd` | float64 | 0 | Minimum VCD percentile (0-100) |
+| `--min-volume` | int | 0 | Minimum volume filter |
+| `--name` | string | - | Watch list name |
+| `--normal-prints` | bool | true | Include normal prints |
+| `--offsetting-trades` | bool | true | Include offsetting trades |
+| `--opening-trades` | bool | true | Include opening trades |
+| `--phantom-trades` | bool | true | Include phantom trades |
+| `--premarket-trades` | bool | true | Include premarket trades |
+| `--rsi-overbought-daily` | string | -1 | RSI overbought daily (-1=ignore, 0=no, 1=yes) (-1, 0, 1) |
+| `--rsi-overbought-hourly` | string | -1 | RSI overbought hourly (-1=ignore, 0=no, 1=yes) (-1, 0, 1) |
+| `--rsi-oversold-daily` | string | -1 | RSI oversold daily (-1=ignore, 0=no, 1=yes) (-1, 0, 1) |
+| `--rsi-oversold-hourly` | string | -1 | RSI oversold hourly (-1=ignore, 0=no, 1=yes) (-1, 0, 1) |
+| `--rth-trades` | bool | true | Include regular trading hours trades |
+| `--sector-industry` | string | - | Sector/industry filter (max 100 chars) |
+| `--security-type` | string | -1 | Security type (-1=all, 1=stocks, 26=ETFs, 4=REITs) (-1, 1, 26, 4) |
+| `--signature-prints` | bool | true | Include signature prints |
+| `--sweeps` | bool | true | Include sweep trades |
+| `--tickers` | string | - | Comma-separated ticker symbols (max 500) |
+| `--timely-prints` | bool | true | Include timely prints |
+
+#### `volumeleaders-agent watchlist delete`
+
+| Flag | Type | Default | Description |
+|------|------|---------|-------------|
+| `--key` | int | 0 | Watch list key to delete |
+
+#### `volumeleaders-agent watchlist edit`
+
+| Flag | Type | Default | Description |
+|------|------|---------|-------------|
+| `--ah-trades` | bool | true | Include after-hours trades |
+| `--blocks` | bool | true | Include block trades |
+| `--closing-trades` | bool | true | Include closing trades |
+| `--dark-pools` | bool | true | Include dark pool trades |
+| `--key` | int | 0 | Watch list key to edit |
+| `--late-prints` | bool | true | Include late prints |
+| `--lit-exchanges` | bool | true | Include lit exchange trades |
+| `--max-dollars` | float64 | 3e+10 | Maximum dollars filter |
+| `--max-price` | float64 | 100000 | Maximum price filter |
+| `--max-trade-rank` | string | -1 | Maximum trade rank (-1=all, 1/3/5/10/25/50/100) (-1, 1, 3, 5, 10, 25, 50, 100) |
+| `--max-volume` | int | 2000000000 | Maximum volume filter |
+| `--min-dollars` | float64 | 0 | Minimum dollars filter |
+| `--min-price` | float64 | 0 | Minimum price filter |
+| `--min-relative-size` | string | 0 | Minimum relative size (0/5/10/25/50/100) (0, 5, 10, 25, 50, 100) |
+| `--min-vcd` | float64 | 0 | Minimum VCD percentile (0-100) |
+| `--min-volume` | int | 0 | Minimum volume filter |
+| `--name` | string | - | Watch list name |
+| `--normal-prints` | bool | true | Include normal prints |
+| `--offsetting-trades` | bool | true | Include offsetting trades |
+| `--opening-trades` | bool | true | Include opening trades |
+| `--phantom-trades` | bool | true | Include phantom trades |
+| `--premarket-trades` | bool | true | Include premarket trades |
+| `--rsi-overbought-daily` | string | -1 | RSI overbought daily (-1=ignore, 0=no, 1=yes) (-1, 0, 1) |
+| `--rsi-overbought-hourly` | string | -1 | RSI overbought hourly (-1=ignore, 0=no, 1=yes) (-1, 0, 1) |
+| `--rsi-oversold-daily` | string | -1 | RSI oversold daily (-1=ignore, 0=no, 1=yes) (-1, 0, 1) |
+| `--rsi-oversold-hourly` | string | -1 | RSI oversold hourly (-1=ignore, 0=no, 1=yes) (-1, 0, 1) |
+| `--rth-trades` | bool | true | Include regular trading hours trades |
+| `--sector-industry` | string | - | Sector/industry filter (max 100 chars) |
+| `--security-type` | string | -1 | Security type (-1=all, 1=stocks, 26=ETFs, 4=REITs) (-1, 1, 26, 4) |
+| `--signature-prints` | bool | true | Include signature prints |
+| `--sweeps` | bool | true | Include sweep trades |
+| `--tickers` | string | - | Comma-separated ticker symbols (max 500) |
+| `--timely-prints` | bool | true | Include timely prints |
+
+#### `volumeleaders-agent watchlist tickers`
+
+| Flag | Type | Default | Description |
+|------|------|---------|-------------|
+| `--format` | string | json | Output format: json, csv, or tsv (json, csv, tsv) |
+| `--watchlist-key` | int | -1 | Watch list key (-1 for all) |

@@ -41,11 +41,11 @@ type options struct {
 	Verbose bool
 }
 
-// schemaEntry is the small subset of structcli JSON Schema output needed to
-// discover runnable command paths.
+// schemaEntry is the small subset of JSON Schema output needed to discover
+// runnable command paths.
 type schemaEntry struct {
 	Title       string   `json:"title"`
-	Subcommands []string `json:"x-structcli-subcommands"`
+	Subcommands []string `json:"x-flag-subcommands"`
 }
 
 // outputContract is the subset of volumeleaders-agent outputschema output used
@@ -234,7 +234,7 @@ func discoverCommands(ctx context.Context, runner liveRunner) (map[string]struct
 	return commands, nil
 }
 
-// isBuiltinCommand excludes Cobra/structcli helper commands that are not live
+// isBuiltinCommand excludes Cobra helper commands that are not live
 // VolumeLeaders operations and do not follow the default JSON stdout contract.
 func isBuiltinCommand(command string) bool {
 	return command == "help" || strings.HasPrefix(command, "completion ")

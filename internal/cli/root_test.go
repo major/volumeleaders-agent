@@ -425,9 +425,8 @@ func TestArbitraryArgsCommandsAcceptPositionalArgs(t *testing.T) {
 }
 
 // buildBinary compiles the CLI binary into a temp directory and returns the
-// path. Tests that need SetupCLI (which registers process-global cobra
-// callbacks) use this to run the binary as a subprocess, avoiding data races
-// in parallel tests.
+// path. Tests that need SetupCLI use this to run the binary as a subprocess,
+// matching real CLI execution while keeping parallel tests isolated.
 func buildBinary(t *testing.T) string {
 	t.Helper()
 	dir := t.TempDir()

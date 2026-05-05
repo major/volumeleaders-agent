@@ -1,14 +1,20 @@
 package cli
 
 import (
+	"bufio"
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
+	"io"
 	"log/slog"
 	"os"
+	"slices"
+	"strconv"
+	"strings"
 
-	"github.com/leodido/structcli"
-	structclimcp "github.com/leodido/structcli/mcp"
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 
 	"github.com/major/volumeleaders-agent/internal/cli/alert"
 	"github.com/major/volumeleaders-agent/internal/cli/common"
@@ -154,26 +160,413 @@ Watchlist workflow: watchlist configs to find keys and names, watchlist tickers 
 	return cmd
 }
 
-// SetupCLI configures structcli features on the root command. Called from main
-// after NewRootCmd; separated because WithJSONSchema uses cobra.OnInitialize
-// (process-global) which races in parallel tests.
+// SetupCLI configures root-level discovery features on the command tree. It is
+// separated from NewRootCmd so tests can build raw command trees without adding
+// process-oriented schema and MCP behavior.
 func SetupCLI(cmd *cobra.Command) {
-	if err := structcli.Setup(
-		cmd,
-		structcli.WithAppName("volumeleaders-agent"),
-		structcli.WithJSONSchema(),
-		structcli.WithFlagErrors(),
-		structcli.WithMCP(structclimcp.Options{
-			Name:    "volumeleaders-agent",
-			Version: cmd.Version,
-			Exclude: []string{
-				"completion-bash",
-				"completion-fish",
-				"completion-powershell",
-				"completion-zsh",
-			},
-		}),
-	); err != nil {
-		panic(fmt.Sprintf("structcli.Setup: %v", err))
+	var jsonSchemaMode string
+	cmd.Flags().StringVar(&jsonSchemaMode, "jsonschema", "", "Output JSON Schema for commands (use 'tree' for full CLI tree)")
+	cmd.Flags().Lookup("jsonschema").NoOptDefVal = "command"
+	addSubcommandJSONSchemaFlags(cmd, &jsonSchemaMode)
+
+	var mcp bool
+	cmd.Flags().BoolVar(&mcp, "mcp", false, "Serve leaf commands as MCP tools over stdio")
+
+	installGroupedHelp(cmd)
+	wrapDiscoveryHandlers(cmd, &jsonSchemaMode, &mcp)
+}
+
+func wrapDiscoveryHandlers(cmd *cobra.Command, jsonSchemaMode *string, mcp *bool) {
+	originalRunE := cmd.RunE
+	originalRun := cmd.Run
+	cmd.RunE = func(cmd *cobra.Command, args []string) error {
+		if rootJSONSchemaRequested(cmd) {
+			return runJSONSchema(cmd, *jsonSchemaMode)
+		}
+		if mcp != nil && *mcp {
+			return runMCP(cmd.Root(), cmd.InOrStdin(), cmd.OutOrStdout())
+		}
+		if originalRunE != nil {
+			return originalRunE(cmd, args)
+		}
+		if originalRun != nil {
+			originalRun(cmd, args)
+		}
+		return nil
+	}
+	cmd.Run = nil
+	for _, sub := range cmd.Commands() {
+		wrapDiscoveryHandlers(sub, jsonSchemaMode, mcp)
+	}
+}
+
+func rootJSONSchemaRequested(cmd *cobra.Command) bool {
+	flag := cmd.Root().Flags().Lookup("jsonschema")
+	if flag != nil && flag.Changed {
+		return true
+	}
+	flag = cmd.Flags().Lookup("jsonschema")
+	return flag != nil && flag.Changed
+}
+
+func addSubcommandJSONSchemaFlags(cmd *cobra.Command, mode *string) {
+	for _, sub := range cmd.Commands() {
+		sub.Flags().StringVar(mode, "jsonschema", "", "Output JSON Schema for commands (use 'tree' for full CLI tree)")
+		sub.Flags().Lookup("jsonschema").NoOptDefVal = "command"
+		sub.Flags().Lookup("jsonschema").Hidden = true
+		addSubcommandJSONSchemaFlags(sub, mode)
+	}
+}
+
+func runJSONSchema(cmd *cobra.Command, mode string) error {
+	if mode == "" || mode == "command" {
+		return common.PrintJSON(cmd.OutOrStdout(), context.WithValue(cmd.Context(), common.PrettyJSONKey, prettyFromCommand(cmd)), commandSchema(cmd))
+	}
+	if mode == "tree" {
+		var schemas []map[string]any
+		walkCommandTree(cmd.Root(), func(c *cobra.Command) {
+			schemas = append(schemas, commandSchema(c))
+		})
+		return common.PrintJSON(cmd.OutOrStdout(), context.WithValue(cmd.Context(), common.PrettyJSONKey, prettyFromCommand(cmd)), schemas)
+	}
+	target, err := findCommandByPath(cmd.Root(), strings.Fields(mode))
+	if err != nil {
+		return err
+	}
+	return common.PrintJSON(cmd.OutOrStdout(), context.WithValue(cmd.Context(), common.PrettyJSONKey, prettyFromCommand(cmd)), commandSchema(target))
+}
+
+func walkCommandTree(cmd *cobra.Command, visit func(*cobra.Command)) {
+	visit(cmd)
+	for _, sub := range cmd.Commands() {
+		walkCommandTree(sub, visit)
+	}
+}
+
+func findCommandByPath(root *cobra.Command, path []string) (*cobra.Command, error) {
+	current := root
+	for _, part := range path {
+		var next *cobra.Command
+		for _, candidate := range current.Commands() {
+			if candidate.Name() == part || slices.Contains(candidate.Aliases, part) {
+				next = candidate
+				break
+			}
+		}
+		if next == nil {
+			return nil, fmt.Errorf("unknown command path %q", strings.Join(path, " "))
+		}
+		current = next
+	}
+	return current, nil
+}
+
+func commandSchema(cmd *cobra.Command) map[string]any {
+	schema := map[string]any{
+		"$schema":     "https://json-schema.org/draft/2020-12/schema",
+		"type":        "object",
+		"title":       cmd.CommandPath(),
+		"description": cmd.Short,
+		"properties":  flagSchemas(cmd),
+		"required":    requiredFlags(cmd),
+	}
+	if subcommands := commandSubcommands(cmd); len(subcommands) > 0 {
+		schema["x-flag-subcommands"] = subcommands
+	}
+	if groups := flagGroups(cmd); len(groups) > 0 {
+		schema["x-flag-groups"] = groups
+	}
+	return schema
+}
+
+func commandSubcommands(cmd *cobra.Command) []string {
+	var names []string
+	for _, sub := range cmd.Commands() {
+		if sub.Hidden {
+			continue
+		}
+		names = append(names, sub.Name())
+	}
+	slices.Sort(names)
+	return names
+}
+
+func flagSchemas(cmd *cobra.Command) map[string]any {
+	props := make(map[string]any)
+	visitCommandFlags(cmd, func(flag *pflag.Flag) {
+		if flag.Hidden {
+			return
+		}
+		item := map[string]any{
+			"type":        jsonTypeForFlag(flag),
+			"description": flag.Usage,
+			"default":     defaultValueForFlag(flag),
+		}
+		if group := common.FlagGroup(flag); group != "" {
+			item["x-flag-group"] = group
+		}
+		if flag.Shorthand != "" {
+			item["x-flag-shorthand"] = flag.Shorthand
+		}
+		if values := common.FlagEnumValues(flag); len(values) > 0 {
+			item["enum"] = values
+			item["x-flag-enum"] = values
+		}
+		props[flag.Name] = item
+	})
+	return props
+}
+
+func visitCommandFlags(cmd *cobra.Command, visit func(*pflag.Flag)) {
+	seen := make(map[string]struct{})
+	for _, flags := range []*pflag.FlagSet{cmd.InheritedFlags(), cmd.NonInheritedFlags()} {
+		flags.VisitAll(func(flag *pflag.Flag) {
+			if _, ok := seen[flag.Name]; ok {
+				return
+			}
+			seen[flag.Name] = struct{}{}
+			visit(flag)
+		})
+	}
+}
+
+func jsonTypeForFlag(flag *pflag.Flag) string {
+	switch flag.Value.Type() {
+	case "bool":
+		return "boolean"
+	case "int", "int8", "int16", "int32", "int64", "uint", "uint8", "uint16", "uint32", "uint64":
+		return "integer"
+	case "float32", "float64":
+		return "number"
+	default:
+		return "string"
+	}
+}
+
+func defaultValueForFlag(flag *pflag.Flag) any {
+	switch jsonTypeForFlag(flag) {
+	case "boolean":
+		value, err := strconv.ParseBool(flag.DefValue)
+		if err == nil {
+			return value
+		}
+	case "integer":
+		value, err := strconv.ParseInt(flag.DefValue, 10, 64)
+		if err == nil {
+			return value
+		}
+	case "number":
+		value, err := strconv.ParseFloat(flag.DefValue, 64)
+		if err == nil {
+			return value
+		}
+	}
+	return flag.DefValue
+}
+
+func requiredFlags(cmd *cobra.Command) []string {
+	var required []string
+	visitCommandFlags(cmd, func(flag *pflag.Flag) {
+		if common.IsFlagRequired(flag) {
+			required = append(required, flag.Name)
+		}
+	})
+	slices.Sort(required)
+	return required
+}
+
+func flagGroups(cmd *cobra.Command) map[string]any {
+	groups := make(map[string]any)
+	visitCommandFlags(cmd, func(flag *pflag.Flag) {
+		if group := common.FlagGroup(flag); group != "" {
+			groups[group] = map[string]any{}
+		}
+	})
+	return groups
+}
+
+type mcpRequest struct {
+	JSONRPC string          `json:"jsonrpc"`
+	ID      any             `json:"id,omitempty"`
+	Method  string          `json:"method"`
+	Params  json.RawMessage `json:"params,omitempty"`
+}
+
+type mcpTool struct {
+	Name        string         `json:"name"`
+	Description string         `json:"description"`
+	InputSchema map[string]any `json:"inputSchema"`
+	Path        []string       `json:"-"`
+}
+
+func runMCP(root *cobra.Command, input io.Reader, output io.Writer) error {
+	tools := mcpTools(root)
+	toolsByName := make(map[string]mcpTool, len(tools))
+	for _, tool := range tools {
+		toolsByName[tool.Name] = tool
+	}
+
+	scanner := bufio.NewScanner(input)
+	for scanner.Scan() {
+		line := bytes.TrimSpace(scanner.Bytes())
+		if len(line) == 0 {
+			continue
+		}
+		var request mcpRequest
+		if err := json.Unmarshal(line, &request); err != nil {
+			writeMCPError(output, nil, -32700, err.Error())
+			continue
+		}
+		handleMCPRequest(output, root.Version, tools, toolsByName, request)
+	}
+	if err := scanner.Err(); err != nil {
+		return fmt.Errorf("read MCP request: %w", err)
+	}
+	return nil
+}
+
+func handleMCPRequest(output io.Writer, version string, tools []mcpTool, toolsByName map[string]mcpTool, request mcpRequest) {
+	switch request.Method {
+	case "initialize":
+		writeMCPResult(output, request.ID, map[string]any{"protocolVersion": "2024-11-05", "serverInfo": map[string]any{"name": "volumeleaders-agent", "version": version}, "capabilities": map[string]any{"tools": map[string]any{}}})
+	case "tools/list":
+		writeMCPResult(output, request.ID, map[string]any{"tools": tools})
+	case "tools/call":
+		result := callMCPTool(version, toolsByName, request.Params)
+		writeMCPResult(output, request.ID, result)
+	default:
+		writeMCPError(output, request.ID, -32601, "method not found")
+	}
+}
+
+func mcpTools(root *cobra.Command) []mcpTool {
+	var tools []mcpTool
+	walkCommandTree(root, func(cmd *cobra.Command) {
+		if !mcpLeafCommand(cmd) {
+			return
+		}
+		path := strings.Fields(strings.TrimPrefix(cmd.CommandPath(), root.CommandPath()+" "))
+		name := strings.ReplaceAll(strings.Join(path, "-"), "_", "-")
+		tools = append(tools, mcpTool{Name: name, Description: cmd.Short, InputSchema: commandSchema(cmd), Path: path})
+	})
+	slices.SortFunc(tools, func(a, b mcpTool) int { return strings.Compare(a.Name, b.Name) })
+	return tools
+}
+
+func mcpLeafCommand(cmd *cobra.Command) bool {
+	if !cmd.Runnable() || len(cmd.Commands()) > 0 || cmd.Hidden {
+		return false
+	}
+	switch cmd.Name() {
+	case "help", "completion", "bash", "fish", "powershell", "zsh", "outputschema":
+		return false
+	default:
+		return true
+	}
+}
+
+func callMCPTool(version string, toolsByName map[string]mcpTool, params json.RawMessage) map[string]any {
+	var request struct {
+		Name      string         `json:"name"`
+		Arguments map[string]any `json:"arguments"`
+	}
+	if err := json.Unmarshal(params, &request); err != nil {
+		return mcpTextResult(err.Error(), true)
+	}
+	tool, ok := toolsByName[request.Name]
+	if !ok {
+		return mcpTextResult(fmt.Sprintf("unknown tool %q", request.Name), true)
+	}
+	args := append([]string{}, tool.Path...)
+	args = append(args, cliArgsFromToolArguments(request.Arguments)...)
+
+	freshRoot := NewRootCmd(version)
+	SetupCLI(freshRoot)
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	freshRoot.SetOut(&stdout)
+	freshRoot.SetErr(&stderr)
+	freshRoot.SetArgs(args)
+	err := freshRoot.Execute()
+	if err != nil {
+		text := strings.TrimSpace(stderr.String())
+		if text == "" {
+			text = err.Error()
+		}
+		return mcpTextResult(text, true)
+	}
+	return mcpTextResult(strings.TrimSpace(stdout.String()), false)
+}
+
+func cliArgsFromToolArguments(arguments map[string]any) []string {
+	keys := make([]string, 0, len(arguments))
+	for key := range arguments {
+		keys = append(keys, key)
+	}
+	slices.Sort(keys)
+	var args []string
+	for _, key := range keys {
+		value := arguments[key]
+		switch typed := value.(type) {
+		case bool:
+			if typed {
+				args = append(args, "--"+key)
+			} else {
+				args = append(args, "--"+key+"=false")
+			}
+		case []any:
+			parts := make([]string, 0, len(typed))
+			for _, item := range typed {
+				parts = append(parts, fmt.Sprint(item))
+			}
+			args = append(args, "--"+key, strings.Join(parts, ","))
+		default:
+			args = append(args, "--"+key, fmt.Sprint(value))
+		}
+	}
+	return args
+}
+
+func mcpTextResult(text string, isError bool) map[string]any {
+	return map[string]any{"content": []map[string]string{{"type": "text", "text": text}}, "isError": isError}
+}
+
+func writeMCPResult(output io.Writer, id any, result any) {
+	_ = json.NewEncoder(output).Encode(map[string]any{"jsonrpc": "2.0", "id": id, "result": result})
+}
+
+func writeMCPError(output io.Writer, id any, code int, message string) {
+	_ = json.NewEncoder(output).Encode(map[string]any{"jsonrpc": "2.0", "id": id, "error": map[string]any{"code": code, "message": message}})
+}
+
+func installGroupedHelp(root *cobra.Command) {
+	walkCommandTree(root, func(cmd *cobra.Command) {
+		cmd.SetHelpFunc(func(c *cobra.Command, _ []string) {
+			fmt.Fprint(c.OutOrStdout(), c.UsageString())
+			writeGroupedFlagHelp(c.OutOrStdout(), c)
+		})
+	})
+}
+
+func writeGroupedFlagHelp(output io.Writer, cmd *cobra.Command) {
+	groups := make(map[string][]*pflag.Flag)
+	visitCommandFlags(cmd, func(flag *pflag.Flag) {
+		if group := common.FlagGroup(flag); group != "" {
+			groups[group] = append(groups[group], flag)
+		}
+	})
+	if len(groups) == 0 {
+		return
+	}
+	names := make([]string, 0, len(groups))
+	for name := range groups {
+		names = append(names, name)
+	}
+	slices.Sort(names)
+	for _, name := range names {
+		fmt.Fprintf(output, "\n%s Flags:\n", name)
+		for _, flag := range groups[name] {
+			fmt.Fprintf(output, "  --%s\t%s\n", flag.Name, flag.Usage)
+		}
 	}
 }

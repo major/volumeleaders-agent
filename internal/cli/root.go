@@ -16,8 +16,10 @@ import (
 	"github.com/major/volumeleaders-agent/internal/cli/market"
 	"github.com/major/volumeleaders-agent/internal/cli/report"
 	"github.com/major/volumeleaders-agent/internal/cli/trade"
+	updatecmd "github.com/major/volumeleaders-agent/internal/cli/update"
 	"github.com/major/volumeleaders-agent/internal/cli/volume"
 	"github.com/major/volumeleaders-agent/internal/cli/watchlist"
+	updater "github.com/major/volumeleaders-agent/internal/update"
 )
 
 // rootOptions holds flags bound to the root command via structcli.Bind.
@@ -63,6 +65,7 @@ Check exhaustion/reversal signals             market exhaustion                 
 Manage alert configs                          alert configs/create/edit/delete        Edit replaces unspecified values with defaults
 Manage watchlists                             watchlist configs/create/edit/delete    Edit replaces unspecified values with defaults
 Get watchlist tickers                         watchlist tickers --watchlist-key K     Key comes from watchlist configs
+Check or install CLI updates                  update check or update                  Notices use stderr and update verifies checksums
 
 ANALYSIS WORKFLOW
 
@@ -85,6 +88,8 @@ Toggle filters: -1 means all/unfiltered, 0 means exclude, 1 means include/only.
 Tickers: --tickers is comma-separated, --ticker is single-symbol. Commands that take tickers generally accept positional tickers too, for example: trade list XLE XLK. Trade and volume ticker filters also accept --symbol and --symbols aliases.
 
 Output formats: list-style commands may support --format json/csv/tsv. CSV/TSV include headers, booleans render as true/false, null or missing values render as empty cells. Nested summaries and single-object commands are JSON-only unless the input schema shows a format flag. Use outputschema to inspect the success stdout shape for each command.
+
+Updates: interactive release builds check GitHub releases at most once per day and write update notices to stderr only. Use update config --check-notifications=false to disable notices, update check to inspect release status, and update to download a verified release archive and replace the binary.
 
 Performance: use report commands first. Start with one vetted report, one day, and tickers when possible, then expand. VolumeLeaders endpoints can be expensive; broad custom trade list filters are easy to overdo. report commands reject broad multi-day scans without tickers, trade list uses a bounded chart-style request for multi-day ticker lookups, and full-result retrieval keeps the browser's 100-row page size.
 
@@ -119,6 +124,7 @@ Watchlist workflow: watchlist configs to find keys and names, watchlist tickers 
 		PersistentPreRunE: func(cmd *cobra.Command, _ []string) error {
 			slog.SetDefault(slog.New(slog.NewTextHandler(os.Stderr, nil)))
 			cmd.SetContext(context.WithValue(cmd.Context(), common.PrettyJSONKey, opts.Pretty))
+			updater.NotifyIfDue(cmd.Context(), version, cmd.CommandPath())
 			return nil
 		},
 	}
@@ -128,8 +134,11 @@ Watchlist workflow: watchlist configs to find keys and names, watchlist tickers 
 		&cobra.Group{ID: "market", Title: "Market Commands:"},
 		&cobra.Group{ID: "alerts", Title: "Alert Commands:"},
 		&cobra.Group{ID: "watchlists", Title: "Watchlist Commands:"},
+		&cobra.Group{ID: "system", Title: "System Commands:"},
 		&cobra.Group{ID: "reference", Title: "Reference Commands:"},
 	)
+	updateCommand := updatecmd.NewCmd(version)
+	updateCommand.GroupID = "system"
 	cmd.AddCommand(
 		report.NewCmd(),
 		trade.NewCmd(),
@@ -137,6 +146,7 @@ Watchlist workflow: watchlist configs to find keys and names, watchlist tickers 
 		market.NewMarketCommand(),
 		alert.NewAlertCommand(),
 		watchlist.NewCmd(),
+		updateCommand,
 		newOutputSchemaCmd(),
 	)
 	common.BindOrPanic(cmd, opts, "root options")

@@ -33,6 +33,7 @@ Check exhaustion/reversal signals             market exhaustion                 
 Manage alert configs                          alert configs/create/edit/delete        Edit replaces unspecified values with defaults
 Manage watchlists                             watchlist configs/create/edit/delete    Edit replaces unspecified values with defaults
 Get watchlist tickers                         watchlist tickers --watchlist-key K     Key comes from watchlist configs
+Check or install CLI updates                  update check or update                  Notices use stderr and update verifies checksums
 
 ANALYSIS WORKFLOW
 
@@ -55,6 +56,8 @@ Toggle filters: -1 means all/unfiltered, 0 means exclude, 1 means include/only.
 Tickers: --tickers is comma-separated, --ticker is single-symbol. Commands that take tickers generally accept positional tickers too, for example: trade list XLE XLK. Trade and volume ticker filters also accept --symbol and --symbols aliases.
 
 Output formats: list-style commands may support --format json/csv/tsv. CSV/TSV include headers, booleans render as true/false, null or missing values render as empty cells. Nested summaries and single-object commands are JSON-only unless the input schema shows a format flag. Use outputschema to inspect the success stdout shape for each command.
+
+Updates: interactive release builds check GitHub releases at most once per day and write update notices to stderr only. Use update config --check-notifications=false to disable notices, update check to inspect release status, and update to download a verified release archive and replace the binary.
 
 Performance: use report commands first. Start with one vetted report, one day, and tickers when possible, then expand. VolumeLeaders endpoints can be expensive; broad custom trade list filters are easy to overdo. report commands reject broad multi-day scans without tickers, trade list uses a bounded chart-style request for multi-day ticker lookups, and full-result retrieval keeps the browser's 100-row page size.
 
@@ -273,6 +276,9 @@ NEXT STEPS: Use trade dashboard first for any single-ticker investigation, then 
 This command always queries the combined leveraged ETF sector filter SectorIndustry=X B, classifies bull and bear ETFs locally, and cannot be constrained by ticker or sector flags. Non-standard defaults include --min-dollars 5000000 and --vcd 97; shared --relative-size 5 still applies.
 
 Ratio is bull dollars divided by bear dollars and is null when bear flow is zero. Treat the output as leveraged ETF proxy flow, not signed buy/sell flow for the broader market.
+- [volumeleaders-agent update](#volumeleaders-agent-update): Download the latest GitHub release for the current platform, verify it against the release checksum file, and replace the running binary atomically. Automatic update notifications are enabled by default, cached for one day, skipped in CI and non-interactive output, and can be disabled with update config.
+- [volumeleaders-agent update check](#volumeleaders-agent-update-check): Check the latest GitHub release for the current platform and report whether it is newer than the running binary. This command only reports status and never modifies the installed binary.
+- [volumeleaders-agent update config](#volumeleaders-agent-update-config): Show updater notification settings, or persist a new automatic notification preference when --check-notifications is set. This updater-specific settings file only controls update checks and does not enable general CLI config loading.
 - [volumeleaders-agent volume ah-institutional](#volumeleaders-agent-volume-ah-institutional): Query the after-hours institutional volume leaderboard, ranking tickers by total institutional trade volume during after-hours sessions for a given date. Accepts optional ticker positional arguments; also accepts --tickers flag. Requires --date.
 - [volumeleaders-agent volume institutional](#volumeleaders-agent-volume-institutional): Query the regular-hours institutional volume leaderboard, ranking tickers by total institutional trade volume for a given date. Accepts optional ticker positional arguments to filter results; also accepts --tickers flag. Requires --date. Outputs compact JSON or CSV/TSV with --format. PREREQUISITES: choose a trading date in YYYY-MM-DD format. RECOVERY: if --date is missing or invalid, retry with an explicit trading day. NEXT STEPS: run trade dashboard for interesting single tickers first, then use trade list, trade levels, or trade clusters only when a dashboard section needs deeper detail.
 - [volumeleaders-agent volume total](#volumeleaders-agent-volume-total): Query the total volume leaderboard combining all session types, ranking tickers by total institutional trade volume for a given date. Accepts optional ticker positional arguments; also accepts --tickers flag. Requires --date.
@@ -968,6 +974,26 @@ Ratio is bull dollars divided by bear dollars and is null when bear flow is zero
 - `--sweeps` (string, default: -1): Sweep filter (-1=all, 0=exclude, 1=only)
 - `--trade-rank` (int, default: -1): Trade rank filter
 - `--vcd` (int, default: 97): VCD filter
+
+## volumeleaders-agent update
+
+Download the latest GitHub release for the current platform, verify it against the release checksum file, and replace the running binary atomically. Automatic update notifications are enabled by default, cached for one day, skipped in CI and non-interactive output, and can be disabled with update config.
+
+### Flags
+
+- `--force` (bool, default: false): Install the latest release even when the current version is already latest
+
+## volumeleaders-agent update check
+
+Check the latest GitHub release for the current platform and report whether it is newer than the running binary. This command only reports status and never modifies the installed binary.
+
+## volumeleaders-agent update config
+
+Show updater notification settings, or persist a new automatic notification preference when --check-notifications is set. This updater-specific settings file only controls update checks and does not enable general CLI config loading.
+
+### Flags
+
+- `--check-notifications` (bool, default: false): Enable or disable automatic update notifications before commands
 
 ## volumeleaders-agent volume ah-institutional
 

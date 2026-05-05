@@ -943,6 +943,50 @@ Ratio is bull dollars divided by bear dollars and is null when bear flow is zero
 volumeleaders-agent trade sentiment --start-date 2025-04-21 --end-date 2025-04-25
 ```
 
+#### `volumeleaders-agent update`
+
+Download the latest GitHub release for the current platform, verify it against the release checksum file, and replace the running binary atomically. Automatic update notifications are enabled by default, cached for one day, skipped in CI and non-interactive output, and can be disabled with update config.
+
+**Flags:**
+
+| Flag | Type | Default | Required | Description |
+|------|------|---------|----------|-------------|
+| `--force` | bool | false | no | Install the latest release even when the current version is already latest |
+
+**Example:**
+
+```bash
+volumeleaders-agent update
+volumeleaders-agent update --force
+```
+
+#### `volumeleaders-agent update check`
+
+Check the latest GitHub release for the current platform and report whether it is newer than the running binary. This command only reports status and never modifies the installed binary.
+
+**Example:**
+
+```bash
+volumeleaders-agent update check
+```
+
+#### `volumeleaders-agent update config`
+
+Show updater notification settings, or persist a new automatic notification preference when --check-notifications is set. This updater-specific settings file only controls update checks and does not enable general CLI config loading.
+
+**Flags:**
+
+| Flag | Type | Default | Required | Description |
+|------|------|---------|----------|-------------|
+| `--check-notifications` | bool | false | no | Enable or disable automatic update notifications before commands |
+
+**Example:**
+
+```bash
+volumeleaders-agent update config
+volumeleaders-agent update config --check-notifications=false
+```
+
 #### `volumeleaders-agent volume ah-institutional`
 
 Query the after-hours institutional volume leaderboard, ranking tickers by total institutional trade volume during after-hours sessions for a given date. Accepts optional ticker positional arguments; also accepts --tickers flag. Requires --date.
@@ -1357,6 +1401,26 @@ volumeleaders-agent trade list --watchlist "Magnificent 7" --start-date 2025-04-
 
 ```bash
 volumeleaders-agent trade sentiment --start-date 2025-04-21 --end-date 2025-04-25
+```
+
+#### volumeleaders-agent update
+
+```bash
+volumeleaders-agent update
+volumeleaders-agent update --force
+```
+
+#### volumeleaders-agent update check
+
+```bash
+volumeleaders-agent update check
+```
+
+#### volumeleaders-agent update config
+
+```bash
+volumeleaders-agent update config
+volumeleaders-agent update config --check-notifications=false
 ```
 
 #### volumeleaders-agent volume ah-institutional

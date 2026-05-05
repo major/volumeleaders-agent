@@ -172,45 +172,6 @@ func TestPresetTradeFilterDefaultsPreserveTriStateValues(t *testing.T) {
 	}
 }
 
-func TestBuildTradeLevelFiltersUseObservedLevelKeys(t *testing.T) {
-	t.Parallel()
-
-	filters := buildTradeLevelFilters(&tradeLevelOptions{
-		ticker:          "AMD",
-		startDate:       "2025-04-29",
-		endDate:         "2026-04-29",
-		minVolume:       100,
-		maxVolume:       200,
-		minPrice:        1.5,
-		maxPrice:        99.25,
-		minDollars:      500000,
-		maxDollars:      30000000000,
-		vcd:             99,
-		relativeSize:    10,
-		tradeLevelRank:  5,
-		tradeLevelCount: 10,
-	})
-
-	expected := map[string]string{
-		"Ticker":         "AMD",
-		"MinVolume":      "100",
-		"MaxVolume":      "200",
-		"MinPrice":       "1.5",
-		"MaxPrice":       "99.25",
-		"MinDollars":     "500000",
-		"MaxDollars":     "30000000000",
-		"VCD":            "99",
-		"RelativeSize":   "10",
-		"StartDate":      "2025-04-29",
-		"EndDate":        "2026-04-29",
-		"TradeLevelRank": "5",
-		"Levels":         "10",
-	}
-	if !maps.Equal(filters, expected) {
-		t.Fatalf("filters mismatch\nexpected: %#v\ngot:      %#v", expected, filters)
-	}
-}
-
 func TestTradeListRejectsUserSelectedLength(t *testing.T) {
 	t.Parallel()
 
@@ -328,6 +289,134 @@ func TestTradeDashboardFetchesChartOptimizedSections(t *testing.T) {
 	if got := requestsByPath["/Chart0/GetTradeLevels"].Get("length"); got != "-1" {
 		t.Fatalf("levels length = %q, want -1", got)
 	}
+}
+
+func TestTradeLevelsUsesChartOptimizedEndpoint(t *testing.T) {
+	t.Parallel()
+
+	var got url.Values
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/Chart0/GetTradeLevels" {
+			t.Errorf("path = %q, want /Chart0/GetTradeLevels", r.URL.Path)
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			t.Errorf("failed to read request body: %v", err)
+		}
+		got, _ = url.ParseQuery(string(body))
+		_, _ = w.Write([]byte(testutil.DataTablesJSON(`[
+			{"Price":113.7,"Dollars":1130011877.91,"Volume":9936998,"Trades":27,"RelativeSize":52.37,"CumulativeDistribution":0.9995,"TradeLevelRank":2},
+			{"Price":117.8,"Dollars":735913002.62,"Volume":6249716,"Trades":20,"RelativeSize":34.1,"CumulativeDistribution":0.9991,"TradeLevelRank":3}
+		]`)))
+	}))
+	t.Cleanup(server.Close)
+
+	cmd := NewCmd()
+	ctx := testutil.ContextWithTestClient(t, server.URL)
+	stdout, _, err := testutil.ExecuteCommand(t, cmd, ctx, "levels", "GNRC", "--start-date", "2025-05-05", "--end-date", "2026-05-05")
+	testutil.AssertErrContains(t, err, "")
+
+	var levels []models.TradeLevelRow
+	if err := json.Unmarshal([]byte(stdout), &levels); err != nil {
+		t.Fatalf("failed to unmarshal levels: %v\nstdout=%s", err, stdout)
+	}
+	if len(levels) != 2 {
+		t.Fatalf("len(levels) = %d, want 2", len(levels))
+	}
+	if got.Get("Ticker") != "GNRC" {
+		t.Fatalf("Ticker = %q, want GNRC", got.Get("Ticker"))
+	}
+	if got.Get("Levels") != "10" {
+		t.Fatalf("Levels = %q, want 10", got.Get("Levels"))
+	}
+	if got.Get("length") != "-1" {
+		t.Fatalf("length = %q, want -1", got.Get("length"))
+	}
+	if got.Get("order[0][name]") != "Price" {
+		t.Fatalf("order name = %q, want Price", got.Get("order[0][name]"))
+	}
+	if got.Get("MinDollars") != "" {
+		t.Fatalf("MinDollars = %q, want omitted", got.Get("MinDollars"))
+	}
+}
+
+func TestTradeLevelsSupportsFullFieldSelection(t *testing.T) {
+	t.Parallel()
+
+	server := tradeLevelsServer(t)
+	cmd := NewCmd()
+	ctx := testutil.ContextWithTestClient(t, server.URL)
+	stdout, _, err := testutil.ExecuteCommand(t, cmd, ctx, "levels", "GNRC", "--start-date", "2025-05-05", "--end-date", "2026-05-05", "--fields", "all")
+	testutil.AssertErrContains(t, err, "")
+
+	var levels []map[string]any
+	if err := json.Unmarshal([]byte(stdout), &levels); err != nil {
+		t.Fatalf("failed to unmarshal full levels: %v\nstdout=%s", err, stdout)
+	}
+	if len(levels) != 1 {
+		t.Fatalf("len(levels) = %d, want 1", len(levels))
+	}
+	for _, field := range []string{"Ticker", "Name", "Dates"} {
+		if _, ok := levels[0][field]; !ok {
+			t.Fatalf("full level output missing field %q: %#v", field, levels[0])
+		}
+	}
+}
+
+func TestTradeLevelsSupportsCSVOutput(t *testing.T) {
+	t.Parallel()
+
+	server := tradeLevelsServer(t)
+	cmd := NewCmd()
+	ctx := testutil.ContextWithTestClient(t, server.URL)
+	stdout, _, err := testutil.ExecuteCommand(t, cmd, ctx, "levels", "GNRC", "--start-date", "2025-05-05", "--end-date", "2026-05-05", "--format", "csv")
+	testutil.AssertErrContains(t, err, "")
+
+	lines := strings.Split(strings.TrimSpace(stdout), "\n")
+	if len(lines) != 2 {
+		t.Fatalf("CSV line count = %d, want 2\nstdout=%s", len(lines), stdout)
+	}
+	wantHeader := "Ticker,Name,Price,Dollars,Volume,Trades,RelativeSize,CumulativeDistribution,TradeLevelRank,MinDate,MaxDate,Dates"
+	if lines[0] != wantHeader {
+		t.Fatalf("CSV header = %q, want %q", lines[0], wantHeader)
+	}
+	if !strings.Contains(lines[1], "GNRC") || !strings.Contains(lines[1], "113.7") {
+		t.Fatalf("CSV row missing expected level values: %q", lines[1])
+	}
+}
+
+func TestTradeLevelsRejectsStaleFilterFlags(t *testing.T) {
+	t.Parallel()
+
+	for _, flag := range []string{"--vcd", "--relative-size", "--trade-level-rank", "--min-dollars"} {
+		t.Run(flag, func(t *testing.T) {
+			t.Parallel()
+
+			cmd := NewCmd()
+			ctx := testutil.ContextWithTestClient(t, "http://127.0.0.1")
+			_, _, err := testutil.ExecuteCommand(t, cmd, ctx, "levels", "GNRC", flag, "1")
+			testutil.AssertErrContains(t, err, "unknown flag: "+flag)
+		})
+	}
+}
+
+func tradeLevelsServer(t *testing.T) *httptest.Server {
+	t.Helper()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/Chart0/GetTradeLevels" {
+			t.Errorf("path = %q, want /Chart0/GetTradeLevels", r.URL.Path)
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		_, _ = w.Write([]byte(testutil.DataTablesJSON(`[
+			{"Ticker":"GNRC","Name":"Generac Holdings Inc.","Price":113.7,"Dollars":1130011877.91,"Volume":9936998,"Trades":27,"RelativeSize":52.37,"CumulativeDistribution":0.9995,"TradeLevelRank":2,"Dates":"2025-05-05"}
+		]`)))
+	}))
+	t.Cleanup(server.Close)
+	return server
 }
 
 func TestTradeListSelectedFieldsFetchBrowserSizedPages(t *testing.T) {

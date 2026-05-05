@@ -47,13 +47,13 @@ Find ranked institutional prints              report top-100-rank               
 Find strongest ranked prints                  report top-10-rank                      Narrower ranked-trade preset
 Find dark pool sweep activity                 report dark-pool-sweeps                 Vetted dark-pool sweep preset
 Find unusually large prints                   report disproportionately-large          5x relative size browser preset
-Find individual institutional prints          trade list X --days N                   Advanced path: use reports or tickers first
-Get comprehensive ticker overview            trade dashboard X --days N              Fast chart-style trades, clusters, levels, bombs
+Get comprehensive ticker overview            trade dashboard X --days N              First stop for any single-ticker work
+Find individual institutional prints          trade list X --days N                   Advanced path after dashboard or reports
 Compare leveraged ETF bull/bear flow          trade sentiment --days N                Fixed leveraged ETF universe, not buy/sell flow
 Find converging price-level activity          trade clusters --days N                 Cluster conviction around similar prices
 Find sudden aggressive bursts                 trade cluster-bombs --days N            Burst detection, different defaults than clusters
 Inspect trade or cluster alerts               trade alerts --date D                   System-generated alerts
-Find support/resistance levels                trade levels X --days N                 One ticker, capped level count
+Find support/resistance levels                trade levels X --days N                 Level-only drilldown after dashboard
 Find revisits to institutional levels         trade level-touches X --days N          Level retests, capped pagination
 See institutional volume leaders              volume institutional --date D            Same trade model, volume-ranked
 See after-hours institutional leaders         volume ah-institutional --date D        After-hours institutional flow
@@ -68,17 +68,17 @@ ANALYSIS WORKFLOW
 
 1. report list to choose a vetted preset report before raw filters.
 2. report top-100-rank or report disproportionately-large for the broad scan.
-3. trade dashboard X --days N for a fast ticker overview before deeper drilling.
+3. trade dashboard X --days N for any single-ticker question before deeper drilling.
 4. trade list --preset NAME only when report commands are not specific enough.
-5. trade levels X --days N for support/resistance.
-6. trade clusters X --days N when prints appear concentrated around a price.
+5. trade levels X --days N only when the dashboard level section needs level-only output, CSV/TSV, or fields.
+6. trade clusters X --days N when dashboard or trade output shows concentration around a price.
 7. market earnings --days N and market exhaustion for event and reversal context.
 
 GLOBAL CONVENTIONS
 
 Dates: YYYY-MM-DD. Commands with date ranges accept either --start-date D --end-date D or --days N. --days counts backward from today unless --end-date is also set, and cannot be combined with --start-date.
 
-Pagination: --start offset, --length count, --length -1 means all rows unless a capped endpoint rejects it. trade list does not expose --length; multi-day lookups whose effective filters include tickers return the top 10 long-period trades with VolumeLeaders' lightweight chart query shape, while trade list --summary, single-day trade scans, all-market trade scans, sector-only presets, trade clusters, and trade cluster-bombs fetch all rows internally in browser-sized 100-row pages. trade level-touches only allows 1 to 50 rows. trade levels and trade level-touches only allow --trade-level-count values of 5, 10, 20, or 50.
+Pagination: --start offset, --length count, --length -1 means all rows unless a capped endpoint rejects it. trade list does not expose --length; multi-day lookups whose effective filters include tickers return the top 10 long-period trades with VolumeLeaders' lightweight chart query shape, while trade list --summary, single-day trade scans, all-market trade scans, sector-only presets, trade clusters, and trade cluster-bombs fetch all rows internally in browser-sized 100-row pages. trade level-touches only allows 1 to 50 rows. trade dashboard count and trade levels/level-touches level counts only allow values of 5, 10, 20, or 50.
 
 Toggle filters: -1 means all/unfiltered, 0 means exclude, 1 means include/only.
 
@@ -98,15 +98,15 @@ Pagination validation failed: reduce --length to the documented cap. trade level
 
 Unknown flag or enum value: run the same command with --help or --jsonschema to inspect supported flags, defaults, allowed values, and required fields before retrying.
 
-Empty or too broad output: use report list to pick a vetted preset report first, then add tickers or explicit dates. If JSON is too verbose, use --fields where supported or --format csv for list-style commands. Avoid hand-building raw filters unless report commands and trade list --preset cannot answer the question.
+Empty or too broad output: use report list to pick a vetted preset report first, then add tickers or explicit dates. For a single ticker, run trade dashboard TICKER before raw trade, cluster, or level drilldowns. If JSON is too verbose, use --fields where supported or --format csv for list-style commands. Avoid hand-building raw filters unless report commands and trade list --preset cannot answer the question.
 
 COMMAND SEQUENCES
 
-Broad scan: report top-100-rank, then report disproportionately-large, then trade dashboard TICKER --days N, then trade levels TICKER --days N.
+Broad scan: report top-100-rank, then report disproportionately-large, then trade dashboard TICKER --days N, then targeted drilldowns only for the sections that need more detail.
 
 Preset workflow: report list, then report NAME for safe defaults, then trade list --preset NAME only if advanced customization is needed.
 
-Ticker drilldown: trade dashboard TICKER --days N, then trade list TICKER --days N, then trade clusters TICKER --days N.
+Ticker drilldown: trade dashboard TICKER --days N first, then trade list, trade levels, trade clusters, or trade cluster-bombs only for the dashboard sections that need deeper pagination, CSV/TSV, or field selection.
 
 Event context: market earnings --days N, then trade list TICKER --start-date D --end-date D, then market exhaustion with optional --date.
 

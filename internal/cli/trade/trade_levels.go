@@ -28,33 +28,36 @@ func runTradeLevels(cmd *cobra.Command, opts *tradeLevelsOptions) error {
 	if err != nil {
 		return err
 	}
-	levelOpts := tradeLevelOptionsFromLevelsOptions(opts, ticker, startDate, endDate)
-	dataOpts := common.DataTableOptions{Start: 0, Length: levelOpts.tradeLevelCount, OrderCol: 1, OrderDir: "desc", Filters: buildTradeLevelFilters(levelOpts), Fields: fields}
+	filters := dashboardLevelFilters(ticker, startDate, endDate, opts.TradeLevelCount)
 	if format == common.OutputFormatJSON && len(fields) == 0 {
-		levels, err := fetchTradeLevels(cmd, dataOpts)
+		levels, err := fetchTradeLevels(cmd, filters, opts.TradeLevelCount)
 		if err != nil {
 			return err
 		}
 		return common.PrintJSON(cmd.OutOrStdout(), cmd.Context(), models.NewTradeLevelRows(levels))
 	}
-	return common.RunDataTablesSingleRequestCommand[models.TradeLevel](cmd, "/TradeLevels/GetTradeLevels", datatables.TradeLevelColumns, dataOpts, opts.Format, "query trade levels")
+	levels, err := fetchTradeLevels(cmd, filters, opts.TradeLevelCount)
+	if err != nil {
+		return err
+	}
+	return common.PrintDataTablesResult(cmd.OutOrStdout(), cmd.Context(), levels, fields, format)
 }
 
-func tradeLevelOptionsFromLevelsOptions(opts *tradeLevelsOptions, ticker, startDate, endDate string) *tradeLevelOptions {
-	return &tradeLevelOptions{ticker: ticker, startDate: startDate, endDate: endDate, minVolume: opts.MinVolume, maxVolume: opts.MaxVolume, minPrice: opts.MinPrice, maxPrice: opts.MaxPrice, minDollars: opts.MinDollars, maxDollars: opts.MaxDollars, vcd: opts.VCD, relativeSize: opts.RelativeSize, tradeLevelRank: opts.TradeLevelRank, tradeLevelCount: opts.TradeLevelCount}
-}
-
-func fetchTradeLevels(cmd *cobra.Command, opts common.DataTableOptions) ([]models.TradeLevel, error) {
+func fetchTradeLevels(cmd *cobra.Command, filters map[string]string, count int) ([]models.TradeLevel, error) {
 	ctx := cmd.Context()
 	vlClient, err := common.NewCommandClient(ctx)
 	if err != nil {
 		return nil, err
 	}
-	request := common.NewDataTablesRequest(datatables.TradeLevelColumns, opts)
+	request := dashboardRequest(datatables.TradeLevelChartColumns, 0, "Price", count, filters)
+	request.Length = -1
 	var result []models.TradeLevel
-	if err := vlClient.PostDataTables(ctx, "/TradeLevels/GetTradeLevels", request.Encode(), &result); err != nil {
+	if err := vlClient.PostDataTables(ctx, "/Chart0/GetTradeLevels", request.Encode(), &result); err != nil {
 		slog.Error("failed to query trade levels", "error", err)
 		return nil, fmt.Errorf("query trade levels: %w", err)
+	}
+	if len(result) > count {
+		result = result[:count]
 	}
 	return result, nil
 }

@@ -134,8 +134,8 @@ func allOutputContracts() []outputContract {
 		arrayOutputContract[models.TradeClusterBomb]("trade cluster-bombs", "List bursty trade cluster bomb activity.", outputFormats(), nil, nil),
 		arrayOutputContract[models.TradeAlert]("trade alerts", "List system-generated trade alerts for one date.", outputFormats(), nil, nil),
 		arrayOutputContract[models.TradeClusterAlert]("trade cluster-alerts", "List system-generated trade cluster alerts for one date.", outputFormats(), nil, nil),
-		arrayOutputContract[models.TradeLevelRow]("trade levels", "List support and resistance style institutional price levels.", []string{"json"}, nil, nil,
-			outputVariant{When: "--fields is set", Formats: []string{"json"}, Schema: arraySchema[models.TradeLevel](), FieldSelection: allFieldsSelection[models.TradeLevel](nil)},
+		arrayOutputContract[models.TradeLevelRow]("trade levels", "List support and resistance style institutional price levels. Use trade dashboard first for single-ticker overviews, then trade levels for level-only output.", outputFormats(), nil, nil,
+			outputVariant{When: "--fields is set or --format is csv or tsv", Formats: outputFormats(), Schema: arraySchema[models.TradeLevel](), FieldSelection: allFieldsSelection[models.TradeLevel](nil), Notes: []string{"CSV and TSV include a header row matching the selected fields."}},
 		),
 		arrayOutputContract[models.TradeLevelTouch]("trade level-touches", "List revisits to institutional price levels.", outputFormats(), nil, nil),
 

@@ -31,6 +31,12 @@ Fork the repo, create a branch, and open a PR against `main`.
 - All CI checks (tests and linting) must pass before merge.
 - Add tests for any new functionality.
 
+### Automated review tools
+
+CodeRabbit automatic PR reviews are disabled to preserve quota. Maintainers can still request a manual CodeRabbit review in GitHub when needed.
+
+GitHub Copilot code review uses the repository instructions in `.github/copilot-instructions.md` and the path-specific files in `.github/instructions/`. Automatic Copilot review requests are managed by a GitHub branch ruleset rather than a workflow file.
+
 ## Code Style
 
 Follow the patterns already in the codebase. `make lint` catches most issues. When in doubt, look at how existing commands in `internal/cli/` are structured and match that style.

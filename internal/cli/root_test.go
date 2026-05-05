@@ -1275,40 +1275,11 @@ func TestHelpTopicsAreAvailableAsReferenceCommands(t *testing.T) {
 		t.Fatalf("--help failed: %v\nOutput: %s", err, helpOut)
 	}
 	helpText := string(helpOut)
-	for _, expected := range []string{"Reference:", "config-keys List all configuration file keys", "env-vars    List all environment variable bindings"} {
-		if !strings.Contains(helpText, expected) {
-			t.Errorf("--help missing %q\nOutput: %s", expected, helpText)
-		}
+	if strings.Contains(helpText, "config-keys") {
+		t.Errorf("--help should not contain config-keys\nOutput: %s", helpText)
 	}
-
-	tests := []struct {
-		name     string
-		args     []string
-		contains string
-	}{
-		{
-			name:     "environment variables topic",
-			args:     []string{"env-vars"},
-			contains: "Environment Variables",
-		},
-		{
-			name:     "configuration keys topic",
-			args:     []string{"config-keys"},
-			contains: "Configuration Keys",
-		},
-	}
-
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
-			out, cmdErr := exec.Command(binary, tc.args...).CombinedOutput()
-			if cmdErr != nil {
-				t.Fatalf("%v failed: %v\nOutput: %s", tc.args, cmdErr, out)
-			}
-			if !strings.Contains(string(out), tc.contains) {
-				t.Errorf("%v output missing %q\nOutput: %s", tc.args, tc.contains, out)
-			}
-		})
+	if strings.Contains(helpText, "env-vars") {
+		t.Errorf("--help should not contain env-vars\nOutput: %s", helpText)
 	}
 }
 

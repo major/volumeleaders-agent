@@ -7,7 +7,6 @@ import (
 	"os"
 
 	"github.com/leodido/structcli"
-	"github.com/leodido/structcli/helptopics"
 	structclimcp "github.com/leodido/structcli/mcp"
 	"github.com/spf13/cobra"
 
@@ -163,7 +162,6 @@ func SetupCLI(cmd *cobra.Command) {
 		cmd,
 		structcli.WithAppName("volumeleaders-agent"),
 		structcli.WithJSONSchema(),
-		structcli.WithHelpTopics(helptopics.Options{ReferenceSection: true}),
 		structcli.WithFlagErrors(),
 		structcli.WithMCP(structclimcp.Options{
 			Name:    "volumeleaders-agent",

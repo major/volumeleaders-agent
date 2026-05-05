@@ -22,10 +22,10 @@ import (
 	updater "github.com/major/volumeleaders-agent/internal/update"
 )
 
-// rootOptions holds flags bound to the root command via structcli.Bind.
-// The bind pipeline populates these fields before PersistentPreRunE fires.
+// rootOptions holds flags bound to the root command.
+// The flags are registered explicitly via BoolVarP and validated before PersistentPreRunE fires.
 type rootOptions struct {
-	Pretty bool `flag:"pretty" flaggroup:"Output" flagshort:"p" flagdescr:"Pretty-print JSON output with indentation"`
+	Pretty bool
 }
 
 // NewRootCmd returns the root cobra command for volumeleaders-agent.
@@ -149,7 +149,9 @@ Watchlist workflow: watchlist configs to find keys and names, watchlist tickers 
 		updateCommand,
 		newOutputSchemaCmd(),
 	)
-	common.BindOrPanic(cmd, opts, "root options")
+	cmd.Flags().BoolVarP(&opts.Pretty, "pretty", "p", false, "Pretty-print JSON output with indentation")
+	common.AnnotateFlagGroup(cmd, "pretty", "Output")
+	common.WrapValidation(cmd, opts)
 	return cmd
 }
 

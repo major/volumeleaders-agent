@@ -29,6 +29,7 @@ internal/cli/                      CLI command definitions, MCP surface, output 
 internal/discovery/                Generated LLM discovery file writer
 internal/datatables/               DataTables protocol encoding + column definitions
 internal/models/                   Response type definitions
+internal/update/                   GitHub release update checks, updater settings, and self-update logic
 SKILL.md                           Generated skill file for Claude Code and skill-aware tools
 docs/llm/                          Generated AGENTS.md and llms.txt for extended LLM discovery
 ```
@@ -53,6 +54,7 @@ make smoke      # Run local live smoke tests against the built binary
 - Boolean/toggle filters use integers: `-1` = all/unfiltered, `0` = exclude, `1` = include/only.
 - Pagination uses `--start` (offset) and `--length` (count) where commands expose count selection. `--length -1` means all results for generic DataTables commands. `trade list` does not expose `--length`; multi-day lookups whose effective filters include tickers return the top 10 long-period trades with VolumeLeaders' lightweight chart query shape, while `trade list --summary`, single-day trade scans, all-market trade scans, sector-only presets, `trade clusters`, and `trade cluster-bombs` fetch all rows internally in browser-sized 100-row pages because VolumeLeaders expects those endpoints to use 100 results per request. `trade levels` and `trade level-touches` only allow `--trade-level-count` values of 5, 10, 20, or 50. `trade level-touches` defaults to `--trade-level-rank 5`, requires rank 5 or higher, and only allows `--length` values from 1 to 50.
 - The binary name is `volumeleaders-agent`.
+- Update notifications are on by default when release binaries run interactively, cached for one day, skipped in CI and non-interactive output, and controlled only by the updater-specific settings file managed through `volumeleaders-agent update config`. Do not replace this with structcli config/env loading. The `update` command must verify downloaded release assets against GoReleaser checksums before replacing the binary.
 - `make smoke` is a local-only live test harness, not part of CI. It builds `./volumeleaders-agent`, discovers command coverage from `--jsonschema=tree`, validates stdout JSON, and may create/update/delete smoke-owned alert and watchlist records named with a `smoke-*` prefix. Smoke mutations must only target keys created during the same smoke run, and cleanup must be attempted even after failures.
 - structcli environment-variable and config-file features are intentionally out of scope for this project. Do not add or recommend `flagenv`, `flagenv:"only"`, `structcli.WithConfig`, `--config`, YAML/JSON/TOML config loading, or environment-variable driven CLI defaults unless this guidance is explicitly changed later.
 
@@ -69,6 +71,7 @@ make smoke      # Run local live smoke tests against the built binary
 - For `internal/cli/**/*.go`, verify command behavior matches README, `volumeleaders-agent --jsonschema=tree`, `volumeleaders-agent outputschema`, and the conventions above. If commands, flags, aliases, defaults, or examples change, verify `--jsonschema=tree` output reflects the changes and run `make generate-discovery`. If workflows, behavior, models, output formats, or output fields change, update the relevant command Long descriptions and output contracts.
 - For MCP changes, verify `volumeleaders-agent --mcp` keeps JSON-RPC protocol output on stdout, does not expose shell completion or parent routing commands as tools, and never leaks cookies, XSRF tokens, session values, or other credentials in tool results or errors.
 - For `internal/discovery/**/*.go`, verify generated files are deterministic, do not overwrite the root `AGENTS.md`, and stay in sync with `docs/llm/` through tests.
+- For `internal/update/**/*.go`, verify update checks do not poll more often than intended, never write update notifications to stdout, skip dev or non-interactive runs, preserve context cancellation, and validate downloads against the release checksum asset before applying a binary replacement.
 - For tests, expect table-driven subtests with `t.Run`, parallelization where safe, `t.TempDir()` for filesystem work, deterministic fixtures, and assertions on observable behavior rather than implementation details. Do not request arbitrary coverage percentage changes.
 - For GitHub Actions workflows, treat unpinned actions, excessive permissions, secret exposure in logs, or unsafe pull request execution patterns as P1.
 - For `Makefile`, check that non-file targets are declared `.PHONY` and avoid adding flags that duplicate tool defaults.

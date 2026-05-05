@@ -45,6 +45,7 @@ Commands emit compact JSON to stdout by default. Use `--pretty` for indented out
 | `market` | Market-wide earnings calendar and exhaustion scores |
 | `alert` | Saved alert configurations |
 | `watchlist` | Saved watchlists and their tickers |
+| `update` | Check for releases, self-update the binary, and manage update notifications |
 | `outputschema` | Machine-readable success output contracts |
 
 Use `volumeleaders-agent --jsonschema=tree` for the machine-readable JSON Schema of all commands and flags. Use `volumeleaders-agent outputschema trade list` for the stdout contract of a specific command, including formats, fields, and conditional variants. Use `volumeleaders-agent --mcp` to expose the same leaf-command surface to MCP clients over stdio. Run `volumeleaders-agent --help` for embedded domain knowledge, filter conventions, recovery steps, workflows, and domain gotchas.
@@ -64,6 +65,24 @@ By default, `make smoke` runs read-only commands and smoke-owned mutation checks
 ```bash
 go run ./cmd/smoke-test --mode read-only
 ```
+
+## Updates
+
+When run interactively, release binaries check for newer GitHub releases at most once per day and write update notifications to stderr so command JSON on stdout stays machine-readable. Disable or re-enable those notifications with the updater-specific settings command:
+
+```bash
+volumeleaders-agent update config --check-notifications=false
+volumeleaders-agent update config --check-notifications=true
+```
+
+Check without installing, or install the latest release for your platform:
+
+```bash
+volumeleaders-agent update check
+volumeleaders-agent update
+```
+
+Self-updates download the matching GitHub release archive, verify it against the GoReleaser checksum file, then replace the current binary with rollback support from the updater library.
 
 ## Agent integration
 

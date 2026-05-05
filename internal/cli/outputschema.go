@@ -12,7 +12,9 @@ import (
 
 	"github.com/major/volumeleaders-agent/internal/cli/common"
 	reportcmd "github.com/major/volumeleaders-agent/internal/cli/report"
+	updatecmd "github.com/major/volumeleaders-agent/internal/cli/update"
 	"github.com/major/volumeleaders-agent/internal/models"
+	updater "github.com/major/volumeleaders-agent/internal/update"
 )
 
 // outputContract describes the stdout contract for one executable command.
@@ -157,6 +159,10 @@ func allOutputContracts() []outputContract {
 		unknownJSONContract("watchlist add-ticker", "Add a ticker to a watchlist and return the API response."),
 		mutationContract("watchlist create", "Create a watchlist configuration and return a success object."),
 		mutationContract("watchlist edit", "Edit a watchlist configuration and return a success object."),
+
+		objectOutputContract[updater.InstallResult]("update", "Install the latest verified GitHub release for the current platform.", []string{"json"}, []string{"updated is false when the running version is already current."}),
+		objectOutputContract[updater.CheckResult]("update check", "Check the latest GitHub release without modifying the installed binary.", []string{"json"}, nil),
+		objectOutputContract[updatecmd.SettingsResult]("update config", "Show or change automatic update notification settings.", []string{"json"}, nil),
 	}
 	slices.SortFunc(contracts, func(a, b outputContract) int {
 		return strings.Compare(a.Command, b.Command)

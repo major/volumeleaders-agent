@@ -55,11 +55,17 @@ const (
 	reportSummaryGroupTickerDay reportSummaryGroup = "ticker,day"
 )
 
-// Set implements pflag.Value for reportSummaryGroup.
+// Set implements pflag.Value for reportSummaryGroup. Accepts canonical values
+// and legacy aliases (e.g. "ticker day", "ticker-day") for backwards compatibility.
 func (v *reportSummaryGroup) Set(value string) error {
-	switch reportSummaryGroup(value) {
+	normalized := strings.ToLower(strings.TrimSpace(value))
+	normalized = strings.NewReplacer(" ", "", "-", ",").Replace(normalized)
+	if normalized == "tickerday" {
+		normalized = string(reportSummaryGroupTickerDay)
+	}
+	switch reportSummaryGroup(normalized) {
 	case reportSummaryGroupTicker, reportSummaryGroupDay, reportSummaryGroupTickerDay:
-		*v = reportSummaryGroup(value)
+		*v = reportSummaryGroup(normalized)
 		return nil
 	default:
 		return fmt.Errorf("invalid value %q, expected one of ticker, day, ticker,day", value)
@@ -116,6 +122,7 @@ func newReportListCommand() *cobra.Command {
 		},
 	}
 	cmd.Flags().Var(&opts.Format, "format", "Output format: json, csv, or tsv")
+	common.AnnotateFlagEnum(cmd, "format", []string{"json", "csv", "tsv"})
 	common.WrapValidation(cmd, opts)
 	return cmd
 }
@@ -146,8 +153,10 @@ func newReportCommand(definition *reportDefinition) *cobra.Command {
 	common.AnnotateFlagGroup(cmd, "summary", "Output")
 	cmd.Flags().Var(&opts.GroupBy, "group-by", "Summary grouping (requires --summary): ticker, day, or ticker,day")
 	common.AnnotateFlagGroup(cmd, "group-by", "Output")
+	common.AnnotateFlagEnum(cmd, "group-by", []string{"ticker", "day", "ticker,day"})
 	cmd.Flags().VarP(&opts.Format, "format", "f", "Output format: json, csv, or tsv")
 	common.AnnotateFlagGroup(cmd, "format", "Output")
+	common.AnnotateFlagEnum(cmd, "format", []string{"json", "csv", "tsv"})
 	common.WrapValidation(cmd, opts)
 	return cmd
 }

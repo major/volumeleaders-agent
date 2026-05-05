@@ -208,8 +208,8 @@ RECOVERY: If the report is too broad, add --tickers or query one day at a time. 
 | `--days` | int | 0 | no | Look back this many days from --end-date or today; broad scans require a single day |
 | `--end-date` | string | - | no | End date YYYY-MM-DD (default: today) |
 | `--fields` | string | - | no | Comma-separated raw Trade fields to include, or omit for compact JSON |
-| `--format` | string | json | no | Output format: json, csv, or tsv |
-| `--group-by` | string | ticker | no | Summary grouping (requires --summary): ticker, day, or ticker,day |
+| `--format` | string | json | no | Output format: json, csv, or tsv (json, csv, tsv) |
+| `--group-by` | string | ticker | no | Summary grouping (requires --summary): ticker, day, or ticker,day (ticker, day, ticker,day) |
 | `--start-date` | string | - | no | Start date YYYY-MM-DD (default: today) |
 | `--summary` | bool | false | no | Return aggregate metrics instead of individual trades |
 | `--tickers` | string | - | no | Comma-separated ticker symbols; use this for multi-day report lookbacks |
@@ -240,8 +240,8 @@ RECOVERY: If the report is too broad, add --tickers or query one day at a time. 
 | `--days` | int | 0 | no | Look back this many days from --end-date or today; broad scans require a single day |
 | `--end-date` | string | - | no | End date YYYY-MM-DD (default: today) |
 | `--fields` | string | - | no | Comma-separated raw Trade fields to include, or omit for compact JSON |
-| `--format` | string | json | no | Output format: json, csv, or tsv |
-| `--group-by` | string | ticker | no | Summary grouping (requires --summary): ticker, day, or ticker,day |
+| `--format` | string | json | no | Output format: json, csv, or tsv (json, csv, tsv) |
+| `--group-by` | string | ticker | no | Summary grouping (requires --summary): ticker, day, or ticker,day (ticker, day, ticker,day) |
 | `--start-date` | string | - | no | Start date YYYY-MM-DD (default: today) |
 | `--summary` | bool | false | no | Return aggregate metrics instead of individual trades |
 | `--tickers` | string | - | no | Comma-separated ticker symbols; use this for multi-day report lookbacks |
@@ -272,8 +272,8 @@ RECOVERY: If the report is too broad, add --tickers or query one day at a time. 
 | `--days` | int | 0 | no | Look back this many days from --end-date or today; broad scans require a single day |
 | `--end-date` | string | - | no | End date YYYY-MM-DD (default: today) |
 | `--fields` | string | - | no | Comma-separated raw Trade fields to include, or omit for compact JSON |
-| `--format` | string | json | no | Output format: json, csv, or tsv |
-| `--group-by` | string | ticker | no | Summary grouping (requires --summary): ticker, day, or ticker,day |
+| `--format` | string | json | no | Output format: json, csv, or tsv (json, csv, tsv) |
+| `--group-by` | string | ticker | no | Summary grouping (requires --summary): ticker, day, or ticker,day (ticker, day, ticker,day) |
 | `--start-date` | string | - | no | Start date YYYY-MM-DD (default: today) |
 | `--summary` | bool | false | no | Return aggregate metrics instead of individual trades |
 | `--tickers` | string | - | no | Comma-separated ticker symbols; use this for multi-day report lookbacks |
@@ -304,8 +304,8 @@ RECOVERY: If the report is too broad, add --tickers or query one day at a time. 
 | `--days` | int | 0 | no | Look back this many days from --end-date or today; broad scans require a single day |
 | `--end-date` | string | - | no | End date YYYY-MM-DD (default: today) |
 | `--fields` | string | - | no | Comma-separated raw Trade fields to include, or omit for compact JSON |
-| `--format` | string | json | no | Output format: json, csv, or tsv |
-| `--group-by` | string | ticker | no | Summary grouping (requires --summary): ticker, day, or ticker,day |
+| `--format` | string | json | no | Output format: json, csv, or tsv (json, csv, tsv) |
+| `--group-by` | string | ticker | no | Summary grouping (requires --summary): ticker, day, or ticker,day (ticker, day, ticker,day) |
 | `--start-date` | string | - | no | Start date YYYY-MM-DD (default: today) |
 | `--summary` | bool | false | no | Return aggregate metrics instead of individual trades |
 | `--tickers` | string | - | no | Comma-separated ticker symbols; use this for multi-day report lookbacks |
@@ -325,7 +325,7 @@ List curated report commands, their source VolumeLeaders preset names, and their
 
 | Flag | Type | Default | Required | Description |
 |------|------|---------|----------|-------------|
-| `--format` | string | json | no | Output format: json, csv, or tsv |
+| `--format` | string | json | no | Output format: json, csv, or tsv (json, csv, tsv) |
 
 **Example:**
 
@@ -352,8 +352,8 @@ RECOVERY: If the report is too broad, add --tickers or query one day at a time. 
 | `--days` | int | 0 | no | Look back this many days from --end-date or today; broad scans require a single day |
 | `--end-date` | string | - | no | End date YYYY-MM-DD (default: today) |
 | `--fields` | string | - | no | Comma-separated raw Trade fields to include, or omit for compact JSON |
-| `--format` | string | json | no | Output format: json, csv, or tsv |
-| `--group-by` | string | ticker | no | Summary grouping (requires --summary): ticker, day, or ticker,day |
+| `--format` | string | json | no | Output format: json, csv, or tsv (json, csv, tsv) |
+| `--group-by` | string | ticker | no | Summary grouping (requires --summary): ticker, day, or ticker,day (ticker, day, ticker,day) |
 | `--start-date` | string | - | no | Start date YYYY-MM-DD (default: today) |
 | `--summary` | bool | false | no | Return aggregate metrics instead of individual trades |
 | `--tickers` | string | - | no | Comma-separated ticker symbols; use this for multi-day report lookbacks |
@@ -384,8 +384,8 @@ RECOVERY: If the report is too broad, add --tickers or query one day at a time. 
 | `--days` | int | 0 | no | Look back this many days from --end-date or today; broad scans require a single day |
 | `--end-date` | string | - | no | End date YYYY-MM-DD (default: today) |
 | `--fields` | string | - | no | Comma-separated raw Trade fields to include, or omit for compact JSON |
-| `--format` | string | json | no | Output format: json, csv, or tsv |
-| `--group-by` | string | ticker | no | Summary grouping (requires --summary): ticker, day, or ticker,day |
+| `--format` | string | json | no | Output format: json, csv, or tsv (json, csv, tsv) |
+| `--group-by` | string | ticker | no | Summary grouping (requires --summary): ticker, day, or ticker,day (ticker, day, ticker,day) |
 | `--start-date` | string | - | no | Start date YYYY-MM-DD (default: today) |
 | `--summary` | bool | false | no | Return aggregate metrics instead of individual trades |
 | `--tickers` | string | - | no | Comma-separated ticker symbols; use this for multi-day report lookbacks |
@@ -416,8 +416,8 @@ RECOVERY: If the report is too broad, add --tickers or query one day at a time. 
 | `--days` | int | 0 | no | Look back this many days from --end-date or today; broad scans require a single day |
 | `--end-date` | string | - | no | End date YYYY-MM-DD (default: today) |
 | `--fields` | string | - | no | Comma-separated raw Trade fields to include, or omit for compact JSON |
-| `--format` | string | json | no | Output format: json, csv, or tsv |
-| `--group-by` | string | ticker | no | Summary grouping (requires --summary): ticker, day, or ticker,day |
+| `--format` | string | json | no | Output format: json, csv, or tsv (json, csv, tsv) |
+| `--group-by` | string | ticker | no | Summary grouping (requires --summary): ticker, day, or ticker,day (ticker, day, ticker,day) |
 | `--start-date` | string | - | no | Start date YYYY-MM-DD (default: today) |
 | `--summary` | bool | false | no | Return aggregate metrics instead of individual trades |
 | `--tickers` | string | - | no | Comma-separated ticker symbols; use this for multi-day report lookbacks |
@@ -448,8 +448,8 @@ RECOVERY: If the report is too broad, add --tickers or query one day at a time. 
 | `--days` | int | 0 | no | Look back this many days from --end-date or today; broad scans require a single day |
 | `--end-date` | string | - | no | End date YYYY-MM-DD (default: today) |
 | `--fields` | string | - | no | Comma-separated raw Trade fields to include, or omit for compact JSON |
-| `--format` | string | json | no | Output format: json, csv, or tsv |
-| `--group-by` | string | ticker | no | Summary grouping (requires --summary): ticker, day, or ticker,day |
+| `--format` | string | json | no | Output format: json, csv, or tsv (json, csv, tsv) |
+| `--group-by` | string | ticker | no | Summary grouping (requires --summary): ticker, day, or ticker,day (ticker, day, ticker,day) |
 | `--start-date` | string | - | no | Start date YYYY-MM-DD (default: today) |
 | `--summary` | bool | false | no | Return aggregate metrics instead of individual trades |
 | `--tickers` | string | - | no | Comma-separated ticker symbols; use this for multi-day report lookbacks |
@@ -480,8 +480,8 @@ RECOVERY: If the report is too broad, add --tickers or query one day at a time. 
 | `--days` | int | 0 | no | Look back this many days from --end-date or today; broad scans require a single day |
 | `--end-date` | string | - | no | End date YYYY-MM-DD (default: today) |
 | `--fields` | string | - | no | Comma-separated raw Trade fields to include, or omit for compact JSON |
-| `--format` | string | json | no | Output format: json, csv, or tsv |
-| `--group-by` | string | ticker | no | Summary grouping (requires --summary): ticker, day, or ticker,day |
+| `--format` | string | json | no | Output format: json, csv, or tsv (json, csv, tsv) |
+| `--group-by` | string | ticker | no | Summary grouping (requires --summary): ticker, day, or ticker,day (ticker, day, ticker,day) |
 | `--start-date` | string | - | no | Start date YYYY-MM-DD (default: today) |
 | `--summary` | bool | false | no | Return aggregate metrics instead of individual trades |
 | `--tickers` | string | - | no | Comma-separated ticker symbols; use this for multi-day report lookbacks |
@@ -512,8 +512,8 @@ RECOVERY: If the report is too broad, add --tickers or query one day at a time. 
 | `--days` | int | 0 | no | Look back this many days from --end-date or today; broad scans require a single day |
 | `--end-date` | string | - | no | End date YYYY-MM-DD (default: today) |
 | `--fields` | string | - | no | Comma-separated raw Trade fields to include, or omit for compact JSON |
-| `--format` | string | json | no | Output format: json, csv, or tsv |
-| `--group-by` | string | ticker | no | Summary grouping (requires --summary): ticker, day, or ticker,day |
+| `--format` | string | json | no | Output format: json, csv, or tsv (json, csv, tsv) |
+| `--group-by` | string | ticker | no | Summary grouping (requires --summary): ticker, day, or ticker,day (ticker, day, ticker,day) |
 | `--start-date` | string | - | no | Start date YYYY-MM-DD (default: today) |
 | `--summary` | bool | false | no | Return aggregate metrics instead of individual trades |
 | `--tickers` | string | - | no | Comma-separated ticker symbols; use this for multi-day report lookbacks |
@@ -544,8 +544,8 @@ RECOVERY: If the report is too broad, add --tickers or query one day at a time. 
 | `--days` | int | 0 | no | Look back this many days from --end-date or today; broad scans require a single day |
 | `--end-date` | string | - | no | End date YYYY-MM-DD (default: today) |
 | `--fields` | string | - | no | Comma-separated raw Trade fields to include, or omit for compact JSON |
-| `--format` | string | json | no | Output format: json, csv, or tsv |
-| `--group-by` | string | ticker | no | Summary grouping (requires --summary): ticker, day, or ticker,day |
+| `--format` | string | json | no | Output format: json, csv, or tsv (json, csv, tsv) |
+| `--group-by` | string | ticker | no | Summary grouping (requires --summary): ticker, day, or ticker,day (ticker, day, ticker,day) |
 | `--start-date` | string | - | no | Start date YYYY-MM-DD (default: today) |
 | `--summary` | bool | false | no | Return aggregate metrics instead of individual trades |
 | `--tickers` | string | - | no | Comma-separated ticker symbols; use this for multi-day report lookbacks |

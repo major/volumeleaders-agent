@@ -251,8 +251,8 @@ go install github.com/major/volumeleaders-agent/cmd/volumeleaders-agent@latest
 | `--days` | int | 0 | Look back this many days from --end-date or today; broad scans require a single day |
 | `--end-date` | string | - | End date YYYY-MM-DD (default: today) |
 | `--fields` | string | - | Comma-separated raw Trade fields to include, or omit for compact JSON |
-| `--format` | string | json | Output format: json, csv, or tsv |
-| `--group-by` | string | ticker | Summary grouping (requires --summary): ticker, day, or ticker,day |
+| `--format` | string | json | Output format: json, csv, or tsv (json, csv, tsv) |
+| `--group-by` | string | ticker | Summary grouping (requires --summary): ticker, day, or ticker,day (ticker, day, ticker,day) |
 | `--start-date` | string | - | Start date YYYY-MM-DD (default: today) |
 | `--summary` | bool | false | Return aggregate metrics instead of individual trades |
 | `--tickers` | string | - | Comma-separated ticker symbols; use this for multi-day report lookbacks |
@@ -264,8 +264,8 @@ go install github.com/major/volumeleaders-agent/cmd/volumeleaders-agent@latest
 | `--days` | int | 0 | Look back this many days from --end-date or today; broad scans require a single day |
 | `--end-date` | string | - | End date YYYY-MM-DD (default: today) |
 | `--fields` | string | - | Comma-separated raw Trade fields to include, or omit for compact JSON |
-| `--format` | string | json | Output format: json, csv, or tsv |
-| `--group-by` | string | ticker | Summary grouping (requires --summary): ticker, day, or ticker,day |
+| `--format` | string | json | Output format: json, csv, or tsv (json, csv, tsv) |
+| `--group-by` | string | ticker | Summary grouping (requires --summary): ticker, day, or ticker,day (ticker, day, ticker,day) |
 | `--start-date` | string | - | Start date YYYY-MM-DD (default: today) |
 | `--summary` | bool | false | Return aggregate metrics instead of individual trades |
 | `--tickers` | string | - | Comma-separated ticker symbols; use this for multi-day report lookbacks |
@@ -277,8 +277,8 @@ go install github.com/major/volumeleaders-agent/cmd/volumeleaders-agent@latest
 | `--days` | int | 0 | Look back this many days from --end-date or today; broad scans require a single day |
 | `--end-date` | string | - | End date YYYY-MM-DD (default: today) |
 | `--fields` | string | - | Comma-separated raw Trade fields to include, or omit for compact JSON |
-| `--format` | string | json | Output format: json, csv, or tsv |
-| `--group-by` | string | ticker | Summary grouping (requires --summary): ticker, day, or ticker,day |
+| `--format` | string | json | Output format: json, csv, or tsv (json, csv, tsv) |
+| `--group-by` | string | ticker | Summary grouping (requires --summary): ticker, day, or ticker,day (ticker, day, ticker,day) |
 | `--start-date` | string | - | Start date YYYY-MM-DD (default: today) |
 | `--summary` | bool | false | Return aggregate metrics instead of individual trades |
 | `--tickers` | string | - | Comma-separated ticker symbols; use this for multi-day report lookbacks |
@@ -290,8 +290,8 @@ go install github.com/major/volumeleaders-agent/cmd/volumeleaders-agent@latest
 | `--days` | int | 0 | Look back this many days from --end-date or today; broad scans require a single day |
 | `--end-date` | string | - | End date YYYY-MM-DD (default: today) |
 | `--fields` | string | - | Comma-separated raw Trade fields to include, or omit for compact JSON |
-| `--format` | string | json | Output format: json, csv, or tsv |
-| `--group-by` | string | ticker | Summary grouping (requires --summary): ticker, day, or ticker,day |
+| `--format` | string | json | Output format: json, csv, or tsv (json, csv, tsv) |
+| `--group-by` | string | ticker | Summary grouping (requires --summary): ticker, day, or ticker,day (ticker, day, ticker,day) |
 | `--start-date` | string | - | Start date YYYY-MM-DD (default: today) |
 | `--summary` | bool | false | Return aggregate metrics instead of individual trades |
 | `--tickers` | string | - | Comma-separated ticker symbols; use this for multi-day report lookbacks |
@@ -300,7 +300,7 @@ go install github.com/major/volumeleaders-agent/cmd/volumeleaders-agent@latest
 
 | Flag | Type | Default | Description |
 |------|------|---------|-------------|
-| `--format` | string | json | Output format: json, csv, or tsv |
+| `--format` | string | json | Output format: json, csv, or tsv (json, csv, tsv) |
 
 #### `volumeleaders-agent report offsetting-trades`
 
@@ -309,8 +309,8 @@ go install github.com/major/volumeleaders-agent/cmd/volumeleaders-agent@latest
 | `--days` | int | 0 | Look back this many days from --end-date or today; broad scans require a single day |
 | `--end-date` | string | - | End date YYYY-MM-DD (default: today) |
 | `--fields` | string | - | Comma-separated raw Trade fields to include, or omit for compact JSON |
-| `--format` | string | json | Output format: json, csv, or tsv |
-| `--group-by` | string | ticker | Summary grouping (requires --summary): ticker, day, or ticker,day |
+| `--format` | string | json | Output format: json, csv, or tsv (json, csv, tsv) |
+| `--group-by` | string | ticker | Summary grouping (requires --summary): ticker, day, or ticker,day (ticker, day, ticker,day) |
 | `--start-date` | string | - | Start date YYYY-MM-DD (default: today) |
 | `--summary` | bool | false | Return aggregate metrics instead of individual trades |
 | `--tickers` | string | - | Comma-separated ticker symbols; use this for multi-day report lookbacks |
@@ -322,8 +322,8 @@ go install github.com/major/volumeleaders-agent/cmd/volumeleaders-agent@latest
 | `--days` | int | 0 | Look back this many days from --end-date or today; broad scans require a single day |
 | `--end-date` | string | - | End date YYYY-MM-DD (default: today) |
 | `--fields` | string | - | Comma-separated raw Trade fields to include, or omit for compact JSON |
-| `--format` | string | json | Output format: json, csv, or tsv |
-| `--group-by` | string | ticker | Summary grouping (requires --summary): ticker, day, or ticker,day |
+| `--format` | string | json | Output format: json, csv, or tsv (json, csv, tsv) |
+| `--group-by` | string | ticker | Summary grouping (requires --summary): ticker, day, or ticker,day (ticker, day, ticker,day) |
 | `--start-date` | string | - | Start date YYYY-MM-DD (default: today) |
 | `--summary` | bool | false | Return aggregate metrics instead of individual trades |
 | `--tickers` | string | - | Comma-separated ticker symbols; use this for multi-day report lookbacks |
@@ -335,8 +335,8 @@ go install github.com/major/volumeleaders-agent/cmd/volumeleaders-agent@latest
 | `--days` | int | 0 | Look back this many days from --end-date or today; broad scans require a single day |
 | `--end-date` | string | - | End date YYYY-MM-DD (default: today) |
 | `--fields` | string | - | Comma-separated raw Trade fields to include, or omit for compact JSON |
-| `--format` | string | json | Output format: json, csv, or tsv |
-| `--group-by` | string | ticker | Summary grouping (requires --summary): ticker, day, or ticker,day |
+| `--format` | string | json | Output format: json, csv, or tsv (json, csv, tsv) |
+| `--group-by` | string | ticker | Summary grouping (requires --summary): ticker, day, or ticker,day (ticker, day, ticker,day) |
 | `--start-date` | string | - | Start date YYYY-MM-DD (default: today) |
 | `--summary` | bool | false | Return aggregate metrics instead of individual trades |
 | `--tickers` | string | - | Comma-separated ticker symbols; use this for multi-day report lookbacks |
@@ -348,8 +348,8 @@ go install github.com/major/volumeleaders-agent/cmd/volumeleaders-agent@latest
 | `--days` | int | 0 | Look back this many days from --end-date or today; broad scans require a single day |
 | `--end-date` | string | - | End date YYYY-MM-DD (default: today) |
 | `--fields` | string | - | Comma-separated raw Trade fields to include, or omit for compact JSON |
-| `--format` | string | json | Output format: json, csv, or tsv |
-| `--group-by` | string | ticker | Summary grouping (requires --summary): ticker, day, or ticker,day |
+| `--format` | string | json | Output format: json, csv, or tsv (json, csv, tsv) |
+| `--group-by` | string | ticker | Summary grouping (requires --summary): ticker, day, or ticker,day (ticker, day, ticker,day) |
 | `--start-date` | string | - | Start date YYYY-MM-DD (default: today) |
 | `--summary` | bool | false | Return aggregate metrics instead of individual trades |
 | `--tickers` | string | - | Comma-separated ticker symbols; use this for multi-day report lookbacks |
@@ -361,8 +361,8 @@ go install github.com/major/volumeleaders-agent/cmd/volumeleaders-agent@latest
 | `--days` | int | 0 | Look back this many days from --end-date or today; broad scans require a single day |
 | `--end-date` | string | - | End date YYYY-MM-DD (default: today) |
 | `--fields` | string | - | Comma-separated raw Trade fields to include, or omit for compact JSON |
-| `--format` | string | json | Output format: json, csv, or tsv |
-| `--group-by` | string | ticker | Summary grouping (requires --summary): ticker, day, or ticker,day |
+| `--format` | string | json | Output format: json, csv, or tsv (json, csv, tsv) |
+| `--group-by` | string | ticker | Summary grouping (requires --summary): ticker, day, or ticker,day (ticker, day, ticker,day) |
 | `--start-date` | string | - | Start date YYYY-MM-DD (default: today) |
 | `--summary` | bool | false | Return aggregate metrics instead of individual trades |
 | `--tickers` | string | - | Comma-separated ticker symbols; use this for multi-day report lookbacks |
@@ -374,8 +374,8 @@ go install github.com/major/volumeleaders-agent/cmd/volumeleaders-agent@latest
 | `--days` | int | 0 | Look back this many days from --end-date or today; broad scans require a single day |
 | `--end-date` | string | - | End date YYYY-MM-DD (default: today) |
 | `--fields` | string | - | Comma-separated raw Trade fields to include, or omit for compact JSON |
-| `--format` | string | json | Output format: json, csv, or tsv |
-| `--group-by` | string | ticker | Summary grouping (requires --summary): ticker, day, or ticker,day |
+| `--format` | string | json | Output format: json, csv, or tsv (json, csv, tsv) |
+| `--group-by` | string | ticker | Summary grouping (requires --summary): ticker, day, or ticker,day (ticker, day, ticker,day) |
 | `--start-date` | string | - | Start date YYYY-MM-DD (default: today) |
 | `--summary` | bool | false | Return aggregate metrics instead of individual trades |
 | `--tickers` | string | - | Comma-separated ticker symbols; use this for multi-day report lookbacks |
@@ -387,8 +387,8 @@ go install github.com/major/volumeleaders-agent/cmd/volumeleaders-agent@latest
 | `--days` | int | 0 | Look back this many days from --end-date or today; broad scans require a single day |
 | `--end-date` | string | - | End date YYYY-MM-DD (default: today) |
 | `--fields` | string | - | Comma-separated raw Trade fields to include, or omit for compact JSON |
-| `--format` | string | json | Output format: json, csv, or tsv |
-| `--group-by` | string | ticker | Summary grouping (requires --summary): ticker, day, or ticker,day |
+| `--format` | string | json | Output format: json, csv, or tsv (json, csv, tsv) |
+| `--group-by` | string | ticker | Summary grouping (requires --summary): ticker, day, or ticker,day (ticker, day, ticker,day) |
 | `--start-date` | string | - | Start date YYYY-MM-DD (default: today) |
 | `--summary` | bool | false | Return aggregate metrics instead of individual trades |
 | `--tickers` | string | - | Comma-separated ticker symbols; use this for multi-day report lookbacks |

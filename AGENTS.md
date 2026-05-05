@@ -15,7 +15,7 @@ Command documentation mapping:
 
 - All command groups -> `volumeleaders-agent --jsonschema=tree` for command shape and Long descriptions for semantic guidance. Use `volumeleaders-agent --mcp` when validating the MCP tool surface exposed to LLM clients.
 - All command outputs -> `volumeleaders-agent outputschema` for success stdout contracts.
-- Generated LLM discovery files -> `make docs` writes root `SKILL.md` plus `docs/llm/AGENTS.md` and `docs/llm/llms.txt` from structcli metadata.
+- Generated LLM discovery files -> `make docs` refreshes root `SKILL.md` plus `docs/llm/AGENTS.md` and `docs/llm/llms.txt` from the checked-in Cobra discovery templates.
 - Shared conventions, workflows, recovery behavior, output behavior, auth guidance, and domain gotchas -> root command Long description (run `volumeleaders-agent --help`).
 
 ## Project Layout
@@ -54,9 +54,9 @@ make smoke      # Run local live smoke tests against the built binary
 - Boolean/toggle filters use integers: `-1` = all/unfiltered, `0` = exclude, `1` = include/only.
 - Pagination uses `--start` (offset) and `--length` (count) where commands expose count selection. `--length -1` means all results for generic DataTables commands. `trade list` does not expose `--length`; multi-day lookups whose effective filters include tickers return the top 10 long-period trades with VolumeLeaders' lightweight chart query shape, while `trade list --summary`, single-day trade scans, all-market trade scans, sector-only presets, `trade clusters`, and `trade cluster-bombs` fetch all rows internally in browser-sized 100-row pages because VolumeLeaders expects those endpoints to use 100 results per request. `trade levels` and `trade level-touches` only allow `--trade-level-count` values of 5, 10, 20, or 50. `trade level-touches` defaults to `--trade-level-rank 5`, requires rank 5 or higher, and only allows `--length` values from 1 to 50.
 - The binary name is `volumeleaders-agent`.
-- Update notifications are on by default when release binaries run interactively, cached for one day, skipped in CI and non-interactive output, and controlled only by the updater-specific settings file managed through `volumeleaders-agent update config`. Do not replace this with structcli config/env loading. The `update` command must verify downloaded release assets against GoReleaser checksums before replacing the binary.
+- Update notifications are on by default when release binaries run interactively, cached for one day, skipped in CI and non-interactive output, and controlled only by the updater-specific settings file managed through `volumeleaders-agent update config`. Do not replace this with config/env loading. The `update` command must verify downloaded release assets against GoReleaser checksums before replacing the binary.
 - `make smoke` is a local-only live test harness, not part of CI. It builds `./volumeleaders-agent`, discovers command coverage from `--jsonschema=tree`, validates stdout JSON, and may create/update/delete smoke-owned alert and watchlist records named with a `smoke-*` prefix. Smoke mutations must only target keys created during the same smoke run, and cleanup must be attempted even after failures.
-- structcli environment-variable and config-file features are intentionally out of scope for this project. Do not add or recommend `flagenv`, `flagenv:"only"`, `structcli.WithConfig`, `--config`, YAML/JSON/TOML config loading, or environment-variable driven CLI defaults unless this guidance is explicitly changed later.
+- Environment-variable and config-file flag defaults are intentionally out of scope for this project. Do not add or recommend `flagenv`, `flagenv:"only"`, `--config`, YAML/JSON/TOML config loading, or environment-variable driven CLI defaults unless this guidance is explicitly changed later.
 
 ## Review guidelines
 

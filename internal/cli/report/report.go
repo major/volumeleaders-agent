@@ -5,7 +5,6 @@ import (
 	"maps"
 	"strings"
 
-	"github.com/leodido/structcli"
 	"github.com/spf13/cobra"
 
 	"github.com/major/volumeleaders-agent/internal/cli/common"
@@ -14,14 +13,6 @@ import (
 )
 
 const reportBrowserPageLength = 100
-
-func init() {
-	structcli.RegisterEnum(map[reportSummaryGroup][]string{
-		reportSummaryGroupTicker:    {"ticker"},
-		reportSummaryGroupDay:       {"day"},
-		reportSummaryGroupTickerDay: {"ticker,day", "ticker, day", "ticker day", "ticker-day"},
-	})
-}
 
 type reportDefinition struct {
 	use     string

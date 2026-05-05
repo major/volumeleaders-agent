@@ -180,7 +180,7 @@ volumeleaders-agent market exhaustion --date 2025-01-15
 
 #### `volumeleaders-agent outputschema`
 
-Print machine-readable stdout contracts for executable commands. With no arguments it returns every contract as a JSON array. Pass a command path such as trade list to return one contract. This describes success output only; structured errors are documented by structcli flag errors.
+Print machine-readable stdout contracts for executable commands. With no arguments it returns every contract as a JSON array. Pass a command path such as trade list to return one contract. This describes success output only; use command help or `--jsonschema` for input validation details.
 
 **Example:**
 

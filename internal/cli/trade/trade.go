@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/leodido/structcli"
 	"github.com/spf13/cobra"
 
 	"github.com/major/volumeleaders-agent/internal/cli/common"
@@ -19,14 +18,6 @@ const (
 	maxTradeLevelRequestLength  = 50
 	tradeListTickerLookbackDays = 365
 )
-
-func init() {
-	structcli.RegisterEnum(map[tradeSummaryGroup][]string{
-		tradeSummaryGroupTicker:    {"ticker"},
-		tradeSummaryGroupDay:       {"day"},
-		tradeSummaryGroupTickerDay: {"ticker,day", "ticker, day", "ticker day", "ticker-day"},
-	})
-}
 
 var tradeClusterDefaultFields = []string{
 	"Date",
@@ -233,13 +224,13 @@ func (opts *tradeDashboardOptions) Validate(_ context.Context) []error {
 }
 
 type tradeAlertsOptions struct {
-	Date string `flag:"date" flaggroup:"Dates" flagshort:"d" flagdescr:"Date YYYY-MM-DD"`
+	Date string `flag:"date" flaggroup:"Dates" flagshort:"d" flagdescr:"Date YYYY-MM-DD" flagrequired:"true"`
 	tradeFormatFlag
 	tradePaginationFlags
 }
 
 type tradeClusterAlertsOptions struct {
-	Date string `flag:"date" flaggroup:"Dates" flagshort:"d" flagdescr:"Date YYYY-MM-DD"`
+	Date string `flag:"date" flaggroup:"Dates" flagshort:"d" flagdescr:"Date YYYY-MM-DD" flagrequired:"true"`
 	tradeFormatFlag
 	tradePaginationFlags
 }
@@ -459,7 +450,6 @@ Alert configs trigger when trades match thresholds. Threshold names follow the p
 		},
 	}
 	common.BindOrPanic(cmd, opts, "alerts")
-	_ = cmd.MarkFlagRequired("date")
 	return cmd
 }
 
@@ -481,7 +471,6 @@ Cluster alert rows use the full cluster-shaped model rather than the compact def
 		},
 	}
 	common.BindOrPanic(cmd, opts, "cluster-alerts")
-	_ = cmd.MarkFlagRequired("date")
 	return cmd
 }
 

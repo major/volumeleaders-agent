@@ -2,6 +2,7 @@ package update
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"time"
 
@@ -14,7 +15,7 @@ import (
 const updateTimeout = 5 * time.Minute
 
 type configOptions struct {
-	CheckNotifications bool `flag:"check-notifications" flaggroup:"Update" flagdescr:"Enable or disable automatic update notifications before commands"`
+	CheckNotifications bool `flag:"check-notifications" flaggroup:"Update" flagdescr:"Set automatic update notification preference; true enables notifications, false disables them, omitted only displays current settings"`
 }
 
 type installOptions struct {
@@ -43,7 +44,7 @@ volumeleaders-agent update --force`,
 			slog.Info("Checking GitHub releases for updates")
 			result, err := updater.InstallLatest(ctx, currentVersion, installOpts.Force)
 			if err != nil {
-				return err
+				return fmt.Errorf("install latest release: %w", err)
 			}
 			if result.Updated {
 				slog.Info("Installed update", "version", result.CurrentVersion, "asset", result.AssetName)
@@ -70,7 +71,7 @@ func newCheckCmd(currentVersion string) *cobra.Command {
 			defer cancel()
 			result, err := updater.CheckLatest(ctx, currentVersion)
 			if err != nil {
-				return err
+				return fmt.Errorf("check for updates: %w", err)
 			}
 			return common.PrintJSON(cmd.OutOrStdout(), cmd.Context(), result)
 		},
@@ -79,7 +80,7 @@ func newCheckCmd(currentVersion string) *cobra.Command {
 }
 
 func newConfigCmd() *cobra.Command {
-	opts := &configOptions{}
+	opts := &configOptions{CheckNotifications: true}
 	cmd := &cobra.Command{
 		Use:   "config",
 		Short: "Show or change update settings",
@@ -93,18 +94,18 @@ volumeleaders-agent update config --check-notifications=false`,
 				if cmd.Flags().Changed("check-notifications") {
 					settings = updater.DefaultSettings()
 				} else {
-					return err
+					return fmt.Errorf("load update settings: %w", err)
 				}
 			}
 			if cmd.Flags().Changed("check-notifications") {
 				settings.CheckNotifications = opts.CheckNotifications
 				if err := updater.SaveSettings(settings); err != nil {
-					return err
+					return fmt.Errorf("save update settings: %w", err)
 				}
 			}
 			path, err := updater.SettingsPath()
 			if err != nil {
-				return err
+				return fmt.Errorf("resolve update settings path: %w", err)
 			}
 			return common.PrintJSON(cmd.OutOrStdout(), cmd.Context(), SettingsResult{CheckNotifications: settings.CheckNotifications, Path: path})
 		},

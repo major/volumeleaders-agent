@@ -37,7 +37,7 @@ type InstallResult struct {
 func CheckLatest(ctx context.Context, currentVersion string) (CheckResult, error) {
 	updater, err := newUpdater()
 	if err != nil {
-		return CheckResult{}, err
+		return CheckResult{}, fmt.Errorf("check latest: %w", err)
 	}
 	release, found, err := updater.DetectLatest(ctx, selfupdate.ParseSlug(repositorySlug))
 	if err != nil {
@@ -62,7 +62,7 @@ func CheckLatest(ctx context.Context, currentVersion string) (CheckResult, error
 func InstallLatest(ctx context.Context, currentVersion string, force bool) (InstallResult, error) {
 	updater, err := newUpdater()
 	if err != nil {
-		return InstallResult{}, err
+		return InstallResult{}, fmt.Errorf("install latest: %w", err)
 	}
 	release, found, err := updater.DetectLatest(ctx, selfupdate.ParseSlug(repositorySlug))
 	if err != nil {
@@ -74,7 +74,7 @@ func InstallLatest(ctx context.Context, currentVersion string, force bool) (Inst
 	latestVersion := release.Version()
 	result := InstallResult{
 		PreviousVersion: currentVersion,
-		CurrentVersion:  latestVersion,
+		CurrentVersion:  currentVersion,
 		AssetName:       release.AssetName,
 		ReleaseURL:      release.URL,
 	}
@@ -88,6 +88,7 @@ func InstallLatest(ctx context.Context, currentVersion string, force bool) (Inst
 	if err := updater.UpdateTo(ctx, release, executablePath); err != nil {
 		return InstallResult{}, fmt.Errorf("apply verified update: %w", err)
 	}
+	result.CurrentVersion = latestVersion
 	result.Updated = true
 	return result, nil
 }

@@ -978,7 +978,7 @@ Show updater notification settings, or persist a new automatic notification pref
 
 | Flag | Type | Default | Required | Description |
 |------|------|---------|----------|-------------|
-| `--check-notifications` | bool | false | no | Enable or disable automatic update notifications before commands |
+| `--check-notifications` | bool | true | no | Set automatic update notification preference; true enables notifications, false disables them, omitted only displays current settings |
 
 **Example:**
 

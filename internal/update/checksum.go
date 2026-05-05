@@ -15,7 +15,10 @@ type GoReleaserChecksumValidator struct{}
 // Validate verifies release bytes against the versioned GoReleaser checksum file.
 func (GoReleaserChecksumValidator) Validate(filename string, release, asset []byte) error {
 	validator := selfupdate.ChecksumValidator{UniqueFilename: checksumAssetName(filename)}
-	return validator.Validate(filename, release, asset)
+	if err := validator.Validate(filename, release, asset); err != nil {
+		return fmt.Errorf("go-releaser checksum validation for %s: %w", filename, err)
+	}
+	return nil
 }
 
 // GetValidationAssetName returns the checksum file uploaded by this repo's GoReleaser config.

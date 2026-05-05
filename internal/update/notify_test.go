@@ -18,6 +18,9 @@ func TestShouldSkipNotification(t *testing.T) {
 		{name: "ci", version: "0.8.1", commandPath: "volumeleaders-agent trade list", ci: "true", want: true},
 		{name: "update command", version: "0.8.1", commandPath: "volumeleaders-agent update check", want: true},
 		{name: "non interactive", version: "0.8.1", commandPath: "volumeleaders-agent trade list", want: true},
+		// The non-skip case requires both os.Stdout and os.Stderr to be real TTY character devices.
+		// Keep this unit test deterministic by replacing them with regular files and covering the
+		// positive terminal behavior through manual CLI smoke checks in an interactive shell.
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

@@ -68,7 +68,7 @@ go run ./cmd/smoke-test --mode read-only
 
 ## Updates
 
-Interactive release builds check for newer GitHub releases at most once per day and write update notices to stderr so command JSON on stdout stays machine-readable. Disable or re-enable those notices with the updater-specific settings command:
+When run interactively, release binaries check for newer GitHub releases at most once per day and write update notifications to stderr so command JSON on stdout stays machine-readable. Disable or re-enable those notifications with the updater-specific settings command:
 
 ```bash
 volumeleaders-agent update config --check-notifications=false

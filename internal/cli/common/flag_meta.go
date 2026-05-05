@@ -19,8 +19,12 @@ const (
 )
 
 // annotateFlag sets a single annotation value on a registered flag.
+// Panics if the flag does not exist, since that indicates a programming error
+// in flag setup.
 func annotateFlag(cmd *cobra.Command, flagName, key, value string) {
-	_ = cmd.Flags().SetAnnotation(flagName, key, []string{value})
+	if err := cmd.Flags().SetAnnotation(flagName, key, []string{value}); err != nil {
+		panic(fmt.Sprintf("annotateFlag %s: %v", flagName, err))
+	}
 }
 
 // firstAnnotation returns the first annotation value for key on f, or "" if absent.
@@ -76,8 +80,11 @@ func AnnotateFlagGroup(cmd *cobra.Command, flagName, group string) {
 }
 
 // AnnotateFlagEnum sets the allowed values annotation on a registered flag.
+// Panics if the flag does not exist.
 func AnnotateFlagEnum(cmd *cobra.Command, flagName string, values []string) {
-	_ = cmd.Flags().SetAnnotation(flagName, flagEnumAnnotation, values)
+	if err := cmd.Flags().SetAnnotation(flagName, flagEnumAnnotation, values); err != nil {
+		panic(fmt.Sprintf("AnnotateFlagEnum %s: %v", flagName, err))
+	}
 }
 
 // WrapValidation installs a PreRunE hook on cmd that:
@@ -96,9 +103,15 @@ func WrapValidation(cmd *cobra.Command, opts any) {
 			return err
 		}
 		if v, ok := opts.(ValidatableOptions); ok {
-			for _, e := range v.Validate(cmd.Context()) {
-				if e != nil {
-					return e
+			if errs := v.Validate(cmd.Context()); len(errs) > 0 {
+				var msgs []string
+				for _, e := range errs {
+					if e != nil {
+						msgs = append(msgs, e.Error())
+					}
+				}
+				if len(msgs) > 0 {
+					return fmt.Errorf("validation failed:\n  - %s", strings.Join(msgs, "\n  - "))
 				}
 			}
 		}

@@ -94,7 +94,7 @@ volumeleaders-agent outputschema trade list`,
 }
 
 func prettyFromCommand(cmd *cobra.Command) bool {
-	pretty, _ := cmd.Root().PersistentFlags().GetBool("pretty")
+	pretty, _ := cmd.Root().Flags().GetBool("pretty")
 	return pretty
 }
 

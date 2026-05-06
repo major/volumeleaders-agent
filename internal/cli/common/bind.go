@@ -147,7 +147,11 @@ func wrapValidation(cmd *cobra.Command, opts any) {
 		if len(errs) == 0 {
 			return nil
 		}
-		return errs[0]
+		msgs := make([]string, len(errs))
+		for i, e := range errs {
+			msgs[i] = e.Error()
+		}
+		return fmt.Errorf("%s", strings.Join(msgs, "; "))
 	}
 }
 

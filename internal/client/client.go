@@ -1,7 +1,6 @@
 // Package client provides an authenticated HTTP client for the VolumeLeaders
 // API. It handles browser cookie extraction, XSRF token probing, and
-// constructs a configured resty client used as the foundation for the
-// volumeleaders-go library client.
+// builds session material plus an HTTP client consumed by volumeleaders-go.
 package client
 
 import (

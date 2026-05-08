@@ -21,9 +21,8 @@ Command documentation mapping:
 cmd/volumeleaders-agent/main.go    Entry point
 cmd/smoke-test/main.go             Local-only live smoke test harness
 internal/auth/                     Browser cookie + XSRF token extraction
-internal/client/                   HTTP client (DataTables + JSON requests)
+internal/client/                   Auth session bootstrap and HTTP client bridge to volumeleaders-go
 internal/cli/                      CLI command definitions, MCP surface, and output contracts
-internal/datatables/               DataTables protocol encoding + column definitions
 internal/models/                   Response type definitions
 internal/update/                   GitHub release update checks, updater settings, and self-update logic
 ```

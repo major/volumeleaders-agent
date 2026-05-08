@@ -171,7 +171,13 @@ func buildRequestMiddleware(xsrfToken string) resty.RequestMiddleware {
 func buildCookies(cookies map[string]string) []*http.Cookie {
 	result := make([]*http.Cookie, 0, len(cookies))
 	for name, value := range cookies {
-		result = append(result, &http.Cookie{Name: name, Value: value})
+		result = append(result, &http.Cookie{
+			Name:     name,
+			Value:    value,
+			Secure:   true,
+			HttpOnly: true,
+			SameSite: http.SameSiteLaxMode,
+		})
 	}
 	return result
 }

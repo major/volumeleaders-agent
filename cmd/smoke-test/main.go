@@ -10,6 +10,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -289,7 +290,7 @@ func buildStaticCases(date string) map[string]smokeCase {
 		"alert create":                    mutation("alert create"),
 		"alert delete":                    mutation("alert delete"),
 		"alert edit":                      mutation("alert edit"),
-		"market earnings":                 readOnly("market earnings", "--days", "5"),
+		"market earnings":                 readOnly("market earnings", "--start-date", date, "--end-date", date),
 		"market exhaustion":               readOnly("market exhaustion"),
 		"outputschema":                    readOnly("outputschema"),
 		"report dark-pool-sweeps":         readOnly("report dark-pool-sweeps", "AAPL", "--days", "1"),
@@ -313,6 +314,8 @@ func buildStaticCases(date string) map[string]smokeCase {
 		"trade levels":                    readOnly("trade levels", "AAPL", "--trade-level-count", "5"),
 		"trade list":                      readOnly("trade list", "AAPL", "--days", "1"),
 		"trade sentiment":                 readOnly("trade sentiment", "--days", "5"),
+		"update check":                    readOnly("update check"),
+		"update config":                   readOnly("update config"),
 		"volume ah-institutional":         readOnly("volume ah-institutional", "--date", date, "--length", "10"),
 		"volume institutional":            readOnly("volume institutional", "--date", date, "--length", "10"),
 		"volume total":                    readOnly("volume total", "--date", date, "--length", "10"),
@@ -432,6 +435,8 @@ func orderedCommands(commands map[string]struct{}) []string {
 		"trade cluster-alerts",
 		"trade levels",
 		"trade level-touches",
+		"update check",
+		"update config",
 		"volume institutional",
 		"volume ah-institutional",
 		"volume total",
@@ -730,8 +735,7 @@ func removeCleanup(cleanup []smokeCase, command string) []smokeCase {
 func cleanupFixtures(ctx context.Context, runner liveRunner, state *fixtureState) ([]reportRow, error) {
 	var rows []reportRow
 	var failures []error
-	for index := len(state.Cleanup) - 1; index >= 0; index-- {
-		smokeCase := state.Cleanup[index]
+	for _, smokeCase := range slices.Backward(state.Cleanup) {
 		resolved, err := resolveCleanupCase(ctx, runner, smokeCase)
 		if err != nil {
 			row := reportRow{Command: smokeCase.Command + " cleanup", Status: "fail", Message: err.Error()}

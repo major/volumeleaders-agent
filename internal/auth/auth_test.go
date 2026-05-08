@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
-	"path/filepath"
 	"strings"
 	"testing"
 
@@ -177,14 +176,13 @@ func TestFetchXSRFToken(t *testing.T) {
 }
 
 func TestExtractCookiesUsesCachedCookies(t *testing.T) {
-	cacheDir := t.TempDir()
-	t.Setenv("XDG_CACHE_HOME", cacheDir)
+	cachePath := setTestCacheHome(t)
 
 	want := map[string]string{
 		"ASP.NET_SessionId": "cached-session",
 		".ASPXAUTH":         "cached-auth",
 	}
-	if err := saveCacheFile(filepath.Join(cacheDir, cacheSubdir, cacheFileName), want); err != nil {
+	if err := saveCacheFile(cachePath, want); err != nil {
 		t.Fatalf("saveCacheFile() error = %v", err)
 	}
 	stubFindBrowserSession(t, func(context.Context, ...browserauth.Option) (volumeleaders.Session, error) {
@@ -204,8 +202,7 @@ func TestExtractCookiesUsesCachedCookies(t *testing.T) {
 }
 
 func TestExtractCookiesFindsSessionAndCachesCookies(t *testing.T) {
-	cacheDir := t.TempDir()
-	t.Setenv("XDG_CACHE_HOME", cacheDir)
+	cachePath := setTestCacheHome(t)
 	stubFindBrowserSession(t, func(_ context.Context, opts ...browserauth.Option) (volumeleaders.Session, error) {
 		if len(opts) != 1 {
 			t.Fatalf("ExtractCookies() browserauth options = %d, want 1", len(opts))
@@ -232,7 +229,7 @@ func TestExtractCookiesFindsSessionAndCachesCookies(t *testing.T) {
 		}
 	}
 
-	cached, err := loadCacheFile(filepath.Join(cacheDir, cacheSubdir, cacheFileName))
+	cached, err := loadCacheFile(cachePath)
 	if err != nil {
 		t.Fatalf("loadCacheFile() error = %v", err)
 	}
@@ -244,7 +241,7 @@ func TestExtractCookiesFindsSessionAndCachesCookies(t *testing.T) {
 }
 
 func TestExtractCookiesPreservesBrowserAuthErrorSemantics(t *testing.T) {
-	t.Setenv("XDG_CACHE_HOME", t.TempDir())
+	setTestCacheHome(t)
 	stubFindBrowserSession(t, func(context.Context, ...browserauth.Option) (volumeleaders.Session, error) {
 		return volumeleaders.Session{}, errors.Join(
 			browserauth.ErrRequiredCookieMissing,
@@ -413,4 +410,20 @@ func stubFindBrowserSession(
 	t.Cleanup(func() {
 		findBrowserSession = original
 	})
+}
+
+func setTestCacheHome(t *testing.T) string {
+	t.Helper()
+
+	cacheDir := t.TempDir()
+	t.Setenv("XDG_CACHE_HOME", cacheDir)
+	t.Setenv("HOME", cacheDir)
+	t.Setenv("LOCALAPPDATA", cacheDir)
+	t.Setenv("LocalAppData", cacheDir)
+
+	path, err := cachePath()
+	if err != nil {
+		t.Fatalf("cachePath() error = %v", err)
+	}
+	return path
 }

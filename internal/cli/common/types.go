@@ -87,3 +87,9 @@ type DataTableRequestConfig struct {
 // PaginationPageSize is the number of records fetched per page when the user
 // requests all results (--length -1).
 const PaginationPageSize = 1000
+
+// NewDataTableOptions converts the named request config used by command
+// handlers into the lower-level options consumed by DataTables helpers.
+func NewDataTableOptions(config DataTableRequestConfig) DataTableOptions {
+	return DataTableOptions(config)
+}

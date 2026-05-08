@@ -6,7 +6,7 @@ require (
 	github.com/Masterminds/semver/v3 v3.4.0
 	github.com/carapace-sh/carapace v1.11.4
 	github.com/creativeprojects/go-selfupdate v1.5.2
-	github.com/major/volumeleaders-go v0.2.2
+	github.com/major/volumeleaders-go v0.2.3
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/pflag v1.0.10
 	resty.dev/v3 v3.0.0-beta.6

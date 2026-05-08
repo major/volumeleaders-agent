@@ -82,10 +82,11 @@ func findPreset(name string) (*tradePreset, error) {
 			return &tradePresets[i], nil
 		}
 	}
-	return nil, fmt.Errorf("preset %q not found; available presets: %s", name, strings.Join(presetNames(), ", "))
+	return nil, fmt.Errorf("preset %q not found; available presets: %s", name, strings.Join(PresetNames(), ", "))
 }
 
-func presetNames() []string {
+// PresetNames returns the display names of all built-in trade presets.
+func PresetNames() []string {
 	names := make([]string, len(tradePresets))
 	for i, p := range tradePresets {
 		names[i] = p.name

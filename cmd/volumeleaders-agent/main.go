@@ -15,6 +15,7 @@ var version = "dev"
 func main() {
 	rootCmd := cli.NewRootCmd(version)
 	cli.SetupCLI(rootCmd)
+	cli.ConfigureCompletions(rootCmd)
 	_, err := rootCmd.ExecuteC()
 	if err != nil {
 		fmt.Fprintln(os.Stderr, userFacingError(err))

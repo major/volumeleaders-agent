@@ -64,7 +64,7 @@ func writeSchema(cmd *cobra.Command, mode string) error {
 func commandSchemas(root *cobra.Command) []map[string]any {
 	schemas := make([]map[string]any, 0)
 	walkCobraCommands(root, func(cmd *cobra.Command) {
-		if cmd.Runnable() && len(cmd.Commands()) == 0 && !isReferenceHelper(cmd) {
+		if isLeafCommand(cmd) && !isReferenceHelper(cmd) {
 			schemas = append(schemas, commandSchema(cmd))
 		}
 	})
@@ -200,7 +200,7 @@ func serveMCP(root *cobra.Command) error {
 func mcpTools(root *cobra.Command) []map[string]any {
 	tools := make([]map[string]any, 0)
 	walkCobraCommands(root, func(cmd *cobra.Command) {
-		if cmd.Runnable() && len(cmd.Commands()) == 0 && !isReferenceHelper(cmd) {
+		if isLeafCommand(cmd) && !isReferenceHelper(cmd) {
 			tools = append(tools, map[string]any{"name": toolName(cmd), "description": cmd.Short, "inputSchema": commandSchema(cmd)})
 		}
 	})
@@ -257,7 +257,7 @@ func writeMCPResponse(writer io.Writer, id any, result map[string]any) error {
 func commandByToolName(root *cobra.Command, name string) *cobra.Command {
 	var found *cobra.Command
 	walkCobraCommands(root, func(cmd *cobra.Command) {
-		if found == nil && cmd.Runnable() && len(cmd.Commands()) == 0 && toolName(cmd) == name {
+		if found == nil && isLeafCommand(cmd) && toolName(cmd) == name {
 			found = cmd
 		}
 	})
@@ -269,9 +269,15 @@ func toolName(cmd *cobra.Command) string {
 	return strings.Join(parts, "-")
 }
 
+// walkCobraCommands recursively visits cmd and its descendants, calling fn on
+// each. Hidden subtrees (e.g. carapace's _carapace command) are skipped
+// entirely so their children never appear in schema or MCP output.
 func walkCobraCommands(cmd *cobra.Command, fn func(*cobra.Command)) {
 	fn(cmd)
 	for _, child := range cmd.Commands() {
+		if child.Hidden {
+			continue
+		}
 		walkCobraCommands(child, fn)
 	}
 }
@@ -281,6 +287,22 @@ func wrapCommandTree(cmd *cobra.Command, fn func(*cobra.Command)) {
 		fn(child)
 		wrapCommandTree(child, fn)
 	}
+}
+
+// isLeafCommand reports whether cmd is a runnable command with no visible
+// (non-hidden) subcommands. Carapace injects a hidden _carapace child into
+// every command it instruments, so a raw len(cmd.Commands()) == 0 check would
+// incorrectly exclude real leaf commands.
+func isLeafCommand(cmd *cobra.Command) bool {
+	if !cmd.Runnable() {
+		return false
+	}
+	for _, sub := range cmd.Commands() {
+		if !sub.Hidden {
+			return false
+		}
+	}
+	return true
 }
 
 func isReferenceHelper(cmd *cobra.Command) bool {

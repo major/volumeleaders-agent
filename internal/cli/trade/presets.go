@@ -9,7 +9,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/major/volumeleaders-agent/internal/cli/common"
-	"github.com/major/volumeleaders-agent/internal/datatables"
+	"github.com/major/volumeleaders-agent/internal/cli/watchlist"
 	"github.com/major/volumeleaders-agent/internal/models"
 )
 
@@ -121,13 +121,12 @@ func applyExplicitFlags(cmd *cobra.Command, filters map[string]string) {
 }
 
 func fetchWatchlistFilters(ctx context.Context, name string) (map[string]string, error) {
-	vlClient, err := common.NewCommandClient(ctx)
+	svc, err := watchlist.NewService(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("create client: %w", err)
+		return nil, fmt.Errorf("create watchlist service: %w", err)
 	}
-	request := common.NewDataTablesRequest(datatables.WatchlistConfigColumns, common.DataTableOptions{Start: 0, Length: -1, OrderCol: 1, OrderDir: "asc"})
-	var configs []models.WatchListConfig
-	if err := vlClient.PostDataTables(ctx, "/WatchListConfigs/GetWatchLists", request.Encode(), &configs); err != nil {
+	configs, err := svc.Configs(ctx, common.DataTableOptions{Start: 0, Length: -1, OrderCol: 1, OrderDir: "asc"})
+	if err != nil {
 		return nil, fmt.Errorf("fetch watchlists: %w", err)
 	}
 	var match *models.WatchListConfig

@@ -11,7 +11,9 @@ import (
 	"github.com/major/volumeleaders-agent/internal/models"
 )
 
-type watchlistService interface {
+// Service provides access to VolumeLeaders watchlist operations through
+// the volumeleaders-go library.
+type Service interface {
 	Configs(context.Context, common.DataTableOptions) ([]models.WatchListConfig, error)
 	Tickers(context.Context, common.DataTableOptions) ([]models.WatchListTicker, error)
 	Delete(ctx context.Context, key int) error
@@ -23,7 +25,10 @@ type volumeLeadersWatchlistService struct {
 	client *vlgo.Client
 }
 
-func newWatchlistService(ctx context.Context) (watchlistService, error) {
+// NewService creates a Service backed by a volumeleaders-go client. The
+// context is used for authenticated client construction (cookie extraction,
+// XSRF token probing) and test client injection.
+func NewService(ctx context.Context) (Service, error) {
 	commandClient, err := common.NewCommandClient(ctx)
 	if err != nil {
 		return nil, err

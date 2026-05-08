@@ -165,7 +165,7 @@ func newConfigsCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:        "configs",
 		Short:      "List saved watch list configurations",
-		Long:       "List all saved watchlist configurations with their keys and names. Outputs compact JSON or CSV/TSV with --format. Each row shows the watchlist key and name; use the tickers subcommand to view symbols in a specific watchlist.",
+		Long:       "List all saved watchlist configurations with their full filter settings. Outputs compact JSON or CSV/TSV with --format. API keys are redacted from output. Use the tickers subcommand to view symbols in a specific watchlist.",
 		Example:    "volumeleaders-agent watchlist configs",
 		Args:       cobra.NoArgs,
 		Aliases:    []string{"ls"},

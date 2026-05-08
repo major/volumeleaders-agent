@@ -112,8 +112,8 @@ func TestMapWatchListConfigCopiesRepresentativeFields(t *testing.T) {
 	if config.SecurityType == nil || *config.SecurityType != securityType {
 		t.Errorf("mapWatchListConfig().SecurityType = %v, want %q", config.SecurityType, securityType)
 	}
-	if config.APIKey == nil || *config.APIKey != apiKey {
-		t.Errorf("mapWatchListConfig().APIKey = %v, want %q", config.APIKey, apiKey)
+	if config.APIKey != nil {
+		t.Errorf("mapWatchListConfig().APIKey = %v, want nil (redacted)", config.APIKey)
 	}
 }
 
@@ -141,5 +141,112 @@ func TestNewVolumeLeadersDataTablesRequestUsesExplicitOptions(t *testing.T) {
 		t.Errorf("newVolumeLeadersDataTablesRequest().Order[0].Dir = %q, want %q", got, want)
 	}
 }
+
+func TestVolumeLeadersWatchlistServiceTickersFetchesAllPages(t *testing.T) {
+	t.Parallel()
+
+	totalTickers := common.PaginationPageSize + 1
+	var starts []string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/WatchLists/GetWatchListTickers" {
+			t.Errorf("expected path /WatchLists/GetWatchListTickers, got %s", r.URL.Path)
+		}
+		if err := r.ParseForm(); err != nil {
+			t.Errorf("parse tickers request form: %v", err)
+		}
+		starts = append(starts, r.PostFormValue("start"))
+		if got := r.PostFormValue("length"); got != strconv.Itoa(common.PaginationPageSize) {
+			t.Errorf("tickers request length = %q, want %d", got, common.PaginationPageSize)
+		}
+		if r.PostFormValue("start") == "0" {
+			fmt.Fprint(w, testutil.DataTablesJSONPage(tickerRows(common.PaginationPageSize), totalTickers))
+			return
+		}
+		fmt.Fprint(w, testutil.DataTablesJSONPage(tickerRows(1), totalTickers))
+	}))
+	t.Cleanup(server.Close)
+
+	ctx := testutil.ContextWithTestClient(t, server.URL)
+	svc, err := newWatchlistService(ctx)
+	if err != nil {
+		t.Fatalf("newWatchlistService() error = %v", err)
+	}
+
+	tickers, err := svc.Tickers(ctx, common.DataTableOptions{Start: 0, Length: -1})
+	if err != nil {
+		t.Fatalf("Tickers() error = %v", err)
+	}
+	if got, want := len(tickers), totalTickers; got != want {
+		t.Fatalf("Tickers() returned %d items, want %d", got, want)
+	}
+	wantStarts := []string{"0", strconv.Itoa(common.PaginationPageSize)}
+	if len(starts) != len(wantStarts) {
+		t.Fatalf("Tickers() request starts = %v, want %v", starts, wantStarts)
+	}
+	for i, want := range wantStarts {
+		if got := starts[i]; got != want {
+			t.Errorf("Tickers() request starts[%d] = %q, want %q", i, got, want)
+		}
+	}
+}
+
+// tickerRows generates count JSON ticker objects for test responses.
+func tickerRows(count int) string {
+	var rows strings.Builder
+	rows.WriteByte('[')
+	for i := range count {
+		if i > 0 {
+			rows.WriteByte(',')
+		}
+		fmt.Fprintf(&rows, `{"Ticker":"T%d","Price":100.0,"NearestTop10TradeDate":null,"NearestTop10TradeClusterDate":null,"NearestTop10TradeLevelDate":null,"NearestTop10TradeLevelPrice":0}`, i)
+	}
+	rows.WriteByte(']')
+	return rows.String()
+}
+
+func TestMapWatchListTickerNearestLevel(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name      string
+		ticker    vlgo.WatchListTicker
+		wantLevel *float64
+	}{
+		{
+			name: "valid date maps price",
+			ticker: vlgo.WatchListTicker{
+				Ticker:                      "AAPL",
+				NearestTop10TradeLevelDate:  vlgo.AspNetDate{Valid: true},
+				NearestTop10TradeLevelPrice: 142.50,
+			},
+			wantLevel: ptrFloat64(142.50),
+		},
+		{
+			name: "invalid date maps nil",
+			ticker: vlgo.WatchListTicker{
+				Ticker:                      "MSFT",
+				NearestTop10TradeLevelDate:  vlgo.AspNetDate{Valid: false},
+				NearestTop10TradeLevelPrice: 0,
+			},
+			wantLevel: nil,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			result := mapWatchListTicker(&tt.ticker)
+			switch {
+			case tt.wantLevel == nil && result.NearestTop10TradeLevel != nil:
+				t.Errorf("NearestTop10TradeLevel = %v, want nil", *result.NearestTop10TradeLevel)
+			case tt.wantLevel != nil && result.NearestTop10TradeLevel == nil:
+				t.Errorf("NearestTop10TradeLevel = nil, want %v", *tt.wantLevel)
+			case tt.wantLevel != nil && *result.NearestTop10TradeLevel != *tt.wantLevel:
+				t.Errorf("NearestTop10TradeLevel = %v, want %v", *result.NearestTop10TradeLevel, *tt.wantLevel)
+			}
+		})
+	}
+}
+
+func ptrFloat64(v float64) *float64 { return &v }
 
 var _ watchlistService = (*volumeLeadersWatchlistService)(nil)

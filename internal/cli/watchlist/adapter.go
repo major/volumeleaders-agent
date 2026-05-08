@@ -154,7 +154,7 @@ func mapWatchListConfig(config *vlgo.WatchListConfig) models.WatchListConfig {
 		PhantomTradesSelected:       config.PhantomTradesSelected,
 		OffsettingTradesSelected:    config.OffsettingTradesSelected,
 		SectorIndustry:              config.SectorIndustry,
-		APIKey:                      config.APIKey,
+		// APIKey is intentionally omitted to avoid leaking credentials to stdout.
 	}
 }
 
@@ -256,13 +256,18 @@ func mapWatchListTicker(t *vlgo.WatchListTicker) models.WatchListTicker {
 	if t.Price != nil {
 		price = *t.Price
 	}
+	// vlgo exposes the nearest trade level as NearestTop10TradeLevelPrice;
+	// map it to the models field NearestTop10TradeLevel, using nil when the
+	// associated date is absent (no trade level data for this ticker).
+	var nearestLevel *float64
+	if t.NearestTop10TradeLevelDate.Valid {
+		nearestLevel = &t.NearestTop10TradeLevelPrice
+	}
 	return models.WatchListTicker{
 		Ticker:                       t.Ticker,
 		Price:                        price,
 		NearestTop10TradeDate:        models.AspNetDate{Time: t.NearestTop10TradeDate.Time, Valid: t.NearestTop10TradeDate.Valid},
 		NearestTop10TradeClusterDate: models.AspNetDate{Time: t.NearestTop10TradeClusterDate.Time, Valid: t.NearestTop10TradeClusterDate.Valid},
-		// NearestTop10TradeLevel is not present in the vlgo WatchListTicker struct;
-		// the vlgo response captures it as NearestTop10TradeLevelPrice instead.
-		NearestTop10TradeLevel: nil,
+		NearestTop10TradeLevel:       nearestLevel,
 	}
 }

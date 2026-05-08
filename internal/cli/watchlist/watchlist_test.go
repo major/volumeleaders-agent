@@ -9,9 +9,11 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strconv"
 	"strings"
 	"testing"
 
+	"github.com/major/volumeleaders-agent/internal/cli/common"
 	"github.com/major/volumeleaders-agent/internal/cli/testutil"
 )
 
@@ -32,7 +34,7 @@ func TestConfigs(t *testing.T) {
 		}
 		checks := map[string]string{
 			"start":            "0",
-			"length":           "1000",
+			"length":           strconv.Itoa(common.PaginationPageSize),
 			"order[0][column]": "1",
 			"order[0][dir]":    "asc",
 		}

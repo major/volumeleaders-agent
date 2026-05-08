@@ -154,8 +154,8 @@ func allOutputContracts() []outputContract {
 
 		arrayOutputContract[models.WatchListConfig]("watchlist configs", "List saved watchlist configurations.", outputFormats(), nil, nil),
 		arrayOutputContract[models.WatchListTicker]("watchlist tickers", "List tickers and nearest level metadata for one watchlist.", outputFormats(), nil, nil),
-		unknownJSONContract("watchlist delete", "Delete a watchlist configuration and return the API response."),
-		unknownJSONContract("watchlist add-ticker", "Add a ticker to a watchlist and return the API response."),
+		deleteSuccessContract("watchlist delete", "Delete a watchlist configuration."),
+		addTickerContract("watchlist add-ticker", "Add a ticker to a watchlist."),
 		mutationContract("watchlist create", "Create a watchlist configuration and return a success object."),
 		mutationContract("watchlist edit", "Edit a watchlist configuration and return a success object."),
 
@@ -235,6 +235,38 @@ func unknownJSONContract(command, description string) outputContract {
 		DefaultFormat: "json",
 		Schema:        outputSchema{Type: "object", AdditionalProperties: &outputSchema{Any: true}},
 		Notes:         []string{"Response shape is passed through from the VolumeLeaders API."},
+	}
+}
+
+func deleteSuccessContract(command, description string) outputContract {
+	return outputContract{
+		Command:       command,
+		Description:   description,
+		Formats:       []string{"json"},
+		DefaultFormat: "json",
+		Schema: outputSchema{
+			Type: "object",
+			Properties: map[string]outputSchema{
+				"success": {Type: "boolean"},
+			},
+		},
+	}
+}
+
+func addTickerContract(command, description string) outputContract {
+	return outputContract{
+		Command:       command,
+		Description:   description,
+		Formats:       []string{"json"},
+		DefaultFormat: "json",
+		Schema: outputSchema{
+			Type:  "object",
+			Model: "AddTickerToWatchListResponse",
+			Properties: map[string]outputSchema{
+				"success": {Type: "boolean"},
+				"message": {Type: "string"},
+			},
+		},
 	}
 }
 

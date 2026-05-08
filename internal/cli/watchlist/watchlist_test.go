@@ -8,6 +8,7 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 	"testing"
 
@@ -21,7 +22,26 @@ func TestConfigs(t *testing.T) {
 		if r.URL.Path != "/WatchListConfigs/GetWatchLists" {
 			t.Errorf("expected path /WatchListConfigs/GetWatchLists, got %s", r.URL.Path)
 		}
-		fmt.Fprint(w, testutil.DataTablesJSON(`[{}]`))
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			t.Errorf("read configs request body: %v", err)
+		}
+		values, err := url.ParseQuery(string(body))
+		if err != nil {
+			t.Errorf("parse configs request body %q: %v", body, err)
+		}
+		checks := map[string]string{
+			"start":            "0",
+			"length":           "1000",
+			"order[0][column]": "1",
+			"order[0][dir]":    "asc",
+		}
+		for field, want := range checks {
+			if got := values.Get(field); got != want {
+				t.Errorf("configs request %s = %q, want %q", field, got, want)
+			}
+		}
+		fmt.Fprint(w, testutil.DataTablesJSON(`[{"SearchTemplateKey":7,"Name":"Core"}]`))
 	}))
 	t.Cleanup(server.Close)
 
@@ -33,6 +53,9 @@ func TestConfigs(t *testing.T) {
 	}
 	if stdout == "" {
 		t.Error("expected non-empty stdout")
+	}
+	if !strings.Contains(stdout, `"SearchTemplateKey":7`) {
+		t.Errorf("expected mapped config in stdout, got: %s", stdout)
 	}
 }
 
@@ -57,7 +80,7 @@ func TestTickers(t *testing.T) {
 		if r.URL.Path != "/WatchLists/GetWatchListTickers" {
 			t.Errorf("expected path /WatchLists/GetWatchListTickers, got %s", r.URL.Path)
 		}
-		fmt.Fprint(w, testutil.DataTablesJSON(`[{}]`))
+		fmt.Fprint(w, testutil.DataTablesJSON(`[{"Ticker":"AAPL"}]`))
 	}))
 	t.Cleanup(server.Close)
 
@@ -67,8 +90,8 @@ func TestTickers(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if stdout == "" {
-		t.Error("expected non-empty stdout")
+	if !strings.Contains(stdout, `"Ticker":"AAPL"`) {
+		t.Errorf("expected ticker in output, got: %s", stdout)
 	}
 }
 
@@ -79,15 +102,8 @@ func TestTickersDefaultKey(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		body, _ := io.ReadAll(r.Body)
 		// DataTables body is form-encoded; extract the WatchListKey filter.
-		for _, pair := range strings.Split(string(body), "&") {
-			// The filter is encoded as a custom parameter.
-			if strings.Contains(pair, "WatchListKey") {
-				parts := strings.SplitN(pair, "=", 2)
-				if len(parts) == 2 {
-					gotKey = parts[1]
-				}
-			}
-		}
+		values, _ := url.ParseQuery(string(body))
+		gotKey = values.Get("WatchListKey")
 		fmt.Fprint(w, testutil.DataTablesJSON(`[{}]`))
 	}))
 	t.Cleanup(server.Close)
@@ -133,7 +149,7 @@ func TestDelete(t *testing.T) {
 		if payload["WatchListKey"] != 1 {
 			t.Errorf("WatchListKey = %d, want 1", payload["WatchListKey"])
 		}
-		fmt.Fprint(w, `{"ok":true}`)
+		w.WriteHeader(http.StatusOK)
 	}))
 	t.Cleanup(server.Close)
 
@@ -143,8 +159,8 @@ func TestDelete(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if !strings.Contains(stdout, `"ok"`) {
-		t.Errorf("expected output to contain ok, got: %s", stdout)
+	if !strings.Contains(stdout, `"success":true`) {
+		t.Errorf("expected output to contain success, got: %s", stdout)
 	}
 }
 
@@ -190,7 +206,7 @@ func TestAddTicker(t *testing.T) {
 		if got := r.PostFormValue("Ticker"); got != "NVDA" {
 			t.Errorf("Ticker = %q, want %q", got, "NVDA")
 		}
-		fmt.Fprint(w, `{"ok":true}`)
+		fmt.Fprint(w, `{"success":true,"message":"added"}`)
 	}))
 	t.Cleanup(server.Close)
 
@@ -200,8 +216,8 @@ func TestAddTicker(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if !strings.Contains(stdout, `"ok"`) {
-		t.Errorf("expected output to contain ok, got: %s", stdout)
+	if !strings.Contains(stdout, `"success":true`) {
+		t.Errorf("expected output to contain success, got: %s", stdout)
 	}
 }
 

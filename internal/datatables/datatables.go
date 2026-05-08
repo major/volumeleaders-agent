@@ -87,12 +87,6 @@ var TotalVolumeColumns = []string{
 	"LastComparibleTradeDate", "LastComparibleTradeDate",
 }
 
-// TradeLevelColumns contains the DataTables column names used by the trade levels endpoint.
-var TradeLevelColumns = []string{
-	"Price", "Dollars", "Volume", "Trades", "RelativeSize",
-	"CumulativeDistribution", "TradeLevelRank", "Level Date Range",
-}
-
 // TradeLevelChartColumns contains the chart dashboard layout for level rows.
 var TradeLevelChartColumns = []Column{
 	{Data: "Price", Name: "Price", Searchable: true, Orderable: false},
@@ -121,17 +115,6 @@ var AlertConfigColumns = []string{
 var EarningsColumns = []string{
 	"Date", "Ticker", "Current", "Sector", "Industry",
 	"TradeCount", "TradeClusterCount", "TradeClusterBombCount", "Ticker",
-}
-
-// WatchlistTickerColumns contains the DataTables column names used by the watchlist tickers endpoint.
-var WatchlistTickerColumns = []string{
-	"Ticker", "Price", "NearestTop10TradeDate",
-	"NearestTop10TradeClusterDate", "NearestTop10TradeLevel", "Charts",
-}
-
-// WatchlistConfigColumns contains the DataTables column names used by the watchlist configs endpoint.
-var WatchlistConfigColumns = []string{
-	"Name", "Name", "Tickers", "Criteria",
 }
 
 // Column describes one DataTables column definition.

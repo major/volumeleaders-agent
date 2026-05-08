@@ -190,7 +190,7 @@ func runConfigs(cmd *cobra.Command, dtOpts common.DataTableOptions, formatValue 
 		return err
 	}
 	ctx := cmd.Context()
-	service, err := newWatchlistService(ctx)
+	service, err := NewService(ctx)
 	if err != nil {
 		return err
 	}
@@ -208,7 +208,7 @@ func runTickers(cmd *cobra.Command, dtOpts common.DataTableOptions, formatValue 
 		return err
 	}
 	ctx := cmd.Context()
-	service, err := newWatchlistService(ctx)
+	service, err := NewService(ctx)
 	if err != nil {
 		return err
 	}
@@ -261,7 +261,7 @@ func newDeleteCmd() *cobra.Command {
 		SuggestFor: []string{"del", "remove"},
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			ctx := cmd.Context()
-			service, err := newWatchlistService(ctx)
+			service, err := NewService(ctx)
 			if err != nil {
 				return err
 			}
@@ -288,7 +288,7 @@ func newAddTickerCmd() *cobra.Command {
 		SuggestFor: []string{"addticker", "add-tkr"},
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			ctx := cmd.Context()
-			service, err := newWatchlistService(ctx)
+			service, err := NewService(ctx)
 			if err != nil {
 				return err
 			}
@@ -391,7 +391,7 @@ func buildWatchlistConfigFields(opts *watchlistConfigFlags, key int) map[string]
 // indicates a new watchlist; a non-zero key indicates an edit.
 func runCreateEdit(cmd *cobra.Command, opts *watchlistConfigFlags, key int) error {
 	ctx := cmd.Context()
-	service, err := newWatchlistService(ctx)
+	service, err := NewService(ctx)
 	if err != nil {
 		return err
 	}

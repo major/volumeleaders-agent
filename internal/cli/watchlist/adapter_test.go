@@ -38,9 +38,9 @@ func TestVolumeLeadersWatchlistServiceConfigsFetchesAllPages(t *testing.T) {
 	t.Cleanup(server.Close)
 
 	ctx := testutil.ContextWithTestClient(t, server.URL)
-	service, err := newWatchlistService(ctx)
+	service, err := NewService(ctx)
 	if err != nil {
-		t.Fatalf("newWatchlistService() error = %v", err)
+		t.Fatalf("NewService() error = %v", err)
 	}
 	configs, err := service.Configs(ctx, common.DataTableOptions{Start: 0, Length: -1, OrderCol: 1, OrderDir: "asc"})
 	if err != nil {
@@ -167,9 +167,9 @@ func TestVolumeLeadersWatchlistServiceTickersFetchesAllPages(t *testing.T) {
 	t.Cleanup(server.Close)
 
 	ctx := testutil.ContextWithTestClient(t, server.URL)
-	svc, err := newWatchlistService(ctx)
+	svc, err := NewService(ctx)
 	if err != nil {
-		t.Fatalf("newWatchlistService() error = %v", err)
+		t.Fatalf("NewService() error = %v", err)
 	}
 
 	tickers, err := svc.Tickers(ctx, common.DataTableOptions{Start: 0, Length: -1})
@@ -249,4 +249,4 @@ func TestMapWatchListTickerNearestLevel(t *testing.T) {
 
 func ptrFloat64(v float64) *float64 { return &v }
 
-var _ watchlistService = (*volumeLeadersWatchlistService)(nil)
+var _ Service = (*volumeLeadersWatchlistService)(nil)

@@ -16,6 +16,7 @@ import (
 
 	"github.com/major/volumeleaders-agent/internal/auth"
 	"github.com/major/volumeleaders-agent/internal/models"
+	vlgo "github.com/major/volumeleaders-go/volumeleaders"
 	"resty.dev/v3"
 )
 
@@ -120,17 +121,12 @@ func authenticate(ctx context.Context) (cookies map[string]string, xsrfToken str
 	return cookies, xsrfToken, nil
 }
 
-// probeXSRFToken creates a temporary resty client to fetch the XSRF
-// token without configuring the full request middleware. The throwaway
-// client avoids resty's append-only cookie behavior that would cause
-// duplicates on retry.
+// probeXSRFToken fetches the XSRF token using the volumeleaders-go
+// library. The library handles the ExecutiveSummary page request,
+// login-redirect detection, and token parsing.
 func probeXSRFToken(ctx context.Context, cookies map[string]string) (string, error) {
-	probe := resty.New()
-	probe.SetTimeout(60 * time.Second)
-	probe.SetCookies(buildCookies(cookies))
-	defer probe.Close()
-
-	return auth.FetchXSRFToken(ctx, probe)
+	session := vlgo.SessionFromCookies(buildCookies(cookies), "", nil)
+	return vlgo.FetchXSRFToken(ctx, session)
 }
 
 // Close releases resources held by both resty clients.

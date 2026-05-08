@@ -9,13 +9,10 @@ When modifying CLI commands, flags, models, or behavior:
 - Update `AGENTS.md` if the change affects project structure, build process, or conventions.
 - Keep `.coderabbit.yaml` and `.github/copilot-instructions.md` plus `.github/instructions/*.instructions.md` aligned with current repo conventions when review-relevant behavior changes.
 - Use `volumeleaders-agent --jsonschema=tree` as the source of truth for command names, flags, aliases, defaults, and examples. Use `volumeleaders-agent outputschema` as the source of truth for success stdout contracts, formats, fields, and variants. Command Long descriptions contain embedded domain knowledge (workflows, recovery steps, conventions, gotchas).
-- Run `make docs` or `make generate-discovery` when commands, flags, defaults, examples, or Long descriptions change. The generated `SKILL.md` lives at the repository root for consistent tool discovery; extended generated LLM discovery files live in `docs/llm/` so they do not overwrite this hand-maintained root `AGENTS.md`.
-
 Command documentation mapping:
 
 - All command groups -> `volumeleaders-agent --jsonschema=tree` for command shape and Long descriptions for semantic guidance. Use `volumeleaders-agent --mcp` when validating the MCP tool surface exposed to LLM clients.
 - All command outputs -> `volumeleaders-agent outputschema` for success stdout contracts.
-- Generated LLM discovery files -> `make docs` refreshes root `SKILL.md` plus `docs/llm/AGENTS.md` and `docs/llm/llms.txt` from the checked-in Cobra discovery templates.
 - Shared conventions, workflows, recovery behavior, output behavior, auth guidance, and domain gotchas -> root command Long description (run `volumeleaders-agent --help`).
 
 ## Project Layout
@@ -25,13 +22,10 @@ cmd/volumeleaders-agent/main.go    Entry point
 cmd/smoke-test/main.go             Local-only live smoke test harness
 internal/auth/                     Browser cookie + XSRF token extraction
 internal/client/                   HTTP client (DataTables + JSON requests)
-internal/cli/                      CLI command definitions, MCP surface, output contracts, and generated discovery metadata
-internal/discovery/                Generated LLM discovery file writer
+internal/cli/                      CLI command definitions, MCP surface, and output contracts
 internal/datatables/               DataTables protocol encoding + column definitions
 internal/models/                   Response type definitions
 internal/update/                   GitHub release update checks, updater settings, and self-update logic
-SKILL.md                           Generated skill file for Claude Code and skill-aware tools
-docs/llm/                          Generated AGENTS.md and llms.txt for extended LLM discovery
 ```
 
 ## Build and Test
@@ -41,8 +35,6 @@ make build      # Build binary
 make test       # Run tests
 make lint       # Run linters
 make install    # Install to $GOPATH/bin
-make docs       # Refresh root SKILL.md and docs/llm discovery files
-make generate-discovery # Same as make docs
 make smoke      # Run local live smoke tests against the built binary
 ```
 
@@ -68,9 +60,8 @@ make smoke      # Run local live smoke tests against the built binary
 - For `internal/auth/**/*.go`, check cookie extraction, browser profile handling, and token lookup paths for credential safety, useful error messages, and graceful behavior when browsers or cookies are unavailable.
 - For `internal/client/**/*.go`, check HTTP status handling, request context propagation, response body closure, DataTables encoding, and errors that explain the endpoint or operation that failed.
 - For `internal/models/**/*.go`, verify JSON tags match VolumeLeaders response fields and that model changes do not silently drop data needed by commands, summaries, or CSV/TSV output.
-- For `internal/cli/**/*.go`, verify command behavior matches README, `volumeleaders-agent --jsonschema=tree`, `volumeleaders-agent outputschema`, and the conventions above. If commands, flags, aliases, defaults, or examples change, verify `--jsonschema=tree` output reflects the changes and run `make generate-discovery`. If workflows, behavior, models, output formats, or output fields change, update the relevant command Long descriptions and output contracts.
+- For `internal/cli/**/*.go`, verify command behavior matches README, `volumeleaders-agent --jsonschema=tree`, `volumeleaders-agent outputschema`, and the conventions above. If commands, flags, aliases, defaults, or examples change, verify `--jsonschema=tree` output reflects the changes. If workflows, behavior, models, output formats, or output fields change, update the relevant command Long descriptions and output contracts.
 - For MCP changes, verify `volumeleaders-agent --mcp` keeps JSON-RPC protocol output on stdout, does not expose shell completion or parent routing commands as tools, and never leaks cookies, XSRF tokens, session values, or other credentials in tool results or errors.
-- For `internal/discovery/**/*.go`, verify generated files are deterministic, do not overwrite the root `AGENTS.md`, and stay in sync with `docs/llm/` through tests.
 - For `internal/update/**/*.go`, verify update checks do not poll more often than intended, never write update notifications to stdout, skip dev or non-interactive runs, preserve context cancellation, and validate downloads against the release checksum asset before applying a binary replacement.
 - For tests, expect table-driven subtests with `t.Run`, parallelization where safe, `t.TempDir()` for filesystem work, deterministic fixtures, and assertions on observable behavior rather than implementation details. Do not request arbitrary coverage percentage changes.
 - For GitHub Actions workflows, treat unpinned actions, excessive permissions, secret exposure in logs, or unsafe pull request execution patterns as P1.

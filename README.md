@@ -86,36 +86,9 @@ Self-updates download the matching GitHub release archive, verify it against the
 
 ## Agent integration
 
-volumeleaders-agent ships a generated root `SKILL.md` for coding agents and LLM tools, with extended discovery files in `docs/llm/`. Use the file that matches your tool, then use live schema output from the binary as the authoritative command and flag contract.
+Use `volumeleaders-agent --jsonschema=tree` as the authoritative command and flag contract, and `volumeleaders-agent outputschema` for success stdout contracts. Use `volumeleaders-agent --mcp` to serve leaf commands as MCP tools over stdio for trusted local LLM clients.
 
-### Claude Code and other skill-aware tools
-
-Use the checked-in root `SKILL.md` when your tool supports Agent Skills, including Claude Code. It contains trigger phrases, command descriptions, flag tables, examples, and workflow guidance aligned with the live Cobra command tree.
-
-For Claude Code, copy or symlink the generated skill into your local skills directory if you want it available outside this repository:
-
-```bash
-mkdir -p ~/.claude/skills/volumeleaders-agent
-ln -sf "$(pwd)/SKILL.md" ~/.claude/skills/volumeleaders-agent/SKILL.md
-```
-
-If you already have a custom skill at that path, review or back it up first because `ln -sf` replaces the existing file or symlink.
-
-### OpenCode and Codex
-
-OpenCode and Codex use `AGENTS.md` as project instructions. Start in the repository root so the tool can load the hand-maintained root `AGENTS.md`, then point it at `SKILL.md`, `docs/llm/AGENTS.md`, or `docs/llm/llms.txt` when it needs the generated command reference.
-
-The root `AGENTS.md` stays hand-written because it captures architecture, package conventions, review guidance, and safety rules that cannot be generated from the CLI tree. The root `SKILL.md` and `docs/llm/` files are generated artifacts.
-
-### Regenerating discovery files
-
-The root `SKILL.md` plus `docs/llm/AGENTS.md` and `docs/llm/llms.txt` are maintained as Cobra discovery templates. Refresh them after command, flag, default, or example changes:
-
-```bash
-make docs
-```
-
-Commit the regenerated files with the code change so agents see the same command surface as the binary.
+OpenCode and Codex use `AGENTS.md` as project instructions. Start in the repository root so the tool can load the hand-maintained root `AGENTS.md`.
 
 ## Build
 
@@ -124,8 +97,6 @@ make build      # Build binary
 make test       # Run tests
 make lint       # Run golangci-lint
 make install    # Install to $GOPATH/bin
-make docs       # Refresh root SKILL.md and docs/llm discovery files
-make generate-discovery # Same as make docs
 make smoke      # Run local live smoke tests
 ```
 

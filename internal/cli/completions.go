@@ -9,10 +9,15 @@ import (
 	"github.com/major/volumeleaders-agent/internal/cli/trade"
 )
 
-// configureCompletions registers carapace-powered shell completions for all
+// ConfigureCompletions registers carapace-powered shell completions for all
 // commands. It walks the command tree and registers ActionValues for every flag
 // that carries enum annotations, plus preset name completions for --preset.
-func configureCompletions(root *cobra.Command) {
+//
+// Call this after SetupCLI. It is separate because carapace registers global
+// cobra.OnInitialize callbacks whose internal double-checked locking has a
+// data race under Go's race detector when multiple command trees exist in
+// parallel tests.
+func ConfigureCompletions(root *cobra.Command) {
 	carapace.Gen(root)
 	walkCobraCommands(root, func(cmd *cobra.Command) {
 		registerFlagCompletions(cmd)

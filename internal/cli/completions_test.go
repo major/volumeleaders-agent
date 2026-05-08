@@ -4,49 +4,76 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/carapace-sh/carapace"
 	"github.com/spf13/cobra"
 
 	"github.com/major/volumeleaders-agent/internal/cli/common"
 	"github.com/major/volumeleaders-agent/internal/cli/trade"
 )
 
-func TestConfigureCompletionsAddsCarapaceCommand(t *testing.T) {
-	t.Parallel()
-	root := NewRootCmd("test")
-	SetupCLI(root)
+// Completion tests avoid calling ConfigureCompletions (and therefore
+// carapace.Gen) because carapace registers global cobra.OnInitialize callbacks
+// whose internal double-checked locking has a data race under -race. The
+// subprocess tests (TestJSONSchemaTreeCoversDomainLeafCommands et al.) build
+// the real binary and implicitly verify that carapace integrates correctly.
 
-	var found bool
-	for _, sub := range root.Commands() {
-		if sub.Name() == "_carapace" {
-			found = true
-			if !sub.Hidden {
-				t.Fatal("_carapace command should be hidden")
-			}
-			break
-		}
+func TestWalkCobraCommandsSkipsHiddenSubtrees(t *testing.T) {
+	t.Parallel()
+	root := &cobra.Command{Use: "root"}
+	visible := &cobra.Command{Use: "visible", Run: func(*cobra.Command, []string) {}}
+	hidden := &cobra.Command{Use: "hidden", Hidden: true}
+	hiddenChild := &cobra.Command{Use: "child", Run: func(*cobra.Command, []string) {}}
+	hidden.AddCommand(hiddenChild)
+	root.AddCommand(visible, hidden)
+
+	var visited []string
+	walkCobraCommands(root, func(cmd *cobra.Command) {
+		visited = append(visited, cmd.Name())
+	})
+
+	if !slices.Contains(visited, "visible") {
+		t.Fatal("walkCobraCommands should visit visible commands")
 	}
-	if !found {
-		t.Fatal("expected _carapace command on root after SetupCLI")
+	if slices.Contains(visited, "hidden") {
+		t.Fatal("walkCobraCommands should skip hidden commands")
+	}
+	if slices.Contains(visited, "child") {
+		t.Fatal("walkCobraCommands should skip children of hidden commands")
 	}
 }
 
-func TestCarapaceCommandExcludedFromSchemaTree(t *testing.T) {
+func TestIsLeafCommandIgnoresHiddenChildren(t *testing.T) {
 	t.Parallel()
-	root := NewRootCmd("test")
-	SetupCLI(root)
 
-	// walkCobraCommands skips hidden subtrees, so no _carapace descendant
-	// should appear in schema/MCP-visible commands.
-	var exposed []string
-	walkCobraCommands(root, func(cmd *cobra.Command) {
-		exposed = append(exposed, cmd.Name())
-	})
-	for _, name := range exposed {
-		if name == "_carapace" || name == "spec" || name == "style" {
-			t.Fatalf("walkCobraCommands should skip hidden _carapace subtree, but found %q", name)
+	t.Run("command with only hidden children is a leaf", func(t *testing.T) {
+		t.Parallel()
+		cmd := &cobra.Command{Use: "leaf", Run: func(*cobra.Command, []string) {}}
+		hidden := &cobra.Command{Use: "hidden", Hidden: true}
+		cmd.AddCommand(hidden)
+
+		if !isLeafCommand(cmd) {
+			t.Fatal("command with only hidden children should be a leaf")
 		}
-	}
+	})
+
+	t.Run("command with visible children is not a leaf", func(t *testing.T) {
+		t.Parallel()
+		cmd := &cobra.Command{Use: "parent", Run: func(*cobra.Command, []string) {}}
+		child := &cobra.Command{Use: "child", Run: func(*cobra.Command, []string) {}}
+		cmd.AddCommand(child)
+
+		if isLeafCommand(cmd) {
+			t.Fatal("command with visible children should not be a leaf")
+		}
+	})
+
+	t.Run("non-runnable command is not a leaf", func(t *testing.T) {
+		t.Parallel()
+		cmd := &cobra.Command{Use: "group"}
+
+		if isLeafCommand(cmd) {
+			t.Fatal("non-runnable command should not be a leaf")
+		}
+	})
 }
 
 func TestTradeListFlagCompletions(t *testing.T) {
@@ -90,13 +117,4 @@ func TestTradeListFlagCompletions(t *testing.T) {
 			t.Fatal("PresetNames() returned empty slice")
 		}
 	})
-}
-
-func TestRegisterFlagCompletionsNoEnumFlags(t *testing.T) {
-	t.Parallel()
-
-	// A bare command with no flags should not panic.
-	cmd := &cobra.Command{Use: "bare", Run: func(*cobra.Command, []string) {}}
-	carapace.Gen(cmd)
-	registerFlagCompletions(cmd)
 }

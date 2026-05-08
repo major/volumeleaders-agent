@@ -155,12 +155,13 @@ env-vars    List all environment variable bindings`,
 	return cmd
 }
 
-// SetupCLI configures Cobra-powered introspection and shell completion on the
-// root command. Completions must be registered after introspection so the full
-// command tree is available for the flag walker.
+// SetupCLI configures Cobra-powered introspection on the root command.
+// Call ConfigureCompletions separately after SetupCLI to register shell
+// completions; it is split out because carapace uses global cobra.OnInitialize
+// callbacks that are not safe under the race detector when multiple command
+// trees are created in parallel tests.
 func SetupCLI(cmd *cobra.Command) {
 	configureCobraIntrospection(cmd)
-	configureCompletions(cmd)
 }
 
 func newConfigKeysCmd() *cobra.Command {

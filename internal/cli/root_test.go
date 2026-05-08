@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"slices"
@@ -17,6 +18,45 @@ import (
 	"github.com/major/volumeleaders-agent/internal/cli/common"
 	"github.com/major/volumeleaders-agent/internal/cli/testutil"
 )
+
+// testBinaryPath holds the path to the CLI binary built once by TestMain.
+var testBinaryPath string
+
+// TestMain builds the CLI binary once for all subprocess tests in this package.
+func TestMain(m *testing.M) {
+	code := buildAndRun(m)
+	os.Exit(code)
+}
+
+// buildAndRun compiles the CLI binary into a temp directory, runs all tests,
+// and cleans up. Splitting this from TestMain lets defer run before os.Exit.
+func buildAndRun(m *testing.M) int {
+	dir, err := os.MkdirTemp("", "volumeleaders-agent-test-*")
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "creating temp dir: %v\n", err)
+		return 1
+	}
+	defer os.RemoveAll(dir)
+
+	binary := filepath.Join(dir, "volumeleaders-agent")
+	cmd := exec.Command("go", "build", "-o", binary, "../../cmd/volumeleaders-agent")
+	if out, err := cmd.CombinedOutput(); err != nil {
+		fmt.Fprintf(os.Stderr, "build failed: %v\n%s\n", err, out)
+		return 1
+	}
+	testBinaryPath = binary
+
+	return m.Run()
+}
+
+// testBinary returns the path to the pre-built CLI binary.
+func testBinary(t *testing.T) string {
+	t.Helper()
+	if testBinaryPath == "" {
+		t.Fatal("testBinaryPath not set; TestMain did not run")
+	}
+	return testBinaryPath
+}
 
 func TestRootPersistentPreRunStoresPrettyFlagInContext(t *testing.T) {
 	t.Parallel()
@@ -427,24 +467,11 @@ func TestArbitraryArgsCommandsAcceptPositionalArgs(t *testing.T) {
 	}
 }
 
-// buildBinary compiles the CLI binary into a temp directory and returns the
-// path. Tests that need SetupCLI (which registers process-global cobra
-// callbacks) use this to run the binary as a subprocess, avoiding data races
-// in parallel tests.
-func buildBinary(t *testing.T) string {
-	t.Helper()
-	dir := t.TempDir()
-	binary := filepath.Join(dir, "volumeleaders-agent")
-	cmd := exec.Command("go", "build", "-o", binary, "../../cmd/volumeleaders-agent")
-	if out, err := cmd.CombinedOutput(); err != nil {
-		t.Fatalf("build failed: %v\n%s", err, out)
-	}
-	return binary
-}
+
 
 func TestJSONSchemaTreeProducesValidJSON(t *testing.T) {
 	t.Parallel()
-	binary := buildBinary(t)
+	binary := testBinary(t)
 
 	out, err := exec.Command(binary, "--jsonschema=tree").CombinedOutput()
 	if err != nil {
@@ -481,7 +508,7 @@ func TestJSONSchemaTreeProducesValidJSON(t *testing.T) {
 
 func TestJSONSchemaTreeCoversDomainLeafCommands(t *testing.T) {
 	t.Parallel()
-	binary := buildBinary(t)
+	binary := testBinary(t)
 
 	schemas := jsonSchemaTree(t, binary)
 	titles := schemaTitles(schemas)
@@ -512,7 +539,7 @@ func TestJSONSchemaTreeCoversDomainLeafCommands(t *testing.T) {
 
 func TestJSONSchemaSubcommandProducesValidJSON(t *testing.T) {
 	t.Parallel()
-	binary := buildBinary(t)
+	binary := testBinary(t)
 
 	out, err := exec.Command(binary, "trade", "list", "--jsonschema").CombinedOutput()
 	if err != nil {
@@ -539,7 +566,7 @@ func TestJSONSchemaSubcommandProducesValidJSON(t *testing.T) {
 
 func TestJSONSchemaSubcommandIncludesFlagUsabilityMetadata(t *testing.T) {
 	t.Parallel()
-	binary := buildBinary(t)
+	binary := testBinary(t)
 
 	out, err := exec.Command(binary, "trade", "list", "--jsonschema").CombinedOutput()
 	if err != nil {
@@ -619,7 +646,7 @@ func TestJSONSchemaSubcommandIncludesFlagUsabilityMetadata(t *testing.T) {
 
 func TestJSONSchemaEnumValuesPresent(t *testing.T) {
 	t.Parallel()
-	binary := buildBinary(t)
+	binary := testBinary(t)
 	schema := commandJSONSchema(t, binary, "trade", "list", "--jsonschema")
 	props := schemaProperties(t, schema)
 
@@ -654,7 +681,7 @@ func TestJSONSchemaEnumValuesPresent(t *testing.T) {
 
 func TestJSONSchemaRequiredFlags(t *testing.T) {
 	t.Parallel()
-	binary := buildBinary(t)
+	binary := testBinary(t)
 
 	tests := []struct {
 		name string
@@ -696,7 +723,7 @@ func TestJSONSchemaRequiredFlags(t *testing.T) {
 
 func TestJSONSchemaDefaultValues(t *testing.T) {
 	t.Parallel()
-	binary := buildBinary(t)
+	binary := testBinary(t)
 
 	tests := []struct {
 		name string
@@ -733,7 +760,7 @@ func TestJSONSchemaDefaultValues(t *testing.T) {
 
 func TestTradeCommandsWithoutUserSelectableLength(t *testing.T) {
 	t.Parallel()
-	binary := buildBinary(t)
+	binary := testBinary(t)
 
 	tests := []struct {
 		name string
@@ -757,7 +784,7 @@ func TestTradeCommandsWithoutUserSelectableLength(t *testing.T) {
 
 func TestJSONSchemaFlagGroupsAcrossCommands(t *testing.T) {
 	t.Parallel()
-	binary := buildBinary(t)
+	binary := testBinary(t)
 
 	tests := []struct {
 		name string
@@ -800,7 +827,7 @@ func TestJSONSchemaFlagGroupsAcrossCommands(t *testing.T) {
 
 func TestJSONSchemaRepresentativeFlagsHaveDescriptions(t *testing.T) {
 	t.Parallel()
-	binary := buildBinary(t)
+	binary := testBinary(t)
 
 	for _, args := range [][]string{
 		{"trade", "list", "--jsonschema"},
@@ -828,7 +855,7 @@ func TestJSONSchemaRepresentativeFlagsHaveDescriptions(t *testing.T) {
 
 func TestJSONSchemaIncludesDiscreteValueEnums(t *testing.T) {
 	t.Parallel()
-	binary := buildBinary(t)
+	binary := testBinary(t)
 
 	tests := []struct {
 		name string
@@ -915,7 +942,7 @@ func sortedStrings(values []string) []string {
 
 func TestOutputSchemaTreeProducesCommandContracts(t *testing.T) {
 	t.Parallel()
-	binary := buildBinary(t)
+	binary := testBinary(t)
 
 	out, err := exec.Command(binary, "outputschema").CombinedOutput()
 	if err != nil {
@@ -947,7 +974,7 @@ func TestOutputSchemaTreeProducesCommandContracts(t *testing.T) {
 
 func TestOutputSchemaSubcommandDescribesVariantsAndFields(t *testing.T) {
 	t.Parallel()
-	binary := buildBinary(t)
+	binary := testBinary(t)
 
 	out, err := exec.Command(binary, "outputschema", "trade", "list").CombinedOutput()
 	if err != nil {
@@ -1000,7 +1027,7 @@ func TestOutputSchemaSubcommandDescribesVariantsAndFields(t *testing.T) {
 
 func TestOutputSchemaTradeLevelsDescribesDelimitedVariant(t *testing.T) {
 	t.Parallel()
-	binary := buildBinary(t)
+	binary := testBinary(t)
 
 	out, err := exec.Command(binary, "outputschema", "trade", "levels").CombinedOutput()
 	if err != nil {
@@ -1038,7 +1065,7 @@ func TestOutputSchemaTradeLevelsDescribesDelimitedVariant(t *testing.T) {
 
 func TestOutputSchemaMarketExhaustionProperties(t *testing.T) {
 	t.Parallel()
-	binary := buildBinary(t)
+	binary := testBinary(t)
 
 	out, err := exec.Command(binary, "outputschema", "market", "exhaustion").CombinedOutput()
 	if err != nil {
@@ -1064,7 +1091,7 @@ func TestOutputSchemaMarketExhaustionProperties(t *testing.T) {
 
 func TestOutputSchemaUnknownCommandFails(t *testing.T) {
 	t.Parallel()
-	binary := buildBinary(t)
+	binary := testBinary(t)
 
 	cmd := exec.Command(binary, "outputschema", "bogus")
 	err := cmd.Run()
@@ -1114,7 +1141,7 @@ func schemaModel(schema map[string]any) string {
 
 func TestMCPToolsListExposesLeafCommands(t *testing.T) {
 	t.Parallel()
-	binary := buildBinary(t)
+	binary := testBinary(t)
 
 	cmd := exec.Command(binary, "--mcp")
 	cmd.Stdin = strings.NewReader(`{"jsonrpc":"2.0","id":1,"method":"tools/list"}` + "\n")
@@ -1183,7 +1210,7 @@ func TestMCPToolsListExposesLeafCommands(t *testing.T) {
 
 func TestMCPToolsCallReportsStructuredValidationError(t *testing.T) {
 	t.Parallel()
-	binary := buildBinary(t)
+	binary := testBinary(t)
 
 	cmd := exec.Command(binary, "--mcp")
 	cmd.Stdin = strings.NewReader(`{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"volume-institutional","arguments":{"format":"json"}}}` + "\n")
@@ -1228,7 +1255,7 @@ func mapsKeys[V any](items map[string]V) []string {
 
 func TestHelpOutputDisplaysFlagGroups(t *testing.T) {
 	t.Parallel()
-	binary := buildBinary(t)
+	binary := testBinary(t)
 
 	tests := []struct {
 		name           string
@@ -1271,7 +1298,7 @@ func TestHelpOutputDisplaysFlagGroups(t *testing.T) {
 
 func TestHelpTopicsAreAvailableAsReferenceCommands(t *testing.T) {
 	t.Parallel()
-	binary := buildBinary(t)
+	binary := testBinary(t)
 
 	helpOut, err := exec.Command(binary, "--help").CombinedOutput()
 	if err != nil {
@@ -1317,7 +1344,7 @@ func TestHelpTopicsAreAvailableAsReferenceCommands(t *testing.T) {
 
 func TestStructuredErrorExitCodes(t *testing.T) {
 	t.Parallel()
-	binary := buildBinary(t)
+	binary := testBinary(t)
 
 	tests := []struct {
 		name     string

@@ -1,16 +1,12 @@
 package watchlist
 
 import (
-	"fmt"
 	"log/slog"
-	"net/url"
 	"strconv"
 
 	"github.com/spf13/cobra"
 
 	"github.com/major/volumeleaders-agent/internal/cli/common"
-	"github.com/major/volumeleaders-agent/internal/datatables"
-	"github.com/major/volumeleaders-agent/internal/models"
 )
 
 type watchlistSecurityType string
@@ -169,7 +165,7 @@ func newConfigsCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:        "configs",
 		Short:      "List saved watch list configurations",
-		Long:       "List all saved watchlist configurations with their keys and names. Outputs compact JSON or CSV/TSV with --format. Each row shows the watchlist key and name; use the tickers subcommand to view symbols in a specific watchlist.",
+		Long:       "List all saved watchlist configurations with their full filter settings. Outputs compact JSON or CSV/TSV with --format. API keys are redacted from output. Use the tickers subcommand to view symbols in a specific watchlist.",
 		Example:    "volumeleaders-agent watchlist configs",
 		Args:       cobra.NoArgs,
 		Aliases:    []string{"ls"},
@@ -181,18 +177,47 @@ func newConfigsCmd() *cobra.Command {
 				OrderCol: 1,
 				OrderDir: "asc",
 			}
-			return common.RunDataTablesCommand[models.WatchListConfig](
-				cmd,
-				"/WatchListConfigs/GetWatchLists",
-				datatables.WatchlistConfigColumns,
-				dtOpts,
-				opts.Format,
-				"query watchlist configs",
-			)
+			return runConfigs(cmd, dtOpts, opts.Format)
 		},
 	}
 	common.BindOrPanic(cmd, opts, "configs")
 	return cmd
+}
+
+func runConfigs(cmd *cobra.Command, dtOpts common.DataTableOptions, formatValue common.OutputFormat) error {
+	format, err := common.ParseOutputFormat(formatValue)
+	if err != nil {
+		return err
+	}
+	ctx := cmd.Context()
+	service, err := newWatchlistService(ctx)
+	if err != nil {
+		return err
+	}
+	configs, err := service.Configs(ctx, dtOpts)
+	if err != nil {
+		slog.Error("failed to query watchlist configs", "error", err)
+		return err
+	}
+	return common.PrintDataTablesResult(cmd.OutOrStdout(), ctx, configs, dtOpts.Fields, format)
+}
+
+func runTickers(cmd *cobra.Command, dtOpts common.DataTableOptions, formatValue common.OutputFormat) error {
+	format, err := common.ParseOutputFormat(formatValue)
+	if err != nil {
+		return err
+	}
+	ctx := cmd.Context()
+	service, err := newWatchlistService(ctx)
+	if err != nil {
+		return err
+	}
+	tickers, err := service.Tickers(ctx, dtOpts)
+	if err != nil {
+		slog.Error("failed to query watchlist tickers", "error", err)
+		return err
+	}
+	return common.PrintDataTablesResult(cmd.OutOrStdout(), ctx, tickers, dtOpts.Fields, format)
 }
 
 // newTickersCmd returns the "tickers" subcommand.
@@ -216,14 +241,7 @@ func newTickersCmd() *cobra.Command {
 					"WatchListKey": strconv.Itoa(opts.WatchlistKey),
 				},
 			}
-			return common.RunDataTablesCommand[models.WatchListTicker](
-				cmd,
-				"/WatchLists/GetWatchListTickers",
-				datatables.WatchlistTickerColumns,
-				dtOpts,
-				opts.Format,
-				"query watchlist tickers",
-			)
+			return runTickers(cmd, dtOpts, opts.Format)
 		},
 	}
 	common.BindOrPanic(cmd, opts, "tickers")
@@ -243,20 +261,15 @@ func newDeleteCmd() *cobra.Command {
 		SuggestFor: []string{"del", "remove"},
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			ctx := cmd.Context()
-
-			vlClient, err := common.NewCommandClient(ctx)
+			service, err := newWatchlistService(ctx)
 			if err != nil {
 				return err
 			}
-
-			payload := map[string]int{"WatchListKey": opts.Key}
-			var result any
-			if err := vlClient.PostJSON(ctx, "/WatchListConfigs/DeleteWatchList", payload, &result); err != nil {
+			if err := service.Delete(ctx, opts.Key); err != nil {
 				slog.Error("failed to delete watchlist", "error", err)
-				return fmt.Errorf("delete watchlist: %w", err)
+				return err
 			}
-
-			return common.PrintJSON(cmd.OutOrStdout(), ctx, result)
+			return common.PrintJSON(cmd.OutOrStdout(), ctx, map[string]any{"success": true})
 		},
 	}
 	common.BindOrPanic(cmd, opts, "delete")
@@ -275,23 +288,16 @@ func newAddTickerCmd() *cobra.Command {
 		SuggestFor: []string{"addticker", "add-tkr"},
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			ctx := cmd.Context()
-
-			vlClient, err := common.NewCommandClient(ctx)
+			service, err := newWatchlistService(ctx)
 			if err != nil {
 				return err
 			}
-
-			values := url.Values{
-				"WatchListKey": {strconv.Itoa(opts.WatchlistKey)},
-				"Ticker":       {opts.Ticker},
-			}
-			var result any
-			if err := vlClient.PostForm(ctx, "/Chart0/UpdateWatchList", values, &result); err != nil {
+			resp, err := service.AddTicker(ctx, opts.WatchlistKey, opts.Ticker)
+			if err != nil {
 				slog.Error("failed to add ticker to watchlist", "error", err)
-				return fmt.Errorf("add ticker to watchlist: %w", err)
+				return err
 			}
-
-			return common.PrintJSON(cmd.OutOrStdout(), ctx, result)
+			return common.PrintJSON(cmd.OutOrStdout(), ctx, resp)
 		},
 	}
 	common.BindOrPanic(cmd, opts, "add-ticker")
@@ -385,16 +391,15 @@ func buildWatchlistConfigFields(opts *watchlistConfigFlags, key int) map[string]
 // indicates a new watchlist; a non-zero key indicates an edit.
 func runCreateEdit(cmd *cobra.Command, opts *watchlistConfigFlags, key int) error {
 	ctx := cmd.Context()
-
-	vlClient, err := common.NewCommandClient(ctx)
+	service, err := newWatchlistService(ctx)
 	if err != nil {
 		return err
 	}
 
 	fields := buildWatchlistConfigFields(opts, key)
-	if err := vlClient.PostMultipart(ctx, "/WatchListConfig", fields); err != nil {
+	if err := service.SaveConfig(ctx, fields); err != nil {
 		slog.Error("failed to save watchlist config", "error", err)
-		return fmt.Errorf("save watchlist config: %w", err)
+		return err
 	}
 
 	action := "created"

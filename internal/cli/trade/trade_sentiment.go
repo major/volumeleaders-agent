@@ -6,11 +6,10 @@ import (
 	"sort"
 	"strings"
 
+	vlgo "github.com/major/volumeleaders-go/volumeleaders"
 	"github.com/spf13/cobra"
 
 	"github.com/major/volumeleaders-agent/internal/cli/common"
-	"github.com/major/volumeleaders-agent/internal/client"
-	"github.com/major/volumeleaders-agent/internal/datatables"
 	"github.com/major/volumeleaders-agent/internal/models"
 )
 
@@ -30,7 +29,7 @@ func runTradeSentiment(cmd *cobra.Command, opts *tradeSentimentOptions) error {
 	tradeOpts := tradesOptionsFromSentimentOptions(opts, startDate, endDate)
 	tradeOpts.sector = "X B"
 	filters := buildTradeFilters(tradeOpts)
-	vlClient, err := common.NewCommandClient(cmd.Context())
+	vlClient, err := common.NewVLClient(cmd.Context())
 	if err != nil {
 		return err
 	}
@@ -64,14 +63,14 @@ func tradeSentimentTotalsRow(totals *models.TradeSentimentTotals) models.TradeSe
 	return models.TradeSentimentRow{Date: "total", BearTrades: totals.Bear.Trades, BearDollars: totals.Bear.Dollars, BearTopTickers: strings.Join(totals.Bear.TopTickers, ";"), BullTrades: totals.Bull.Trades, BullDollars: totals.Bull.Dollars, BullTopTickers: strings.Join(totals.Bull.TopTickers, ";"), Ratio: totals.Ratio, Signal: totals.Signal}
 }
 
-func fetchTradeSentimentTrades(cmd *cobra.Command, vlClient *client.Client, opts common.DataTableOptions) ([]models.Trade, error) {
-	request := common.NewDataTablesRequest(datatables.TradeColumns, opts)
-	var result []models.Trade
-	if err := vlClient.PostDataTables(cmd.Context(), "/Trades/GetTrades", request.Encode(), &result); err != nil {
+func fetchTradeSentimentTrades(cmd *cobra.Command, vlClient *vlgo.Client, opts common.DataTableOptions) ([]models.Trade, error) {
+	dtReq := common.NewVLDataTablesRequest(opts)
+	resp, err := vlClient.GetTrades(cmd.Context(), vlgo.TradesRequest{DataTables: dtReq, Filters: common.FiltersToValues(opts.Filters)})
+	if err != nil {
 		slog.Error("failed to query trade sentiment", "error", err)
 		return nil, fmt.Errorf("query trade sentiment: %w", err)
 	}
-	return result, nil
+	return common.MapSlice(resp.Data, common.MapVLTrade), nil
 }
 
 type tradeSentimentAccumulator struct {

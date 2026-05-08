@@ -1,10 +1,13 @@
 package volume
 
 import (
+	"context"
+	"net/url"
+
+	vlgo "github.com/major/volumeleaders-go/volumeleaders"
 	"github.com/spf13/cobra"
 
 	"github.com/major/volumeleaders-agent/internal/cli/common"
-	"github.com/major/volumeleaders-agent/internal/datatables"
 	"github.com/major/volumeleaders-agent/internal/models"
 )
 
@@ -47,9 +50,7 @@ func newInstitutionalCmd() *cobra.Command {
 		Args:       cobra.ArbitraryArgs,
 		SuggestFor: []string{"inst", "insitutional"},
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			return runVolume(cmd, &opts,
-				"/InstitutionalVolume/GetInstitutionalVolume",
-				datatables.InstitutionalVolumeColumns)
+			return runVolume(cmd, &opts, fetchInstitutionalVolume)
 		},
 	}
 	common.BindOrPanic(cmd, &opts, "institutional")
@@ -67,9 +68,7 @@ func newAHInstitutionalCmd() *cobra.Command {
 		Args:       cobra.ArbitraryArgs,
 		SuggestFor: []string{"ah", "afterhours"},
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			return runVolume(cmd, &opts,
-				"/AHInstitutionalVolume/GetAHInstitutionalVolume",
-				datatables.InstitutionalVolumeColumns)
+			return runVolume(cmd, &opts, fetchAHInstitutionalVolume)
 		},
 	}
 	common.BindOrPanic(cmd, &opts, "ah-institutional")
@@ -87,9 +86,7 @@ func newTotalCmd() *cobra.Command {
 		Args:       cobra.ArbitraryArgs,
 		SuggestFor: []string{"totl", "all"},
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			return runVolume(cmd, &opts,
-				"/TotalVolume/GetTotalVolume",
-				datatables.TotalVolumeColumns)
+			return runVolume(cmd, &opts, fetchTotalVolume)
 		},
 	}
 	common.BindOrPanic(cmd, &opts, "total")
@@ -97,9 +94,23 @@ func newTotalCmd() *cobra.Command {
 }
 
 // runVolume is the shared handler for all volume subcommands.
-func runVolume(cmd *cobra.Command, opts *volumeOptions, path string, columns []string) error {
+func runVolume(cmd *cobra.Command, opts *volumeOptions, fetch common.VLFetcher[vlgo.Trade]) error {
 	tickers := common.MultiTickerValue(cmd)
-
 	dtOpts := common.NewDataTableOptions(common.DataTableRequestConfig{Start: opts.Start, Length: opts.Length, OrderCol: opts.OrderCol, OrderDir: opts.OrderDir, Filters: map[string]string{"Date": opts.Date, "Tickers": tickers}})
-	return common.RunDataTablesCommand[models.Trade](cmd, path, columns, dtOpts, opts.Format, "query volume data")
+	return common.RunVLDataTablesCommand[vlgo.Trade, models.Trade](cmd, dtOpts, opts.Format, "query volume data", fetch, common.MapVLTrade)
+}
+
+// fetchInstitutionalVolume wraps vlgo.Client.GetInstitutionalVolume as a VLFetcher.
+func fetchInstitutionalVolume(ctx context.Context, c *vlgo.Client, dt *vlgo.DataTablesRequest, filters url.Values) (*vlgo.DataTablesResponse[vlgo.Trade], error) {
+	return c.GetInstitutionalVolume(ctx, vlgo.VolumeRequest{DataTables: *dt, Filters: filters})
+}
+
+// fetchAHInstitutionalVolume wraps vlgo.Client.GetAHInstitutionalVolume as a VLFetcher.
+func fetchAHInstitutionalVolume(ctx context.Context, c *vlgo.Client, dt *vlgo.DataTablesRequest, filters url.Values) (*vlgo.DataTablesResponse[vlgo.Trade], error) {
+	return c.GetAHInstitutionalVolume(ctx, vlgo.VolumeRequest{DataTables: *dt, Filters: filters})
+}
+
+// fetchTotalVolume wraps vlgo.Client.GetTotalVolume as a VLFetcher.
+func fetchTotalVolume(ctx context.Context, c *vlgo.Client, dt *vlgo.DataTablesRequest, filters url.Values) (*vlgo.DataTablesResponse[vlgo.Trade], error) {
+	return c.GetTotalVolume(ctx, vlgo.VolumeRequest{DataTables: *dt, Filters: filters})
 }

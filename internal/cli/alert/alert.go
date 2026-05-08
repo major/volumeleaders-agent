@@ -1,14 +1,16 @@
 package alert
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
+	"net/url"
 	"strconv"
 
+	vlgo "github.com/major/volumeleaders-go/volumeleaders"
 	"github.com/spf13/cobra"
 
 	"github.com/major/volumeleaders-agent/internal/cli/common"
-	"github.com/major/volumeleaders-agent/internal/datatables"
 	"github.com/major/volumeleaders-agent/internal/models"
 )
 
@@ -130,10 +132,9 @@ func newConfigsCmd() *cobra.Command {
 				OrderDir: "asc",
 				Fields:   fields,
 			}
-			return common.RunDataTablesCommand[models.AlertConfig](cmd,
-				"/AlertConfigs/GetAlertConfigs",
-				datatables.AlertConfigColumns,
-				dtOpts, opts.Format, "query alert configs")
+			return common.RunVLDataTablesCommand[vlgo.AlertConfig, models.AlertConfig](cmd,
+				dtOpts, opts.Format, "query alert configs",
+				fetchAlertConfigs, common.MapVLAlertConfig)
 		},
 	}
 	common.BindOrPanic(cmd, opts, "configs")
@@ -154,19 +155,17 @@ func newDeleteCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			ctx := cmd.Context()
 
-			vlClient, err := common.NewCommandClient(ctx)
+			vlClient, err := common.NewVLClient(ctx)
 			if err != nil {
-				return err
+				return fmt.Errorf("create VL client: %w", err)
 			}
 
-			payload := map[string]int{"AlertConfigKey": opts.Key}
-			var result any
-			if err := vlClient.PostJSON(ctx, "/AlertConfigs/DeleteAlertConfig", payload, &result); err != nil {
+			if err := vlClient.DeleteAlertConfig(ctx, vlgo.DeleteAlertConfigRequest{AlertConfigKey: opts.Key}); err != nil {
 				slog.Error("failed to delete alert config", "error", err)
 				return fmt.Errorf("delete alert config: %w", err)
 			}
 
-			return common.PrintJSON(cmd.OutOrStdout(), ctx, result)
+			return common.PrintJSON(cmd.OutOrStdout(), ctx, map[string]any{"success": true, "action": "deleted", "key": opts.Key})
 		},
 	}
 	common.BindOrPanic(cmd, opts, "delete")
@@ -268,13 +267,13 @@ func buildAlertConfigFields(opts *alertConfigFlags, key int, tickerGroupChanged 
 // runAlertCreateEdit is the shared handler for create and edit subcommands.
 func runAlertCreateEdit(cmd *cobra.Command, opts *alertConfigFlags, key int) error {
 	ctx := cmd.Context()
-	vlClient, err := common.NewCommandClient(ctx)
+	vlClient, err := common.NewVLClient(ctx)
 	if err != nil {
-		return err
+		return fmt.Errorf("create VL client: %w", err)
 	}
 
 	fields := buildAlertConfigFields(opts, key, cmd.Flags().Changed("ticker-group"))
-	if err := vlClient.PostMultipart(ctx, "/AlertConfig", fields); err != nil {
+	if err := vlClient.SaveAlertConfig(ctx, vlgo.SaveAlertConfigRequest{Fields: common.FiltersToValues(fields)}); err != nil {
 		slog.Error("failed to save alert config", "error", err)
 		return fmt.Errorf("save alert config: %w", err)
 	}
@@ -284,4 +283,9 @@ func runAlertCreateEdit(cmd *cobra.Command, opts *alertConfigFlags, key int) err
 		action = "updated"
 	}
 	return common.PrintJSON(cmd.OutOrStdout(), ctx, map[string]any{"success": true, "action": action, "key": key})
+}
+
+// fetchAlertConfigs wraps vlgo.Client.GetAlertConfigs as a VLFetcher.
+func fetchAlertConfigs(ctx context.Context, c *vlgo.Client, dt *vlgo.DataTablesRequest, filters url.Values) (*vlgo.DataTablesResponse[vlgo.AlertConfig], error) {
+	return c.GetAlertConfigs(ctx, vlgo.AlertConfigsRequest{DataTables: *dt, Filters: filters})
 }

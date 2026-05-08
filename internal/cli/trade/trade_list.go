@@ -1,15 +1,17 @@
 package trade
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"maps"
+	"net/url"
 	"strings"
 
+	vlgo "github.com/major/volumeleaders-go/volumeleaders"
 	"github.com/spf13/cobra"
 
 	"github.com/major/volumeleaders-agent/internal/cli/common"
-	"github.com/major/volumeleaders-agent/internal/datatables"
 	"github.com/major/volumeleaders-agent/internal/models"
 )
 
@@ -86,7 +88,7 @@ func runTradeList(cmd *cobra.Command, opts *tradeListOptions) error {
 	if format == common.OutputFormatJSON && len(fields) == 0 {
 		return runTradeListRows(cmd, dtOpts)
 	}
-	return common.RunDataTablesCommandWithPageSize[models.Trade](cmd, "/Trades/GetTrades", datatables.TradeColumns, dtOpts, opts.Format, tradeBrowserPageLength, "query trades")
+	return common.RunVLDataTablesCommandWithPageSize[vlgo.Trade, models.Trade](cmd, dtOpts, opts.Format, tradeBrowserPageLength, "query trades", fetchTrades, common.MapVLTrade)
 }
 
 func shouldUseLongTermTradeList(opts common.DataTableOptions, startDate, endDate string) bool {
@@ -146,31 +148,41 @@ func runTradeSummary(cmd *cobra.Command, opts common.DataTableOptions, groupBy t
 
 func fetchTradeList(cmd *cobra.Command, opts common.DataTableOptions) ([]models.Trade, error) {
 	ctx := cmd.Context()
-	vlClient, err := common.NewCommandClient(ctx)
+	vlClient, err := common.NewVLClient(ctx)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("create VL client: %w", err)
 	}
 	if opts.Length < 0 {
-		return common.FetchDataTablesPages[models.Trade](ctx, vlClient, "/Trades/GetTrades", datatables.TradeColumns, opts, tradeBrowserPageLength, "query trades")
+		vlTrades, err := common.FetchVLPages[vlgo.Trade](ctx, vlClient, opts, tradeBrowserPageLength, "query trades", fetchTrades)
+		if err != nil {
+			return nil, fmt.Errorf("fetch trades: %w", err)
+		}
+		return common.MapSlice(vlTrades, common.MapVLTrade), nil
 	}
-	request := newTradeListRequest(opts)
-	var result []models.Trade
-	if err := vlClient.PostDataTables(ctx, "/Trades/GetTrades", request.Encode(), &result); err != nil {
+	dtReq := newTradeListVLRequest(opts)
+	resp, err := vlClient.GetTrades(ctx, vlgo.TradesRequest{DataTables: dtReq, Filters: common.FiltersToValues(opts.Filters)})
+	if err != nil {
 		slog.Error("failed to query trades", "error", err)
 		return nil, fmt.Errorf("query trades: %w", err)
 	}
-	return result, nil
+	return common.MapSlice(resp.Data, common.MapVLTrade), nil
 }
 
-func newTradeListRequest(opts common.DataTableOptions) datatables.Request {
-	// The long-term chart path intentionally asks for 10 rows even though the
-	// observed browser HAR requested 5. The project default follows the user's
-	// preference for a slightly broader top-N result while preserving the
-	// lightweight chart request shape that avoids backend timeouts.
+// newTradeListVLRequest builds a vlgo DataTables request for trade list queries.
+// The long-term chart path intentionally asks for 10 rows even though the
+// observed browser HAR requested 5. The project default follows the user's
+// preference for a slightly broader top-N result while preserving the
+// lightweight chart request shape that avoids backend timeouts.
+func newTradeListVLRequest(opts common.DataTableOptions) vlgo.DataTablesRequest {
 	if opts.Filters["Sort"] == "Dollars" && opts.Length == tradeListLongTermLength {
-		return datatables.Request{ColumnDefs: datatables.TradeChartColumns, Start: opts.Start, Length: opts.Length, OrderColumnIndex: opts.OrderCol, OrderDirection: string(opts.OrderDir), OrderName: "FullTimeString24", IncludeSearch: true, CustomFilters: opts.Filters, Draw: 1}
+		return newDashboardDTRequest(tradeChartColumns, opts.OrderCol, "FullTimeString24", opts.Length)
 	}
-	return common.NewDataTablesRequest(datatables.TradeColumns, opts)
+	return common.NewVLDataTablesRequest(opts)
+}
+
+// fetchTrades wraps vlgo.Client.GetTrades as a VLFetcher.
+func fetchTrades(ctx context.Context, c *vlgo.Client, dt *vlgo.DataTablesRequest, filters url.Values) (*vlgo.DataTablesResponse[vlgo.Trade], error) {
+	return c.GetTrades(ctx, vlgo.TradesRequest{DataTables: *dt, Filters: filters})
 }
 
 type tradeSummaryGroup string

@@ -195,8 +195,11 @@ func TestAlertDelete(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if !strings.Contains(stdout, `"ok"`) {
-		t.Errorf("expected output to contain ok, got: %s", stdout)
+	if !strings.Contains(stdout, `"success":true`) {
+		t.Errorf("expected output to contain success:true, got: %s", stdout)
+	}
+	if !strings.Contains(stdout, `"key":42`) {
+		t.Errorf("expected output to contain key:42, got: %s", stdout)
 	}
 }
 

@@ -3,15 +3,80 @@ package trade
 import (
 	"fmt"
 	"log/slog"
-	"maps"
 
+	vlgo "github.com/major/volumeleaders-go/volumeleaders"
 	"github.com/spf13/cobra"
 
 	"github.com/major/volumeleaders-agent/internal/cli/common"
-	"github.com/major/volumeleaders-agent/internal/client"
-	"github.com/major/volumeleaders-agent/internal/datatables"
 	"github.com/major/volumeleaders-agent/internal/models"
 )
+
+// Chart column layouts mirroring the compact shapes VolumeLeaders uses
+// in its browser dashboard charts. These are narrower than the standard
+// leaderboard columns and are shared by dashboard and chart commands.
+
+// tradeChartColumns is the compact chart DataTables layout VolumeLeaders uses
+// for long-period ticker trade lookups.
+var tradeChartColumns = []vlgo.DataTablesColumn{
+	{Data: "FullTimeString24", Name: "FullTimeString24", Searchable: true},
+	{Data: "Volume", Name: "Sh", Searchable: true},
+	{Data: "Price", Name: "Price", Searchable: true},
+	{Data: "Dollars", Name: "$$", Searchable: true},
+	{Data: "DollarsMultiplier", Name: "RS", Searchable: true},
+	{Data: "TradeRank", Name: "R", Searchable: true},
+	{Data: "LastComparibleTradeDate", Name: "Last Comp", Searchable: true},
+}
+
+// tradeClusterChartColumns is the compact chart DataTables layout used by
+// the browser dashboard for ticker-specific cluster summaries.
+var tradeClusterChartColumns = []vlgo.DataTablesColumn{
+	{Data: "MinFullTimeString24", Name: "MinFullTimeString24", Searchable: true},
+	{Data: "Price", Name: "Price", Searchable: true},
+	{Data: "TradeCount", Name: "TradeCount", Searchable: true},
+	{Data: "Volume", Name: "Sh", Searchable: true},
+	{Data: "Dollars", Name: "$$", Searchable: true},
+	{Data: "DollarsMultiplier", Name: "RS", Searchable: true},
+	{Data: "TradeClusterRank", Name: "R", Searchable: true},
+	{Data: "LastComparibleTradeClusterDate", Name: "Last Comp", Searchable: true},
+}
+
+// tradeLevelChartColumns is the chart dashboard layout for level rows.
+var tradeLevelChartColumns = []vlgo.DataTablesColumn{
+	{Data: "Price", Name: "Price", Searchable: true},
+	{Data: "Dollars", Name: "$$", Searchable: true},
+	{Data: "Volume", Name: "Sh", Searchable: true},
+	{Data: "Trades", Name: "Trades", Searchable: true},
+	{Data: "RelativeSize", Name: "RS", Searchable: true},
+	{Data: "CumulativeDistribution", Name: "PCT", Searchable: true},
+	{Data: "TradeLevelRank", Name: "Rank", Searchable: true},
+	{Data: "Dates", Name: "Dates", Searchable: true},
+}
+
+// tradeClusterBombChartColumns adapts the browser cluster table shape for the
+// cluster-bomb endpoint so dashboard output can include the same burst context.
+var tradeClusterBombChartColumns = []vlgo.DataTablesColumn{
+	{Data: "MinFullTimeString24", Name: "MinFullTimeString24", Searchable: true},
+	{Data: "TradeCount", Name: "TradeCount", Searchable: true},
+	{Data: "Volume", Name: "Sh", Searchable: true},
+	{Data: "Dollars", Name: "$$", Searchable: true},
+	{Data: "DollarsMultiplier", Name: "RS", Searchable: true},
+	{Data: "CumulativeDistribution", Name: "PCT", Searchable: true},
+	{Data: "TradeClusterBombRank", Name: "R", Searchable: true},
+	{Data: "LastComparableTradeClusterBombDate", Name: "Last Comp", Searchable: true},
+}
+
+// newDashboardDTRequest builds a vlgo DataTables request for dashboard/chart queries
+// with compact column layouts, custom ordering, and search enabled.
+func newDashboardDTRequest(columns []vlgo.DataTablesColumn, orderColumn int, orderName string, count int) vlgo.DataTablesRequest {
+	return vlgo.DataTablesRequest{
+		Draw:          1,
+		Start:         0,
+		Length:        count,
+		Columns:       columns,
+		Order:         []vlgo.DataTablesOrder{{Column: orderColumn, Dir: "DESC", Name: orderName}},
+		IncludeSearch: true,
+	}
+}
 
 func runTradeDashboard(cmd *cobra.Command, opts *tradeDashboardOptions) error {
 	startDate, endDate, err := common.ResolveDateRange(cmd, tradeListTickerLookbackDays, false)
@@ -22,7 +87,7 @@ func runTradeDashboard(cmd *cobra.Command, opts *tradeDashboardOptions) error {
 	if err != nil {
 		return err
 	}
-	vlClient, err := common.NewCommandClient(cmd.Context())
+	vlClient, err := common.NewVLClient(cmd.Context())
 	if err != nil {
 		return err
 	}
@@ -84,54 +149,47 @@ func dashboardLevelFilters(ticker, startDate, endDate string, count int) map[str
 	return map[string]string{"Ticker": ticker, "StartDate": startDate, "EndDate": endDate, "Levels": common.IntStr(count)}
 }
 
-func fetchDashboardTrades(cmd *cobra.Command, vlClient *client.Client, filters map[string]string, count int) ([]models.Trade, error) {
-	request := dashboardRequest(datatables.TradeChartColumns, 0, "FullTimeString24", count, filters)
-	var result []models.Trade
-	if err := postDashboardDataTables(cmd, vlClient, "/Trades/GetTrades", &request, &result, "query dashboard trades"); err != nil {
-		return nil, err
+func fetchDashboardTrades(cmd *cobra.Command, vlClient *vlgo.Client, filters map[string]string, count int) ([]models.Trade, error) {
+	dtReq := newDashboardDTRequest(tradeChartColumns, 0, "FullTimeString24", count)
+	resp, err := vlClient.GetTrades(cmd.Context(), vlgo.TradesRequest{DataTables: dtReq, Filters: common.FiltersToValues(filters)})
+	if err != nil {
+		slog.Error("failed to query dashboard trades", "error", err)
+		return nil, fmt.Errorf("query dashboard trades: %w", err)
 	}
-	return result, nil
+	return common.MapSlice(resp.Data, common.MapVLTrade), nil
 }
 
-func fetchDashboardClusters(cmd *cobra.Command, vlClient *client.Client, filters map[string]string, count int) ([]models.TradeCluster, error) {
-	request := dashboardRequest(datatables.TradeClusterChartColumns, 3, "Sh", count, filters)
-	var result []models.TradeCluster
-	if err := postDashboardDataTables(cmd, vlClient, "/TradeClusters/GetTradeClusters", &request, &result, "query dashboard trade clusters"); err != nil {
-		return nil, err
+func fetchDashboardClusters(cmd *cobra.Command, vlClient *vlgo.Client, filters map[string]string, count int) ([]models.TradeCluster, error) {
+	dtReq := newDashboardDTRequest(tradeClusterChartColumns, 3, "Sh", count)
+	resp, err := vlClient.GetTradeClusters(cmd.Context(), vlgo.TradeClustersRequest{DataTables: dtReq, Filters: common.FiltersToValues(filters)})
+	if err != nil {
+		slog.Error("failed to query dashboard trade clusters", "error", err)
+		return nil, fmt.Errorf("query dashboard trade clusters: %w", err)
 	}
-	return result, nil
+	return common.MapSlice(resp.Data, common.MapVLTradeCluster), nil
 }
 
-func fetchDashboardLevels(cmd *cobra.Command, vlClient *client.Client, filters map[string]string, count int) ([]models.TradeLevel, error) {
-	request := dashboardRequest(datatables.TradeLevelChartColumns, 0, "Price", count, filters)
-	request.Length = -1
-	var result []models.TradeLevel
-	if err := postDashboardDataTables(cmd, vlClient, "/Chart0/GetTradeLevels", &request, &result, "query dashboard trade levels"); err != nil {
-		return nil, err
+func fetchDashboardLevels(cmd *cobra.Command, vlClient *vlgo.Client, filters map[string]string, count int) ([]models.TradeLevel, error) {
+	dtReq := newDashboardDTRequest(tradeLevelChartColumns, 0, "Price", count)
+	dtReq.Length = -1
+	resp, err := vlClient.GetChart0TradeLevels(cmd.Context(), vlgo.TradeLevelsRequest{DataTables: dtReq, Filters: common.FiltersToValues(filters)})
+	if err != nil {
+		slog.Error("failed to query dashboard trade levels", "error", err)
+		return nil, fmt.Errorf("query dashboard trade levels: %w", err)
 	}
+	result := common.MapSlice(resp.Data, common.MapVLTradeLevel)
 	if len(result) > count {
 		result = result[:count]
 	}
 	return result, nil
 }
 
-func fetchDashboardClusterBombs(cmd *cobra.Command, vlClient *client.Client, filters map[string]string, count int) ([]models.TradeClusterBomb, error) {
-	request := dashboardRequest(datatables.TradeClusterBombChartColumns, 2, "Sh", count, filters)
-	var result []models.TradeClusterBomb
-	if err := postDashboardDataTables(cmd, vlClient, "/TradeClusterBombs/GetTradeClusterBombs", &request, &result, "query dashboard trade cluster bombs"); err != nil {
-		return nil, err
+func fetchDashboardClusterBombs(cmd *cobra.Command, vlClient *vlgo.Client, filters map[string]string, count int) ([]models.TradeClusterBomb, error) {
+	dtReq := newDashboardDTRequest(tradeClusterBombChartColumns, 2, "Sh", count)
+	resp, err := vlClient.GetTradeClusterBombs(cmd.Context(), vlgo.TradeClusterBombsRequest{DataTables: dtReq, Filters: common.FiltersToValues(filters)})
+	if err != nil {
+		slog.Error("failed to query dashboard trade cluster bombs", "error", err)
+		return nil, fmt.Errorf("query dashboard trade cluster bombs: %w", err)
 	}
-	return result, nil
-}
-
-func dashboardRequest(columns []datatables.Column, orderColumn int, orderName string, count int, filters map[string]string) datatables.Request {
-	return datatables.Request{ColumnDefs: columns, Start: 0, Length: count, OrderColumnIndex: orderColumn, OrderDirection: "DESC", OrderName: orderName, IncludeSearch: true, CustomFilters: maps.Clone(filters), Draw: 1}
-}
-
-func postDashboardDataTables[T any](cmd *cobra.Command, vlClient *client.Client, path string, request *datatables.Request, result *[]T, label string) error {
-	if err := vlClient.PostDataTables(cmd.Context(), path, request.Encode(), result); err != nil {
-		slog.Error("failed to "+label, "error", err)
-		return fmt.Errorf("%s: %w", label, err)
-	}
-	return nil
+	return common.MapSlice(resp.Data, common.MapVLTradeClusterBomb), nil
 }

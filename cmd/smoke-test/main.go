@@ -20,6 +20,7 @@ const (
 	defaultBinary    = "./volumeleaders-agent"
 	defaultSmokeDate = "2026-04-28"
 	modeAll          = "all"
+	modeQuick        = "quick"
 	modeReadOnly     = "read-only"
 )
 
@@ -119,7 +120,7 @@ func parseOptions(args []string) options {
 	opts := options{}
 	flags.StringVar(&opts.Binary, "binary", defaultBinary, "volumeleaders-agent binary to execute")
 	flags.StringVar(&opts.Date, "date", defaultSmokeDate, "YYYY-MM-DD date used by commands that require one")
-	flags.StringVar(&opts.Mode, "mode", modeAll, "commands to run: all or read-only")
+	flags.StringVar(&opts.Mode, "mode", modeQuick, "commands to run: quick, all, or read-only")
 	flags.StringVar(&opts.Command, "command", "", "run one command path, for example 'trade list'")
 	flags.DurationVar(&opts.Timeout, "timeout", 45*time.Second, "timeout for each live command")
 	flags.BoolVar(&opts.Verbose, "verbose", false, "print command stdout/stderr details")
@@ -154,10 +155,10 @@ func run(ctx context.Context, opts *options) error {
 // validateOptions rejects unsupported modes before any live commands run.
 func validateOptions(opts *options) error {
 	switch opts.Mode {
-	case modeAll, modeReadOnly:
+	case modeAll, modeQuick, modeReadOnly:
 		return nil
 	default:
-		return fmt.Errorf("unsupported --mode %q; use %q or %q", opts.Mode, modeAll, modeReadOnly)
+		return fmt.Errorf("unsupported --mode %q; use %q, %q, or %q", opts.Mode, modeQuick, modeAll, modeReadOnly)
 	}
 }
 
@@ -399,12 +400,37 @@ func selectCases(opts *options, commands map[string]struct{}, cases map[string]s
 		return []smokeCase{cases[opts.Command]}, nil
 	}
 
-	ordered := orderedCommands(commands)
-	selected := make([]smokeCase, 0, len(ordered))
-	for _, name := range ordered {
-		selected = append(selected, cases[name])
+	var names []string
+	if opts.Mode == modeQuick {
+		names = quickCommands()
+	} else {
+		names = orderedCommands(commands)
+	}
+	selected := make([]smokeCase, 0, len(names))
+	for _, name := range names {
+		sc, ok := cases[name]
+		if !ok {
+			return nil, fmt.Errorf("quick command %q not found in discovered commands", name)
+		}
+		selected = append(selected, sc)
 	}
 	return selected, nil
+}
+
+// quickCommands returns a minimal representative set covering each API area
+// with one authenticated call. Quick mode validates auth and JSON round-trip
+// without hammering every endpoint.
+func quickCommands() []string {
+	return []string{
+		"outputschema",
+		"report top-10-rank",
+		"trade list",
+		"trade levels",
+		"volume institutional",
+		"market exhaustion",
+		"alert configs",
+		"watchlist configs",
+	}
 }
 
 // orderedCommands returns a stable smoke sequence that creates live fixtures

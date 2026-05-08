@@ -1,4 +1,4 @@
-.PHONY: build test lint clean install smoke release
+.PHONY: build test lint clean install smoke smoke-all release
 
 build:
 	go build -o volumeleaders-agent ./cmd/volumeleaders-agent
@@ -19,6 +19,9 @@ install:
 
 smoke: build
 	go run ./cmd/smoke-test
+
+smoke-all: build
+	go run ./cmd/smoke-test --mode all
 
 release:
 ifndef VERSION

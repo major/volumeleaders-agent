@@ -137,6 +137,47 @@ func TestShouldSkipMutationHonorsReadOnlyMode(t *testing.T) {
 	}
 }
 
+func TestQuickCommandsAreAllStaticCases(t *testing.T) {
+	t.Parallel()
+
+	cases := buildStaticCases(defaultSmokeDate)
+	for _, name := range quickCommands() {
+		sc, ok := cases[name]
+		if !ok {
+			t.Errorf("quick command %q missing from buildStaticCases", name)
+			continue
+		}
+		if sc.Mutation {
+			t.Errorf("quick command %q is a mutation; quick mode must be read-only", name)
+		}
+		if sc.Dynamic {
+			t.Errorf("quick command %q is dynamic; quick mode must not depend on fixture state", name)
+		}
+	}
+}
+
+func TestValidateOptionsAcceptsQuickMode(t *testing.T) {
+	t.Parallel()
+
+	for _, mode := range []string{modeQuick, modeAll, modeReadOnly} {
+		if err := validateOptions(&options{Mode: mode}); err != nil {
+			t.Errorf("validateOptions rejected valid mode %q: %v", mode, err)
+		}
+	}
+	if err := validateOptions(&options{Mode: "bogus"}); err == nil {
+		t.Error("validateOptions accepted invalid mode")
+	}
+}
+
+func TestParseOptionsDefaultsToQuickMode(t *testing.T) {
+	t.Parallel()
+
+	opts := parseOptions(nil)
+	if opts.Mode != modeQuick {
+		t.Fatalf("expected default mode %q, got %q", modeQuick, opts.Mode)
+	}
+}
+
 func writeFixtureBinary(t *testing.T, contents string) string {
 	t.Helper()
 

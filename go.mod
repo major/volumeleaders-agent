@@ -4,6 +4,7 @@ go 1.26.3
 
 require (
 	github.com/Masterminds/semver/v3 v3.4.0
+	github.com/carapace-sh/carapace v1.11.4
 	github.com/creativeprojects/go-selfupdate v1.5.2
 	github.com/major/volumeleaders-go v0.2.0
 	github.com/spf13/cobra v1.10.2
@@ -16,6 +17,7 @@ require (
 	github.com/42wim/httpsig v1.2.3 // indirect
 	github.com/browserutils/ese v0.0.0-20260314233042-37b6a03a93ce // indirect
 	github.com/browserutils/kooky v0.2.9 // indirect
+	github.com/carapace-sh/carapace-shlex v1.1.1 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/davidmz/go-pageant v1.0.2 // indirect
 	github.com/go-fed/httpsig v1.1.0 // indirect

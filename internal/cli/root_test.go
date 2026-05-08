@@ -84,6 +84,9 @@ func TestRootSilenceUsagePreventsUsageOutputOnError(t *testing.T) {
 func walkCommands(cmd *cobra.Command, fn func(*cobra.Command)) {
 	fn(cmd)
 	for _, sub := range cmd.Commands() {
+		if sub.Hidden {
+			continue
+		}
 		walkCommands(sub, fn)
 	}
 }
@@ -1349,7 +1352,7 @@ func TestStructuredErrorExitCodes(t *testing.T) {
 	}
 }
 func isDomainLeafCommand(cmd *cobra.Command) bool {
-	if !cmd.Runnable() || len(cmd.Commands()) > 0 {
+	if !isLeafCommand(cmd) {
 		return false
 	}
 	for _, name := range []string{"help", "completion", "bash", "fish", "powershell", "zsh", "config-keys", "env-vars", "outputschema"} {

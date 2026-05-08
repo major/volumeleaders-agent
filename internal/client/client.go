@@ -1,21 +1,18 @@
 // Package client provides an authenticated HTTP client for the VolumeLeaders
-// API, supporting DataTables, JSON, form, and multipart request formats.
+// API. It handles browser cookie extraction, XSRF token probing, and
+// constructs a configured resty client used as the foundation for the
+// volumeleaders-go library client.
 package client
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
-	"mime/multipart"
 	"net/http"
-	"net/url"
 	"sync"
 	"time"
 
 	"github.com/major/volumeleaders-agent/internal/auth"
-	"github.com/major/volumeleaders-agent/internal/models"
 	vlgo "github.com/major/volumeleaders-go/volumeleaders"
 	"resty.dev/v3"
 )
@@ -178,128 +175,4 @@ func buildCookies(cookies map[string]string) []*http.Cookie {
 	return result
 }
 
-// PostDataTablesPage posts a form-encoded DataTables request and returns the
-// full response envelope, including RecordsFiltered for pagination decisions.
-func (c *Client) PostDataTablesPage(ctx context.Context, path, body string) (*models.DataTablesResponse, error) {
-	resp, err := c.client.R().
-		SetContext(ctx).
-		SetBody(body).
-		SetHeader("Content-Type", "application/x-www-form-urlencoded; charset=UTF-8").
-		Post(c.baseURL + path)
-	if err != nil {
-		return nil, fmt.Errorf("post DataTables request: %w", err)
-	}
-	if resp.Err != nil {
-		return nil, fmt.Errorf("post DataTables request: %w", resp.Err)
-	}
-	if resp.StatusCode() != http.StatusOK {
-		return nil, fmt.Errorf("post DataTables request: status %d: %s", resp.StatusCode(), resp.String())
-	}
 
-	var wrapper models.DataTablesResponse
-	if err := json.Unmarshal(resp.Bytes(), &wrapper); err != nil {
-		return nil, fmt.Errorf("decode DataTables response: %w", err)
-	}
-	if len(wrapper.Data) == 0 || bytes.Equal(wrapper.Data, []byte("null")) {
-		wrapper.Data = []byte("[]")
-	}
-	return &wrapper, nil
-}
-
-// PostDataTables posts a form-encoded DataTables request and unmarshals its data array.
-func (c *Client) PostDataTables(ctx context.Context, path, body string, result any) error {
-	wrapper, err := c.PostDataTablesPage(ctx, path, body)
-	if err != nil {
-		return err
-	}
-	if err := json.Unmarshal(wrapper.Data, result); err != nil {
-		return fmt.Errorf("decode DataTables data: %w", err)
-	}
-	return nil
-}
-
-// PostJSON posts a JSON body and decodes the JSON response.
-func (c *Client) PostJSON(ctx context.Context, path string, payload, result any) error {
-	body, err := json.Marshal(payload)
-	if err != nil {
-		return fmt.Errorf("marshal JSON request: %w", err)
-	}
-
-	resp, err := c.client.R().
-		SetContext(ctx).
-		SetBody(body).
-		SetHeader("Content-Type", "application/json").
-		Post(c.baseURL + path)
-	if err != nil {
-		return fmt.Errorf("post JSON request: %w", err)
-	}
-	if resp.Err != nil {
-		return fmt.Errorf("post JSON request: %w", resp.Err)
-	}
-	if resp.StatusCode() != http.StatusOK {
-		return fmt.Errorf("post JSON request: status %d: %s", resp.StatusCode(), resp.String())
-	}
-
-	if err := json.Unmarshal(resp.Bytes(), result); err != nil {
-		return fmt.Errorf("decode JSON response: %w", err)
-	}
-	return nil
-}
-
-// PostForm sends a form-encoded POST and decodes the JSON response directly
-// (no DataTables envelope).
-func (c *Client) PostForm(ctx context.Context, path string, values url.Values, result any) error {
-	resp, err := c.client.R().
-		SetContext(ctx).
-		SetBody(values.Encode()).
-		SetHeader("Content-Type", "application/x-www-form-urlencoded; charset=UTF-8").
-		Post(c.baseURL + path)
-	if err != nil {
-		return fmt.Errorf("post form request: %w", err)
-	}
-	if resp.Err != nil {
-		return fmt.Errorf("post form request: %w", resp.Err)
-	}
-	if resp.StatusCode() != http.StatusOK {
-		return fmt.Errorf("post form request: status %d: %s", resp.StatusCode(), resp.String())
-	}
-
-	if result != nil {
-		if err := json.Unmarshal(resp.Bytes(), result); err != nil {
-			return fmt.Errorf("decode form response: %w", err)
-		}
-	}
-	return nil
-}
-
-// PostMultipart sends a multipart/form-data POST. ASP.NET MVC returns 302 on
-// successful form submissions, so redirects are not followed and any 2xx/3xx
-// status is treated as success.
-func (c *Client) PostMultipart(ctx context.Context, path string, fields map[string]string) error {
-	var buf bytes.Buffer
-	writer := multipart.NewWriter(&buf)
-	for key, val := range fields {
-		if err := writer.WriteField(key, val); err != nil {
-			return fmt.Errorf("write multipart field %s: %w", key, err)
-		}
-	}
-	if err := writer.Close(); err != nil {
-		return fmt.Errorf("close multipart writer: %w", err)
-	}
-
-	resp, err := c.noRedirectClient.R().
-		SetContext(ctx).
-		SetBody(buf.Bytes()).
-		SetHeader("Content-Type", writer.FormDataContentType()).
-		Post(c.baseURL + path)
-	if err != nil {
-		return fmt.Errorf("post multipart request: %w", err)
-	}
-	if resp.Err != nil {
-		return fmt.Errorf("post multipart request: %w", resp.Err)
-	}
-	if resp.StatusCode() >= 400 {
-		return fmt.Errorf("post multipart request: status %d: %s", resp.StatusCode(), resp.String())
-	}
-	return nil
-}

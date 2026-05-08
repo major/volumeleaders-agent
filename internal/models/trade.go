@@ -340,10 +340,4 @@ const (
 	TradeSentimentExtremeBull  TradeSentimentSignal = "extreme_bull"
 )
 
-// DataTablesResponse represents the server-side DataTables JSON envelope.
-type DataTablesResponse struct {
-	Draw            int             `json:"draw"`
-	RecordsTotal    int             `json:"recordsTotal"`
-	RecordsFiltered int             `json:"recordsFiltered"`
-	Data            json.RawMessage `json:"data"`
-}
+

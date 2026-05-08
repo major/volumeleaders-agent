@@ -9,11 +9,10 @@ import (
 	"net/http"
 	"path"
 	"regexp"
-	"slices"
 	"strings"
 
-	"github.com/browserutils/kooky"
-	_ "github.com/browserutils/kooky/browser/all"
+	"github.com/major/volumeleaders-go/volumeleaders"
+	"github.com/major/volumeleaders-go/volumeleaders/browserauth"
 	"resty.dev/v3"
 )
 
@@ -31,6 +30,9 @@ const SessionExpiredMessage = "Authentication required: VolumeLeaders session ha
 var requiredCookieNames = []string{"ASP.NET_SessionId", ".ASPXAUTH"}
 
 var xsrfTokenPattern = regexp.MustCompile(`<input\s+name="__RequestVerificationToken"\s+type="hidden"\s+value="([^"]+)"`)
+
+//nolint:gochecknoglobals // Test seam for avoiding real browser stores in auth package tests.
+var findBrowserSession = browserauth.FindSession
 
 // BrowserHeaders contains the 9 browser-fingerprint headers that mimic Chrome 147 on Windows.
 var BrowserHeaders = map[string]string{
@@ -63,37 +65,30 @@ func (e sessionExpiredError) Detail() string {
 
 // IsSessionExpired reports whether err indicates an expired VolumeLeaders session.
 func IsSessionExpired(err error) bool {
-	return errors.Is(err, ErrSessionExpired)
+	return errors.Is(err, ErrSessionExpired) || errors.Is(err, volumeleaders.ErrSessionExpired)
 }
 
 // ExtractCookies reads required VolumeLeaders cookies, checking a local
 // cache first and falling back to browser cookie stores on cache miss.
-//
-// Kooky scans all registered browsers and returns accumulated errors for
-// browsers that could not be read (uninstalled, locked, etc.). We ignore
-// those errors as long as the required auth cookies were found in at least
-// one browser. When no cookies are found, the accumulated errors are
-// included in the diagnostic to help troubleshoot (e.g. Windows SQLite
-// lock failures that silently prevent reads).
-//
-// Successfully extracted cookies are cached so subsequent invocations
-// avoid the cost of reading browser stores. Call InvalidateCache when
-// the server reports a session expiry so the next call re-reads from
-// browser stores.
+// Successfully extracted cookies are cached so subsequent invocations avoid
+// the cost of reading browser stores. Call InvalidateCache when the server
+// reports a session expiry so the next call re-reads from browser stores.
 func ExtractCookies(ctx context.Context) (map[string]string, error) {
 	if cached, err := loadCache(); err == nil {
 		return cached, nil
 	}
 
-	// ReadCookies returns cookies it could find plus errors from browsers
-	// it could not read. Errors from missing browsers are expected.
-	validCookies, validErr := kooky.ReadCookies(ctx, kooky.Valid, kooky.DomainHasSuffix(volumeLeadersDomain))
-	found := authCookies(validCookies)
-
-	if found["ASP.NET_SessionId"] == "" || found[".ASPXAUTH"] == "" {
-		allCookies, allErr := kooky.ReadCookies(ctx, kooky.DomainHasSuffix(volumeLeadersDomain))
-		browserErrs := errors.Join(validErr, allErr)
-		return nil, fmt.Errorf("required browser cookies unavailable: %s", cookieDiagnostic(found, allCookies, validCookies, browserErrs))
+	session, err := findBrowserSession(ctx, browserauth.WithoutValidation())
+	if err != nil {
+		return nil, fmt.Errorf("discover browser session: %w", err)
+	}
+	found := sessionCookies(session)
+	if missing := missingRequiredCookies(found); len(missing) > 0 {
+		return nil, fmt.Errorf(
+			"required browser cookies unavailable: missing %s: %w",
+			strings.Join(missing, ", "),
+			browserauth.ErrRequiredCookieMissing,
+		)
 	}
 
 	// Cache for subsequent runs (best-effort, failures are not fatal).
@@ -124,35 +119,18 @@ func FetchXSRFToken(ctx context.Context, client *resty.Client) (string, error) {
 	return string(matches[1]), nil
 }
 
-func authCookies(cookies kooky.Cookies) map[string]string {
+func sessionCookies(session volumeleaders.Session) map[string]string {
 	found := make(map[string]string, 3)
-	for _, cookie := range cookies {
+	for _, cookie := range session.Cookies {
+		if cookie == nil {
+			continue
+		}
 		switch cookie.Name {
 		case "ASP.NET_SessionId", ".ASPXAUTH", "__RequestVerificationToken":
 			found[cookie.Name] = cookie.Value
 		}
 	}
 	return found
-}
-
-func cookieDiagnostic(found map[string]string, allCookies, validCookies kooky.Cookies, browserErrs error) string {
-	missing := missingRequiredCookies(found)
-	rejected := rejectedRequiredCookies(found, allCookies)
-	parts := []string{
-		fmt.Sprintf("searched browser cookie stores for domain suffix %q", volumeLeadersDomain),
-		"required cookies: ASP.NET_SessionId, .ASPXAUTH",
-		fmt.Sprintf("valid VolumeLeaders cookies found: %d", len(validCookies)),
-		fmt.Sprintf("browser stores with VolumeLeaders cookies: %d", browserStoreCount(allCookies)),
-		fmt.Sprintf("missing valid cookies: %s", strings.Join(missing, ", ")),
-		"only cookie storage is inspected; local storage, session storage, and IndexedDB are not inspected",
-	}
-	if len(rejected) > 0 {
-		parts = append(parts, fmt.Sprintf("matching required cookies found but not usable as valid cookies: %s", strings.Join(rejected, ", ")))
-	}
-	if browserErrs != nil {
-		parts = append(parts, fmt.Sprintf("browser read errors: %v", browserErrs))
-	}
-	return strings.Join(parts, "; ")
 }
 
 func missingRequiredCookies(found map[string]string) []string {
@@ -163,35 +141,6 @@ func missingRequiredCookies(found map[string]string) []string {
 		}
 	}
 	return missing
-}
-
-func rejectedRequiredCookies(found map[string]string, allCookies kooky.Cookies) []string {
-	rejected := make([]string, 0, len(requiredCookieNames))
-	for _, name := range requiredCookieNames {
-		if found[name] != "" || !containsCookieName(allCookies, name) {
-			continue
-		}
-		rejected = append(rejected, name)
-	}
-	return rejected
-}
-
-func containsCookieName(cookies kooky.Cookies, name string) bool {
-	return slices.ContainsFunc(cookies, func(cookie *kooky.Cookie) bool {
-		return cookie.Name == name
-	})
-}
-
-func browserStoreCount(cookies kooky.Cookies) int {
-	stores := make(map[string]struct{})
-	for _, cookie := range cookies {
-		if cookie.Browser == nil {
-			stores["unknown"] = struct{}{}
-			continue
-		}
-		stores[cookie.Browser.Browser()+":"+cookie.Browser.Profile()] = struct{}{}
-	}
-	return len(stores)
 }
 
 func safeRedirectPath(resp *http.Response) string {

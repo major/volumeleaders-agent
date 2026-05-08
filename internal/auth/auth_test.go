@@ -7,10 +7,12 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"path/filepath"
 	"strings"
 	"testing"
 
-	"github.com/browserutils/kooky"
+	"github.com/major/volumeleaders-go/volumeleaders"
+	"github.com/major/volumeleaders-go/volumeleaders/browserauth"
 	"resty.dev/v3"
 )
 
@@ -174,95 +176,100 @@ func TestFetchXSRFToken(t *testing.T) {
 	}
 }
 
-func TestCookieDiagnostic(t *testing.T) {
-	t.Parallel()
+func TestExtractCookiesUsesCachedCookies(t *testing.T) {
+	cacheDir := t.TempDir()
+	t.Setenv("XDG_CACHE_HOME", cacheDir)
 
-	tests := []struct {
-		name         string
-		found        map[string]string
-		allCookies   kooky.Cookies
-		validCookies kooky.Cookies
-		browserErrs  error
-		wantParts    []string
-		forbidParts  []string
-	}{
-		{
-			name:  "missing all required cookies",
-			found: map[string]string{},
-			wantParts: []string{
-				`searched browser cookie stores for domain suffix "volumeleaders.com"`,
-				"required cookies: ASP.NET_SessionId, .ASPXAUTH",
-				"valid VolumeLeaders cookies found: 0",
-				"browser stores with VolumeLeaders cookies: 0",
-				"missing valid cookies: ASP.NET_SessionId, .ASPXAUTH",
-				"only cookie storage is inspected; local storage, session storage, and IndexedDB are not inspected",
-			},
-			forbidParts: []string{
-				"browser read errors",
-			},
-		},
-		{
-			name: "reports required cookies not usable as valid cookies",
-			found: map[string]string{
-				"ASP.NET_SessionId": "valid-session-cookie",
-			},
-			allCookies: kooky.Cookies{
-				cookieWithBrowser("ASP.NET_SessionId", "valid-session-cookie", "Firefox", "default-release"),
-				cookieWithBrowser(".ASPXAUTH", "expired-auth-cookie", "Firefox", "default-release"),
-			},
-			validCookies: kooky.Cookies{
-				cookieWithBrowser("ASP.NET_SessionId", "valid-session-cookie", "Firefox", "default-release"),
-			},
-			wantParts: []string{
-				"valid VolumeLeaders cookies found: 1",
-				"browser stores with VolumeLeaders cookies: 1",
-				"missing valid cookies: .ASPXAUTH",
-				"matching required cookies found but not usable as valid cookies: .ASPXAUTH",
-			},
-			forbidParts: []string{
-				"valid-session-cookie",
-				"expired-auth-cookie",
-				"default-release",
-				"/home/",
-			},
-		},
-		{
-			name:        "surfaces browser read errors",
-			found:       map[string]string{},
-			browserErrs: fmt.Errorf("database is locked"),
-			wantParts: []string{
-				"browser read errors: database is locked",
-				"missing valid cookies: ASP.NET_SessionId, .ASPXAUTH",
-			},
-		},
-		{
-			name:        "surfaces joined browser errors",
-			found:       map[string]string{},
-			browserErrs: errors.Join(fmt.Errorf("firefox: database is locked"), fmt.Errorf("chrome: profile not found")),
-			wantParts: []string{
-				"browser read errors:",
-				"database is locked",
-				"profile not found",
-			},
-		},
+	want := map[string]string{
+		"ASP.NET_SessionId": "cached-session",
+		".ASPXAUTH":         "cached-auth",
+	}
+	if err := saveCacheFile(filepath.Join(cacheDir, cacheSubdir, cacheFileName), want); err != nil {
+		t.Fatalf("saveCacheFile() error = %v", err)
+	}
+	stubFindBrowserSession(t, func(context.Context, ...browserauth.Option) (volumeleaders.Session, error) {
+		t.Fatal("ExtractCookies() called browserauth despite valid cache")
+		return volumeleaders.Session{}, nil
+	})
+
+	got, err := ExtractCookies(t.Context())
+	if err != nil {
+		t.Fatalf("ExtractCookies() error = %v", err)
+	}
+	for name, wantValue := range want {
+		if got[name] != wantValue {
+			t.Errorf("ExtractCookies()[%s] = %q, want %q", name, got[name], wantValue)
+		}
+	}
+}
+
+func TestExtractCookiesFindsSessionAndCachesCookies(t *testing.T) {
+	cacheDir := t.TempDir()
+	t.Setenv("XDG_CACHE_HOME", cacheDir)
+	stubFindBrowserSession(t, func(_ context.Context, opts ...browserauth.Option) (volumeleaders.Session, error) {
+		if len(opts) != 1 {
+			t.Fatalf("ExtractCookies() browserauth options = %d, want 1", len(opts))
+		}
+		return volumeleaders.SessionFromCookies([]*http.Cookie{
+			{Name: "ASP.NET_SessionId", Value: "session-value"},
+			{Name: ".ASPXAUTH", Value: "auth-value"},
+			{Name: "__RequestVerificationToken", Value: "xsrf-cookie"},
+		}, "xsrf-token", nil), nil
+	})
+
+	got, err := ExtractCookies(t.Context())
+	if err != nil {
+		t.Fatalf("ExtractCookies() error = %v", err)
+	}
+	want := map[string]string{
+		"ASP.NET_SessionId":          "session-value",
+		".ASPXAUTH":                  "auth-value",
+		"__RequestVerificationToken": "xsrf-cookie",
+	}
+	for name, wantValue := range want {
+		if got[name] != wantValue {
+			t.Errorf("ExtractCookies()[%s] = %q, want %q", name, got[name], wantValue)
+		}
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
+	cached, err := loadCacheFile(filepath.Join(cacheDir, cacheSubdir, cacheFileName))
+	if err != nil {
+		t.Fatalf("loadCacheFile() error = %v", err)
+	}
+	for name, wantValue := range want {
+		if cached[name] != wantValue {
+			t.Errorf("cached cookie %s = %q, want %q", name, cached[name], wantValue)
+		}
+	}
+}
 
-			diagnostic := cookieDiagnostic(tt.found, tt.allCookies, tt.validCookies, tt.browserErrs)
-			for _, want := range tt.wantParts {
-				if !strings.Contains(diagnostic, want) {
-					t.Errorf("expected diagnostic to contain %q, got %q", want, diagnostic)
-				}
-			}
-			for _, forbidden := range tt.forbidParts {
-				if strings.Contains(diagnostic, forbidden) {
-					t.Errorf("expected diagnostic not to contain %q, got %q", forbidden, diagnostic)
-				}
-			}
-		})
+func TestExtractCookiesPreservesBrowserAuthErrorSemantics(t *testing.T) {
+	t.Setenv("XDG_CACHE_HOME", t.TempDir())
+	stubFindBrowserSession(t, func(context.Context, ...browserauth.Option) (volumeleaders.Session, error) {
+		return volumeleaders.Session{}, errors.Join(
+			browserauth.ErrRequiredCookieMissing,
+			volumeleaders.ErrBrowserCookiesUnavailable,
+		)
+	})
+
+	_, err := ExtractCookies(t.Context())
+	if err == nil {
+		t.Fatal("ExtractCookies() error = nil, want browserauth failure")
+	}
+	if !errors.Is(err, browserauth.ErrRequiredCookieMissing) {
+		t.Errorf("ExtractCookies() error = %v, want ErrRequiredCookieMissing", err)
+	}
+	if !errors.Is(err, volumeleaders.ErrBrowserCookiesUnavailable) {
+		t.Errorf("ExtractCookies() error = %v, want ErrBrowserCookiesUnavailable", err)
+	}
+}
+
+func TestIsSessionExpiredRecognizesLibraryError(t *testing.T) {
+	t.Parallel()
+
+	err := fmt.Errorf("browserauth validation: %w", volumeleaders.ErrSessionExpired)
+	if !IsSessionExpired(err) {
+		t.Fatalf("IsSessionExpired(%v) = false, want true", err)
 	}
 }
 
@@ -396,27 +403,14 @@ func assertRequestCookies(t *testing.T, r *http.Request) {
 	}
 }
 
-type testBrowserInfo struct {
-	browser string
-	profile string
-}
-
-func (b testBrowserInfo) Browser() string { return b.browser }
-
-func (b testBrowserInfo) Profile() string { return b.profile }
-
-func (b testBrowserInfo) IsDefaultProfile() bool { return true }
-
-func (b testBrowserInfo) FilePath() string {
-	return "/home/example/.mozilla/firefox/profile/cookies.sqlite"
-}
-
-func cookieWithBrowser(name, value, browser, profile string) *kooky.Cookie {
-	return &kooky.Cookie{
-		Cookie: http.Cookie{
-			Name:  name,
-			Value: value,
-		},
-		Browser: testBrowserInfo{browser: browser, profile: profile},
-	}
+func stubFindBrowserSession(
+	t *testing.T,
+	stub func(context.Context, ...browserauth.Option) (volumeleaders.Session, error),
+) {
+	t.Helper()
+	original := findBrowserSession
+	findBrowserSession = stub
+	t.Cleanup(func() {
+		findBrowserSession = original
+	})
 }

@@ -4,8 +4,8 @@ go 1.26.3
 
 require (
 	github.com/Masterminds/semver/v3 v3.4.0
-	github.com/browserutils/kooky v0.2.9
 	github.com/creativeprojects/go-selfupdate v1.5.2
+	github.com/major/volumeleaders-go v0.2.0
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/pflag v1.0.10
 	resty.dev/v3 v3.0.0-beta.6
@@ -15,6 +15,7 @@ require (
 	code.gitea.io/sdk/gitea v0.22.1 // indirect
 	github.com/42wim/httpsig v1.2.3 // indirect
 	github.com/browserutils/ese v0.0.0-20260314233042-37b6a03a93ce // indirect
+	github.com/browserutils/kooky v0.2.9 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/davidmz/go-pageant v1.0.2 // indirect
 	github.com/go-fed/httpsig v1.1.0 // indirect
@@ -29,7 +30,6 @@ require (
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/keybase/go-keychain v0.0.1 // indirect
 	github.com/kr/pretty v0.3.1 // indirect
-	github.com/major/volumeleaders-go v0.2.0 // indirect
 	github.com/pierrec/lz4/v4 v4.1.26 // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/ulikunitz/xz v0.5.15 // indirect

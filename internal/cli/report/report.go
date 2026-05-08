@@ -1,14 +1,16 @@
 package report
 
 import (
+	"context"
 	"fmt"
 	"maps"
+	"net/url"
 	"strings"
 
+	vlgo "github.com/major/volumeleaders-go/volumeleaders"
 	"github.com/spf13/cobra"
 
 	"github.com/major/volumeleaders-agent/internal/cli/common"
-	"github.com/major/volumeleaders-agent/internal/datatables"
 	"github.com/major/volumeleaders-agent/internal/models"
 )
 
@@ -180,11 +182,20 @@ func runReport(cmd *cobra.Command, opts *reportOptions, definition *reportDefini
 
 func fetchReportTrades(cmd *cobra.Command, opts common.DataTableOptions) ([]models.Trade, error) {
 	ctx := cmd.Context()
-	vlClient, err := common.NewCommandClient(ctx)
+	vlClient, err := common.NewVLClient(ctx)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("create VL client: %w", err)
 	}
-	return common.FetchDataTablesPages[models.Trade](ctx, vlClient, "/Trades/GetTrades", datatables.TradeColumns, opts, reportBrowserPageLength, "query report trades")
+	vlTrades, err := common.FetchVLPages[vlgo.Trade](ctx, vlClient, opts, reportBrowserPageLength, "query report trades", fetchTrades)
+	if err != nil {
+		return nil, fmt.Errorf("fetch report trades: %w", err)
+	}
+	return common.MapSlice(vlTrades, common.MapVLTrade), nil
+}
+
+// fetchTrades wraps vlgo.Client.GetTrades as a VLFetcher for the report package.
+func fetchTrades(ctx context.Context, c *vlgo.Client, dt *vlgo.DataTablesRequest, filters url.Values) (*vlgo.DataTablesResponse[vlgo.Trade], error) {
+	return c.GetTrades(ctx, vlgo.TradesRequest{DataTables: *dt, Filters: filters})
 }
 
 func parseReportSummaryGroup(value reportSummaryGroup) (reportSummaryGroup, error) {

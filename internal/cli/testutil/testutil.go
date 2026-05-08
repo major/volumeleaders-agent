@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	vlgo "github.com/major/volumeleaders-go/volumeleaders"
 	"github.com/spf13/cobra"
 
 	"github.com/major/volumeleaders-agent/internal/cli/common"
@@ -25,6 +26,20 @@ func ContextWithTestClient(t *testing.T, baseURL string) context.Context {
 	httpClient := &http.Client{Timeout: 5 * time.Second}
 	c := client.NewForTesting(httpClient, baseURL)
 	return context.WithValue(t.Context(), common.TestClientKey, c)
+}
+
+// ContextWithTestVLClient creates a context with a vlgo client injected for
+// tests. The returned context bypasses browser authentication and targets
+// baseURL via the vlgo client.
+func ContextWithTestVLClient(t *testing.T, baseURL string) context.Context {
+	t.Helper()
+	session := vlgo.NewSession("test-session", "test-auth", "test-token")
+	httpClient := &http.Client{Timeout: 5 * time.Second}
+	vlClient, err := vlgo.NewClient(session, vlgo.WithHTTPClient(httpClient), vlgo.WithBaseURL(baseURL))
+	if err != nil {
+		t.Fatalf("create test vlgo client: %v", err)
+	}
+	return context.WithValue(t.Context(), common.TestVLClientKey, vlClient)
 }
 
 // AddPrettyJSON returns a context with the pretty-print JSON flag set to true.
@@ -81,15 +96,19 @@ func ExecuteCommand(t *testing.T, cmd *cobra.Command, ctx context.Context, args 
 
 // propagateTestContext layers test context values onto child commands that
 // already have a context set. This helper walks the command tree and layers
-// TestClientKey and PrettyJSONKey onto each child's existing context so that
-// RunE handlers find the test client.
+// TestClientKey, TestVLClientKey, and PrettyJSONKey onto each child's existing
+// context so that RunE handlers find the test client.
 func propagateTestContext(parent *cobra.Command, ctx context.Context) {
 	testClient := ctx.Value(common.TestClientKey)
+	testVLClient := ctx.Value(common.TestVLClientKey)
 	prettyJSON := ctx.Value(common.PrettyJSONKey)
 	for _, sub := range parent.Commands() {
 		if subCtx := sub.Context(); subCtx != nil {
 			if testClient != nil {
 				subCtx = context.WithValue(subCtx, common.TestClientKey, testClient)
+			}
+			if testVLClient != nil {
+				subCtx = context.WithValue(subCtx, common.TestVLClientKey, testVLClient)
 			}
 			if prettyJSON != nil {
 				subCtx = context.WithValue(subCtx, common.PrettyJSONKey, prettyJSON)

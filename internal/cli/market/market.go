@@ -1,15 +1,22 @@
 package market
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
+	"net/url"
 
+	vlgo "github.com/major/volumeleaders-go/volumeleaders"
 	"github.com/spf13/cobra"
 
 	"github.com/major/volumeleaders-agent/internal/cli/common"
-	"github.com/major/volumeleaders-agent/internal/datatables"
 	"github.com/major/volumeleaders-agent/internal/models"
 )
+
+// fetchEarnings wraps vlgo GetEarnings as a VLFetcher.
+func fetchEarnings(ctx context.Context, c *vlgo.Client, dt *vlgo.DataTablesRequest, filters url.Values) (*vlgo.DataTablesResponse[vlgo.Earning], error) {
+	return c.GetEarnings(ctx, vlgo.EarningsRequest{DataTables: *dt, Filters: filters})
+}
 
 // marketEarningsDefaultFields defines the default field subset for earnings output.
 var marketEarningsDefaultFields = []string{
@@ -73,7 +80,7 @@ func newEarningsCmd() *cobra.Command {
 			}
 
 			dtOpts := common.NewDataTableOptions(common.DataTableRequestConfig{Start: 0, Length: -1, OrderCol: 0, OrderDir: common.OrderDirectionASC, Fields: fields, Filters: map[string]string{"StartDate": startDate, "EndDate": endDate}})
-			return common.RunDataTablesCommand[models.Earnings](cmd, "/Earnings/GetEarnings", datatables.EarningsColumns, dtOpts, opts.Format, "query earnings")
+			return common.RunVLDataTablesCommand[vlgo.Earning, models.Earnings](cmd, dtOpts, opts.Format, "query earnings", fetchEarnings, common.MapVLEarning)
 		},
 	}
 	common.BindOrPanic(cmd, opts, "earnings options")
@@ -93,19 +100,18 @@ func newExhaustionCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			ctx := cmd.Context()
 
-			vlClient, err := common.NewCommandClient(ctx)
+			vlClient, err := common.NewVLClient(ctx)
 			if err != nil {
-				return err
+				return fmt.Errorf("create VL client: %w", err)
 			}
 
-			payload := map[string]string{"Date": opts.Date}
-			var score models.ExhaustionScore
-			if err := vlClient.PostJSON(ctx, "/ExecutiveSummary/GetExhaustionScores", payload, &score); err != nil {
+			scores, err := vlClient.GetExhaustionScores(ctx, vlgo.ExhaustionScoresRequest{Date: opts.Date})
+			if err != nil {
 				slog.Error("failed to query exhaustion scores", "error", err)
 				return fmt.Errorf("query exhaustion scores: %w", err)
 			}
 
-			return common.PrintJSON(cmd.OutOrStdout(), ctx, summarizeMarketExhaustion(score))
+			return common.PrintJSON(cmd.OutOrStdout(), ctx, summarizeMarketExhaustion(common.MapVLExhaustionScores(*scores)))
 		},
 	}
 	common.BindOrPanic(cmd, opts, "exhaustion options")

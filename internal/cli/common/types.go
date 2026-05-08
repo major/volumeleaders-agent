@@ -8,6 +8,9 @@ const (
 	PrettyJSONKey ContextKey = 1
 	// TestClientKey identifies an injected client value used by command tests.
 	TestClientKey ContextKey = 2
+	// TestVLClientKey identifies an injected *vlgo.Client used by command tests
+	// that have migrated to volumeleaders-go.
+	TestVLClientKey ContextKey = 3
 )
 
 // OutputFormat identifies the supported command output formats.

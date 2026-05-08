@@ -1,13 +1,15 @@
 package trade
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
+	"net/url"
 
+	vlgo "github.com/major/volumeleaders-go/volumeleaders"
 	"github.com/spf13/cobra"
 
 	"github.com/major/volumeleaders-agent/internal/cli/common"
-	"github.com/major/volumeleaders-agent/internal/datatables"
 	"github.com/major/volumeleaders-agent/internal/models"
 )
 
@@ -45,17 +47,18 @@ func runTradeLevels(cmd *cobra.Command, opts *tradeLevelsOptions) error {
 
 func fetchTradeLevels(cmd *cobra.Command, filters map[string]string, count int) ([]models.TradeLevel, error) {
 	ctx := cmd.Context()
-	vlClient, err := common.NewCommandClient(ctx)
+	vlClient, err := common.NewVLClient(ctx)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("create VL client: %w", err)
 	}
-	request := dashboardRequest(datatables.TradeLevelChartColumns, 0, "Price", count, filters)
-	request.Length = -1
-	var result []models.TradeLevel
-	if err := vlClient.PostDataTables(ctx, "/Chart0/GetTradeLevels", request.Encode(), &result); err != nil {
+	dtReq := newDashboardDTRequest(tradeLevelChartColumns, 0, "Price", count)
+	dtReq.Length = -1
+	resp, err := vlClient.GetChart0TradeLevels(ctx, vlgo.TradeLevelsRequest{DataTables: dtReq, Filters: common.FiltersToValues(filters)})
+	if err != nil {
 		slog.Error("failed to query trade levels", "error", err)
 		return nil, fmt.Errorf("query trade levels: %w", err)
 	}
+	result := common.MapSlice(resp.Data, common.MapVLTradeLevel)
 	if len(result) > count {
 		result = result[:count]
 	}
@@ -74,7 +77,12 @@ func runTradeLevelTouches(cmd *cobra.Command, opts *tradeLevelTouchesOptions) er
 	rangeFilters := tradeLevelTouchRangeFilters(ticker, opts, startDate, endDate)
 	filters := rangeFilters.levelTouchMap(opts.RelativeSize, opts.TradeLevelRank, opts.TradeLevelCount)
 	dtOpts := common.NewDataTableOptions(common.DataTableRequestConfig{Start: opts.Start, Length: opts.Length, OrderCol: opts.OrderCol, OrderDir: opts.OrderDir, Filters: filters})
-	return common.RunDataTablesCommand[models.TradeLevelTouch](cmd, "/TradeLevelTouches/GetTradeLevelTouches", datatables.TradeLevelTouchColumns, dtOpts, opts.Format, "query trade level touches")
+	return common.RunVLDataTablesCommand[vlgo.TradeLevel, models.TradeLevelTouch](cmd, dtOpts, opts.Format, "query trade level touches", fetchTradeLevelTouches, common.MapVLTradeLevelTouch)
+}
+
+// fetchTradeLevelTouches wraps vlgo.Client.GetTradeLevelTouches as a VLFetcher.
+func fetchTradeLevelTouches(ctx context.Context, c *vlgo.Client, dt *vlgo.DataTablesRequest, filters url.Values) (*vlgo.DataTablesResponse[vlgo.TradeLevel], error) {
+	return c.GetTradeLevelTouches(ctx, vlgo.TradeLevelTouchesRequest{DataTables: *dt, Filters: filters})
 }
 
 func tradeLevelTouchRangeFilters(ticker string, opts *tradeLevelTouchesOptions, startDate, endDate string) tradeRangeFilters {

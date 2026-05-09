@@ -1395,6 +1395,12 @@ func TestHelpOutputDisplaysFlagGroups(t *testing.T) {
 			expectedGroups: []string{"Basic Flags:", "Filters Flags:", "Print Types Flags:", "Ranges Flags:", "RSI Flags:", "Sessions Flags:", "Venues Flags:"},
 			forbidden:      []string{"\nFlags:\n"},
 		},
+		{
+			name:           "update help",
+			args:           []string{"update", "--help"},
+			expectedGroups: []string{"Available Commands:", "check       Check for available updates", "config      Show or change update settings", "Update Flags:"},
+			forbidden:      []string{"\nFlags:\n"},
+		},
 	}
 
 	for _, tc := range tests {

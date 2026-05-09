@@ -273,7 +273,7 @@ func TestSummarizeReportTradesGroupsByTickerAndDay(t *testing.T) {
 		{Dollars: 50, DollarsMultiplier: 1},
 	}
 
-	summary := summarizeReportTrades(trades, reportSummaryGroupTickerDay, "2026-05-01", "2026-05-02")
+	summary := summarizeReportTrades(trades, reportSummaryGroupTickerDay, "2026-05-01", "2026-05-02", 0, reportSummarySortDollars)
 	if summary.TotalTrades != 4 || summary.TotalDollars != 1050 {
 		t.Fatalf("summary totals = trades %d dollars %.2f", summary.TotalTrades, summary.TotalDollars)
 	}
@@ -288,6 +288,52 @@ func TestSummarizeReportTradesGroupsByTickerAndDay(t *testing.T) {
 	unknown := summary.ByTickerDay["unknown|unknown"]
 	if unknown.Trades != 1 || unknown.Dollars != 50 {
 		t.Fatalf("unknown group summary = %#v", unknown)
+	}
+}
+
+func TestSummarizeReportTradesAddsTopPrintFields(t *testing.T) {
+	t.Parallel()
+
+	latestTime := "2026-05-02T16:00:00Z"
+	topTime := "2026-05-01T10:30:00Z"
+	earlierTime := "2026-05-01T09:30:00Z"
+	trades := []models.Trade{
+		tradeFixtureWithPrint("AAPL", "2026-05-01", 300, 4, 112.50, 8, earlierTime, false, false, false, 55),
+		tradeFixtureWithPrint("AAPL", "2026-05-01", 900, 12, 115.25, 3, topTime, true, true, true, 80),
+		tradeFixtureWithPrint("AAPL", "2026-05-02", 100, 20, 116.75, 10, latestTime, false, false, true, 60),
+	}
+
+	summary := summarizeReportTrades(trades, reportSummaryGroupTicker, "2026-05-01", "2026-05-02", 0, reportSummarySortDollars)
+	got := summary.ByTicker["AAPL"]
+	if got.MaxDollars != 900 || got.MaxDollarsMultiplier != 20 || got.MinTradeRank != 3 || got.TopPrice != 115.25 {
+		t.Fatalf("summarizeReportTrades() top fields = %#v", got)
+	}
+	if got.TopTradeTime != topTime || got.LatestTradeTime != latestTime {
+		t.Fatalf("summarizeReportTrades() times = top %q latest %q", got.TopTradeTime, got.LatestTradeTime)
+	}
+	if !got.TopDarkPool || !got.TopSweep || !got.TopClosingTrade || got.PctClosingTrade < 66 || got.PctClosingTrade > 67 {
+		t.Fatalf("summarizeReportTrades() print flags = %#v", got)
+	}
+}
+
+func TestSummarizeReportTradesReturnsLimitedOrderedGroups(t *testing.T) {
+	t.Parallel()
+
+	trades := []models.Trade{
+		tradeFixtureWithPrint("AAPL", "2026-05-01", 300, 4, 100, 5, "2026-05-01T09:30:00Z", false, false, false, 40),
+		tradeFixtureWithPrint("MSFT", "2026-05-01", 900, 2, 200, 12, "2026-05-01T10:30:00Z", false, false, false, 50),
+		tradeFixtureWithPrint("NVDA", "2026-05-01", 400, 8, 300, 2, "2026-05-01T11:30:00Z", false, false, false, 60),
+	}
+
+	summary := summarizeReportTrades(trades, reportSummaryGroupTicker, "2026-05-01", "2026-05-01", 2, reportSummarySortMinRank)
+	if len(summary.Groups) != 2 {
+		t.Fatalf("summarizeReportTrades() groups length = %d, want 2", len(summary.Groups))
+	}
+	if got, want := []string{summary.Groups[0].Key, summary.Groups[1].Key}, []string{"NVDA", "AAPL"}; !slices.Equal(got, want) {
+		t.Fatalf("summarizeReportTrades() ordered groups = %v, want %v", got, want)
+	}
+	if len(summary.ByTicker) != 3 {
+		t.Fatalf("summarizeReportTrades() byTicker length = %d, want 3", len(summary.ByTicker))
 	}
 }
 
@@ -309,6 +355,10 @@ func TestRunReportRejectsSummaryFieldAndFormatConflicts(t *testing.T) {
 		want string
 	}{
 		{name: "group by without summary", args: []string{"top-100-rank", "--group-by", "day"}, want: "--group-by only works with --summary"},
+		{name: "limit groups without summary", args: []string{"top-100-rank", "--limit-groups", "5"}, want: "--limit-groups only works with --summary"},
+		{name: "sort groups without summary", args: []string{"top-100-rank", "--sort-groups-by", "trades"}, want: "--sort-groups-by only works with --summary"},
+		{name: "negative limit groups", args: []string{"top-100-rank", "--summary", "--limit-groups", "-1"}, want: "--limit-groups must be 0 or greater"},
+		{name: "invalid sort groups", args: []string{"top-100-rank", "--summary", "--sort-groups-by", "sector"}, want: "invalid sort-groups-by"},
 		{name: "fields with summary", args: []string{"top-100-rank", "--summary", "--fields", "Ticker"}, want: "--fields cannot be used with --summary"},
 		{name: "csv with summary", args: []string{"top-100-rank", "--summary", "--format", "csv"}, want: "--format cannot be used with --summary"},
 	}
@@ -376,4 +426,13 @@ func tradeFixture(ticker, day string, dollars, multiplier float64, darkPool, swe
 		panic(err)
 	}
 	return models.Trade{Ticker: ticker, Date: models.AspNetDate{Time: parsed, Valid: true}, Dollars: dollars, DollarsMultiplier: multiplier, DarkPool: models.FlexBool(darkPool), Sweep: models.FlexBool(sweep), CumulativeDistribution: cumulativeDistribution}
+}
+
+func tradeFixtureWithPrint(ticker, day string, dollars, multiplier, price float64, rank int, fullDateTime string, darkPool, sweep, closing bool, cumulativeDistribution float64) models.Trade {
+	trade := tradeFixture(ticker, day, dollars, multiplier, darkPool, sweep, cumulativeDistribution)
+	trade.Price = price
+	trade.TradeRank = rank
+	trade.FullDateTime = &fullDateTime
+	trade.ClosingTrade = models.FlexBool(closing)
+	return trade
 }

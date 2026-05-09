@@ -123,7 +123,9 @@ func allOutputContracts() []outputContract {
 		reportTradeOutputContract("report phantom-trades", "Run the site-vetted phantom trades report."),
 		reportTradeOutputContract("report offsetting-trades", "Run the site-vetted offsetting trades report."),
 
-		objectOutputContract[models.TradeDashboard]("trade dashboard", "Return a fast ticker dashboard with trades, clusters, levels, and cluster bombs.", []string{"json"}, []string{"Defaults to a 365-day lookback and 10 rows per section."}),
+		objectOutputContract[models.TradeDashboard]("trade dashboard", "Return a fast ticker dashboard with selected trades, clusters, levels, and cluster bombs.", []string{"json"}, []string{"Defaults to a 365-day lookback, all sections, and 10 rows per section.", "--sections limits API calls and output sections; requestedSections and returnedSections record what was requested and fetched."},
+			outputVariant{When: "--summary is set", Formats: []string{"json"}, Schema: objectSchema[models.TradeDashboardSummary](), Notes: []string{"Summary output returns compact top rows for selected sections and caps each section at 3 rows."}},
+		),
 		arrayOutputContract[models.TradeListRow]("trade list", "List individual institutional trades using a compact default row shape.", outputFormats(), nil, nil,
 			outputVariant{When: "--fields is set or --format is csv or tsv", Formats: outputFormats(), Schema: arraySchema[models.Trade](), FieldSelection: allFieldsSelection[models.Trade](nil), Notes: []string{"CSV and TSV include a header row matching the selected fields."}},
 			outputVariant{When: "--summary is set", Formats: []string{"json"}, Schema: objectSchema[models.TradeSummary](), Notes: []string{"--summary cannot be combined with --fields or non-JSON formats."}},
@@ -172,7 +174,7 @@ func allOutputContracts() []outputContract {
 func reportTradeOutputContract(command, description string) outputContract {
 	return arrayOutputContract[models.TradeListRow](command, description, outputFormats(), nil, nil,
 		outputVariant{When: "--fields is set or --format is csv or tsv", Formats: outputFormats(), Schema: arraySchema[models.Trade](), FieldSelection: allFieldsSelection[models.Trade](nil), Notes: []string{"CSV and TSV include a header row matching the selected fields."}},
-		outputVariant{When: "--summary is set", Formats: []string{"json"}, Schema: objectSchema[models.TradeSummary](), Notes: []string{"--summary cannot be combined with --fields or non-JSON formats."}},
+		outputVariant{When: "--summary is set", Formats: []string{"json"}, Schema: objectSchema[models.TradeSummary](), Notes: []string{"--summary cannot be combined with --fields or non-JSON formats.", "--limit-groups adds a sorted groups slice while keeping byTicker, byDay, and byTickerDay maps backward-compatible.", "--sort-groups-by controls ordered groups with dollars, trades, avg-multiplier, or min-rank."}},
 	)
 }
 

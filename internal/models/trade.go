@@ -257,6 +257,7 @@ type TradeSummary struct {
 	TotalTrades  int                          `json:"totalTrades"`
 	TotalDollars float64                      `json:"totalDollars"`
 	DateRange    TradeSummaryDateRange        `json:"dateRange"`
+	Groups       []TradeSummaryGroup          `json:"groups,omitempty"`
 	ByTicker     map[string]TradeGroupSummary `json:"byTicker,omitempty"`
 	ByDay        map[string]TradeGroupSummary `json:"byDay,omitempty"`
 	ByTickerDay  map[string]TradeGroupSummary `json:"byTickerDay,omitempty"`
@@ -275,7 +276,61 @@ type TradeGroupSummary struct {
 	AvgDollarsMultiplier      float64 `json:"avgDollarsMultiplier"`
 	PctDarkPool               float64 `json:"pctDarkPool"`
 	PctSweep                  float64 `json:"pctSweep"`
+	PctClosingTrade           float64 `json:"pctClosingTrade"`
 	AvgCumulativeDistribution float64 `json:"avgCumulativeDistribution"`
+	MaxDollars                float64 `json:"maxDollars"`
+	MaxDollarsMultiplier      float64 `json:"maxDollarsMultiplier"`
+	MinTradeRank              int     `json:"minTradeRank"`
+	TopPrice                  float64 `json:"topPrice"`
+	LatestTradeTime           string  `json:"latestTradeTime,omitempty"`
+	TopTradeTime              string  `json:"topTradeTime,omitempty"`
+	TopDarkPool               bool    `json:"topDarkPool"`
+	TopSweep                  bool    `json:"topSweep"`
+	TopClosingTrade           bool    `json:"topClosingTrade"`
+}
+
+// TradeSummaryGroup is an ordered summary group for agent-friendly top-N output.
+type TradeSummaryGroup struct {
+	Key                       string  `json:"key"`
+	Trades                    int     `json:"trades"`
+	Dollars                   float64 `json:"dollars"`
+	AvgDollarsMultiplier      float64 `json:"avgDollarsMultiplier"`
+	PctDarkPool               float64 `json:"pctDarkPool"`
+	PctSweep                  float64 `json:"pctSweep"`
+	PctClosingTrade           float64 `json:"pctClosingTrade"`
+	AvgCumulativeDistribution float64 `json:"avgCumulativeDistribution"`
+	MaxDollars                float64 `json:"maxDollars"`
+	MaxDollarsMultiplier      float64 `json:"maxDollarsMultiplier"`
+	MinTradeRank              int     `json:"minTradeRank"`
+	TopPrice                  float64 `json:"topPrice"`
+	LatestTradeTime           string  `json:"latestTradeTime,omitempty"`
+	TopTradeTime              string  `json:"topTradeTime,omitempty"`
+	TopDarkPool               bool    `json:"topDarkPool"`
+	TopSweep                  bool    `json:"topSweep"`
+	TopClosingTrade           bool    `json:"topClosingTrade"`
+}
+
+// NewTradeSummaryGroup copies aggregate metrics into an ordered keyed group.
+func NewTradeSummaryGroup(key string, summary *TradeGroupSummary) TradeSummaryGroup {
+	return TradeSummaryGroup{
+		Key:                       key,
+		Trades:                    summary.Trades,
+		Dollars:                   summary.Dollars,
+		AvgDollarsMultiplier:      summary.AvgDollarsMultiplier,
+		PctDarkPool:               summary.PctDarkPool,
+		PctSweep:                  summary.PctSweep,
+		PctClosingTrade:           summary.PctClosingTrade,
+		AvgCumulativeDistribution: summary.AvgCumulativeDistribution,
+		MaxDollars:                summary.MaxDollars,
+		MaxDollarsMultiplier:      summary.MaxDollarsMultiplier,
+		MinTradeRank:              summary.MinTradeRank,
+		TopPrice:                  summary.TopPrice,
+		LatestTradeTime:           summary.LatestTradeTime,
+		TopTradeTime:              summary.TopTradeTime,
+		TopDarkPool:               summary.TopDarkPool,
+		TopSweep:                  summary.TopSweep,
+		TopClosingTrade:           summary.TopClosingTrade,
+	}
 }
 
 // TradeSentiment summarizes bull/bear leveraged ETF flow over a date range.
@@ -339,5 +394,3 @@ const (
 	TradeSentimentModerateBull TradeSentimentSignal = "moderate_bull"
 	TradeSentimentExtremeBull  TradeSentimentSignal = "extreme_bull"
 )
-
-

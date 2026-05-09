@@ -212,12 +212,23 @@ type tradeGroupAccumulator struct {
 	dollars                float64
 	dollarsMultiplier      float64
 	darkPool, sweep        int
+	closingTrade           int
 	cumulativeDistribution float64
+	maxDollars             float64
+	maxDollarsMultiplier   float64
+	minTradeRank           int
+	hasTradeRank           bool
+	topPrice               float64
+	latestTradeTime        string
+	topTradeTime           string
+	topDarkPool            bool
+	topSweep               bool
+	topClosingTrade        bool
 }
 
 func summarizeTrades(trades []models.Trade, group tradeSummaryGroup, startDate, endDate string) models.TradeSummary {
 	summary := models.TradeSummary{DateRange: models.TradeSummaryDateRange{Start: startDate, End: endDate}}
-	groups := make(map[string]tradeGroupAccumulator)
+	groups := make(map[string]*tradeGroupAccumulator)
 	keyFunc := tradeSummaryKeyFunc(group)
 	for i := range trades {
 		trade := &trades[i]
@@ -236,7 +247,7 @@ func summarizeTrades(trades []models.Trade, group tradeSummaryGroup, startDate, 
 	return summary
 }
 
-func summarizeTradeGroups(groups map[string]tradeGroupAccumulator) map[string]models.TradeGroupSummary {
+func summarizeTradeGroups(groups map[string]*tradeGroupAccumulator) map[string]models.TradeGroupSummary {
 	summaries := make(map[string]models.TradeGroupSummary, len(groups))
 	for key, acc := range groups {
 		summaries[key] = acc.summary()
@@ -255,8 +266,12 @@ func tradeSummaryKeyFunc(group tradeSummaryGroup) func(*models.Trade) string {
 	}
 }
 
-func addTradeSummaryGroup(groups map[string]tradeGroupAccumulator, key string, trade *models.Trade) {
+func addTradeSummaryGroup(groups map[string]*tradeGroupAccumulator, key string, trade *models.Trade) {
 	acc := groups[key]
+	if acc == nil {
+		acc = &tradeGroupAccumulator{}
+		groups[key] = acc
+	}
 	acc.trades++
 	acc.dollars += trade.Dollars
 	acc.dollarsMultiplier += trade.DollarsMultiplier
@@ -267,10 +282,30 @@ func addTradeSummaryGroup(groups map[string]tradeGroupAccumulator, key string, t
 	if bool(trade.Sweep) {
 		acc.sweep++
 	}
-	groups[key] = acc
+	if bool(trade.ClosingTrade) {
+		acc.closingTrade++
+	}
+	if trade.Dollars > acc.maxDollars {
+		acc.maxDollars = trade.Dollars
+		acc.topPrice = trade.Price
+		acc.topTradeTime = tradeSummaryTradeTime(trade)
+		acc.topDarkPool = bool(trade.DarkPool)
+		acc.topSweep = bool(trade.Sweep)
+		acc.topClosingTrade = bool(trade.ClosingTrade)
+	}
+	if trade.DollarsMultiplier > acc.maxDollarsMultiplier {
+		acc.maxDollarsMultiplier = trade.DollarsMultiplier
+	}
+	if trade.TradeRank > 0 && (!acc.hasTradeRank || trade.TradeRank < acc.minTradeRank) {
+		acc.minTradeRank = trade.TradeRank
+		acc.hasTradeRank = true
+	}
+	if tradeTime := tradeSummaryTradeTime(trade); tradeTime > acc.latestTradeTime {
+		acc.latestTradeTime = tradeTime
+	}
 }
 
-func (acc tradeGroupAccumulator) summary() models.TradeGroupSummary {
+func (acc *tradeGroupAccumulator) summary() models.TradeGroupSummary {
 	if acc.trades == 0 {
 		return models.TradeGroupSummary{}
 	}
@@ -280,8 +315,28 @@ func (acc tradeGroupAccumulator) summary() models.TradeGroupSummary {
 		AvgDollarsMultiplier:      acc.dollarsMultiplier / count,
 		PctDarkPool:               float64(acc.darkPool) / count * 100,
 		PctSweep:                  float64(acc.sweep) / count * 100,
+		PctClosingTrade:           float64(acc.closingTrade) / count * 100,
 		AvgCumulativeDistribution: acc.cumulativeDistribution / count,
+		MaxDollars:                acc.maxDollars,
+		MaxDollarsMultiplier:      acc.maxDollarsMultiplier,
+		MinTradeRank:              acc.minTradeRank,
+		TopPrice:                  acc.topPrice,
+		LatestTradeTime:           acc.latestTradeTime,
+		TopTradeTime:              acc.topTradeTime,
+		TopDarkPool:               acc.topDarkPool,
+		TopSweep:                  acc.topSweep,
+		TopClosingTrade:           acc.topClosingTrade,
 	}
+}
+
+func tradeSummaryTradeTime(trade *models.Trade) string {
+	if trade.FullDateTime != nil && *trade.FullDateTime != "" {
+		return *trade.FullDateTime
+	}
+	if trade.FullTimeString24 != nil && *trade.FullTimeString24 != "" {
+		return *trade.FullTimeString24
+	}
+	return ""
 }
 
 func tradeTickerKey(trade *models.Trade) string {

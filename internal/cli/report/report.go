@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"maps"
 	"net/url"
+	"slices"
 	"strings"
 
 	vlgo "github.com/major/volumeleaders-go/volumeleaders"
@@ -26,14 +27,16 @@ type reportDefinition struct {
 }
 
 type reportOptions struct {
-	Tickers   string              `flag:"tickers" flaggroup:"Input" flagshort:"t" flagdescr:"Comma-separated ticker symbols; use this for multi-day report lookbacks"`
-	StartDate string              `flag:"start-date" flaggroup:"Dates" flagshort:"s" flagdescr:"Start date YYYY-MM-DD (default: today)"`
-	EndDate   string              `flag:"end-date" flaggroup:"Dates" flagshort:"e" flagdescr:"End date YYYY-MM-DD (default: today)"`
-	Days      int                 `flag:"days" flaggroup:"Dates" flagshort:"d" flagdescr:"Look back this many days from --end-date or today; broad scans require a single day"`
-	Fields    string              `flag:"fields" flaggroup:"Output" flagdescr:"Comma-separated raw Trade fields to include, or omit for compact JSON"`
-	Summary   bool                `flag:"summary" flaggroup:"Output" flagdescr:"Return aggregate metrics instead of individual trades"`
-	GroupBy   reportSummaryGroup  `flag:"group-by" flaggroup:"Output" flagdescr:"Summary grouping (requires --summary): ticker, day, or ticker,day"`
-	Format    common.OutputFormat `flag:"format" flaggroup:"Output" flagshort:"f" flagdescr:"Output format: json, csv, or tsv"`
+	Tickers      string              `flag:"tickers" flaggroup:"Input" flagshort:"t" flagdescr:"Comma-separated ticker symbols; use this for multi-day report lookbacks"`
+	StartDate    string              `flag:"start-date" flaggroup:"Dates" flagshort:"s" flagdescr:"Start date YYYY-MM-DD (default: today)"`
+	EndDate      string              `flag:"end-date" flaggroup:"Dates" flagshort:"e" flagdescr:"End date YYYY-MM-DD (default: today)"`
+	Days         int                 `flag:"days" flaggroup:"Dates" flagshort:"d" flagdescr:"Look back this many days from --end-date or today; broad scans require a single day"`
+	Fields       string              `flag:"fields" flaggroup:"Output" flagdescr:"Comma-separated raw Trade fields to include, or omit for compact JSON"`
+	Summary      bool                `flag:"summary" flaggroup:"Output" flagdescr:"Return aggregate metrics instead of individual trades"`
+	GroupBy      reportSummaryGroup  `flag:"group-by" flaggroup:"Output" flagdescr:"Summary grouping (requires --summary): ticker, day, or ticker,day"`
+	LimitGroups  int                 `flag:"limit-groups" flaggroup:"Output" flagdescr:"Limit ordered summary groups; 0 omits the ordered groups slice"`
+	SortGroupsBy reportSummarySort   `flag:"sort-groups-by" flaggroup:"Output" flagdescr:"Sort ordered summary groups by: dollars, trades, avg-multiplier, or min-rank"`
+	Format       common.OutputFormat `flag:"format" flaggroup:"Output" flagshort:"f" flagdescr:"Output format: json, csv, or tsv"`
 }
 
 type reportListOptions struct {
@@ -51,10 +54,17 @@ type ReportInfo struct {
 
 type reportSummaryGroup string
 
+type reportSummarySort string
+
 const (
 	reportSummaryGroupTicker    reportSummaryGroup = "ticker"
 	reportSummaryGroupDay       reportSummaryGroup = "day"
 	reportSummaryGroupTickerDay reportSummaryGroup = "ticker,day"
+
+	reportSummarySortDollars       reportSummarySort = "dollars"
+	reportSummarySortTrades        reportSummarySort = "trades"
+	reportSummarySortAvgMultiplier reportSummarySort = "avg-multiplier"
+	reportSummarySortMinRank       reportSummarySort = "min-rank"
 )
 
 // NewCmd returns the "report" command group with curated report presets.
@@ -101,7 +111,7 @@ func newReportListCommand() *cobra.Command {
 }
 
 func newReportCommand(definition *reportDefinition) *cobra.Command {
-	opts := &reportOptions{Format: common.OutputFormatJSON, GroupBy: reportSummaryGroupTicker}
+	opts := &reportOptions{Format: common.OutputFormatJSON, GroupBy: reportSummaryGroupTicker, SortGroupsBy: reportSummarySortDollars}
 	cmd := &cobra.Command{
 		Use:     definition.use + " [tickers...]",
 		Short:   definition.short,
@@ -149,12 +159,33 @@ func runReport(cmd *cobra.Command, opts *reportOptions, definition *reportDefini
 	if !opts.Summary && cmd.Flags().Changed("group-by") {
 		return fmt.Errorf("--group-by only works with --summary")
 	}
+	if !opts.Summary && cmd.Flags().Changed("limit-groups") {
+		return fmt.Errorf("--limit-groups only works with --summary")
+	}
+	if !opts.Summary && cmd.Flags().Changed("sort-groups-by") {
+		return fmt.Errorf("--sort-groups-by only works with --summary")
+	}
 	if opts.Summary {
 		if len(fields) > 0 {
 			return fmt.Errorf("--fields cannot be used with --summary")
 		}
 		if format != common.OutputFormatJSON {
 			return fmt.Errorf("--format cannot be used with --summary")
+		}
+		if opts.LimitGroups < 0 {
+			return fmt.Errorf("--limit-groups must be 0 or greater")
+		}
+	}
+	group := reportSummaryGroup("")
+	sortBy := reportSummarySort("")
+	if opts.Summary {
+		group, err = parseReportSummaryGroup(opts.GroupBy)
+		if err != nil {
+			return err
+		}
+		sortBy, err = parseReportSummarySort(opts.SortGroupsBy)
+		if err != nil {
+			return err
 		}
 	}
 
@@ -168,11 +199,7 @@ func runReport(cmd *cobra.Command, opts *reportOptions, definition *reportDefini
 		return err
 	}
 	if opts.Summary {
-		group, err := parseReportSummaryGroup(opts.GroupBy)
-		if err != nil {
-			return err
-		}
-		return common.PrintJSON(cmd.OutOrStdout(), cmd.Context(), summarizeReportTrades(trades, group, startDate, endDate))
+		return common.PrintJSON(cmd.OutOrStdout(), cmd.Context(), summarizeReportTrades(trades, group, startDate, endDate, opts.LimitGroups, sortBy))
 	}
 	if format == common.OutputFormatJSON && len(fields) == 0 {
 		return common.PrintJSON(cmd.OutOrStdout(), cmd.Context(), models.NewTradeListRows(trades))
@@ -212,9 +239,20 @@ func parseReportSummaryGroup(value reportSummaryGroup) (reportSummaryGroup, erro
 	}
 }
 
-func summarizeReportTrades(trades []models.Trade, group reportSummaryGroup, startDate, endDate string) models.TradeSummary {
+func parseReportSummarySort(value reportSummarySort) (reportSummarySort, error) {
+	normalized := strings.ToLower(strings.TrimSpace(string(value)))
+	normalized = strings.NewReplacer("_", "-", " ", "-").Replace(normalized)
+	switch reportSummarySort(normalized) {
+	case reportSummarySortDollars, reportSummarySortTrades, reportSummarySortAvgMultiplier, reportSummarySortMinRank:
+		return reportSummarySort(normalized), nil
+	default:
+		return "", fmt.Errorf("invalid sort-groups-by %q; valid values: dollars, trades, avg-multiplier, min-rank", value)
+	}
+}
+
+func summarizeReportTrades(trades []models.Trade, group reportSummaryGroup, startDate, endDate string, limitGroups int, sortBy reportSummarySort) models.TradeSummary {
 	summary := models.TradeSummary{DateRange: models.TradeSummaryDateRange{Start: startDate, End: endDate}}
-	groups := make(map[string]reportGroupAccumulator)
+	groups := make(map[string]*reportGroupAccumulator)
 	keyFunc := reportSummaryKeyFunc(group)
 	for i := range trades {
 		trade := &trades[i]
@@ -222,13 +260,17 @@ func summarizeReportTrades(trades []models.Trade, group reportSummaryGroup, star
 		summary.TotalDollars += trade.Dollars
 		addReportSummaryGroup(groups, keyFunc(trade), trade)
 	}
+	groupSummaries := summarizeReportGroups(groups)
 	switch group {
 	case reportSummaryGroupDay:
-		summary.ByDay = summarizeReportGroups(groups)
+		summary.ByDay = groupSummaries
 	case reportSummaryGroupTickerDay:
-		summary.ByTickerDay = summarizeReportGroups(groups)
+		summary.ByTickerDay = groupSummaries
 	default:
-		summary.ByTicker = summarizeReportGroups(groups)
+		summary.ByTicker = groupSummaries
+	}
+	if limitGroups > 0 {
+		summary.Groups = orderedReportGroups(groupSummaries, limitGroups, sortBy)
 	}
 	return summary
 }
@@ -239,15 +281,57 @@ type reportGroupAccumulator struct {
 	dollarsMultiplier      float64
 	darkPool               int
 	sweep                  int
+	closingTrade           int
 	cumulativeDistribution float64
+	maxDollars             float64
+	maxDollarsMultiplier   float64
+	minTradeRank           int
+	hasTradeRank           bool
+	topPrice               float64
+	latestTradeTime        string
+	topTradeTime           string
+	topDarkPool            bool
+	topSweep               bool
+	topClosingTrade        bool
 }
 
-func summarizeReportGroups(groups map[string]reportGroupAccumulator) map[string]models.TradeGroupSummary {
+func summarizeReportGroups(groups map[string]*reportGroupAccumulator) map[string]models.TradeGroupSummary {
 	summaries := make(map[string]models.TradeGroupSummary, len(groups))
 	for key, acc := range groups {
 		summaries[key] = acc.summary()
 	}
 	return summaries
+}
+
+func orderedReportGroups(groups map[string]models.TradeGroupSummary, limit int, sortBy reportSummarySort) []models.TradeSummaryGroup {
+	ordered := make([]models.TradeSummaryGroup, 0, len(groups))
+	for key := range groups {
+		summary := groups[key]
+		ordered = append(ordered, models.NewTradeSummaryGroup(key, &summary))
+	}
+	slices.SortFunc(ordered, func(a, b models.TradeSummaryGroup) int {
+		if cmp := compareReportSummaryGroup(&a, &b, sortBy); cmp != 0 {
+			return cmp
+		}
+		return strings.Compare(a.Key, b.Key)
+	})
+	if limit < len(ordered) {
+		return ordered[:limit]
+	}
+	return ordered
+}
+
+func compareReportSummaryGroup(a, b *models.TradeSummaryGroup, sortBy reportSummarySort) int {
+	switch sortBy {
+	case reportSummarySortTrades:
+		return compareIntDesc(a.Trades, b.Trades)
+	case reportSummarySortAvgMultiplier:
+		return compareFloatDesc(a.AvgDollarsMultiplier, b.AvgDollarsMultiplier)
+	case reportSummarySortMinRank:
+		return compareRankAsc(a.MinTradeRank, b.MinTradeRank)
+	default:
+		return compareFloatDesc(a.Dollars, b.Dollars)
+	}
 }
 
 func reportSummaryKeyFunc(group reportSummaryGroup) func(*models.Trade) string {
@@ -261,8 +345,12 @@ func reportSummaryKeyFunc(group reportSummaryGroup) func(*models.Trade) string {
 	}
 }
 
-func addReportSummaryGroup(groups map[string]reportGroupAccumulator, key string, trade *models.Trade) {
+func addReportSummaryGroup(groups map[string]*reportGroupAccumulator, key string, trade *models.Trade) {
 	acc := groups[key]
+	if acc == nil {
+		acc = &reportGroupAccumulator{}
+		groups[key] = acc
+	}
 	acc.trades++
 	acc.dollars += trade.Dollars
 	acc.dollarsMultiplier += trade.DollarsMultiplier
@@ -273,15 +361,101 @@ func addReportSummaryGroup(groups map[string]reportGroupAccumulator, key string,
 	if bool(trade.Sweep) {
 		acc.sweep++
 	}
-	groups[key] = acc
+	if bool(trade.ClosingTrade) {
+		acc.closingTrade++
+	}
+	if trade.Dollars > acc.maxDollars {
+		acc.maxDollars = trade.Dollars
+		acc.topPrice = trade.Price
+		acc.topTradeTime = tradeSummaryTradeTime(trade)
+		acc.topDarkPool = bool(trade.DarkPool)
+		acc.topSweep = bool(trade.Sweep)
+		acc.topClosingTrade = bool(trade.ClosingTrade)
+	}
+	if trade.DollarsMultiplier > acc.maxDollarsMultiplier {
+		acc.maxDollarsMultiplier = trade.DollarsMultiplier
+	}
+	if trade.TradeRank > 0 && (!acc.hasTradeRank || trade.TradeRank < acc.minTradeRank) {
+		acc.minTradeRank = trade.TradeRank
+		acc.hasTradeRank = true
+	}
+	if tradeTime := tradeSummaryTradeTime(trade); tradeTime > acc.latestTradeTime {
+		acc.latestTradeTime = tradeTime
+	}
 }
 
-func (acc reportGroupAccumulator) summary() models.TradeGroupSummary {
+func (acc *reportGroupAccumulator) summary() models.TradeGroupSummary {
 	if acc.trades == 0 {
 		return models.TradeGroupSummary{}
 	}
 	count := float64(acc.trades)
-	return models.TradeGroupSummary{Trades: acc.trades, Dollars: acc.dollars, AvgDollarsMultiplier: acc.dollarsMultiplier / count, PctDarkPool: float64(acc.darkPool) / count * 100, PctSweep: float64(acc.sweep) / count * 100, AvgCumulativeDistribution: acc.cumulativeDistribution / count}
+	return models.TradeGroupSummary{
+		Trades:                    acc.trades,
+		Dollars:                   acc.dollars,
+		AvgDollarsMultiplier:      acc.dollarsMultiplier / count,
+		PctDarkPool:               float64(acc.darkPool) / count * 100,
+		PctSweep:                  float64(acc.sweep) / count * 100,
+		PctClosingTrade:           float64(acc.closingTrade) / count * 100,
+		AvgCumulativeDistribution: acc.cumulativeDistribution / count,
+		MaxDollars:                acc.maxDollars,
+		MaxDollarsMultiplier:      acc.maxDollarsMultiplier,
+		MinTradeRank:              acc.minTradeRank,
+		TopPrice:                  acc.topPrice,
+		LatestTradeTime:           acc.latestTradeTime,
+		TopTradeTime:              acc.topTradeTime,
+		TopDarkPool:               acc.topDarkPool,
+		TopSweep:                  acc.topSweep,
+		TopClosingTrade:           acc.topClosingTrade,
+	}
+}
+
+func tradeSummaryTradeTime(trade *models.Trade) string {
+	if trade.FullDateTime != nil && *trade.FullDateTime != "" {
+		return *trade.FullDateTime
+	}
+	if trade.FullTimeString24 != nil && *trade.FullTimeString24 != "" {
+		return *trade.FullTimeString24
+	}
+	return ""
+}
+
+func compareFloatDesc(a, b float64) int {
+	if a > b {
+		return -1
+	}
+	if a < b {
+		return 1
+	}
+	return 0
+}
+
+func compareIntDesc(a, b int) int {
+	if a > b {
+		return -1
+	}
+	if a < b {
+		return 1
+	}
+	return 0
+}
+
+func compareRankAsc(a, b int) int {
+	if a == 0 && b == 0 {
+		return 0
+	}
+	if a == 0 {
+		return 1
+	}
+	if b == 0 {
+		return -1
+	}
+	if a < b {
+		return -1
+	}
+	if a > b {
+		return 1
+	}
+	return 0
 }
 
 func reportTickerKey(trade *models.Trade) string {
@@ -323,7 +497,7 @@ func reportLong(title, description string) string {
 
 %s
 
-Reports are the recommended entry point for users and LLMs. They expose only safe overrides: tickers, dates, fields, summary grouping, and output format. Do not hand-build low-level filters unless this curated report cannot answer the question; use trade list --preset as the advanced escape hatch.
+Reports are the recommended entry point for users and LLMs. They expose only safe overrides: tickers, dates, fields, summary grouping, limited ordered summary groups, and output format. Do not hand-build low-level filters unless this curated report cannot answer the question; use trade list --preset as the advanced escape hatch.
 
 Defaults to today only. Multi-day broad scans without tickers are rejected to avoid expensive requests and backend timeouts. Results are fetched in browser-sized 100-row pages and ordered by time descending.
 

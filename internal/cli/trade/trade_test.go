@@ -300,6 +300,12 @@ func TestTradeDashboardFetchesChartOptimizedSections(t *testing.T) {
 	if dashboard.Ticker != "IGV" || dashboard.Count != tradeDashboardDefaultCount {
 		t.Fatalf("dashboard metadata = (%q, %d), want (IGV, %d)", dashboard.Ticker, dashboard.Count, tradeDashboardDefaultCount)
 	}
+	if !slices.Equal(dashboard.RequestedSections, []string{"trades", "clusters", "levels", "clusterBombs"}) {
+		t.Fatalf("dashboard requestedSections = %v, want all sections", dashboard.RequestedSections)
+	}
+	if !slices.Equal(dashboard.ReturnedSections, []string{"trades", "clusters", "levels", "clusterBombs"}) {
+		t.Fatalf("dashboard returnedSections = %v, want all sections", dashboard.ReturnedSections)
+	}
 	if len(dashboard.Trades) != 1 || len(dashboard.Clusters) != 1 || len(dashboard.Levels) != 1 || len(dashboard.ClusterBombs) != 1 {
 		t.Fatalf("dashboard section lengths = trades:%d clusters:%d levels:%d bombs:%d, want all 1", len(dashboard.Trades), len(dashboard.Clusters), len(dashboard.Levels), len(dashboard.ClusterBombs))
 	}
@@ -337,6 +343,122 @@ func TestTradeDashboardFetchesChartOptimizedSections(t *testing.T) {
 	if got := requestsByPath["/Chart0/GetTradeLevels"].Get("length"); got != "-1" {
 		t.Fatalf("levels length = %q, want -1", got)
 	}
+}
+
+func TestTradeDashboardSectionsFetchesOnlyRequestedSections(t *testing.T) {
+	t.Parallel()
+
+	requestsByPath := make(map[string]url.Values)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			t.Errorf("failed to read request body: %v", err)
+		}
+		params, _ := url.ParseQuery(string(body))
+		requestsByPath[r.URL.Path] = params
+		switch r.URL.Path {
+		case "/Trades/GetTrades":
+			_, _ = w.Write([]byte(testutil.DataTablesJSON(`[{"Ticker":"IGV","Dollars":1000,"Volume":10}]`)))
+		case "/Chart0/GetTradeLevels":
+			_, _ = w.Write([]byte(testutil.DataTablesJSON(`[{"Price":101.5,"Dollars":3000,"Volume":30,"Trades":3}]`)))
+		default:
+			t.Errorf("unexpected path %q", r.URL.Path)
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	t.Cleanup(server.Close)
+
+	cmd := NewCmd()
+	ctx := testutil.ContextWithTestClient(t, server.URL)
+	stdout, _, err := testutil.ExecuteCommand(t, cmd, ctx, "dashboard", "IGV", "--sections", "trades,levels", "--start-date", "2025-05-04", "--end-date", "2026-05-04")
+	testutil.AssertErrContains(t, err, "")
+
+	var dashboard models.TradeDashboard
+	if err := json.Unmarshal([]byte(stdout), &dashboard); err != nil {
+		t.Fatalf("failed to unmarshal dashboard: %v\nstdout=%s", err, stdout)
+	}
+	if !slices.Equal(dashboard.RequestedSections, []string{"trades", "levels"}) {
+		t.Fatalf("dashboard requestedSections = %v, want [trades levels]", dashboard.RequestedSections)
+	}
+	if !slices.Equal(dashboard.ReturnedSections, []string{"trades", "levels"}) {
+		t.Fatalf("dashboard returnedSections = %v, want [trades levels]", dashboard.ReturnedSections)
+	}
+	if len(dashboard.Trades) != 1 || len(dashboard.Levels) != 1 || len(dashboard.Clusters) != 0 || len(dashboard.ClusterBombs) != 0 {
+		t.Fatalf("dashboard section lengths = trades:%d clusters:%d levels:%d bombs:%d, want only trades and levels", len(dashboard.Trades), len(dashboard.Clusters), len(dashboard.Levels), len(dashboard.ClusterBombs))
+	}
+	for _, path := range []string{"/TradeClusters/GetTradeClusters", "/TradeClusterBombs/GetTradeClusterBombs"} {
+		if _, ok := requestsByPath[path]; ok {
+			t.Fatalf("dashboard requested unexpected path %s", path)
+		}
+	}
+}
+
+func TestTradeDashboardSummaryReturnsCompactTopRows(t *testing.T) {
+	t.Parallel()
+
+	requestsByPath := make(map[string]url.Values)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			t.Errorf("failed to read request body: %v", err)
+		}
+		params, _ := url.ParseQuery(string(body))
+		requestsByPath[r.URL.Path] = params
+		switch r.URL.Path {
+		case "/Trades/GetTrades":
+			_, _ = w.Write([]byte(testutil.DataTablesJSON(`[
+				{"Ticker":"IGV","Dollars":1000,"Volume":10,"Price":101,"TradeRank":5,"DarkPool":1,"Sweep":0,"ClosingTrade":1},
+				{"Ticker":"IGV","Dollars":900,"Volume":9,"Price":102,"TradeRank":6},
+				{"Ticker":"IGV","Dollars":800,"Volume":8,"Price":103,"TradeRank":7},
+				{"Ticker":"IGV","Dollars":700,"Volume":7,"Price":104,"TradeRank":8}
+			]`)))
+		case "/Chart0/GetTradeLevels":
+			_, _ = w.Write([]byte(testutil.DataTablesJSON(`[
+				{"Price":101.5,"Dollars":3000,"Volume":30,"Trades":3},
+				{"Price":102.5,"Dollars":2000,"Volume":20,"Trades":2},
+				{"Price":103.5,"Dollars":1000,"Volume":10,"Trades":1},
+				{"Price":104.5,"Dollars":500,"Volume":5,"Trades":1}
+			]`)))
+		default:
+			t.Errorf("unexpected path %q", r.URL.Path)
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	t.Cleanup(server.Close)
+
+	cmd := NewCmd()
+	ctx := testutil.ContextWithTestClient(t, server.URL)
+	stdout, _, err := testutil.ExecuteCommand(t, cmd, ctx, "dashboard", "IGV", "--summary", "--sections", "trades,levels", "--count", "5", "--start-date", "2025-05-04", "--end-date", "2026-05-04")
+	testutil.AssertErrContains(t, err, "")
+
+	var dashboard models.TradeDashboardSummary
+	if err := json.Unmarshal([]byte(stdout), &dashboard); err != nil {
+		t.Fatalf("failed to unmarshal dashboard summary: %v\nstdout=%s", err, stdout)
+	}
+	if dashboard.Count != dashboardSummaryMaxRows {
+		t.Fatalf("dashboard summary count = %d, want %d", dashboard.Count, dashboardSummaryMaxRows)
+	}
+	if len(dashboard.Trades) != 3 || len(dashboard.Levels) != 3 || len(dashboard.Clusters) != 0 || len(dashboard.ClusterBombs) != 0 {
+		t.Fatalf("dashboard summary lengths = trades:%d clusters:%d levels:%d bombs:%d, want compact trades and levels only", len(dashboard.Trades), len(dashboard.Clusters), len(dashboard.Levels), len(dashboard.ClusterBombs))
+	}
+	if dashboard.Trades[0].Price != 101 || dashboard.Trades[0].TradeRank != 5 || !bool(dashboard.Trades[0].DarkPool) || !bool(dashboard.Trades[0].ClosingTrade) {
+		t.Fatalf("dashboard summary first trade = %#v", dashboard.Trades[0])
+	}
+	if got := requestsByPath["/Trades/GetTrades"].Get("length"); got != "5" {
+		t.Fatalf("summary trades length = %q, want 5", got)
+	}
+	if got := requestsByPath["/Chart0/GetTradeLevels"].Get("Levels"); got != "5" {
+		t.Fatalf("summary levels Levels = %q, want 5", got)
+	}
+}
+
+func TestTradeDashboardRejectsInvalidSections(t *testing.T) {
+	t.Parallel()
+
+	cmd := NewCmd()
+	ctx := testutil.ContextWithTestClient(t, "http://127.0.0.1")
+	_, _, err := testutil.ExecuteCommand(t, cmd, ctx, "dashboard", "IGV", "--sections", "trades,sector")
+	testutil.AssertErrContains(t, err, "invalid dashboard section")
 }
 
 func TestTradeLevelsUsesChartOptimizedEndpoint(t *testing.T) {
@@ -1344,13 +1466,27 @@ func assertTradeGroupSummaries(t *testing.T, got, want map[string]models.TradeGr
 	if len(got) != len(want) {
 		t.Fatalf("group count = %d, want %d; got %#v", len(got), len(want), got)
 	}
-	for key, wantSummary := range want {
+	for key := range want {
+		wantSummary := want[key]
 		gotSummary, ok := got[key]
 		if !ok {
 			t.Fatalf("group %q missing from %#v", key, got)
 		}
+		gotSummary = legacyTradeGroupSummary(&gotSummary)
 		if gotSummary != wantSummary {
 			t.Fatalf("group %q = %#v, want %#v", key, gotSummary, wantSummary)
 		}
+	}
+}
+
+func legacyTradeGroupSummary(summary *models.TradeGroupSummary) models.TradeGroupSummary {
+	return models.TradeGroupSummary{
+		Trades:                    summary.Trades,
+		Dollars:                   summary.Dollars,
+		AvgDollarsMultiplier:      summary.AvgDollarsMultiplier,
+		PctDarkPool:               summary.PctDarkPool,
+		PctSweep:                  summary.PctSweep,
+		PctClosingTrade:           summary.PctClosingTrade,
+		AvgCumulativeDistribution: summary.AvgCumulativeDistribution,
 	}
 }

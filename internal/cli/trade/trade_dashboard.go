@@ -151,31 +151,31 @@ func runTradeDashboard(cmd *cobra.Command, opts *tradeDashboardOptions) error {
 	requestedSections := sections.names()
 	dateRange := models.TradeDashboardDateRange{Start: startDate, End: endDate}
 	if opts.Summary {
-		summary := models.TradeDashboardSummary{
-			Ticker:            ticker,
-			DateRange:         dateRange,
-			Count:             outputCount,
-			RequestedSections: requestedSections,
-			ReturnedSections:  returnedSections,
-			Trades:            models.NewTradeDashboardTradeSummaries(limitDashboardRows(trades, outputCount)),
-			Clusters:          models.NewTradeDashboardClusters(limitDashboardRows(clusters, outputCount)),
-			Levels:            models.NewTradeLevelRows(limitDashboardRows(levels, outputCount)),
-			ClusterBombs:      models.NewTradeDashboardClusterBombs(limitDashboardRows(clusterBombs, outputCount)),
-		}
+		summary := models.NewTradeDashboardSummary(
+			ticker,
+			dateRange,
+			outputCount,
+			requestedSections,
+			returnedSections,
+			limitDashboardRows(trades, outputCount),
+			limitDashboardRows(clusters, outputCount),
+			limitDashboardRows(levels, outputCount),
+			limitDashboardRows(clusterBombs, outputCount),
+		)
 		return common.PrintJSON(cmd.OutOrStdout(), cmd.Context(), summary)
 	}
 
-	dashboard := models.TradeDashboard{
-		Ticker:            ticker,
-		DateRange:         dateRange,
-		Count:             requestCount,
-		RequestedSections: requestedSections,
-		ReturnedSections:  returnedSections,
-		Trades:            models.NewTradeListRows(trades),
-		Clusters:          models.NewTradeClusterRows(clusters),
-		Levels:            models.NewTradeLevelRows(levels),
-		ClusterBombs:      models.NewTradeClusterBombRows(clusterBombs),
-	}
+	dashboard := models.NewTradeDashboard(
+		ticker,
+		dateRange,
+		requestCount,
+		requestedSections,
+		returnedSections,
+		trades,
+		clusters,
+		levels,
+		clusterBombs,
+	)
 	return common.PrintJSON(cmd.OutOrStdout(), cmd.Context(), dashboard)
 }
 

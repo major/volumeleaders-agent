@@ -335,7 +335,7 @@ func newTradeDashboardCommand() *cobra.Command {
 		Short: "Query a ticker institutional dashboard",
 		Long: `Query a fast ticker dashboard with the same chart-optimized institutional context VolumeLeaders shows in the browser. The dashboard fetches selected sections from the largest trades, trade clusters, trade levels, and cluster bombs for one ticker in a single JSON object.
 
-Defaults to a 365-day lookback, all sections, 10 rows per section, --vcd 0, --relative-size 0, and the same broad trade/session filters used by the browser chart page. Use --sections trades,levels to reduce API calls and token output when only part of the dashboard is needed. Use --summary for first-pass agent workflows; summary mode returns at most three compact top rows per selected section with requestedSections and returnedSections metadata.
+Defaults to a 365-day lookback, all sections, 10 rows per section, --vcd 0, --relative-size 0, and the same broad trade/session filters used by the browser chart page. Dashboard JSON hoists ticker, name, sector, and industry metadata onto the envelope so per-section rows stay compact. Use --sections trades,levels to reduce API calls and token output when only part of the dashboard is needed. Use --summary for first-pass agent workflows; summary mode returns at most three compact top rows per selected section with requestedSections and returnedSections metadata.
 
 Use this command as the first stop for any single-ticker investigation, including institutional levels, largest trades, clustered activity, or sudden bursts, then drill into trade list, trade clusters, trade levels, or trade cluster-bombs only when a section needs deeper pagination, CSV/TSV output, or explicit field selection.
 

@@ -17,9 +17,9 @@ type TradeDashboard struct {
 	RequestedSections []string                `json:"requestedSections"`
 	ReturnedSections  []string                `json:"returnedSections"`
 	Trades            []TradeListRow          `json:"trades"`
-	Clusters          []TradeCluster          `json:"clusters"`
+	Clusters          []TradeClusterRow       `json:"clusters"`
 	Levels            []TradeLevelRow         `json:"levels"`
-	ClusterBombs      []TradeClusterBomb      `json:"clusterBombs"`
+	ClusterBombs      []TradeClusterBombRow   `json:"clusterBombs"`
 }
 
 // TradeDashboardSummary is the compact first-pass dashboard shape for agents.

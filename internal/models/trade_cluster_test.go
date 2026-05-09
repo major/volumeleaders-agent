@@ -434,3 +434,75 @@ func TestTradeClusterAlias(t *testing.T) {
 		}
 	})
 }
+
+func TestNewTradeClusterRowsProjectsCompactFields(t *testing.T) {
+	t.Parallel()
+
+	rows := NewTradeClusterRows([]TradeCluster{{
+		Ticker:              "NVDA",
+		MinFullTimeString24: "09:30:00",
+		MaxFullTimeString24: "16:00:00",
+		DollarsMultiplier:   2.345,
+		TradeClusterRank:    3,
+		AverageDailyVolume:  50000000,
+	}})
+	if len(rows) != 1 {
+		t.Fatalf("NewTradeClusterRows() length = %d, want 1", len(rows))
+	}
+	if rows[0].Ticker != "NVDA" {
+		t.Errorf("NewTradeClusterRows()[0].Ticker = %q, want NVDA", rows[0].Ticker)
+	}
+	if rows[0].DollarsMultiplier != 2.35 {
+		t.Errorf("NewTradeClusterRows()[0].DollarsMultiplier = %v, want 2.35", rows[0].DollarsMultiplier)
+	}
+
+	data, err := json.Marshal(rows[0])
+	if err != nil {
+		t.Fatalf("json.Marshal(TradeClusterRow) error = %v", err)
+	}
+	var fields map[string]json.RawMessage
+	if err := json.Unmarshal(data, &fields); err != nil {
+		t.Fatalf("json.Unmarshal(TradeClusterRow) error = %v", err)
+	}
+	for _, field := range []string{"MinFullTimeString24", "MaxFullTimeString24"} {
+		if _, ok := fields[field]; ok {
+			t.Fatalf("TradeClusterRow includes trimmed field %q", field)
+		}
+	}
+}
+
+func TestNewTradeClusterBombRowsProjectsCompactFields(t *testing.T) {
+	t.Parallel()
+
+	rows := NewTradeClusterBombRows([]TradeClusterBomb{{
+		Ticker:               "AAPL",
+		MinFullTimeString24:  "09:30:00",
+		MaxFullTimeString24:  "16:00:00",
+		DollarsMultiplier:    3.456,
+		TradeClusterBombRank: 4,
+		AverageDailyVolume:   100000000,
+	}})
+	if len(rows) != 1 {
+		t.Fatalf("NewTradeClusterBombRows() length = %d, want 1", len(rows))
+	}
+	if rows[0].Ticker != "AAPL" {
+		t.Errorf("NewTradeClusterBombRows()[0].Ticker = %q, want AAPL", rows[0].Ticker)
+	}
+	if rows[0].DollarsMultiplier != 3.46 {
+		t.Errorf("NewTradeClusterBombRows()[0].DollarsMultiplier = %v, want 3.46", rows[0].DollarsMultiplier)
+	}
+
+	data, err := json.Marshal(rows[0])
+	if err != nil {
+		t.Fatalf("json.Marshal(TradeClusterBombRow) error = %v", err)
+	}
+	var fields map[string]json.RawMessage
+	if err := json.Unmarshal(data, &fields); err != nil {
+		t.Fatalf("json.Unmarshal(TradeClusterBombRow) error = %v", err)
+	}
+	for _, field := range []string{"MinFullTimeString24", "MaxFullTimeString24"} {
+		if _, ok := fields[field]; ok {
+			t.Fatalf("TradeClusterBombRow includes trimmed field %q", field)
+		}
+	}
+}

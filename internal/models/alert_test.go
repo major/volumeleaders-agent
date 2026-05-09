@@ -316,3 +316,38 @@ func TestTradeAlert(t *testing.T) {
 		})
 	}
 }
+
+func TestNewTradeAlertRowsProjectsCompactFields(t *testing.T) {
+	t.Parallel()
+
+	rows := NewTradeAlertRows([]TradeAlert{{
+		FullTimeString24:  "14:30:00",
+		Ticker:            "AAPL",
+		DollarsMultiplier: 4.567,
+		RSIHour:           70,
+		RSIDay:            65,
+	}})
+	if len(rows) != 1 {
+		t.Fatalf("NewTradeAlertRows() length = %d, want 1", len(rows))
+	}
+	if rows[0].Ticker != "AAPL" {
+		t.Errorf("NewTradeAlertRows()[0].Ticker = %q, want AAPL", rows[0].Ticker)
+	}
+	if rows[0].DollarsMultiplier != 4.57 {
+		t.Errorf("NewTradeAlertRows()[0].DollarsMultiplier = %v, want 4.57", rows[0].DollarsMultiplier)
+	}
+
+	data, err := json.Marshal(rows[0])
+	if err != nil {
+		t.Fatalf("json.Marshal(TradeAlertRow) error = %v", err)
+	}
+	var fields map[string]json.RawMessage
+	if err := json.Unmarshal(data, &fields); err != nil {
+		t.Fatalf("json.Unmarshal(TradeAlertRow) error = %v", err)
+	}
+	for _, field := range []string{"FullTimeString24", "RSIHour", "RSIDay"} {
+		if _, ok := fields[field]; ok {
+			t.Fatalf("TradeAlertRow includes trimmed field %q", field)
+		}
+	}
+}

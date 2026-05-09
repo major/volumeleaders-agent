@@ -24,7 +24,10 @@ func runTradeClusters(cmd *cobra.Command, opts *tradeClustersOptions) error {
 	rangeFilters := tradeClusterRangeFilters(cmd, opts, startDate, endDate)
 	filters := rangeFilters.clusterMap(opts.SecurityType, opts.RelativeSize, opts.TradeClusterRank)
 	dtOpts := common.NewDataTableOptions(common.DataTableRequestConfig{Start: opts.Start, Length: -1, OrderCol: opts.OrderCol, OrderDir: opts.OrderDir, Fields: fields, Filters: filters})
-	return common.RunVLDataTablesCommandWithPageSize[vlgo.TradeCluster, models.TradeCluster](cmd, dtOpts, opts.Format, tradeBrowserPageLength, "query trade clusters", fetchTradeClusters, common.MapVLTradeCluster)
+	if opts.Fields == "" && opts.Format == common.OutputFormatJSON {
+		return runTradeClustersCompact(cmd, dtOpts)
+	}
+	return common.RunVLDataTablesCommandWithPageSize(cmd, dtOpts, opts.Format, tradeBrowserPageLength, "query trade clusters", fetchTradeClusters, common.MapVLTradeCluster)
 }
 
 func runTradeClusterBombs(cmd *cobra.Command, opts *tradeClusterBombsOptions) error {
@@ -35,17 +38,54 @@ func runTradeClusterBombs(cmd *cobra.Command, opts *tradeClusterBombsOptions) er
 	rangeFilters := tradeClusterBombRangeFilters(cmd, opts, startDate, endDate)
 	filters := rangeFilters.clusterBombMap(opts.SecurityType, opts.RelativeSize, opts.TradeClusterBombRank)
 	dtOpts := common.NewDataTableOptions(common.DataTableRequestConfig{Start: opts.Start, Length: -1, OrderCol: opts.OrderCol, OrderDir: opts.OrderDir, Filters: filters})
-	return common.RunVLDataTablesCommandWithPageSize[vlgo.TradeClusterBomb, models.TradeClusterBomb](cmd, dtOpts, opts.Format, tradeBrowserPageLength, "query trade cluster bombs", fetchTradeClusterBombs, common.MapVLTradeClusterBomb)
+	if opts.Format != common.OutputFormatJSON {
+		return common.RunVLDataTablesCommandWithPageSize(cmd, dtOpts, opts.Format, tradeBrowserPageLength, "query trade cluster bombs", fetchTradeClusterBombs, common.MapVLTradeClusterBomb)
+	}
+	return common.RunVLDataTablesCommandWithPageSize(cmd, dtOpts, opts.Format, tradeBrowserPageLength, "query trade cluster bombs", fetchTradeClusterBombs, mapVLTradeClusterBombRow)
 }
 
 func runTradeAlerts(cmd *cobra.Command, opts *tradeAlertsOptions) error {
 	dtOpts := common.NewDataTableOptions(common.DataTableRequestConfig{Start: opts.Start, Length: opts.Length, OrderCol: opts.OrderCol, OrderDir: opts.OrderDir, Filters: map[string]string{"Date": opts.Date}})
-	return common.RunVLDataTablesCommand[vlgo.TradeAlert, models.TradeAlert](cmd, dtOpts, opts.Format, "query trade alerts", fetchTradeAlerts, common.MapVLTradeAlert)
+	if opts.Format != common.OutputFormatJSON {
+		return common.RunVLDataTablesCommand(cmd, dtOpts, opts.Format, "query trade alerts", fetchTradeAlerts, common.MapVLTradeAlert)
+	}
+	return common.RunVLDataTablesCommand(cmd, dtOpts, opts.Format, "query trade alerts", fetchTradeAlerts, mapVLTradeAlertRow)
 }
 
 func runTradeClusterAlerts(cmd *cobra.Command, opts *tradeClusterAlertsOptions) error {
 	dtOpts := common.NewDataTableOptions(common.DataTableRequestConfig{Start: opts.Start, Length: opts.Length, OrderCol: opts.OrderCol, OrderDir: opts.OrderDir, Filters: map[string]string{"Date": opts.Date}})
-	return common.RunVLDataTablesCommand[vlgo.TradeClusterAlert, models.TradeClusterAlert](cmd, dtOpts, opts.Format, "query trade cluster alerts", fetchTradeClusterAlerts, common.MapVLTradeCluster)
+	if opts.Format != common.OutputFormatJSON {
+		return common.RunVLDataTablesCommand(cmd, dtOpts, opts.Format, "query trade cluster alerts", fetchTradeClusterAlerts, common.MapVLTradeCluster)
+	}
+	return common.RunVLDataTablesCommand(cmd, dtOpts, opts.Format, "query trade cluster alerts", fetchTradeClusterAlerts, mapVLTradeClusterRow)
+}
+
+func runTradeClustersCompact(cmd *cobra.Command, opts common.DataTableOptions) error {
+	vlClient, err := common.NewVLClient(cmd.Context())
+	if err != nil {
+		return fmt.Errorf("creating VolumeLeaders client: %w", err)
+	}
+	clusters, err := common.FetchVLPages(cmd.Context(), vlClient, opts, tradeBrowserPageLength, "query trade clusters", fetchTradeClusters)
+	if err != nil {
+		return fmt.Errorf("query trade clusters: %w", err)
+	}
+	mapped := common.MapSlice(clusters, common.MapVLTradeCluster)
+	return common.PrintJSON(cmd.OutOrStdout(), cmd.Context(), models.NewTradeClusterRows(mapped))
+}
+
+func mapVLTradeClusterRow(cluster *vlgo.TradeCluster) models.TradeClusterRow {
+	mapped := common.MapVLTradeCluster(cluster)
+	return models.NewTradeClusterRow(&mapped)
+}
+
+func mapVLTradeClusterBombRow(bomb *vlgo.TradeClusterBomb) models.TradeClusterBombRow {
+	mapped := common.MapVLTradeClusterBomb(bomb)
+	return models.NewTradeClusterBombRow(&mapped)
+}
+
+func mapVLTradeAlertRow(alert *vlgo.TradeAlert) models.TradeAlertRow {
+	mapped := common.MapVLTradeAlert(alert)
+	return models.NewTradeAlertRow(&mapped)
 }
 
 // fetchTradeClusters wraps vlgo.Client.GetTradeClusters as a VLFetcher.

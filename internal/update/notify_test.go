@@ -14,6 +14,7 @@ func TestShouldSkipNotification(t *testing.T) {
 		want        bool
 	}{
 		{name: "dev version", version: "dev", commandPath: "volumeleaders-agent trade list", want: true},
+		{name: "dev version with revision", version: "dev-1234567", commandPath: "volumeleaders-agent trade list", want: true},
 		{name: "empty version", version: "", commandPath: "volumeleaders-agent trade list", want: true},
 		{name: "ci", version: "0.8.1", commandPath: "volumeleaders-agent trade list", ci: "true", want: true},
 		{name: "update command", version: "0.8.1", commandPath: "volumeleaders-agent update check", want: true},

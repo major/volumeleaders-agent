@@ -37,6 +37,62 @@ type TradeCluster struct {
 	ExternalFeed                   FlexBool   `json:"ExternalFeed"`
 }
 
+// TradeClusterRow is the compact default JSON shape for trade cluster output.
+type TradeClusterRow struct {
+	Date                    AspNetDate `json:"Date"`
+	Ticker                  string     `json:"Ticker"`
+	Sector                  string     `json:"Sector"`
+	Industry                *string    `json:"Industry"`
+	Name                    string     `json:"Name"`
+	MinFullDateTime         string     `json:"MinFullDateTime"`
+	MaxFullDateTime         string     `json:"MaxFullDateTime"`
+	ClosePrice              float64    `json:"ClosePrice"`
+	Price                   float64    `json:"Price"`
+	Dollars                 float64    `json:"Dollars"`
+	AverageBlockSizeShares  int        `json:"AverageBlockSizeShares"`
+	AverageBlockSizeDollars float64    `json:"AverageBlockSizeDollars"`
+	Volume                  int        `json:"Volume"`
+	TradeCount              int        `json:"TradeCount"`
+	DollarsMultiplier       float64    `json:"DollarsMultiplier"`
+	CumulativeDistribution  float64    `json:"CumulativeDistribution"`
+	AverageDailyVolume      int        `json:"AverageDailyVolume"`
+	TradeClusterRank        int        `json:"TradeClusterRank"`
+}
+
+// NewTradeClusterRows projects full API cluster rows into compact output rows.
+func NewTradeClusterRows(clusters []TradeCluster) []TradeClusterRow {
+	rows := make([]TradeClusterRow, 0, len(clusters))
+	for i := range clusters {
+		rows = append(rows, NewTradeClusterRow(&clusters[i]))
+	}
+
+	return rows
+}
+
+// NewTradeClusterRow projects one full API cluster row into a compact output row.
+func NewTradeClusterRow(cluster *TradeCluster) TradeClusterRow {
+	return TradeClusterRow{
+		Date:                    cluster.Date,
+		Ticker:                  cluster.Ticker,
+		Sector:                  cluster.Sector,
+		Industry:                cluster.Industry,
+		Name:                    cluster.Name,
+		MinFullDateTime:         cluster.MinFullDateTime,
+		MaxFullDateTime:         cluster.MaxFullDateTime,
+		ClosePrice:              cluster.ClosePrice,
+		Price:                   cluster.Price,
+		Dollars:                 cluster.Dollars,
+		AverageBlockSizeShares:  cluster.AverageBlockSizeShares,
+		AverageBlockSizeDollars: cluster.AverageBlockSizeDollars,
+		Volume:                  cluster.Volume,
+		TradeCount:              cluster.TradeCount,
+		DollarsMultiplier:       roundDollarsMultiplier(cluster.DollarsMultiplier),
+		CumulativeDistribution:  cluster.CumulativeDistribution,
+		AverageDailyVolume:      cluster.AverageDailyVolume,
+		TradeClusterRank:        cluster.TradeClusterRank,
+	}
+}
+
 // TradeClusterBomb represents a VolumeLeaders trade cluster bomb row.
 type TradeClusterBomb struct {
 	Date                               AspNetDate `json:"Date"`
@@ -71,4 +127,58 @@ type TradeClusterBomb struct {
 	TradeClusterBombRank               int        `json:"TradeClusterBombRank"`
 	TotalRows                          int        `json:"TotalRows"`
 	ExternalFeed                       FlexBool   `json:"ExternalFeed"`
+}
+
+// TradeClusterBombRow is the compact default JSON shape for cluster bomb output.
+type TradeClusterBombRow struct {
+	Date                    AspNetDate `json:"Date"`
+	Ticker                  string     `json:"Ticker"`
+	Sector                  string     `json:"Sector"`
+	Industry                *string    `json:"Industry"`
+	Name                    string     `json:"Name"`
+	MinFullDateTime         string     `json:"MinFullDateTime"`
+	MaxFullDateTime         string     `json:"MaxFullDateTime"`
+	ClosePrice              float64    `json:"ClosePrice"`
+	Dollars                 float64    `json:"Dollars"`
+	AverageBlockSizeShares  int        `json:"AverageBlockSizeShares"`
+	AverageBlockSizeDollars float64    `json:"AverageBlockSizeDollars"`
+	Volume                  int        `json:"Volume"`
+	TradeCount              int        `json:"TradeCount"`
+	DollarsMultiplier       float64    `json:"DollarsMultiplier"`
+	CumulativeDistribution  float64    `json:"CumulativeDistribution"`
+	AverageDailyVolume      int        `json:"AverageDailyVolume"`
+	TradeClusterBombRank    int        `json:"TradeClusterBombRank"`
+}
+
+// NewTradeClusterBombRows projects full API cluster bomb rows into compact output rows.
+func NewTradeClusterBombRows(bombs []TradeClusterBomb) []TradeClusterBombRow {
+	rows := make([]TradeClusterBombRow, 0, len(bombs))
+	for i := range bombs {
+		rows = append(rows, NewTradeClusterBombRow(&bombs[i]))
+	}
+
+	return rows
+}
+
+// NewTradeClusterBombRow projects one full API cluster bomb row into a compact output row.
+func NewTradeClusterBombRow(bomb *TradeClusterBomb) TradeClusterBombRow {
+	return TradeClusterBombRow{
+		Date:                    bomb.Date,
+		Ticker:                  bomb.Ticker,
+		Sector:                  bomb.Sector,
+		Industry:                bomb.Industry,
+		Name:                    bomb.Name,
+		MinFullDateTime:         bomb.MinFullDateTime,
+		MaxFullDateTime:         bomb.MaxFullDateTime,
+		ClosePrice:              bomb.ClosePrice,
+		Dollars:                 bomb.Dollars,
+		AverageBlockSizeShares:  bomb.AverageBlockSizeShares,
+		AverageBlockSizeDollars: bomb.AverageBlockSizeDollars,
+		Volume:                  bomb.Volume,
+		TradeCount:              bomb.TradeCount,
+		DollarsMultiplier:       roundDollarsMultiplier(bomb.DollarsMultiplier),
+		CumulativeDistribution:  bomb.CumulativeDistribution,
+		AverageDailyVolume:      bomb.AverageDailyVolume,
+		TradeClusterBombRank:    bomb.TradeClusterBombRank,
+	}
 }

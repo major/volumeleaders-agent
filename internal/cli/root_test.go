@@ -467,8 +467,6 @@ func TestArbitraryArgsCommandsAcceptPositionalArgs(t *testing.T) {
 	}
 }
 
-
-
 func TestJSONSchemaTreeProducesValidJSON(t *testing.T) {
 	t.Parallel()
 	binary := testBinary(t)
@@ -1003,6 +1001,11 @@ func TestOutputSchemaSubcommandDescribesVariantsAndFields(t *testing.T) {
 			t.Fatalf("TradeListRow schema missing field %q", field)
 		}
 	}
+	for _, field := range []string{"FullTimeString24", "TradeRankSnapshot", "TradeConditions", "FrequencyLast30TD", "FrequencyLast90TD", "FrequencyLast1CY", "RSIHour", "RSIDay"} {
+		if _, ok := properties[field]; ok {
+			t.Fatalf("TradeListRow schema includes trimmed field %q", field)
+		}
+	}
 
 	variants, ok := contract["variants"].([]any)
 	if !ok {
@@ -1060,6 +1063,105 @@ func TestOutputSchemaTradeLevelsDescribesDelimitedVariant(t *testing.T) {
 	}
 	if got := sortedStrings(stringSlice(t, variant["formats"])); !slices.Equal(got, []string{"csv", "json", "tsv"}) {
 		t.Fatalf("variant formats = %v, want [csv json tsv]", got)
+	}
+}
+
+func TestOutputSchemaUsesCompactTradeRowsAcrossCommands(t *testing.T) {
+	t.Parallel()
+	binary := testBinary(t)
+
+	tests := []struct {
+		name           string
+		args           []string
+		wantModel      string
+		wantVariant    string
+		variantFormats []string
+		trimmedFields  []string
+	}{
+		{
+			name:           "volume institutional",
+			args:           []string{"outputschema", "volume", "institutional"},
+			wantModel:      "TradeListRow",
+			wantVariant:    "Trade",
+			variantFormats: []string{"csv", "tsv"},
+			trimmedFields:  []string{"FullTimeString24", "TradeRankSnapshot", "TradeConditions", "FrequencyLast30TD", "FrequencyLast90TD", "FrequencyLast1CY", "RSIHour", "RSIDay"},
+		},
+		{
+			name:           "trade clusters",
+			args:           []string{"outputschema", "trade", "clusters"},
+			wantModel:      "TradeClusterRow",
+			wantVariant:    "TradeCluster",
+			variantFormats: []string{"csv", "json", "tsv"},
+			trimmedFields:  []string{"MinFullTimeString24", "MaxFullTimeString24"},
+		},
+		{
+			name:           "trade cluster-bombs",
+			args:           []string{"outputschema", "trade", "cluster-bombs"},
+			wantModel:      "TradeClusterBombRow",
+			wantVariant:    "TradeClusterBomb",
+			variantFormats: []string{"csv", "tsv"},
+			trimmedFields:  []string{"MinFullTimeString24", "MaxFullTimeString24"},
+		},
+		{
+			name:           "trade alerts",
+			args:           []string{"outputschema", "trade", "alerts"},
+			wantModel:      "TradeAlertRow",
+			wantVariant:    "TradeAlert",
+			variantFormats: []string{"csv", "tsv"},
+			trimmedFields:  []string{"FullTimeString24", "RSIHour", "RSIDay"},
+		},
+		{
+			name:           "trade cluster-alerts",
+			args:           []string{"outputschema", "trade", "cluster-alerts"},
+			wantModel:      "TradeClusterRow",
+			wantVariant:    "TradeCluster",
+			variantFormats: []string{"csv", "tsv"},
+			trimmedFields:  []string{"MinFullTimeString24", "MaxFullTimeString24"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			out, err := exec.Command(binary, tt.args...).CombinedOutput()
+			if err != nil {
+				t.Fatalf("%v failed: %v\nOutput: %s", tt.args, err, out)
+			}
+			var contract map[string]any
+			if jsonErr := json.Unmarshal(out, &contract); jsonErr != nil {
+				t.Fatalf("%v output is not valid JSON object: %v\nOutput: %s", tt.args, jsonErr, out)
+			}
+			schema := nestedMap(t, contract, "schema")
+			items := nestedMap(t, schema, "items")
+			if got := items["model"]; got != tt.wantModel {
+				t.Fatalf("schema.items.model = %v, want %s", got, tt.wantModel)
+			}
+			properties := nestedMap(t, items, "properties")
+			if _, ok := properties["DollarsMultiplier"]; !ok {
+				t.Fatalf("%s schema missing DollarsMultiplier", tt.wantModel)
+			}
+			for _, field := range tt.trimmedFields {
+				if _, ok := properties[field]; ok {
+					t.Fatalf("%s schema includes trimmed field %q", tt.wantModel, field)
+				}
+			}
+			variants, ok := contract["variants"].([]any)
+			if !ok || len(variants) != 1 {
+				t.Fatalf("variants = %v, want one full-row CSV/TSV variant", contract["variants"])
+			}
+			variant, ok := variants[0].(map[string]any)
+			if !ok {
+				t.Fatalf("variant is not an object: %v", variants[0])
+			}
+			if got := sortedStrings(stringSlice(t, variant["formats"])); !slices.Equal(got, tt.variantFormats) {
+				t.Fatalf("variant formats = %v, want %v", got, tt.variantFormats)
+			}
+			variantSchema := nestedMap(t, variant, "schema")
+			variantItems := nestedMap(t, variantSchema, "items")
+			if got := variantItems["model"]; got != tt.wantVariant {
+				t.Fatalf("variant schema.items.model = %v, want %s", got, tt.wantVariant)
+			}
+		})
 	}
 }
 

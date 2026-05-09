@@ -172,9 +172,9 @@ func runTradeDashboard(cmd *cobra.Command, opts *tradeDashboardOptions) error {
 		RequestedSections: requestedSections,
 		ReturnedSections:  returnedSections,
 		Trades:            models.NewTradeListRows(trades),
-		Clusters:          clusters,
+		Clusters:          models.NewTradeClusterRows(clusters),
 		Levels:            models.NewTradeLevelRows(levels),
-		ClusterBombs:      clusterBombs,
+		ClusterBombs:      models.NewTradeClusterBombRows(clusterBombs),
 	}
 	return common.PrintJSON(cmd.OutOrStdout(), cmd.Context(), dashboard)
 }

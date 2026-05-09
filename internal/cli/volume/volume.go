@@ -97,7 +97,15 @@ func newTotalCmd() *cobra.Command {
 func runVolume(cmd *cobra.Command, opts *volumeOptions, fetch common.VLFetcher[vlgo.Trade]) error {
 	tickers := common.MultiTickerValue(cmd)
 	dtOpts := common.NewDataTableOptions(common.DataTableRequestConfig{Start: opts.Start, Length: opts.Length, OrderCol: opts.OrderCol, OrderDir: opts.OrderDir, Filters: map[string]string{"Date": opts.Date, "Tickers": tickers}})
-	return common.RunVLDataTablesCommand[vlgo.Trade, models.Trade](cmd, dtOpts, opts.Format, "query volume data", fetch, common.MapVLTrade)
+	if opts.Format != common.OutputFormatJSON {
+		return common.RunVLDataTablesCommand(cmd, dtOpts, opts.Format, "query volume data", fetch, common.MapVLTrade)
+	}
+	return common.RunVLDataTablesCommand(cmd, dtOpts, opts.Format, "query volume data", fetch, mapVLTradeListRow)
+}
+
+func mapVLTradeListRow(trade *vlgo.Trade) models.TradeListRow {
+	mapped := common.MapVLTrade(trade)
+	return models.NewTradeListRow(&mapped)
 }
 
 // fetchInstitutionalVolume wraps vlgo.Client.GetInstitutionalVolume as a VLFetcher.

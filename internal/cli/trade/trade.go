@@ -250,7 +250,9 @@ type tradeDashboardOptions struct {
 	tradeOptionalDateRangeFlags
 	tradeRangeFlags
 	tradeFilterFlags
-	Count int `flag:"count" flaggroup:"Output" flagshort:"c" flagdescr:"Rows to return per dashboard section (5, 10, 20, or 50)"`
+	Count    int    `flag:"count" flaggroup:"Output" flagshort:"c" flagdescr:"Rows to return per dashboard section (5, 10, 20, or 50); summary output returns at most 3"`
+	Sections string `flag:"sections" flaggroup:"Output" flagdescr:"Comma-separated dashboard sections to fetch: all, trades, clusters, levels, cluster-bombs"`
+	Summary  bool   `flag:"summary" flaggroup:"Output" flagdescr:"Return compact top rows and counts instead of full dashboard rows"`
 }
 
 func (opts *tradeLevelsOptions) Validate(_ context.Context) []error {
@@ -276,6 +278,9 @@ func (opts *tradeLevelTouchesOptions) Validate(_ context.Context) []error {
 func (opts *tradeDashboardOptions) Validate(_ context.Context) []error {
 	if err := validateTradeLevelCount(opts.Count); err != nil {
 		return []error{fmt.Errorf("--count must be one of 5, 10, 20, or 50 for ticker dashboard retrieval")}
+	}
+	if _, err := parseDashboardSections(opts.Sections); err != nil {
+		return []error{err}
 	}
 	return nil
 }
@@ -324,16 +329,19 @@ func newTradeDashboardCommand() *cobra.Command {
 	presetTradeRangeDefaults(&opts.tradeRangeFlags, 500000)
 	opts.RelativeSize = 0
 	opts.Count = tradeDashboardDefaultCount
+	opts.Sections = "all"
 	cmd := &cobra.Command{
 		Use:   "dashboard [ticker]",
 		Short: "Query a ticker institutional dashboard",
-		Long: `Query a fast ticker dashboard with the same chart-optimized institutional context VolumeLeaders shows in the browser. The dashboard fetches the largest trades, trade clusters, trade levels, and cluster bombs for one ticker in a single JSON object.
+		Long: `Query a fast ticker dashboard with the same chart-optimized institutional context VolumeLeaders shows in the browser. The dashboard fetches selected sections from the largest trades, trade clusters, trade levels, and cluster bombs for one ticker in a single JSON object.
 
-Defaults to a 365-day lookback, 10 rows per section, --vcd 0, --relative-size 0, and the same broad trade/session filters used by the browser chart page. Use this command as the first stop for any single-ticker investigation, including institutional levels, largest trades, clustered activity, or sudden bursts, then drill into trade list, trade clusters, trade levels, or trade cluster-bombs only when a section needs deeper pagination, CSV/TSV output, or explicit field selection.
+Defaults to a 365-day lookback, all sections, 10 rows per section, --vcd 0, --relative-size 0, and the same broad trade/session filters used by the browser chart page. Use --sections trades,levels to reduce API calls and token output when only part of the dashboard is needed. Use --summary for first-pass agent workflows; summary mode returns at most three compact top rows per selected section with requestedSections and returnedSections metadata.
+
+Use this command as the first stop for any single-ticker investigation, including institutional levels, largest trades, clustered activity, or sudden bursts, then drill into trade list, trade clusters, trade levels, or trade cluster-bombs only when a section needs deeper pagination, CSV/TSV output, or explicit field selection.
 
 PREREQUISITES: Provide exactly one ticker as a positional argument or with --ticker. Browser authentication must be available.
 
-RECOVERY: If ticker validation fails, use one ticker only. If --count is rejected, use 5, 10, 20, or 50. If date flags conflict, use either --days or --start-date with --end-date.`,
+RECOVERY: If ticker validation fails, use one ticker only. If --count is rejected, use 5, 10, 20, or 50. If --sections is rejected, use all, trades, clusters, levels, or cluster-bombs. If date flags conflict, use either --days or --start-date with --end-date.`,
 		Example:    "volumeleaders-agent trade dashboard IGV",
 		Args:       cobra.ArbitraryArgs,
 		SuggestFor: []string{"dash", "overview", "chart"},

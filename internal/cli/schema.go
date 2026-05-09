@@ -315,20 +315,55 @@ func installFlagGroupHelp(cmd *cobra.Command) {
 	if len(groups) == 0 {
 		return
 	}
-	defaultHelp := cmd.HelpFunc()
 	cmd.SetHelpFunc(func(cmd *cobra.Command, args []string) {
-		defaultHelp(cmd, args)
+		writeGroupedHelp(cmd)
 		for _, group := range groups {
-			fmt.Fprintf(cmd.OutOrStdout(), "\n%s Flags:\n", group)
-			groupFlags := pflag.NewFlagSet(group, pflag.ContinueOnError)
-			cmd.Flags().VisitAll(func(flag *pflag.Flag) {
-				if !flag.Hidden && common.FlagGroup(flag) == group {
-					groupFlags.AddFlag(flag)
-				}
-			})
-			fmt.Fprint(cmd.OutOrStdout(), groupFlags.FlagUsagesWrapped(80))
+			writeFlagGroup(cmd, group, func(flag *pflag.Flag) bool { return common.FlagGroup(flag) == group })
+		}
+		writeFlagGroup(cmd, "Other", func(flag *pflag.Flag) bool { return common.FlagGroup(flag) == "" })
+		writeInheritedFlagGroup(cmd)
+	})
+}
+
+func writeGroupedHelp(cmd *cobra.Command) {
+	if cmd.Long != "" {
+		fmt.Fprintln(cmd.OutOrStdout(), cmd.Long)
+	} else if cmd.Short != "" {
+		fmt.Fprintln(cmd.OutOrStdout(), cmd.Short)
+	}
+	fmt.Fprintf(cmd.OutOrStdout(), "\nUsage:\n  %s\n", cmd.UseLine())
+	if len(cmd.Aliases) > 0 {
+		fmt.Fprintf(cmd.OutOrStdout(), "\nAliases:\n  %s\n", strings.Join(cmd.Aliases, ", "))
+	}
+	if cmd.Example != "" {
+		fmt.Fprintf(cmd.OutOrStdout(), "\nExamples:\n%s\n", cmd.Example)
+	}
+}
+
+func writeFlagGroup(cmd *cobra.Command, name string, include func(*pflag.Flag) bool) {
+	groupFlags := pflag.NewFlagSet(name, pflag.ContinueOnError)
+	cmd.LocalFlags().VisitAll(func(flag *pflag.Flag) {
+		if !flag.Hidden && include(flag) {
+			groupFlags.AddFlag(flag)
 		}
 	})
+	if groupFlags.HasFlags() {
+		fmt.Fprintf(cmd.OutOrStdout(), "\n%s Flags:\n", name)
+		fmt.Fprint(cmd.OutOrStdout(), groupFlags.FlagUsagesWrapped(80))
+	}
+}
+
+func writeInheritedFlagGroup(cmd *cobra.Command) {
+	inherited := pflag.NewFlagSet("Global", pflag.ContinueOnError)
+	cmd.InheritedFlags().VisitAll(func(flag *pflag.Flag) {
+		if !flag.Hidden {
+			inherited.AddFlag(flag)
+		}
+	})
+	if inherited.HasFlags() {
+		fmt.Fprint(cmd.OutOrStdout(), "\nGlobal Flags:\n")
+		fmt.Fprint(cmd.OutOrStdout(), inherited.FlagUsagesWrapped(80))
+	}
 }
 
 func flagGroupNames(cmd *cobra.Command) []string {

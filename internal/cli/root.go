@@ -77,7 +77,7 @@ GLOBAL CONVENTIONS
 
 Dates: YYYY-MM-DD. Commands with date ranges accept either --start-date D --end-date D or --days N. --days counts backward from today unless --end-date is also set, and cannot be combined with --start-date.
 
-Pagination: --start offset, --length count, --length -1 means all rows unless a capped endpoint rejects it. trade list does not expose --length; multi-day lookups whose effective filters include tickers return the top 10 long-period trades with VolumeLeaders' lightweight chart query shape, while trade list --summary, single-day trade scans, all-market trade scans, sector-only presets, trade clusters, and trade cluster-bombs fetch all rows internally in browser-sized 100-row pages. trade level-touches only allows 1 to 50 rows. trade dashboard count and trade levels/level-touches level counts only allow values of 5, 10, 20, or 50.
+Pagination: --start offset, --length count, --length -1 means all rows unless a capped endpoint rejects it. trade list does not expose --length; multi-day lookups whose effective filters include tickers return the top 10 long-period trades with VolumeLeaders' lightweight chart query shape, while trade list --summary, single-day trade scans, all-market trade scans, sector-only presets, trade clusters, and trade cluster-bombs fetch all matching rows internally in fixed-size pages. trade level-touches only allows 1 to 50 rows. trade dashboard count and trade levels/level-touches level counts only allow values of 5, 10, 20, or 50.
 
 Toggle filters: -1 means all/unfiltered, 0 means exclude, 1 means include/only.
 

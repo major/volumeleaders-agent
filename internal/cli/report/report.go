@@ -76,7 +76,7 @@ func NewCmd() *cobra.Command {
 		Args:    cobra.NoArgs,
 		Long: `Run curated VolumeLeaders trade reports using vetted browser presets. Start here before raw trade list filters: report commands keep the query shape small, documented, and close to the VolumeLeaders site so humans and LLMs do not need to reason about low-level filter parameters.
 
-Reports default to today-only scans and fetch results in the same browser-sized 100-row pages observed from VolumeLeaders. Broad multi-day scans without tickers are rejected to avoid expensive requests and backend timeouts. Add --tickers for multi-day lookbacks, or use trade list --preset only when you need advanced filters that are not exposed by reports.
+Reports default to today-only scans and fetch matching rows internally in fixed-size pages. Broad multi-day scans without tickers are rejected to avoid expensive requests and backend timeouts. Add --tickers for multi-day lookbacks, or use trade list --preset only when you need advanced filters that are not exposed by reports.
 
 PREREQUISITES: Browser authentication must be available.
 
@@ -499,7 +499,7 @@ func reportLong(title, description string) string {
 
 Reports are the recommended entry point for users and LLMs. They expose only safe overrides: tickers, dates, fields, summary grouping, limited ordered summary groups, and output format. Do not hand-build low-level filters unless this curated report cannot answer the question; use trade list --preset as the advanced escape hatch.
 
-Defaults to today only. Multi-day broad scans without tickers are rejected to avoid expensive requests and backend timeouts. Results are fetched in browser-sized 100-row pages and ordered by time descending.
+Defaults to today only. Multi-day broad scans without tickers are rejected to avoid expensive requests and backend timeouts. Results are fetched internally in fixed-size pages and ordered by time descending.
 
 RECOVERY: If the report is too broad, add --tickers or query one day at a time. If a custom filter is truly required, run report list to inspect the vetted filters, then use trade list --preset rather than assembling raw filter flags.`, title, description)
 }

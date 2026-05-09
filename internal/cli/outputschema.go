@@ -137,7 +137,7 @@ func allOutputContracts() []outputContract {
 			outputVariant{When: "--fields is set or --format is csv or tsv", Formats: outputFormats(), Schema: arraySchema[models.TradeCluster](), FieldSelection: allFieldsSelection[models.TradeCluster](tradeClusterDefaultFields()), Notes: []string{"CSV and TSV include a header row matching the selected fields."}},
 		),
 		arrayOutputContract[models.TradeClusterBombRow]("trade cluster-bombs", "List bursty trade cluster bomb activity using a compact default row shape.", outputFormats(), nil, nil,
-			outputVariant{When: "--format is csv or tsv", Formats: []string{"csv", "tsv"}, Schema: arraySchema[models.TradeClusterBomb](), Notes: []string{"CSV and TSV include a header row for the full row shape."}},
+			outputVariant{When: "--fields is set or --format is csv or tsv", Formats: outputFormats(), Schema: arraySchema[models.TradeClusterBomb](), FieldSelection: allFieldsSelection[models.TradeClusterBomb](tradeClusterBombDefaultFields()), Notes: []string{"CSV and TSV include a header row matching the selected fields."}},
 		),
 		arrayOutputContract[models.TradeAlertRow]("trade alerts", "List system-generated trade alerts for one date using a compact default row shape.", outputFormats(), nil, nil,
 			outputVariant{When: "--format is csv or tsv", Formats: []string{"csv", "tsv"}, Schema: arraySchema[models.TradeAlert](), Notes: []string{"CSV and TSV include a header row for the full row shape."}},
@@ -370,6 +370,21 @@ func tradeClusterDefaultFields() []string {
 		"DollarsMultiplier",
 		"CumulativeDistribution",
 		"TradeClusterRank",
+		"MinFullDateTime",
+		"MaxFullDateTime",
+	}
+}
+
+func tradeClusterBombDefaultFields() []string {
+	return []string{
+		"Date",
+		"Ticker",
+		"Dollars",
+		"Volume",
+		"TradeCount",
+		"DollarsMultiplier",
+		"CumulativeDistribution",
+		"TradeClusterBombRank",
 		"MinFullDateTime",
 		"MaxFullDateTime",
 	}

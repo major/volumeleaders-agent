@@ -274,13 +274,13 @@ func TestTradeDashboardFetchesChartOptimizedSections(t *testing.T) {
 		requestsByPath[r.URL.Path] = params
 		switch r.URL.Path {
 		case "/Trades/GetTrades":
-			_, _ = w.Write([]byte(testutil.DataTablesJSON(`[{"Ticker":"IGV","Dollars":1000,"Volume":10}]`)))
+			_, _ = w.Write([]byte(testutil.DataTablesJSON(`[{"Ticker":"IGV","Name":"iShares Expanded Tech-Software Sector ETF","Sector":"Technology","Industry":"Software","Dollars":1000,"Volume":10}]`)))
 		case "/TradeClusters/GetTradeClusters":
-			_, _ = w.Write([]byte(testutil.DataTablesJSON(`[{"Ticker":"IGV","Dollars":2000,"Volume":20,"TradeCount":2}]`)))
+			_, _ = w.Write([]byte(testutil.DataTablesJSON(`[{"Ticker":"IGV","Name":"iShares Expanded Tech-Software Sector ETF","Sector":"Technology","Industry":"Software","Dollars":2000,"Volume":20,"TradeCount":2}]`)))
 		case "/Chart0/GetTradeLevels":
 			_, _ = w.Write([]byte(testutil.DataTablesJSON(`[{"Price":101.5,"Dollars":3000,"Volume":30,"Trades":3}]`)))
 		case "/TradeClusterBombs/GetTradeClusterBombs":
-			_, _ = w.Write([]byte(testutil.DataTablesJSON(`[{"Ticker":"IGV","Dollars":4000,"Volume":40,"TradeCount":4,"TradeClusterBombRank":1}]`)))
+			_, _ = w.Write([]byte(testutil.DataTablesJSON(`[{"Ticker":"IGV","Name":"iShares Expanded Tech-Software Sector ETF","Sector":"Technology","Industry":"Software","Dollars":4000,"Volume":40,"TradeCount":4,"TradeClusterBombRank":1}]`)))
 		default:
 			t.Errorf("unexpected path %q", r.URL.Path)
 			w.WriteHeader(http.StatusNotFound)
@@ -309,6 +309,12 @@ func TestTradeDashboardFetchesChartOptimizedSections(t *testing.T) {
 	if len(dashboard.Trades) != 1 || len(dashboard.Clusters) != 1 || len(dashboard.Levels) != 1 || len(dashboard.ClusterBombs) != 1 {
 		t.Fatalf("dashboard section lengths = trades:%d clusters:%d levels:%d bombs:%d, want all 1", len(dashboard.Trades), len(dashboard.Clusters), len(dashboard.Levels), len(dashboard.ClusterBombs))
 	}
+	if dashboard.Name != "iShares Expanded Tech-Software Sector ETF" || dashboard.Sector != "Technology" || dashboard.Industry == nil || *dashboard.Industry != "Software" {
+		t.Fatalf("dashboard company metadata = %#v, want hoisted IGV metadata", dashboard)
+	}
+	assertDashboardOutputRowsOmitIdentityFields(t, stdout, "trades")
+	assertDashboardOutputRowsOmitIdentityFields(t, stdout, "clusters")
+	assertDashboardOutputRowsOmitIdentityFields(t, stdout, "clusterBombs")
 
 	for _, path := range []string{"/Trades/GetTrades", "/TradeClusters/GetTradeClusters", "/Chart0/GetTradeLevels", "/TradeClusterBombs/GetTradeClusterBombs"} {
 		params, ok := requestsByPath[path]
@@ -342,6 +348,27 @@ func TestTradeDashboardFetchesChartOptimizedSections(t *testing.T) {
 	}
 	if got := requestsByPath["/Chart0/GetTradeLevels"].Get("length"); got != "-1" {
 		t.Fatalf("levels length = %q, want -1", got)
+	}
+}
+
+func assertDashboardOutputRowsOmitIdentityFields(t *testing.T, stdout, section string) {
+	t.Helper()
+
+	var dashboard map[string]json.RawMessage
+	if err := json.Unmarshal([]byte(stdout), &dashboard); err != nil {
+		t.Fatalf("json.Unmarshal(trade dashboard stdout) error = %v", err)
+	}
+	var rows []map[string]json.RawMessage
+	if err := json.Unmarshal(dashboard[section], &rows); err != nil {
+		t.Fatalf("json.Unmarshal(trade dashboard %s rows) error = %v", section, err)
+	}
+	if len(rows) != 1 {
+		t.Fatalf("trade dashboard %s row count = %d, want 1", section, len(rows))
+	}
+	for _, field := range []string{"Ticker", "Name", "Sector", "Industry"} {
+		if _, ok := rows[0][field]; ok {
+			t.Fatalf("trade dashboard %s row includes identity field %q", section, field)
+		}
 	}
 }
 
@@ -407,7 +434,7 @@ func TestTradeDashboardSummaryReturnsCompactTopRows(t *testing.T) {
 		switch r.URL.Path {
 		case "/Trades/GetTrades":
 			_, _ = w.Write([]byte(testutil.DataTablesJSON(`[
-				{"Ticker":"IGV","Dollars":1000,"Volume":10,"Price":101,"TradeRank":5,"DarkPool":1,"Sweep":0,"ClosingTrade":1},
+				{"Ticker":"IGV","Name":"iShares Expanded Tech-Software Sector ETF","Sector":"Technology","Industry":"Software","Dollars":1000,"Volume":10,"Price":101,"TradeRank":5,"DarkPool":1,"Sweep":0,"ClosingTrade":1},
 				{"Ticker":"IGV","Dollars":900,"Volume":9,"Price":102,"TradeRank":6},
 				{"Ticker":"IGV","Dollars":800,"Volume":8,"Price":103,"TradeRank":7},
 				{"Ticker":"IGV","Dollars":700,"Volume":7,"Price":104,"TradeRank":8}
@@ -437,6 +464,9 @@ func TestTradeDashboardSummaryReturnsCompactTopRows(t *testing.T) {
 	}
 	if dashboard.Count != dashboardSummaryMaxRows {
 		t.Fatalf("dashboard summary count = %d, want %d", dashboard.Count, dashboardSummaryMaxRows)
+	}
+	if dashboard.Name != "iShares Expanded Tech-Software Sector ETF" || dashboard.Sector != "Technology" || dashboard.Industry == nil || *dashboard.Industry != "Software" {
+		t.Fatalf("dashboard summary company metadata = %#v, want hoisted IGV metadata", dashboard)
 	}
 	if len(dashboard.Trades) != 3 || len(dashboard.Levels) != 3 || len(dashboard.Clusters) != 0 || len(dashboard.ClusterBombs) != 0 {
 		t.Fatalf("dashboard summary lengths = trades:%d clusters:%d levels:%d bombs:%d, want compact trades and levels only", len(dashboard.Trades), len(dashboard.Clusters), len(dashboard.Levels), len(dashboard.ClusterBombs))

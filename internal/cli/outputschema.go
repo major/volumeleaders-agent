@@ -123,7 +123,7 @@ func allOutputContracts() []outputContract {
 		reportTradeOutputContract("report phantom-trades", "Run the site-vetted phantom trades report."),
 		reportTradeOutputContract("report offsetting-trades", "Run the site-vetted offsetting trades report."),
 
-		objectOutputContract[models.TradeDashboard]("trade dashboard", "Return a fast ticker dashboard with selected trades, clusters, levels, and cluster bombs.", []string{"json"}, []string{"Defaults to a 365-day lookback, all sections, and 10 rows per section.", "--sections limits API calls and output sections; requestedSections and returnedSections record what was requested and fetched."},
+		objectOutputContract[models.TradeDashboard]("trade dashboard", "Return a compact ticker dashboard with shared ticker metadata hoisted above selected trades, clusters, levels, and cluster bombs.", []string{"json"}, []string{"Defaults to a 365-day lookback, all sections, and 10 rows per section.", "--sections limits API calls and output sections; requestedSections and returnedSections record what was requested and fetched."},
 			outputVariant{When: "--summary is set", Formats: []string{"json"}, Schema: objectSchema[models.TradeDashboardSummary](), Notes: []string{"Summary output returns compact top rows for selected sections and caps each section at 3 rows."}},
 		),
 		arrayOutputContract[models.TradeListRow]("trade list", "List individual institutional trades using a compact default row shape.", outputFormats(), nil, nil,

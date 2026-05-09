@@ -3,6 +3,7 @@ package models
 import (
 	"encoding/json"
 	"testing"
+	"time"
 )
 
 func TestTradeCluster(t *testing.T) {
@@ -439,12 +440,16 @@ func TestNewTradeClusterRowsProjectsCompactFields(t *testing.T) {
 	t.Parallel()
 
 	rows := NewTradeClusterRows([]TradeCluster{{
-		Ticker:              "NVDA",
-		MinFullTimeString24: "09:30:00",
-		MaxFullTimeString24: "16:00:00",
-		DollarsMultiplier:   2.345,
-		TradeClusterRank:    3,
-		AverageDailyVolume:  50000000,
+		Ticker:                  "NVDA",
+		Date:                    AspNetDate{Time: time.Date(2025, 4, 23, 0, 0, 0, 0, time.UTC), Valid: true},
+		MinFullTimeString24:     "09:30:00",
+		MaxFullTimeString24:     "16:00:00",
+		ClosePrice:              875.50,
+		AverageBlockSizeShares:  50000,
+		AverageBlockSizeDollars: 43500000,
+		DollarsMultiplier:       2.345,
+		TradeClusterRank:        3,
+		AverageDailyVolume:      50000000,
 	}})
 	if len(rows) != 1 {
 		t.Fatalf("NewTradeClusterRows() length = %d, want 1", len(rows))
@@ -455,6 +460,9 @@ func TestNewTradeClusterRowsProjectsCompactFields(t *testing.T) {
 	if rows[0].DollarsMultiplier != 2.35 {
 		t.Errorf("NewTradeClusterRows()[0].DollarsMultiplier = %v, want 2.35", rows[0].DollarsMultiplier)
 	}
+	if rows[0].Date != "2025-04-23" {
+		t.Errorf("NewTradeClusterRows()[0].Date = %q, want 2025-04-23", rows[0].Date)
+	}
 
 	data, err := json.Marshal(rows[0])
 	if err != nil {
@@ -464,7 +472,7 @@ func TestNewTradeClusterRowsProjectsCompactFields(t *testing.T) {
 	if err := json.Unmarshal(data, &fields); err != nil {
 		t.Fatalf("json.Unmarshal(TradeClusterRow) error = %v", err)
 	}
-	for _, field := range []string{"MinFullTimeString24", "MaxFullTimeString24"} {
+	for _, field := range []string{"MinFullTimeString24", "MaxFullTimeString24", "ClosePrice", "AverageBlockSizeShares", "AverageBlockSizeDollars", "AverageDailyVolume"} {
 		if _, ok := fields[field]; ok {
 			t.Fatalf("TradeClusterRow includes trimmed field %q", field)
 		}
@@ -475,12 +483,16 @@ func TestNewTradeClusterBombRowsProjectsCompactFields(t *testing.T) {
 	t.Parallel()
 
 	rows := NewTradeClusterBombRows([]TradeClusterBomb{{
-		Ticker:               "AAPL",
-		MinFullTimeString24:  "09:30:00",
-		MaxFullTimeString24:  "16:00:00",
-		DollarsMultiplier:    3.456,
-		TradeClusterBombRank: 4,
-		AverageDailyVolume:   100000000,
+		Ticker:                  "AAPL",
+		Date:                    AspNetDate{Time: time.Date(2025, 4, 23, 0, 0, 0, 0, time.UTC), Valid: true},
+		MinFullTimeString24:     "09:30:00",
+		MaxFullTimeString24:     "16:00:00",
+		ClosePrice:              150.25,
+		AverageBlockSizeShares:  50000,
+		AverageBlockSizeDollars: 7512500,
+		DollarsMultiplier:       3.456,
+		TradeClusterBombRank:    4,
+		AverageDailyVolume:      100000000,
 	}})
 	if len(rows) != 1 {
 		t.Fatalf("NewTradeClusterBombRows() length = %d, want 1", len(rows))
@@ -491,6 +503,9 @@ func TestNewTradeClusterBombRowsProjectsCompactFields(t *testing.T) {
 	if rows[0].DollarsMultiplier != 3.46 {
 		t.Errorf("NewTradeClusterBombRows()[0].DollarsMultiplier = %v, want 3.46", rows[0].DollarsMultiplier)
 	}
+	if rows[0].Date != "2025-04-23" {
+		t.Errorf("NewTradeClusterBombRows()[0].Date = %q, want 2025-04-23", rows[0].Date)
+	}
 
 	data, err := json.Marshal(rows[0])
 	if err != nil {
@@ -500,7 +515,7 @@ func TestNewTradeClusterBombRowsProjectsCompactFields(t *testing.T) {
 	if err := json.Unmarshal(data, &fields); err != nil {
 		t.Fatalf("json.Unmarshal(TradeClusterBombRow) error = %v", err)
 	}
-	for _, field := range []string{"MinFullTimeString24", "MaxFullTimeString24"} {
+	for _, field := range []string{"MinFullTimeString24", "MaxFullTimeString24", "ClosePrice", "AverageBlockSizeShares", "AverageBlockSizeDollars", "AverageDailyVolume"} {
 		if _, ok := fields[field]; ok {
 			t.Fatalf("TradeClusterBombRow includes trimmed field %q", field)
 		}

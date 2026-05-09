@@ -33,6 +33,19 @@ var tradeClusterDefaultFields = []string{
 	"MaxFullDateTime",
 }
 
+var tradeClusterBombDefaultFields = []string{
+	"Date",
+	"Ticker",
+	"Dollars",
+	"Volume",
+	"TradeCount",
+	"DollarsMultiplier",
+	"CumulativeDistribution",
+	"TradeClusterBombRank",
+	"MinFullDateTime",
+	"MaxFullDateTime",
+}
+
 type tradesOptions struct {
 	tickers, startDate, endDate, sector            string
 	minVolume, maxVolume                           int
@@ -152,16 +165,16 @@ type tradeFilterFlags struct {
 }
 
 type tradePaginationFlags struct {
-	Start    int                   `flag:"start" flaggroup:"Pagination" flagdescr:"DataTables start offset"`
+	Start    int                   `flag:"start" flaggroup:"Pagination" flagdescr:"Result offset for paged requests"`
 	Length   int                   `flag:"length" flaggroup:"Pagination" flagshort:"l" flagdescr:"Number of results"`
-	OrderCol int                   `flag:"order-col" flaggroup:"Pagination" flagdescr:"Order column index"`
-	OrderDir common.OrderDirection `flag:"order-dir" flaggroup:"Pagination" flagdescr:"Order direction"`
+	OrderCol int                   `flag:"order-col" flaggroup:"Pagination" flagdescr:"Legacy order column index; prefer field-name sorting where available"`
+	OrderDir common.OrderDirection `flag:"order-dir" flaggroup:"Pagination" flagdescr:"Order direction: asc or desc"`
 }
 
 type tradeFixedPageFlags struct {
-	Start    int                   `flag:"start" flaggroup:"Pagination" flagdescr:"DataTables start offset"`
-	OrderCol int                   `flag:"order-col" flaggroup:"Pagination" flagdescr:"Order column index"`
-	OrderDir common.OrderDirection `flag:"order-dir" flaggroup:"Pagination" flagdescr:"Order direction"`
+	Start    int                   `flag:"start" flaggroup:"Pagination" flagdescr:"Result offset for paged requests"`
+	OrderCol int                   `flag:"order-col" flaggroup:"Pagination" flagdescr:"Legacy order column index; prefer --sort for commands that expose it"`
+	OrderDir common.OrderDirection `flag:"order-dir" flaggroup:"Pagination" flagdescr:"Order direction: asc or desc"`
 }
 
 type tradeFormatFlag struct {
@@ -202,12 +215,13 @@ type tradeClustersOptions struct {
 	tradeTickersFlag
 	tradeDateRangeFlags
 	tradeRangeFlags
-	VCD              int    `flag:"vcd" flaggroup:"Filters" flagdescr:"VCD filter"`
-	SecurityType     int    `flag:"security-type" flaggroup:"Filters" flagdescr:"Security type key"`
-	RelativeSize     int    `flag:"relative-size" flaggroup:"Filters" flagdescr:"Relative size threshold"`
-	TradeClusterRank int    `flag:"trade-cluster-rank" flaggroup:"Filters" flagdescr:"Trade cluster rank filter"`
+	VCD              int    `flag:"vcd" flaggroup:"Filters" flagdescr:"Volume confirmation distribution score filter; 0 means unfiltered, higher scores are stricter"`
+	SecurityType     int    `flag:"security-type" flaggroup:"Filters" flagdescr:"Security type key; -1 means all securities, 0 means the site default common-stock filter"`
+	RelativeSize     int    `flag:"relative-size" flaggroup:"Filters" flagdescr:"Minimum relative-size threshold; default 5"`
+	TradeClusterRank int    `flag:"trade-cluster-rank" flaggroup:"Filters" flagdescr:"Maximum cluster rank to include; -1 means all ranks"`
 	Sector           string `flag:"sector" flaggroup:"Input" flagdescr:"Sector/Industry filter"`
 	Fields           string `flag:"fields" flaggroup:"Output" flagdescr:"Comma-separated TradeCluster fields to include in output, or 'all' for every field"`
+	Sort             string `flag:"sort" flaggroup:"Pagination" flagdescr:"Sort field name: Date, Price, Dollars, Volume, TradeCount, DollarsMultiplier, CumulativeDistribution, or TradeClusterRank"`
 	tradeFormatFlag
 	tradeFixedPageFlags
 }
@@ -216,11 +230,13 @@ type tradeClusterBombsOptions struct {
 	tradeTickersFlag
 	tradeDateRangeFlags
 	tradeVolumeDollarRangeFlags
-	VCD                  int    `flag:"vcd" flaggroup:"Filters" flagdescr:"VCD filter"`
-	SecurityType         int    `flag:"security-type" flaggroup:"Filters" flagdescr:"Security type key"`
-	RelativeSize         int    `flag:"relative-size" flaggroup:"Filters" flagdescr:"Relative size threshold"`
-	TradeClusterBombRank int    `flag:"trade-cluster-bomb-rank" flaggroup:"Filters" flagdescr:"Trade cluster bomb rank filter"`
+	VCD                  int    `flag:"vcd" flaggroup:"Filters" flagdescr:"Volume confirmation distribution score filter; 0 means unfiltered, higher scores are stricter"`
+	SecurityType         int    `flag:"security-type" flaggroup:"Filters" flagdescr:"Security type key; -1 means all securities, 0 means the site default common-stock filter"`
+	RelativeSize         int    `flag:"relative-size" flaggroup:"Filters" flagdescr:"Minimum relative-size threshold; default 0 means unfiltered for cluster bombs"`
+	TradeClusterBombRank int    `flag:"trade-cluster-bomb-rank" flaggroup:"Filters" flagdescr:"Maximum cluster bomb rank to include; -1 means all ranks"`
 	Sector               string `flag:"sector" flaggroup:"Input" flagdescr:"Sector/Industry filter"`
+	Fields               string `flag:"fields" flaggroup:"Output" flagdescr:"Comma-separated TradeClusterBomb fields to include in output, or 'all' for every field"`
+	Sort                 string `flag:"sort" flaggroup:"Pagination" flagdescr:"Sort field name: Date, Dollars, Volume, TradeCount, DollarsMultiplier, CumulativeDistribution, or TradeClusterBombRank"`
 	tradeFormatFlag
 	tradeFixedPageFlags
 }
@@ -400,7 +416,7 @@ Shared trade filters include volume, price, dollars, conditions, VCD, relative s
 
 PREREQUISITES: Browser authentication. For reproducible scans, pass explicit dates or --days plus tickers, preset, watchlist, or sector filters.
 
-RECOVERY: Multi-day lookups whose effective filters include tickers return the top 10 long-period trades with the same lightweight chart query shape VolumeLeaders uses in the browser. Single-day scans, all-market scans, sector-only presets, and --summary still fetch all matching rows in browser-sized 100-row pages. If --summary rejects --fields or --format, rerun summary as JSON without --fields. If date flags conflict, use either --days or --start-date with --end-date.
+RECOVERY: Multi-day lookups whose effective filters include tickers return the top 10 long-period trades with the same lightweight chart query shape VolumeLeaders uses in the browser. Single-day scans, all-market scans, sector-only presets, and --summary still fetch all matching rows internally in fixed-size pages. If --summary rejects --fields or --format, rerun summary as JSON without --fields. If date flags conflict, use either --days or --start-date with --end-date.
 
 NEXT STEPS: Use trade dashboard first for any single-ticker investigation, then trade levels for level-only support/resistance output, trade clusters when prints concentrate near a price, or trade sentiment for leveraged ETF bull/bear context.`,
 		Example: `volumeleaders-agent trade list AAPL MSFT
@@ -460,7 +476,7 @@ func newTradeClustersCommand() *cobra.Command {
 		Long: `Query aggregated trade clusters, which group multiple trades in a short window into a single cluster record. Filterable by ticker, date range, dollar amounts, sector, and trade cluster rank. Outputs compact JSON or CSV/TSV with --format.
 
 
-Results are fetched in browser-sized 100-row pages to match VolumeLeaders' frontend behavior. Use clusters when the question is about price-level concentration, not single prints. This command uses larger default dollar thresholds than ordinary trade list. Use trade cluster-bombs instead when looking for sudden aggressive bursts tightly grouped in time and price.`,
+Default JSON is compact and omits fields VolumeLeaders leaves empty for this endpoint. Use --fields FIELD1,FIELD2, --fields all, CSV, or TSV when raw API fields are needed. Use --sort with a field name such as Dollars or TradeClusterRank instead of the legacy --order-col index. Use clusters when the question is about price-level concentration, not single prints. This command uses larger default dollar thresholds than ordinary trade list. Use trade cluster-bombs instead when looking for sudden aggressive bursts tightly grouped in time and price.`,
 		Example:    "volumeleaders-agent trade clusters AAPL --days 7",
 		Args:       cobra.ArbitraryArgs,
 		SuggestFor: []string{"cluster", "clsters"},
@@ -484,7 +500,7 @@ func newTradeClusterBombsCommand() *cobra.Command {
 		Short: "Query trade cluster bombs",
 		Long: `Query trade cluster bombs, which are extreme-magnitude trade clusters that exceed normal institutional activity thresholds. Filterable by ticker, date range, dollar amounts, sector, and cluster bomb rank. Outputs compact JSON by default.
 
-Results are fetched in browser-sized 100-row pages to match VolumeLeaders' frontend behavior. Cluster bombs find sudden aggressive bursts tightly grouped in time and price, with different defaults and rank fields than trade clusters. Use this command when looking for extreme concentration events, not general price-level clustering.`,
+Default JSON is compact and omits fields VolumeLeaders leaves empty for this endpoint. Use --fields FIELD1,FIELD2, --fields all, CSV, or TSV when raw API fields are needed. Use --sort with a field name such as Dollars or TradeClusterBombRank instead of the legacy --order-col index. Cluster bombs find sudden aggressive bursts tightly grouped in time and price, with different defaults and rank fields than trade clusters. Use this command when looking for extreme concentration events, not general price-level clustering.`,
 		Example:    "volumeleaders-agent trade cluster-bombs TSLA --days 3",
 		Args:       cobra.ArbitraryArgs,
 		SuggestFor: []string{"clusterbombs", "cluster-bomb"},

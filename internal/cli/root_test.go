@@ -1092,15 +1092,15 @@ func TestOutputSchemaUsesCompactTradeRowsAcrossCommands(t *testing.T) {
 			wantModel:      "TradeClusterRow",
 			wantVariant:    "TradeCluster",
 			variantFormats: []string{"csv", "json", "tsv"},
-			trimmedFields:  []string{"MinFullTimeString24", "MaxFullTimeString24"},
+			trimmedFields:  []string{"MinFullTimeString24", "MaxFullTimeString24", "ClosePrice", "AverageBlockSizeShares", "AverageBlockSizeDollars", "AverageDailyVolume"},
 		},
 		{
 			name:           "trade cluster-bombs",
 			args:           []string{"outputschema", "trade", "cluster-bombs"},
 			wantModel:      "TradeClusterBombRow",
 			wantVariant:    "TradeClusterBomb",
-			variantFormats: []string{"csv", "tsv"},
-			trimmedFields:  []string{"MinFullTimeString24", "MaxFullTimeString24"},
+			variantFormats: []string{"csv", "json", "tsv"},
+			trimmedFields:  []string{"MinFullTimeString24", "MaxFullTimeString24", "ClosePrice", "AverageBlockSizeShares", "AverageBlockSizeDollars", "AverageDailyVolume"},
 		},
 		{
 			name:           "trade alerts",
@@ -1363,21 +1363,37 @@ func TestHelpOutputDisplaysFlagGroups(t *testing.T) {
 		name           string
 		args           []string
 		expectedGroups []string
+		forbidden      []string
 	}{
 		{
 			name:           "trade list help",
 			args:           []string{"trade", "list", "--help"},
 			expectedGroups: []string{"Dates Flags:", "Filters Flags:", "Input Flags:", "Output Flags:", "Pagination Flags:", "Ranges Flags:", "Sessions Flags:"},
+			forbidden:      []string{"\nFlags:\n"},
+		},
+		{
+			name:           "trade clusters help",
+			args:           []string{"trade", "clusters", "--help"},
+			expectedGroups: []string{"Dates Flags:", "Filters Flags:", "Input Flags:", "Output Flags:", "Pagination Flags:", "Ranges Flags:"},
+			forbidden:      []string{"\nFlags:\n", "DataTables", "browser-sized pages"},
+		},
+		{
+			name:           "trade cluster bombs help",
+			args:           []string{"trade", "cluster-bombs", "--help"},
+			expectedGroups: []string{"Dates Flags:", "Filters Flags:", "Input Flags:", "Output Flags:", "Pagination Flags:", "Ranges Flags:"},
+			forbidden:      []string{"\nFlags:\n", "DataTables", "browser-sized pages"},
 		},
 		{
 			name:           "alert create help",
 			args:           []string{"alert", "create", "--help"},
 			expectedGroups: []string{"After-Hours Filters Flags:", "Basic Flags:", "Closing Filters Flags:", "Cluster Filters Flags:", "Total Filters Flags:", "Trade Filters Flags:"},
+			forbidden:      []string{"\nFlags:\n"},
 		},
 		{
 			name:           "watchlist create help",
 			args:           []string{"watchlist", "create", "--help"},
 			expectedGroups: []string{"Basic Flags:", "Filters Flags:", "Print Types Flags:", "Ranges Flags:", "RSI Flags:", "Sessions Flags:", "Venues Flags:"},
+			forbidden:      []string{"\nFlags:\n"},
 		},
 	}
 
@@ -1392,6 +1408,42 @@ func TestHelpOutputDisplaysFlagGroups(t *testing.T) {
 			for _, expected := range tc.expectedGroups {
 				if !strings.Contains(helpText, expected) {
 					t.Fatalf("help output missing %q\nOutput: %s", expected, helpText)
+				}
+			}
+			for _, forbidden := range tc.forbidden {
+				if strings.Contains(helpText, forbidden) {
+					t.Fatalf("help output contains forbidden %q\nOutput: %s", forbidden, helpText)
+				}
+			}
+		})
+	}
+}
+
+func TestHelpOutputAvoidsInternalPaginationTerms(t *testing.T) {
+	t.Parallel()
+	binary := testBinary(t)
+
+	tests := []struct {
+		name string
+		args []string
+	}{
+		{name: "root help", args: []string{"--help"}},
+		{name: "report help", args: []string{"report", "--help"}},
+		{name: "report preset help", args: []string{"report", "top-100-rank", "--help"}},
+		{name: "trade list help", args: []string{"trade", "list", "--help"}},
+		{name: "volume help", args: []string{"volume", "institutional", "--help"}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			out, err := exec.Command(binary, tt.args...).CombinedOutput()
+			if err != nil {
+				t.Fatalf("%v failed: %v\nOutput: %s", tt.args, err, out)
+			}
+			helpText := string(out)
+			for _, forbidden := range []string{"DataTables", "browser-sized"} {
+				if strings.Contains(helpText, forbidden) {
+					t.Fatalf("help output contains forbidden %q\nOutput: %s", forbidden, helpText)
 				}
 			}
 		})

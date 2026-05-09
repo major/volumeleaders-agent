@@ -5,12 +5,15 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"maps"
 	"net/url"
 
 	vlgo "github.com/major/volumeleaders-go/volumeleaders"
 
 	"github.com/spf13/cobra"
 )
+
+const dataTableOrderNameKey = "__volumeleaders_agent_order_name"
 
 // VLFetcher calls a typed vlgo endpoint with the given DataTables request and
 // filters. Each command package defines a thin wrapper that delegates to the
@@ -171,8 +174,29 @@ func NewVLDataTablesRequest(opts DataTableOptions) vlgo.DataTablesRequest {
 		Order: []vlgo.DataTablesOrder{{
 			Column: opts.OrderCol,
 			Dir:    string(opts.OrderDir),
+			Name:   dataTableOrderName(opts.Filters),
 		}},
 	}
+}
+
+// WithDataTableOrderName returns filters annotated with a DataTables order name.
+// The annotation is consumed while constructing the request and is never sent as
+// a VolumeLeaders filter value.
+func WithDataTableOrderName(filters map[string]string, orderName string) map[string]string {
+	if orderName == "" {
+		return filters
+	}
+	annotated := make(map[string]string, len(filters)+1)
+	maps.Copy(annotated, filters)
+	annotated[dataTableOrderNameKey] = orderName
+	return annotated
+}
+
+func dataTableOrderName(filters map[string]string) string {
+	if len(filters) == 0 {
+		return ""
+	}
+	return filters[dataTableOrderNameKey]
 }
 
 // FiltersToValues converts a string map to url.Values for vlgo request filters.
@@ -182,6 +206,9 @@ func FiltersToValues(filters map[string]string) url.Values {
 	}
 	values := make(url.Values, len(filters))
 	for k, v := range filters {
+		if k == dataTableOrderNameKey {
+			continue
+		}
 		values.Set(k, v)
 	}
 	return values

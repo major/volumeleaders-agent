@@ -893,6 +893,147 @@ func TestTradeClusterCommandsFetchBrowserSizedPages(t *testing.T) {
 	}
 }
 
+func TestTradeClusterCommandsSupportNamedSort(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name            string
+		args            []string
+		path            string
+		wantOrderColumn string
+		wantOrderName   string
+	}{
+		{
+			name:            "clusters",
+			args:            []string{"clusters", "AAPL", "--days", "1", "--sort", "Dollars"},
+			path:            "/TradeClusters/GetTradeClusters",
+			wantOrderColumn: "4",
+			wantOrderName:   "Dollars",
+		},
+		{
+			name:            "cluster bombs",
+			args:            []string{"cluster-bombs", "AAPL", "--days", "1", "--sort", "TradeClusterBombRank"},
+			path:            "/TradeClusterBombs/GetTradeClusterBombs",
+			wantOrderColumn: "6",
+			wantOrderName:   "TradeClusterBombRank",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			var got url.Values
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.URL.Path != tt.path {
+					t.Errorf("path = %q, want %s", r.URL.Path, tt.path)
+				}
+				body, err := io.ReadAll(r.Body)
+				if err != nil {
+					t.Errorf("failed to read request body: %v", err)
+				}
+				got, _ = url.ParseQuery(string(body))
+				_, _ = w.Write([]byte(testutil.DataTablesJSONPage("[]", 0)))
+			}))
+			t.Cleanup(server.Close)
+
+			cmd := NewCmd()
+			ctx := testutil.ContextWithTestClient(t, server.URL)
+			_, _, err := testutil.ExecuteCommand(t, cmd, ctx, tt.args...)
+			testutil.AssertErrContains(t, err, "")
+			if got.Get("order[0][column]") != tt.wantOrderColumn {
+				t.Fatalf("order[0][column] = %q, want %s", got.Get("order[0][column]"), tt.wantOrderColumn)
+			}
+			if got.Get("order[0][name]") != tt.wantOrderName {
+				t.Fatalf("order[0][name] = %q, want %s", got.Get("order[0][name]"), tt.wantOrderName)
+			}
+			if got.Has("__volumeleaders_agent_order_name") {
+				t.Fatalf("request leaked internal order annotation: %v", got)
+			}
+		})
+	}
+}
+
+func TestTradeClusterBombsDefaultJSONMatchesCompactSchema(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/TradeClusterBombs/GetTradeClusterBombs" {
+			t.Errorf("path = %q, want /TradeClusterBombs/GetTradeClusterBombs", r.URL.Path)
+		}
+		_, _ = w.Write([]byte(testutil.DataTablesJSON(`[
+			{"Date":"/Date(1745366400000)/","Ticker":"AAPL","Sector":"Technology","Industry":"Hardware","Name":"Apple Inc.","Dollars":1000000,"Volume":50000,"TradeCount":4,"DollarsMultiplier":1.2345,"CumulativeDistribution":0.99,"TradeClusterBombRank":4,"ClosePrice":0,"AverageBlockSizeShares":0,"AverageBlockSizeDollars":0,"AverageDailyVolume":0}
+		]`)))
+	}))
+	t.Cleanup(server.Close)
+
+	cmd := NewCmd()
+	ctx := testutil.ContextWithTestClient(t, server.URL)
+	stdout, _, err := testutil.ExecuteCommand(t, cmd, ctx, "cluster-bombs", "AAPL", "--days", "1")
+	testutil.AssertErrContains(t, err, "")
+
+	var rows []map[string]any
+	if err := json.Unmarshal([]byte(stdout), &rows); err != nil {
+		t.Fatalf("failed to unmarshal cluster-bombs output: %v\nstdout=%s", err, stdout)
+	}
+	if len(rows) != 1 {
+		t.Fatalf("len(rows) = %d, want 1", len(rows))
+	}
+	for _, field := range []string{"Sector", "Industry", "Name"} {
+		if _, ok := rows[0][field]; !ok {
+			t.Fatalf("default cluster-bombs output missing compact field %q: %#v", field, rows[0])
+		}
+	}
+	for _, field := range []string{"ClosePrice", "AverageBlockSizeShares", "AverageBlockSizeDollars", "AverageDailyVolume"} {
+		if _, ok := rows[0][field]; ok {
+			t.Fatalf("default cluster-bombs output includes noisy field %q: %#v", field, rows[0])
+		}
+	}
+}
+
+func TestTradeClusterBombsSupportsFieldSelection(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/TradeClusterBombs/GetTradeClusterBombs" {
+			t.Errorf("path = %q, want /TradeClusterBombs/GetTradeClusterBombs", r.URL.Path)
+		}
+		_, _ = w.Write([]byte(testutil.DataTablesJSON(`[
+			{"Ticker":"AAPL","Dollars":1000000,"Volume":50000,"TradeClusterBombRank":4}
+		]`)))
+	}))
+	t.Cleanup(server.Close)
+
+	cmd := NewCmd()
+	ctx := testutil.ContextWithTestClient(t, server.URL)
+	stdout, _, err := testutil.ExecuteCommand(t, cmd, ctx, "cluster-bombs", "AAPL", "--days", "1", "--fields", "Ticker,Dollars")
+	testutil.AssertErrContains(t, err, "")
+
+	var rows []map[string]any
+	if err := json.Unmarshal([]byte(stdout), &rows); err != nil {
+		t.Fatalf("failed to unmarshal cluster-bombs output: %v\nstdout=%s", err, stdout)
+	}
+	if len(rows) != 1 {
+		t.Fatalf("len(rows) = %d, want 1", len(rows))
+	}
+	for _, field := range []string{"Ticker", "Dollars"} {
+		if _, ok := rows[0][field]; !ok {
+			t.Fatalf("selected cluster-bomb output missing field %q: %#v", field, rows[0])
+		}
+	}
+	if _, ok := rows[0]["Volume"]; ok {
+		t.Fatalf("selected cluster-bomb output includes unselected Volume field: %#v", rows[0])
+	}
+}
+
+func TestTradeClusterCommandsRejectInvalidSort(t *testing.T) {
+	t.Parallel()
+
+	cmd := NewCmd()
+	ctx := testutil.ContextWithTestClient(t, "http://127.0.0.1")
+	_, _, err := testutil.ExecuteCommand(t, cmd, ctx, "clusters", "AAPL", "--days", "1", "--sort", "ClosePrice")
+	testutil.AssertErrContains(t, err, "invalid --sort \"ClosePrice\"")
+}
+
 func TestTradeLevelTouchesCapsLengthAndTradeLevelCount(t *testing.T) {
 	t.Parallel()
 

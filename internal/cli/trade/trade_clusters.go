@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"net/url"
+	"slices"
+	"strings"
 
 	vlgo "github.com/major/volumeleaders-go/volumeleaders"
 	"github.com/spf13/cobra"
@@ -21,9 +23,13 @@ func runTradeClusters(cmd *cobra.Command, opts *tradeClustersOptions) error {
 	if err != nil {
 		return fmt.Errorf("parsing fields flag: %w", err)
 	}
+	orderCol, orderName, err := tradeClusterSort(opts.Sort, opts.OrderCol)
+	if err != nil {
+		return fmt.Errorf("parsing sort flag: %w", err)
+	}
 	rangeFilters := tradeClusterRangeFilters(cmd, opts, startDate, endDate)
-	filters := rangeFilters.clusterMap(opts.SecurityType, opts.RelativeSize, opts.TradeClusterRank)
-	dtOpts := common.NewDataTableOptions(common.DataTableRequestConfig{Start: opts.Start, Length: -1, OrderCol: opts.OrderCol, OrderDir: opts.OrderDir, Fields: fields, Filters: filters})
+	filters := common.WithDataTableOrderName(rangeFilters.clusterMap(opts.SecurityType, opts.RelativeSize, opts.TradeClusterRank), orderName)
+	dtOpts := common.NewDataTableOptions(common.DataTableRequestConfig{Start: opts.Start, Length: -1, OrderCol: orderCol, OrderDir: opts.OrderDir, Fields: fields, Filters: filters})
 	if opts.Fields == "" && opts.Format == common.OutputFormatJSON {
 		return runTradeClustersCompact(cmd, dtOpts)
 	}
@@ -35,10 +41,22 @@ func runTradeClusterBombs(cmd *cobra.Command, opts *tradeClusterBombsOptions) er
 	if err != nil {
 		return err
 	}
+	fields, err := common.OutputFields[models.TradeClusterBomb](opts.Fields, tradeClusterBombDefaultFields)
+	if err != nil {
+		return fmt.Errorf("parsing fields flag: %w", err)
+	}
+	outputFields := fields
+	if opts.Fields == "" && opts.Format == common.OutputFormatJSON {
+		outputFields = nil
+	}
+	orderCol, orderName, err := tradeClusterBombSort(opts.Sort, opts.OrderCol)
+	if err != nil {
+		return fmt.Errorf("parsing sort flag: %w", err)
+	}
 	rangeFilters := tradeClusterBombRangeFilters(cmd, opts, startDate, endDate)
-	filters := rangeFilters.clusterBombMap(opts.SecurityType, opts.RelativeSize, opts.TradeClusterBombRank)
-	dtOpts := common.NewDataTableOptions(common.DataTableRequestConfig{Start: opts.Start, Length: -1, OrderCol: opts.OrderCol, OrderDir: opts.OrderDir, Filters: filters})
-	if opts.Format != common.OutputFormatJSON {
+	filters := common.WithDataTableOrderName(rangeFilters.clusterBombMap(opts.SecurityType, opts.RelativeSize, opts.TradeClusterBombRank), orderName)
+	dtOpts := common.NewDataTableOptions(common.DataTableRequestConfig{Start: opts.Start, Length: -1, OrderCol: orderCol, OrderDir: opts.OrderDir, Fields: outputFields, Filters: filters})
+	if opts.Fields != "" || opts.Format != common.OutputFormatJSON {
 		return common.RunVLDataTablesCommandWithPageSize(cmd, dtOpts, opts.Format, tradeBrowserPageLength, "query trade cluster bombs", fetchTradeClusterBombs, common.MapVLTradeClusterBomb)
 	}
 	return common.RunVLDataTablesCommandWithPageSize(cmd, dtOpts, opts.Format, tradeBrowserPageLength, "query trade cluster bombs", fetchTradeClusterBombs, mapVLTradeClusterBombRow)
@@ -114,4 +132,46 @@ func tradeClusterRangeFilters(cmd *cobra.Command, opts *tradeClustersOptions, st
 
 func tradeClusterBombRangeFilters(cmd *cobra.Command, opts *tradeClusterBombsOptions, startDate, endDate string) tradeRangeFilters {
 	return tradeRangeFilters{Tickers: common.MultiTickerValue(cmd), StartDate: startDate, EndDate: endDate, MinVolume: opts.MinVolume, MaxVolume: opts.MaxVolume, MinDollars: opts.MinDollars, MaxDollars: opts.MaxDollars, VCD: opts.VCD, Sector: opts.Sector}
+}
+
+func tradeClusterSort(sortField string, legacyOrderCol int) (orderCol int, orderName string, err error) {
+	return namedTradeClusterSort(sortField, legacyOrderCol, map[string]int{
+		"Date":                   0,
+		"Price":                  1,
+		"TradeCount":             2,
+		"Volume":                 3,
+		"Dollars":                4,
+		"DollarsMultiplier":      5,
+		"CumulativeDistribution": 6,
+		"TradeClusterRank":       7,
+	})
+}
+
+func tradeClusterBombSort(sortField string, legacyOrderCol int) (orderCol int, orderName string, err error) {
+	return namedTradeClusterSort(sortField, legacyOrderCol, map[string]int{
+		"Date":                   0,
+		"TradeCount":             1,
+		"Volume":                 2,
+		"Dollars":                3,
+		"DollarsMultiplier":      4,
+		"CumulativeDistribution": 5,
+		"TradeClusterBombRank":   6,
+	})
+}
+
+func namedTradeClusterSort(sortField string, legacyOrderCol int, columns map[string]int) (orderCol int, orderName string, err error) {
+	if strings.TrimSpace(sortField) == "" {
+		return legacyOrderCol, "", nil
+	}
+	for field, column := range columns {
+		if strings.EqualFold(sortField, field) {
+			return column, field, nil
+		}
+	}
+	valid := make([]string, 0, len(columns))
+	for field := range columns {
+		valid = append(valid, field)
+	}
+	slices.Sort(valid)
+	return 0, "", fmt.Errorf("invalid --sort %q; valid fields: %s", sortField, strings.Join(valid, ","))
 }

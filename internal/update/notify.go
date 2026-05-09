@@ -51,7 +51,7 @@ func NotifyIfDue(ctx context.Context, currentVersion, commandPath string) {
 }
 
 func shouldSkipNotification(currentVersion, commandPath string) bool {
-	if currentVersion == "" || currentVersion == "dev" {
+	if currentVersion == "" || currentVersion == "dev" || strings.HasPrefix(currentVersion, "dev-") {
 		return true
 	}
 	if os.Getenv("CI") != "" {

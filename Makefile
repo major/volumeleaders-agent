@@ -1,7 +1,10 @@
 .PHONY: build test lint clean install smoke smoke-all release
 
+GIT_SHA := $(shell git rev-parse --short=7 HEAD 2>/dev/null)
+LDFLAGS := $(if $(GIT_SHA),-X main.revision=$(GIT_SHA),)
+
 build:
-	go build -o volumeleaders-agent ./cmd/volumeleaders-agent
+	go build $(if $(LDFLAGS),-ldflags "$(LDFLAGS)") -o volumeleaders-agent ./cmd/volumeleaders-agent
 
 test:
 	go test -v ./...
@@ -15,7 +18,7 @@ clean:
 	rm -rf dist/
 
 install:
-	go install ./cmd/volumeleaders-agent
+	go install $(if $(LDFLAGS),-ldflags "$(LDFLAGS)") ./cmd/volumeleaders-agent
 
 smoke: build
 	go run ./cmd/smoke-test

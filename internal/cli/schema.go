@@ -322,6 +322,8 @@ func installFlagGroupHelp(cmd *cobra.Command) {
 		}
 		writeFlagGroup(cmd, "Other", func(flag *pflag.Flag) bool { return common.FlagGroup(flag) == "" })
 		writeInheritedFlagGroup(cmd)
+		writeGroupedHelpTopics(cmd)
+		writeSubcommandHelpHint(cmd)
 	})
 }
 
@@ -332,11 +334,48 @@ func writeGroupedHelp(cmd *cobra.Command) {
 		fmt.Fprintln(cmd.OutOrStdout(), cmd.Short)
 	}
 	fmt.Fprintf(cmd.OutOrStdout(), "\nUsage:\n  %s\n", cmd.UseLine())
+	if cmd.HasAvailableSubCommands() {
+		fmt.Fprintf(cmd.OutOrStdout(), "  %s [command]\n", cmd.CommandPath())
+	}
 	if len(cmd.Aliases) > 0 {
 		fmt.Fprintf(cmd.OutOrStdout(), "\nAliases:\n  %s\n", strings.Join(cmd.Aliases, ", "))
 	}
 	if cmd.Example != "" {
 		fmt.Fprintf(cmd.OutOrStdout(), "\nExamples:\n%s\n", cmd.Example)
+	}
+	writeAvailableCommands(cmd)
+}
+
+func writeAvailableCommands(cmd *cobra.Command) {
+	if !cmd.HasAvailableSubCommands() {
+		return
+	}
+	commands := cmd.Commands()
+	if len(cmd.Groups()) == 0 {
+		fmt.Fprint(cmd.OutOrStdout(), "\nAvailable Commands:\n")
+		for _, subcmd := range commands {
+			if subcmd.IsAvailableCommand() || subcmd.Name() == "help" {
+				fmt.Fprintf(cmd.OutOrStdout(), "  %-*s %s\n", subcmd.NamePadding(), subcmd.Name(), subcmd.Short)
+			}
+		}
+		return
+	}
+	for _, group := range cmd.Groups() {
+		fmt.Fprintf(cmd.OutOrStdout(), "\n%s\n", group.Title)
+		for _, subcmd := range commands {
+			if subcmd.GroupID == group.ID && (subcmd.IsAvailableCommand() || subcmd.Name() == "help") {
+				fmt.Fprintf(cmd.OutOrStdout(), "  %-*s %s\n", subcmd.NamePadding(), subcmd.Name(), subcmd.Short)
+			}
+		}
+	}
+	if cmd.AllChildCommandsHaveGroup() {
+		return
+	}
+	fmt.Fprint(cmd.OutOrStdout(), "\nAdditional Commands:\n")
+	for _, subcmd := range commands {
+		if subcmd.GroupID == "" && (subcmd.IsAvailableCommand() || subcmd.Name() == "help") {
+			fmt.Fprintf(cmd.OutOrStdout(), "  %-*s %s\n", subcmd.NamePadding(), subcmd.Name(), subcmd.Short)
+		}
 	}
 }
 
@@ -363,6 +402,24 @@ func writeInheritedFlagGroup(cmd *cobra.Command) {
 	if inherited.HasFlags() {
 		fmt.Fprint(cmd.OutOrStdout(), "\nGlobal Flags:\n")
 		fmt.Fprint(cmd.OutOrStdout(), inherited.FlagUsagesWrapped(80))
+	}
+}
+
+func writeGroupedHelpTopics(cmd *cobra.Command) {
+	if !cmd.HasHelpSubCommands() {
+		return
+	}
+	fmt.Fprint(cmd.OutOrStdout(), "\nAdditional help topics:\n")
+	for _, subcmd := range cmd.Commands() {
+		if subcmd.IsAdditionalHelpTopicCommand() {
+			fmt.Fprintf(cmd.OutOrStdout(), "  %-*s %s\n", subcmd.CommandPathPadding(), subcmd.CommandPath(), subcmd.Short)
+		}
+	}
+}
+
+func writeSubcommandHelpHint(cmd *cobra.Command) {
+	if cmd.HasAvailableSubCommands() {
+		fmt.Fprintf(cmd.OutOrStdout(), "\nUse \"%s [command] --help\" for more information about a command.\n", cmd.CommandPath())
 	}
 }
 
